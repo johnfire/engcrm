@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import openpyxl
-from src.db.connection import db
+from gcrm.db.connection import db
 
 WORKBOOK_PATH = Path(__file__).parent.parent / "art-marketing.xlsx"
 SHEET_NAME = "contacts  leads"

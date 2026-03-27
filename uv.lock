@@ -53,157 +53,6 @@ wheels = [
 ]
 
 [[package]]
-name = "artcrm-enrichment-agent"
-version = "0.1.0"
-source = { editable = "../artcrm-enrichment-agent" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "langgraph" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "artcrm-followup-agent"
-version = "0.1.0"
-source = { editable = "../artcrm-followup-agent" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "langgraph" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "artcrm-outreach-agent"
-version = "0.1.0"
-source = { editable = "../artcrm-outreach-agent" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "langgraph" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "artcrm-research-agent"
-version = "0.1.0"
-source = { editable = "../artcrm-research-agent" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "langgraph" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "artcrm-scout-agent"
-version = "0.1.0"
-source = { editable = "../artcrm-scout-agent" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "langgraph" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "langchain-core", specifier = ">=0.3.0" },
-    { name = "langgraph", specifier = ">=0.2.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "artcrm-supervisor"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "artcrm-enrichment-agent" },
-    { name = "artcrm-followup-agent" },
-    { name = "artcrm-outreach-agent" },
-    { name = "artcrm-research-agent" },
-    { name = "artcrm-scout-agent" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "jinja2" },
-    { name = "mcp", extra = ["cli"] },
-    { name = "psycopg2-binary" },
-    { name = "python-dotenv" },
-    { name = "python-multipart" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.optional-dependencies]
-agents = [
-    { name = "anthropic" },
-    { name = "duckduckgo-search" },
-    { name = "langchain-anthropic" },
-    { name = "langchain-core" },
-    { name = "langchain-openai" },
-    { name = "langgraph" },
-    { name = "langgraph-checkpoint-postgres" },
-    { name = "openai" },
-]
-dev = [
-    { name = "httpx" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", marker = "extra == 'agents'", specifier = ">=0.40.0" },
-    { name = "artcrm-enrichment-agent", editable = "../artcrm-enrichment-agent" },
-    { name = "artcrm-followup-agent", editable = "../artcrm-followup-agent" },
-    { name = "artcrm-outreach-agent", editable = "../artcrm-outreach-agent" },
-    { name = "artcrm-research-agent", editable = "../artcrm-research-agent" },
-    { name = "artcrm-scout-agent", editable = "../artcrm-scout-agent" },
-    { name = "duckduckgo-search", marker = "extra == 'agents'", specifier = ">=6.0.0" },
-    { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "httpx", specifier = ">=0.28.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
-    { name = "jinja2", specifier = ">=3.1.4" },
-    { name = "langchain-anthropic", marker = "extra == 'agents'", specifier = ">=0.3.0" },
-    { name = "langchain-core", marker = "extra == 'agents'", specifier = ">=0.3.0" },
-    { name = "langchain-openai", marker = "extra == 'agents'", specifier = ">=0.2.0" },
-    { name = "langgraph", marker = "extra == 'agents'", specifier = ">=0.2.0" },
-    { name = "langgraph-checkpoint-postgres", marker = "extra == 'agents'", specifier = ">=2.0.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.0.0" },
-    { name = "openai", marker = "extra == 'agents'", specifier = ">=1.50.0" },
-    { name = "psycopg2-binary", specifier = ">=2.9.9" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.12" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
-]
-provides-extras = ["agents", "dev"]
-
-[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -491,6 +340,157 @@ sdist = { url = "https://files.pythonhosted.org/packages/e7/7b/f8e0211e9380f7195
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/72/42e900510195b23a56bde950d26a51f8b723846bfcaa0286e90287f0422b/fastapi-0.135.1-py3-none-any.whl", hash = "sha256:46e2fc5745924b7c840f71ddd277382af29ce1cdb7d5eab5bf697e3fb9999c9e", size = 116999, upload-time = "2026-03-01T18:18:30.831Z" },
 ]
+
+[[package]]
+name = "gcrm-enrichment-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-enrichment-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "gcrm-followup-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-followup-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "gcrm-outreach-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-outreach-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "gcrm-research-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-research-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "gcrm-scout-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-scout-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "general-crm"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "gcrm-enrichment-agent" },
+    { name = "gcrm-followup-agent" },
+    { name = "gcrm-outreach-agent" },
+    { name = "gcrm-research-agent" },
+    { name = "gcrm-scout-agent" },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "mcp", extra = ["cli"] },
+    { name = "psycopg2-binary" },
+    { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.optional-dependencies]
+agents = [
+    { name = "anthropic" },
+    { name = "duckduckgo-search" },
+    { name = "langchain-anthropic" },
+    { name = "langchain-core" },
+    { name = "langchain-openai" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "openai" },
+]
+dev = [
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", marker = "extra == 'agents'", specifier = ">=0.40.0" },
+    { name = "duckduckgo-search", marker = "extra == 'agents'", specifier = ">=6.0.0" },
+    { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "gcrm-enrichment-agent", editable = "agents/gcrm-enrichment-agent" },
+    { name = "gcrm-followup-agent", editable = "agents/gcrm-followup-agent" },
+    { name = "gcrm-outreach-agent", editable = "agents/gcrm-outreach-agent" },
+    { name = "gcrm-research-agent", editable = "agents/gcrm-research-agent" },
+    { name = "gcrm-scout-agent", editable = "agents/gcrm-scout-agent" },
+    { name = "httpx", specifier = ">=0.28.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28.0" },
+    { name = "jinja2", specifier = ">=3.1.4" },
+    { name = "langchain-anthropic", marker = "extra == 'agents'", specifier = ">=0.3.0" },
+    { name = "langchain-core", marker = "extra == 'agents'", specifier = ">=0.3.0" },
+    { name = "langchain-openai", marker = "extra == 'agents'", specifier = ">=0.2.0" },
+    { name = "langgraph", marker = "extra == 'agents'", specifier = ">=0.2.0" },
+    { name = "langgraph-checkpoint-postgres", marker = "extra == 'agents'", specifier = ">=2.0.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.0.0" },
+    { name = "openai", marker = "extra == 'agents'", specifier = ">=1.50.0" },
+    { name = "psycopg2-binary", specifier = ">=2.9.9" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "python-multipart", specifier = ">=0.0.12" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
+]
+provides-extras = ["agents", "dev"]
 
 [[package]]
 name = "h11"

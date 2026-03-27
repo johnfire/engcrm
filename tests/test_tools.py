@@ -22,12 +22,12 @@ def make_mock_conn(rows=None, rowcount=1):
 
 class TestSaveContact:
     def test_inserts_new_contact(self):
-        from src.tools.db import save_contact
+        from gcrm.tools.db import save_contact
         conn, cur = make_mock_conn()
         # First fetchone = no duplicate; second = RETURNING id; third = no existing consent_log
         cur.fetchone.side_effect = [None, {"id": 42}, None]
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = save_contact("Galerie Nord", "Munich", country="DE", type="gallery")
 
@@ -35,11 +35,11 @@ class TestSaveContact:
         assert cur.execute.call_count >= 2
 
     def test_returns_existing_id_on_duplicate(self):
-        from src.tools.db import save_contact
+        from gcrm.tools.db import save_contact
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"id": 7}  # duplicate found
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = save_contact("Galerie Nord", "Munich")
 
@@ -48,53 +48,53 @@ class TestSaveContact:
 
 class TestCheckCompliance:
     def test_blocks_opted_out_contact(self):
-        from src.tools.db import check_compliance
+        from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"opt_out": True, "erasure_requested": False}
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = check_compliance(contact_id=1)
 
         assert result is False
 
     def test_blocks_erased_contact(self):
-        from src.tools.db import check_compliance
+        from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
             {"opt_out": False, "erasure_requested": False},
             {"name": "[removed]"},
         ]
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = check_compliance(contact_id=2)
 
         assert result is False
 
     def test_allows_clean_contact(self):
-        from src.tools.db import check_compliance
+        from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
             {"opt_out": False, "erasure_requested": False},
-            {"name": "Galerie Nord"},
+            {"name": "Galerie Nord", "status": "cold"},
         ]
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = check_compliance(contact_id=3)
 
         assert result is True
 
     def test_allows_contact_with_no_consent_log(self):
-        from src.tools.db import check_compliance
+        from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
             None,                    # no consent_log row
-            {"name": "Galerie Sud"},
+            {"name": "Galerie Sud", "status": "cold"},
         ]
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             result = check_compliance(contact_id=4)
 
@@ -103,10 +103,10 @@ class TestCheckCompliance:
 
 class TestSetOptOut:
     def test_inserts_consent_log_row(self):
-        from src.tools.db import set_opt_out
+        from gcrm.tools.db import set_opt_out
         conn, cur = make_mock_conn()
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             set_opt_out(contact_id=5)
 
@@ -119,21 +119,21 @@ class TestSetOptOut:
 
 class TestStartFinishRun:
     def test_start_run_returns_id(self):
-        from src.tools.db import start_run
+        from gcrm.tools.db import start_run
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"id": 99}
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             run_id = start_run("test_agent", {"key": "value"})
 
         assert run_id == 99
 
     def test_finish_run_updates_record(self):
-        from src.tools.db import finish_run
+        from gcrm.tools.db import finish_run
         conn, cur = make_mock_conn()
 
-        with patch("src.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             finish_run(99, "completed", "all done", {"count": 5})
 

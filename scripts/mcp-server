@@ -10,6 +10,6 @@ exec "$HOME/.local/bin/uv" run python -c "
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd()))
-from src.mcp.server import server
+from gcrm.mcp.server import server
 server.run()
 " "$@"

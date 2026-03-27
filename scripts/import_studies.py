@@ -128,8 +128,8 @@ def import_file(llm, filepath: pathlib.Path, save_contact) -> tuple[int, int]:
 
 
 def main():
-    from src.tools.db import save_contact
-    from src.tools.llm import get_llm
+    from gcrm.tools.db import save_contact
+    from gcrm.tools.llm import get_llm
 
     llm = get_llm("deepseek-chat")
 

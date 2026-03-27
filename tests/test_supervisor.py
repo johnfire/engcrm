@@ -25,7 +25,7 @@ def _make_supervisor_with_fake_agents(research_summary="r ok", scout_summary="s 
     Build the supervisor graph but inject fake agents instead of real ones.
     `fail_agent` can be 'research', 'scout', 'outreach', or 'followup' to simulate failure.
     """
-    from src.supervisor.graph import SupervisorState
+    from gcrm.supervisor.graph import SupervisorState
     from langgraph.graph import StateGraph, END
 
     fake_research = FakeAgent(research_summary, raise_on_invoke=(fail_agent == "research"))

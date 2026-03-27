@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from pathlib import Path
-from src.db.connection import db
+from gcrm.db.connection import db
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "src" / "db" / "migrations"
 
