@@ -1,331 +1,348 @@
-# ArtCRM Supervisor
+# general-crm
 
-An autonomous AI agent system that finds art venues, researches them, drafts outreach emails, and manages follow-ups — all without a traditional interface. You talk to Claude, Claude talks to the system.
+An autonomous AI agent system for B2B outreach. It finds businesses in your target market, researches them, scores them for fit, drafts personalised emails, and manages follow-ups — all without a traditional CRM interface. You talk to Claude, Claude talks to the system.
 
-Built by Christopher Rehm as a practical tool for selling and displaying original artwork across Bavaria, Austria, and Switzerland. Designed to be repurposed for any industry where relationship-driven outreach matters.
+Swap one config file to retarget the entire system to any vertical: art galleries, cafes, distributors, law firms, whatever you're selling to.
 
 ---
 
 ## What It Does
 
-The system runs a full outreach pipeline autonomously:
+The system runs a full outreach pipeline:
 
 ```
 Research → Enrich → Scout → Outreach → Follow-up
 ```
 
-1. **Research** — Uses Google Maps (Places API) to find every relevant venue in a city. Supplements with web search and page fetching to extract contact details. Cities are organised by scan level so you can run a quick level-1 scan first, then go deeper when needed.
+1. **Research** — Uses Google Maps (Places API) to find every relevant business in a city. Supplements with web search and page fetching to extract contact details. Cities are organised by scan level so you can start shallow and go deeper when needed.
 
-2. **Enrich** — For every contact missing a website or email, searches the web and uses an LLM to fill in the gaps. Runs automatically on every pipeline invocation.
+2. **Enrich** — For every contact missing a website or email, searches the web and uses an LLM to fill in the gaps. Runs automatically on each pipeline invocation.
 
-3. **Scout** — Scores each new contact 0–100 for mission fit. Contacts above the threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review. Scoring is informed by detailed notes written during research — including signals like "only shows blue-chip artists" or "actively seeks regional emerging artists".
+3. **Scout** — Scores each new contact for mission fit. Contacts above a configurable threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review. Your `vertical.py` defines what signals make a good or bad fit.
 
-4. **Outreach** — Drafts a personalised first-contact email for each venue ready to be contacted. Each draft goes into an approval queue — you review and send, or reject.
+4. **Outreach** — Drafts a personalised first-contact email for each contact ready to be reached. Each draft goes into an approval queue — you review and send, or reject. Nothing is sent without a human in the loop.
 
 5. **Follow-up** — Reads the inbox, classifies replies (interested / rejected / opt-out), and drafts follow-up emails for contacts that haven't responded in 90+ days.
 
-All of this runs on demand. You approve emails and trigger scans through conversation with Claude — no dashboard required.
+All of this runs on demand. You approve emails and trigger scans through conversation with Claude — no dashboard required beyond a minimal web UI for approvals.
 
 ---
 
 ## Architecture
 
-### Agent packages
-
-Each agent is an independent Python package built on LangGraph. They accept tools via Python Protocols — no direct database or API imports. This makes them testable in isolation and reusable in other contexts.
-
-| Package                   | What it does                                                       |
-| ------------------------- | ------------------------------------------------------------------ |
-| `artcrm-research-agent`   | Google Maps + web search + page fetch, extracts and saves contacts |
-| `artcrm-enrichment-agent` | Finds missing websites and emails for existing contacts            |
-| `artcrm-scout-agent`      | Scores candidates for mission fit, promotes or drops               |
-| `artcrm-outreach-agent`   | Drafts first-contact emails, queues for approval                   |
-| `artcrm-followup-agent`   | Processes inbox replies, sends follow-ups to overdue contacts      |
-
-### Supervisor
-
-A LangGraph `StateGraph` that chains all five agents in sequence. Each agent can also be run standalone — useful for targeted scans or testing individual stages.
-
-### Tools
-
-Concrete implementations injected into agents at runtime:
-
-- `db.py` — all PostgreSQL operations
-- `search.py` — Google Maps Places API, DuckDuckGo web search, page fetching (HTML → plain text)
-- `email.py` — Proton Bridge SMTP send + IMAP read
-- `llm.py` — LLM factory (configurable: DeepSeek or Claude Haiku for research/scout, Claude Sonnet for outreach/followup)
-
-### Web UI
-
-FastAPI + Jinja2. Read-only views for reviewing what the agents are doing:
-
-- `/approvals/` — email drafts awaiting your review
-- `/contacts/` — full contact database with sort, filter, search, and pagination
-- `/people/` — personal contacts (friends, collectors) kept separate from the business pipeline
-- `/activity/` — agent run log
-- `/research/` — city registry showing which scan levels have been run and how many contacts were found
-
-### MCP Server
-
-A FastMCP server exposes the database and agent tools to Claude directly. This is the primary interface — most operations happen through conversation, not the web UI.
-
----
-
-## The Mission System
-
-The entire system is driven by a `Mission` object defined in `src/config.py`:
-
-```python
-ART_MISSION = Mission(
-    goal="Find venues across Germany and Bavaria that display and sell original artwork...",
-    identity="Christopher Rehm, watercolor and oil painter based in Klosterlechfeld, Bavaria",
-    targets="galleries, hotel lobbies, restaurants, corporate offices, cafes, coworking spaces",
-    fit_criteria=(
-        "Strong fit: galleries showing regional, emerging, or mid-career artists; "
-        "venues that sell work on consignment; interior designers who source original art. "
-        "Weak fit: galleries that exclusively represent blue-chip artists; chain businesses."
-    ),
-    outreach_style="personal, artist-direct, warm but professional...",
-    language_default="de",
-)
+```
+general-crm/
+  gcrm/
+    vertical.py          ← THE FILE YOU EDIT TO CHANGE THE TARGET VERTICAL
+    mission.py           Mission dataclass
+    config.py            Loads mission from vertical.py + all env config
+    prompts/             LLM prompt templates (read from vertical.py)
+    supervisor/          LangGraph orchestrator
+    tools/               DB, search, email, LLM
+    api/                 FastAPI + HTMX approval UI
+    mcp/                 MCP server (optional Claude Code integration)
+    db/                  Migrations
+  agents/
+    gcrm-research-agent/ LangGraph agent: finds contacts via Maps + web search
+    gcrm-scout-agent/    LangGraph agent: scores candidates for fit
+    gcrm-enrichment-agent/ LangGraph agent: fills in missing emails/websites
+    gcrm-outreach-agent/ LangGraph agent: drafts and queues first-contact emails
+    gcrm-followup-agent/ LangGraph agent: handles inbox replies and follow-ups
+  setup.py               Interactive wizard to generate vertical.py
 ```
 
-Every agent prompt is built from this object. To repurpose the system for a different domain — a photographer, a musician, a web developer — replace the mission and nothing else changes.
-
 ---
 
-## Research: Scan Levels
+## Prerequisites
 
-Research is organised into five scan levels. Level 1 is always run first; the others can be run in any order once level 1 is complete. Each level has fixed Google Maps search terms so results are consistent and repeatable.
-
-| Level | What it finds                                          |
-| ----- | ------------------------------------------------------ |
-| 1     | Galleries, cafes, interior designers, coworking spaces |
-| 2     | Gift shops, esoteric/wellness shops, concept stores    |
-| 3     | Independent restaurants                                |
-| 4     | Corporate offices and headquarters                     |
-| 5     | Hotels                                                 |
-
-The city registry tracks last scan date, contacts found, and re-run status per level. Currently 82 cities across Germany (Bavaria, Baden-Württemberg), Austria (Tyrol, Vorarlberg, Salzburg), and Switzerland.
-
-### Running a scan
-
-```bash
-# Run level 1 on a city
-uv run python -m src.supervisor.run_research --city Konstanz --level 1
-
-# Austrian city
-uv run python -m src.supervisor.run_research --city Innsbruck --level 1 --country AT
-
-# Run the full pipeline (enrich + scout + outreach + followup, no research)
-uv run python -m src.supervisor.run
-```
-
-Or just tell Claude: _"Run level 1 on Stuttgart"_ — the MCP server handles it.
-
----
-
-## How Research Works
-
-For each city + level combination the research agent runs three steps:
-
-1. **Google Maps search** — queries the Places API with fixed German-language terms for the level (e.g. `"Kunstgalerie Konstanz"`, `"Innenarchitekt Konstanz"`). Returns name, address, website, phone directly from Maps data.
-
-2. **Web search supplement** — two DuckDuckGo queries add context and catch venues Google Maps might miss.
-
-3. **Page fetch** — visits the top 3 URLs found, strips HTML to plain text, and feeds the content to the extraction LLM. This is what enables pulling emails, contact names, and gallery style signals (e.g. "shows emerging regional artists on consignment") from actual venue websites.
-
-The extraction LLM writes detailed notes on each contact — gallery type, artist level, fit signals — which the scout agent uses for scoring.
-
----
-
-## LLM Strategy
-
-| Task                           | Model                 | Why                                   |
-| ------------------------------ | --------------------- | ------------------------------------- |
-| Research, enrichment, scouting | `CHEAP_LLM` (env var) | High volume, cost-sensitive           |
-| Outreach drafts, follow-ups    | Claude Sonnet 4.6     | Quality matters when a human reads it |
-
-`CHEAP_LLM` defaults to `deepseek-chat`. Set `CHEAP_LLM=claude-haiku` in `.env` to switch to Claude Haiku 4.5 — useful for comparing result quality.
+- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- **PostgreSQL** running locally (any recent version)
+- **Google Maps API key** with Places API enabled ([get one here](https://developers.google.com/maps/documentation/places/web-service/get-api-key))
+- **DeepSeek API key** for routine tasks (research, enrichment, scouting) — cheap and fast
+- **Anthropic API key** for high-stakes writing (outreach drafts, follow-ups)
+- **Proton Bridge** running locally if you want email send/receive via ProtonMail — otherwise email is disabled and you copy drafts manually
+- `~/logs/` directory: `mkdir -p ~/logs`
 
 ---
 
 ## Setup
 
-### Prerequisites
-
-- PostgreSQL with an `artcrm` database
-- `uv` package manager
-- Proton Bridge running locally (for email send/receive)
-- Anthropic API key
-- Google Maps API key (Places API New, billing enabled)
-- DeepSeek API key (optional — only needed if using DeepSeek as CHEAP_LLM)
-
-### Install
+### 1. Clone and install
 
 ```bash
-git clone https://github.com/chrisRehm/artcrm-supervisor
-cd artcrm-supervisor
+git clone <repo-url> general-crm
+cd general-crm
+uv sync --extra agents --extra dev
+```
+
+### 2. Configure your vertical
+
+Run the interactive wizard to generate `gcrm/vertical.py`:
+
+```bash
+uv run python setup.py
+```
+
+It asks who you are, what you're selling, what types of businesses you're targeting, what makes a good fit, and what search terms to use at each scan depth. Takes about 5 minutes. You can also edit `gcrm/vertical.py` directly at any time — the file is self-documenting.
+
+### 3. Set up environment variables
+
+```bash
 cp .env.example .env
-# fill in .env
-uv sync --extra agents
 ```
 
-### Configure `.env`
+Edit `.env`:
 
-```
-DATABASE_URL=postgresql://user:password@localhost/artcrm
-ANTHROPIC_API_KEY=your_key
-GOOGLE_MAPS_API_KEY=your_key
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost/mydb
 
-# Optional — only if using DeepSeek
-DEEPSEEK_API_KEY=your_key
+# AI — at minimum one of these is required
+DEEPSEEK_API_KEY=your_deepseek_key
+ANTHROPIC_API_KEY=your_anthropic_key
 
-# LLM for high-volume tasks: deepseek-chat or claude-haiku
-CHEAP_LLM=claude-haiku
+# Google Maps (required for research agent)
+GOOGLE_MAPS_API_KEY=your_maps_key
 
+# Email via Proton Bridge (optional — set EMAIL_ENABLED=false to disable)
 PROTON_IMAP_HOST=127.0.0.1
 PROTON_IMAP_PORT=1143
 PROTON_SMTP_HOST=127.0.0.1
 PROTON_SMTP_PORT=1025
 PROTON_EMAIL=your@proton.me
 PROTON_PASSWORD=bridge_app_password
+PROTON_FROM_EMAIL=alias@proton.me   # optional alias
 
-SCOUT_THRESHOLD=75   # minimum fit score for outreach (0-100)
+# Server
 HOST=127.0.0.1
 PORT=8000
+
+# Scout threshold: contacts below this score are dropped (default 75)
+SCOUT_THRESHOLD=75
+
+# Set false to skip email sending (drafts are still created and saved)
+EMAIL_ENABLED=true
+
+# LLM for cheap/high-volume tasks: deepseek-chat or claude-haiku
+CHEAP_LLM=deepseek-chat
 ```
 
-### Run migrations
+**Minimum to get started:** `DATABASE_URL`, `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`.
+
+### 4. Create the database
+
+Create a PostgreSQL database, then run all migrations:
 
 ```bash
+createdb mydb   # or use your GUI
 uv run python scripts/migrate.py
 ```
 
-Creates all tables including the city registry and scan tracking. Does not modify existing tables.
+This creates the tables: `contacts`, `interactions`, `agent_runs`, `consent_log`, `approval_queue`, `inbox_messages`, `cities`, `city_scans`, and `city_market_context`.
 
-### Start the UI
+### 5. Add cities to research
 
-```bash
-uv run python -m src.api.main
-# http://127.0.0.1:8000
+The system needs to know which cities to scan. Add them to the `cities` table:
+
+```sql
+INSERT INTO cities (city, country, region) VALUES
+  ('Munich', 'DE', 'Bavaria'),
+  ('Augsburg', 'DE', 'Bavaria'),
+  ('Vienna', 'AT', 'Austria');
 ```
 
-### Run the pipeline
+Or use the MCP tool `run_research` if you have the MCP server configured.
+
+### 6. Start the UI
 
 ```bash
-uv run python -m src.supervisor.run
+uv run python -m gcrm.api.main
+# → http://127.0.0.1:8000
 ```
 
 ---
 
-## Contact Status Flow
+## Running the Pipeline
+
+### Full run
+
+```bash
+uv run python -m gcrm.supervisor.run
+```
+
+This runs all agents in sequence: research → enrich → scout → outreach → followup. Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
+
+Research jobs come from the `cities` table (any city with unscanned levels). To skip research and only run scout/outreach/followup, clear the city scan queue or set all levels to already-scanned.
+
+### Research a specific city
+
+```bash
+uv run python -m gcrm.supervisor.run_research --city Munich --level 1
+uv run python -m gcrm.supervisor.run_research --city Vienna --level 2 --country AT
+```
+
+Levels are defined in `gcrm/vertical.py` under `SCAN_LEVELS`. Run level 1 before any others (it's enforced).
+
+### Schedule with cron
+
+```cron
+0 7 * * * cd /path/to/general-crm && /home/you/.local/bin/uv run python -m gcrm.supervisor.run >> /home/you/logs/supervisor.log 2>&1
+```
+
+---
+
+## The Approval Queue
+
+Nothing gets sent without your sign-off. After each run, go to `http://127.0.0.1:8000/approvals/` to review drafted emails:
+
+- **Approve** — sends immediately via SMTP, logs the interaction, marks contact as `contacted`
+- **Edit + Approve** — edit subject/body inline, then send
+- **Reject** — discards the draft; contact stays `cold` and will be re-drafted next run
+
+If Proton Bridge isn't running, approved emails are marked `approved_unsent` rather than failing.
+
+---
+
+## The UI Pages
+
+| Page           | URL           | What it shows                                      |
+| -------------- | ------------- | -------------------------------------------------- |
+| Approval Queue | `/approvals/` | Email drafts waiting for review                    |
+| Contacts       | `/contacts/`  | All contacts with status filter and search         |
+| Research       | `/research/`  | Cities and scan levels with email counts per level |
+| Activity       | `/activity/`  | Agent run log with status, duration, summary       |
+
+---
+
+## Contact Pipeline
 
 ```
-candidate   — found by research agent, not yet scored
-    ↓
-cold        — scored ≥ threshold by scout, ready for outreach
-    ↓
-contacted   — first email sent and approved
-    ↓
-meeting     — positive reply, meeting scheduled (set manually)
-    ↓
-accepted    — venue agreed to display/sell work
-    ↓
-dormant     — opted out or gone quiet for a long time
-dropped     — scored below threshold or disqualified (reason saved in notes)
+cities table → research_agent → status=candidate
+                                     ↓
+                             scout_agent → status=cold  (fit score ≥ threshold)
+                                       → status=dropped (fit score < threshold)
+                                             ↓
+                             outreach_agent → approval_queue (pending)
+                                                   ↓
+                                          YOU approve at /approvals/
+                                                   ↓
+                                          email sent → status=contacted
+                                                   ↓
+                             followup_agent (next run):
+                               ├── reply: interested → drafts reply, logs
+                               ├── reply: rejected   → logs, no further action
+                               ├── reply: opt_out    → consent_log updated, never contacted again
+                               └── no reply (90+ days) → drafts brief follow-up
 ```
+
+---
+
+## Changing the Vertical
+
+Edit `gcrm/vertical.py`. The entire system re-targets automatically — no other changes needed.
+
+Key fields to change:
+
+```python
+IDENTITY = "Acme Coffee GmbH, B2B espresso machine distributor in Munich"
+GOAL = "Find independent cafes and restaurants across Germany to pitch our machines"
+TARGETS = "cafes, restaurants, hotels, coworking spaces"
+
+FIT_SIGNALS = ["specialty coffee", "espresso bar", "owner-operated"]
+ANTI_SIGNALS = ["chain", "franchise", "vending machine"]
+
+SCORED_TYPES = {"cafe"}   # types that get LLM scoring; others auto-promoted
+
+SCAN_LEVELS = {
+    1: {
+        "label": "Specialty Cafes & Coffee Shops",
+        "maps_terms": ["Café", "Kaffeehaus", "Specialty Coffee", "Coffee Shop"],
+    },
+    2: {
+        "label": "Restaurants & Hotels",
+        "maps_terms": ["Restaurant", "Hotel", "Bistro"],
+    },
+}
+```
+
+Or re-run the wizard: `uv run python setup.py`
 
 ---
 
 ## Scout Threshold
 
-Controls the minimum fit score for a contact to be promoted to outreach:
+Controls outreach volume. Lower = more contacts promoted, higher = stricter filtering.
 
-```
-SCOUT_THRESHOLD=75   # best venues only (default)
-SCOUT_THRESHOLD=60   # more volume
-SCOUT_THRESHOLD=50   # cast a wide net
+```env
+SCOUT_THRESHOLD=75   # strict — best fits only
+SCOUT_THRESHOLD=60   # moderate
+SCOUT_THRESHOLD=50   # wide net
 ```
 
-Dropped contacts are kept in the database with the scout's reasoning in the `notes` field. Visible at `/contacts/?status=dropped`.
+Only contact types listed in `SCORED_TYPES` get LLM evaluation. All other types are auto-promoted at a neutral score — useful for venue types where you want to contact everyone regardless.
 
 ---
 
-## Repurposing for Another Industry
+## LLM Backends
 
-1. Edit `src/config.py` — write a new `Mission(...)` and set `ACTIVE_MISSION` to it
-2. Edit `src/supervisor/targets.py` — update `SCAN_LEVELS` with relevant Google Maps search terms
-3. Nothing else changes — all agents pick up the new mission automatically
+| Backend             | Used for                                      | Cost           |
+| ------------------- | --------------------------------------------- | -------------- |
+| `deepseek-chat`     | Research, enrichment, scouting                | Very cheap     |
+| `claude-sonnet-4-6` | Outreach drafts, follow-ups                   | Higher quality |
+| `claude-haiku`      | Cheap Anthropic alternative for routine tasks | Cheap          |
 
-Example missions that would work out of the box:
+Set `CHEAP_LLM=deepseek-chat` or `CHEAP_LLM=claude-haiku` in `.env`. High-stakes writing always uses Claude Sonnet.
 
-- Freelance photographer seeking corporate clients
-- Music act seeking venue bookings
-- Web studio seeking SME clients
-- Artisan / craftsperson seeking retail stockists
+You only need keys for backends you use. DeepSeek alone is sufficient for a full run — outreach quality will be lower but functional.
 
 ---
 
-## File Structure
+## MCP Server (optional)
 
-```
-artcrm-supervisor/
-  src/
-    mission.py              Mission dataclass
-    config.py               Active mission + env config
-    db/
-      connection.py         db() context manager
-      migrations/           SQL migration files (001–004)
-    tools/
-      db.py                 All database operations
-      search.py             Google Maps + DuckDuckGo + page fetching
-      email.py              Proton Bridge SMTP/IMAP
-      llm.py                LLM factory
-    supervisor/
-      targets.py            Scan level definitions (Google Maps terms per level)
-      graph.py              LangGraph supervisor graph
-      run.py                Full pipeline entry point
-      run_research.py       Standalone research agent runner
-    mcp/
-      server.py             FastMCP server
-    api/
-      routers/              FastAPI route handlers
-    ui/
-      templates/            Jinja2 + HTMX templates
-      static/style.css
-  scripts/
-    migrate.py              Run all DB migrations
-    import_contacts_leads.py  One-time spreadsheet import
-    import_studies.py       Import pre-existing research markdown files
-  tests/
-  RUNBOOK.md                Detailed operational guide
-  .env.example
+If you use Claude Code, you can control the system from a conversation without touching the UI.
+
+```bash
+uv run python -m gcrm.mcp.server
 ```
 
----
+Available tools: `pipeline_status`, `contacts_list`, `approval_list`, `approval_approve`, `approval_reject`, `agent_runs`, `manual_drop`, `manual_promote`, `run_research`, `trigger_run`, `set_city_notes`, `research_status`.
 
-## Related Packages
-
-These live as sibling directories and are installed as editable packages:
-
-- `artcrm-research-agent`
-- `artcrm-enrichment-agent`
-- `artcrm-scout-agent`
-- `artcrm-outreach-agent`
-- `artcrm-followup-agent`
+To configure as a persistent MCP server in Claude Code, add it to your `~/.claude/settings.json`.
 
 ---
 
-## Licence
+## GDPR / Compliance
 
-Free to use, study, and modify for personal or commercial projects.
+The system has a built-in compliance layer. Before drafting any email, the outreach agent calls `check_compliance()` which blocks:
 
-**Not licensed for resale.** You may not sell this software, offer it as a hosted service, or incorporate it into a product sold to others without explicit written permission from the author.
+- Contacts who have opted out (replied "unsubscribe" or equivalent)
+- Contacts whose data has been erased
+- Contacts with `status=do_not_contact`
+
+Opt-out detection is automatic — the followup agent classifies incoming replies and sets the flag without human intervention. All consent events are logged to `consent_log`.
+
+---
+
+## Tests
+
+```bash
+uv run pytest
+```
+
+All tests run without external dependencies — LLM calls are mocked, DB is mocked. 12 tests covering tool logic and supervisor routing.
+
+To also run agent package tests:
+
+```bash
+for agent in research scout enrichment outreach followup; do
+    echo "=== gcrm-${agent}-agent ===" && uv run pytest agents/gcrm-${agent}-agent/tests/ -v
+done
+```
 
 ---
 
 ## Support
 
 If you find this useful, a small donation helps keep projects like this going:
+
 [Donate via PayPal](https://paypal.me/christopherrehm001)
