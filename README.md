@@ -1,5 +1,7 @@
 # general-crm
 
+> I will be happy to help anyone set this up for their personal use case — feel free to open an issue or reach out.
+
 An autonomous AI agent system for B2B outreach. It finds businesses in your target market, researches them, scores them for fit, drafts personalised emails, and manages follow-ups — all without a traditional CRM interface. You talk to Claude, Claude talks to the system.
 
 Swap one config file to retarget the entire system to any vertical: art galleries, cafes, distributors, law firms, whatever you're selling to.
