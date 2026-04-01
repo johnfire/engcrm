@@ -36,8 +36,9 @@ All of this runs on demand. You approve emails and trigger scans through convers
 general-crm/
   gcrm/
     vertical.py          ← THE FILE YOU EDIT TO CHANGE THE TARGET VERTICAL
+    vertical_context.md  ← Rich narrative context injected into outreach emails
     mission.py           Mission dataclass
-    config.py            Loads mission from vertical.py + all env config
+    config.py            Loads mission from vertical.py + vertical_context.md
     prompts/             LLM prompt templates (read from vertical.py)
     supervisor/          LangGraph orchestrator
     tools/               DB, search, email, LLM
@@ -50,7 +51,7 @@ general-crm/
     gcrm-enrichment-agent/ LangGraph agent: fills in missing emails/websites
     gcrm-outreach-agent/ LangGraph agent: drafts and queues first-contact emails
     gcrm-followup-agent/ LangGraph agent: handles inbox replies and follow-ups
-  setup.py               Interactive wizard to generate vertical.py
+  setup.py               Basic CLI wizard (fallback — see Setup below)
 ```
 
 ---
@@ -79,13 +80,28 @@ uv sync --extra agents --extra dev
 
 ### 2. Configure your vertical
 
-Run the interactive wizard to generate `gcrm/vertical.py`:
+The recommended way is the AI-powered setup interview in Claude Code. Open the project in a Claude Code session and run:
+
+```
+/setup-gcrm
+```
+
+Claude will interview you in conversation — asking about your business, your offer, the types of businesses you want to reach, what makes a good or bad fit, and how you want to come across in emails. You don't need to know anything about Google Maps search terms or config formats; Claude figures those out from what you tell it.
+
+At the end of the interview, Claude writes two files:
+
+- **`gcrm/vertical.py`** — the machine-readable config: search terms, scoring signals, language, scan levels. Everything the agents need to run.
+- **`gcrm/vertical_context.md`** — a rich narrative document describing your business, your offer, why each target type should care, and what angles work per venue. The outreach agent reads this when drafting emails, making them significantly more specific and personal than a config file alone could achieve.
+
+You can edit either file directly at any time. Re-run `/setup-gcrm` to redo the interview from scratch.
+
+**No Claude Code?** Use the basic CLI wizard instead:
 
 ```bash
 uv run python setup.py
 ```
 
-It asks who you are, what you're selling, what types of businesses you're targeting, what makes a good fit, and what search terms to use at each scan depth. Takes about 5 minutes. You can also edit `gcrm/vertical.py` directly at any time — the file is self-documenting.
+This generates `gcrm/vertical.py` only (no context document). You can write `gcrm/vertical_context.md` manually afterwards — see the [Vertical Context](#vertical-context) section for the expected format.
 
 ### 3. Set up environment variables
 
@@ -239,6 +255,23 @@ cities table → research_agent → status=candidate
 
 ---
 
+## Vertical Context
+
+`gcrm/vertical_context.md` is a free-form markdown document that gets injected verbatim into the outreach agent's system prompt. It makes a noticeable difference to email quality — the LLM has real context to draw on instead of just a config file.
+
+The document has no strict format, but the `/setup-gcrm` interview generates it with these sections:
+
+- **Who You Are** — name, background, what you do and why
+- **What You Offer** — the substance of what you're bringing to each contact
+- **Why They Should Care** — the value proposition per target type
+- **Per Business Type** — specific angles, hooks, and things to mention for each category
+- **What to Avoid** — tone mistakes, red flags, things that don't land
+- **Credentials & Details** — real specifics: past work, clients, publications, portfolio links
+
+The file is optional — the system degrades gracefully if it doesn't exist. But better context = better emails.
+
+---
+
 ## Changing the Vertical
 
 Edit `gcrm/vertical.py`. The entire system re-targets automatically — no other changes needed.
@@ -259,15 +292,19 @@ SCAN_LEVELS = {
     1: {
         "label": "Specialty Cafes & Coffee Shops",
         "maps_terms": ["Café", "Kaffeehaus", "Specialty Coffee", "Coffee Shop"],
+        "web_queries": ["specialty coffee {city}", "Kaffeehaus espresso {city}"],
     },
     2: {
         "label": "Restaurants & Hotels",
         "maps_terms": ["Restaurant", "Hotel", "Bistro"],
+        "web_queries": ["Restaurant {city} Empfehlung", "Boutique Hotel {city}"],
     },
 }
 ```
 
-Or re-run the wizard: `uv run python setup.py`
+`web_queries` support `{city}` as a placeholder — the research agent substitutes the current city at runtime. If omitted, the agent builds a fallback query from `maps_terms` automatically.
+
+Or re-run the interview: `/setup-gcrm` in Claude Code
 
 ---
 

@@ -8,7 +8,7 @@ class ScoutState(TypedDict):
     # --- working state ---
     run_id: int
     candidates: list[dict]       # all candidates fetched
-    gallery_candidates: list[dict]  # galleries only, with website_content added
+    scored_candidates: list[dict]   # contacts requiring LLM scoring, with website_content added
     scores: list[dict]           # [{contact_id, outcome, reasoning}]
     errors: list[str]
 

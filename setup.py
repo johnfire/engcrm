@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """
-general-crm setup wizard
+general-crm setup wizard (basic CLI version)
 
-Guides you through creating gcrm/vertical.py for a new vertical.
-Run this once to configure the system for your target domain.
+For the best setup experience, use the AI-powered interview in Claude Code:
+    /setup-gcrm
+
+The AI interview asks open-ended questions, suggests search terms, and generates
+both gcrm/vertical.py and gcrm/vertical_context.md (a rich narrative document
+that makes outreach emails more specific and personal).
+
+This script is a fallback for users without Claude Code. It generates
+gcrm/vertical.py only — no context document.
 
 Usage:
     uv run python setup.py

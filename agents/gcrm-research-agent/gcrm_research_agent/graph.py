@@ -70,25 +70,20 @@ def create_research_agent(
         return {"raw_results": deduped}
 
     def run_web_search(state: ResearchState) -> dict:
-        """Run 2 targeted web searches per level to supplement Maps data."""
+        """Run up to 2 targeted web searches per level to supplement Maps data.
+        Queries are read from SCAN_LEVELS[level]['web_queries'] in vertical.py.
+        Falls back to building a query from maps_terms if none are defined."""
         level = state.get("level", 1)
         city = state["city"]
-        level_labels = {
-            1: f"Kunstgalerie Innenarchitekt Coworking {city}",
-            2: f"Concept Store Esoterikladen Boutique {city}",
-            3: f"Restaurant Gasthaus {city} Empfehlung",
-            4: f"Firmensitz Unternehmen Hauptverwaltung {city}",
-            5: f"Hotel Boutique Hotel {city}",
-        }
-        queries = [level_labels.get(level, f"{city} venues")]
-        extra = {
-            1: f"Galerie {city} zeitgenössische Kunst",
-            2: f"Geschenke Wellness Shop {city}",
-            3: f"bestes Restaurant {city}",
-            4: f"größte Unternehmen {city} Kunst Büro",
-            5: f"Design Hotel {city} Boutique",
-        }
-        queries.append(extra.get(level, f"{city} art venues"))
+        level_info = SCAN_LEVELS.get(level, {})
+        raw_queries = level_info.get("web_queries", [])
+        if raw_queries:
+            queries = [q.format(city=city) for q in raw_queries[:2]]
+        else:
+            maps_terms = level_info.get("maps_terms", [])
+            label = level_info.get("label", "venues")
+            fallback = " ".join(maps_terms[:3]) if maps_terms else label
+            queries = [f"{fallback} {city}", f"{city} {label}"]
 
         web_results = list(state.get("raw_results", []))
         for query in queries:

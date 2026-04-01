@@ -22,12 +22,9 @@ def create_scout_agent(
     """
     Build and return a compiled LangGraph scout agent.
 
-    Non-gallery contacts (cafes, hotels, restaurants, coworking, etc.) are
-    promoted to 'cold' automatically — no LLM evaluation needed.
-
-    Gallery contacts are researched properly: the agent fetches their website,
-    reads the full content, and asks the LLM whether they show emerging or
-    regional artists. Outcome is cold / maybe / dropped.
+    Contacts whose type is not in SCORED_TYPES are promoted to 'cold' automatically.
+    Contacts in SCORED_TYPES are researched: the agent fetches their website,
+    reads the content, and asks the LLM to score fit. Outcome is cold / maybe / dropped.
 
     Usage:
         agent = create_scout_agent(llm=..., fetch_candidates=..., ...)
@@ -41,7 +38,7 @@ def create_scout_agent(
             "run_id": run_id,
             "limit": state.get("limit", 50),
             "candidates": [],
-            "gallery_candidates": [],
+            "scored_candidates": [],
             "scores": [],
             "errors": [],
             "promoted_count": 0,
@@ -59,36 +56,36 @@ def create_scout_agent(
 
     def split_and_promote(state: ScoutState) -> dict:
         """
-        Non-galleries go straight to cold — no evaluation needed.
-        Galleries are collected for website research and LLM scoring.
+        Contacts not in SCORED_TYPES go straight to cold — no evaluation needed.
+        Contacts in SCORED_TYPES are collected for website research and LLM scoring.
         """
         promoted = 0
-        galleries = []
+        to_score = []
         for contact in state.get("candidates", []):
             contact_type = (contact.get("type") or "").lower()
             if contact_type in SCORED_TYPES:
-                galleries.append(contact)
+                to_score.append(contact)
             else:
                 try:
                     update_contact(
                         contact_id=contact["id"],
                         status="cold",
                         fit_score=50,
-                        notes="Auto-promoted: non-gallery venue.",
+                        notes="Auto-promoted: type does not require scoring.",
                     )
                     promoted += 1
                 except Exception:
                     pass
-        return {"gallery_candidates": galleries, "promoted_count": promoted}
+        return {"scored_candidates": to_score, "promoted_count": promoted}
 
-    def fetch_gallery_websites(state: ScoutState) -> dict:
+    def fetch_scored_websites(state: ScoutState) -> dict:
         """
-        Fetch website content for each gallery candidate.
+        Fetch website content for each candidate requiring scoring.
         Tries the main website; appends fetched text as 'website_content'.
-        Galleries with no website still proceed — LLM uses notes to judge.
+        Contacts with no website still proceed — LLM uses notes to judge.
         """
         enriched = []
-        for contact in state.get("gallery_candidates", []):
+        for contact in state.get("scored_candidates", []):
             contact = dict(contact)
             website = contact.get("website", "")
             website_content = ""
@@ -101,15 +98,15 @@ def create_scout_agent(
                     pass
             contact["website_content"] = website_content
             enriched.append(contact)
-        return {"gallery_candidates": enriched}
+        return {"scored_candidates": enriched}
 
-    def score_galleries(state: ScoutState) -> dict:
-        """LLM evaluates each gallery based on website content, notes, and city market context."""
-        if not state.get("gallery_candidates"):
+    def score_candidates(state: ScoutState) -> dict:
+        """LLM evaluates each candidate based on website content, notes, and city market context."""
+        if not state.get("scored_candidates"):
             return {"scores": []}
         scores = []
         city_context_cache: dict[str, dict] = {}
-        for contact in state["gallery_candidates"]:
+        for contact in state["scored_candidates"]:
             city = contact.get("city", "")
             country = contact.get("country", "DE")
             cache_key = f"{city}:{country}"
@@ -140,7 +137,7 @@ def create_scout_agent(
         return {"scores": scores}
 
     def apply_scores(state: ScoutState) -> dict:
-        """Write gallery outcomes to the database."""
+        """Write scoring outcomes to the database."""
         maybe = 0
         dropped = 0
         # promoted_count already includes auto-promoted non-galleries
@@ -171,13 +168,13 @@ def create_scout_agent(
         maybe = state.get("maybe_count", 0)
         dropped = state.get("dropped_count", 0)
         total = len(state.get("candidates", []))
-        gallery_count = len(state.get("gallery_candidates", []))
+        scored_count = len(state.get("scored_candidates", []))
         errs = state.get("errors", [])
 
         summary = (
             f"scout_agent: {total} candidates — "
             f"{promoted} promoted to cold, {maybe} flagged maybe, {dropped} dropped "
-            f"({gallery_count} galleries evaluated by LLM)"
+            f"({scored_count} evaluated by LLM)"
         )
         if errs:
             summary += f", {len(errs)} error(s)"
@@ -194,17 +191,17 @@ def create_scout_agent(
     graph.add_node("init", init)
     graph.add_node("fetch", fetch)
     graph.add_node("split_and_promote", split_and_promote)
-    graph.add_node("fetch_gallery_websites", fetch_gallery_websites)
-    graph.add_node("score_galleries", score_galleries)
+    graph.add_node("fetch_scored_websites", fetch_scored_websites)
+    graph.add_node("score_candidates", score_candidates)
     graph.add_node("apply_scores", apply_scores)
     graph.add_node("generate_report", generate_report)
 
     graph.set_entry_point("init")
     graph.add_edge("init", "fetch")
     graph.add_edge("fetch", "split_and_promote")
-    graph.add_edge("split_and_promote", "fetch_gallery_websites")
-    graph.add_edge("fetch_gallery_websites", "score_galleries")
-    graph.add_edge("score_galleries", "apply_scores")
+    graph.add_edge("split_and_promote", "fetch_scored_websites")
+    graph.add_edge("fetch_scored_websites", "score_candidates")
+    graph.add_edge("score_candidates", "apply_scores")
     graph.add_edge("apply_scores", "generate_report")
     graph.add_edge("generate_report", END)
 

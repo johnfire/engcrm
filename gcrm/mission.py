@@ -15,3 +15,4 @@ class Mission:
     outreach_style: str  # tone and approach for written contact
     language_default: str  # ISO 639-1, used when contact has no preference set
     website: str = ""    # artist/business website, included in email signatures
+    context: str = ""    # rich narrative from vertical_context.md, injected into outreach prompts

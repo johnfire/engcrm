@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from gcrm.mission import Mission
 from gcrm import vertical
@@ -44,6 +45,10 @@ CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-chat")
 
 # --- Mission ---
 # Edit gcrm/vertical.py to change the target domain. Nothing else needs to change.
+# Edit gcrm/vertical_context.md to provide richer narrative context for outreach emails.
+
+_context_path = Path(__file__).parent / "vertical_context.md"
+_vertical_context: str = _context_path.read_text(encoding="utf-8") if _context_path.exists() else ""
 
 ACTIVE_MISSION: Mission = Mission(
     goal=vertical.GOAL,
@@ -53,4 +58,5 @@ ACTIVE_MISSION: Mission = Mission(
     outreach_style=vertical.OUTREACH_STYLE,
     language_default=vertical.LANGUAGE_DEFAULT,
     website=vertical.WEBSITE,
+    context=_vertical_context,
 )

@@ -23,9 +23,14 @@ def draft_email_prompt(
 ) -> tuple[str, str]:
     opt_out = OPT_OUT_LINE.get(language, OPT_OUT_LINE["en"])
 
+    context_section = (
+        f"\n\n--- BACKGROUND CONTEXT ---\n{mission.context}"
+        if getattr(mission, "context", "") else ""
+    )
     system = (
         f"You are {mission.identity}.\n"
-        f"Outreach style: {mission.outreach_style}\n\n"
+        f"Outreach style: {mission.outreach_style}"
+        f"{context_section}\n\n"
         f"You are about to write a first-contact email to a potential contact. "
         f"Before writing, read everything provided — the contact details, research notes, "
         f"scout reasoning, previous interactions, and the contact's website content. "
