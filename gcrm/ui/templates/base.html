@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}ArtCRM Supervisor{% endblock %}</title>
+  <title>{% block title %}AI-CRM Leads{% endblock %}</title>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <nav>
-    <span class="nav-brand">ArtCRM Supervisor</span>
+    <span class="nav-brand">AI-CRM Leads</span>
     <a href="/approvals/" {% if request.url.path.startswith('/approvals') %}class="active"{% endif %}>
       Approvals
     </a>
@@ -24,6 +25,18 @@
     </a>
     <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
       Research
+    </a>
+    <a href="/inbox/" {% if request.url.path.startswith('/inbox') %}class="active"{% endif %}>
+      Inbox
+    </a>
+    <a href="/marketing/" {% if request.url.path.startswith('/marketing') %}class="active"{% endif %}>
+      Marketing
+    </a>
+    <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
+      Drafts
+    </a>
+    <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
+      Dropped
     </a>
   </nav>
   <main>

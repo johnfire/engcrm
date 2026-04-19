@@ -31,6 +31,7 @@ from gcrm.tools import (
     web_search, geo_search, google_maps_search, fetch_page,
     send_email, read_inbox,
     get_llm,
+    record_warm_outcome, search_gcrm_thoughts,
 )
 
 from gcrm_research_agent import create_research_agent
@@ -115,6 +116,7 @@ def _build_agents():
         fetch_overdue=get_overdue_contacts,
         send_email=send_email,
         queue_for_approval=queue_for_approval,
+        record_warm_outcome=record_warm_outcome,
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
@@ -198,7 +200,10 @@ def create_supervisor(checkpointer=None):
 
     def run_outreach(state: SupervisorState) -> dict:
         try:
-            result = outreach_agent.invoke({"limit": 1})
+            learnings = search_gcrm_thoughts("outreach email tone style", limit=5)
+            if learnings:
+                logger.info("outreach: injecting %d learnings from Open Brain", len(learnings))
+            result = outreach_agent.invoke({"limit": 50, "learnings": learnings})
             logger.info("outreach: %s", result.get("summary", ""))
             return {"outreach_summary": result.get("summary", "")}
         except Exception as e:

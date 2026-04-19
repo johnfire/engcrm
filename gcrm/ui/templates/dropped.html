@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Dropped Prospects — Eng-CRM Supervisor{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dropped Prospects</h1>
+  <span class="muted">{{ items|length }} total</span>
+</div>
+
+{% if items %}
+  {% for item in items %}
+  <article class="card" style="opacity:0.75;border-left:3px solid #c0392b">
+    <div class="card-header">
+      <div>
+        <strong>{{ item.contact_name }}</strong>
+        <span class="muted">{{ item.city }}</span>
+        {% if item.email %}<span class="muted">— {{ item.email }}</span>{% endif %}
+        {% if item.reviewer_note %}<span class="muted small"> · {{ item.reviewer_note }}</span>{% endif %}
+      </div>
+      <span class="muted small">
+        Rejected {{ item.reviewed_at.strftime('%Y-%m-%d') if item.reviewed_at else '—' }}
+      </span>
+    </div>
+    <div class="subject">{{ item.draft_subject }}</div>
+  </article>
+  {% endfor %}
+{% else %}
+  <p class="empty">No rejected prospects yet.</p>
+{% endif %}
+{% endblock %}

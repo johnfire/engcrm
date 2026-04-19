@@ -32,6 +32,10 @@
     </details>
 
     <div class="actions">
+      <span class="muted small" style="margin-right:0.5rem">contact #{{ item.contact_id }}</span>
+      {% if item.website %}
+      <a href="{{ item.website }}" target="_blank" rel="noopener" class="btn-secondary">Website</a>
+      {% endif %}
       <form hx-post="/approvals/{{ item.id }}/approve"
             hx-target="#approval-list"
             hx-swap="innerHTML"
@@ -44,6 +48,13 @@
             style="display:inline">
         <input type="text" name="note" placeholder="Reason (optional)">
         <button type="submit" class="btn-danger">Reject</button>
+      </form>
+      <form hx-post="/approvals/{{ item.id }}/delete"
+            hx-target="#approval-list"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this draft permanently?"
+            style="display:inline">
+        <button type="submit" class="btn-danger" style="background:#555">Delete</button>
       </form>
     </div>
   </article>

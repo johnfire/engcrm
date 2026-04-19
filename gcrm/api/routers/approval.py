@@ -15,11 +15,39 @@ def _fetch_pending(conn) -> list[dict]:
     cur.execute("""
         SELECT
             aq.id, aq.draft_subject, aq.draft_body, aq.created_at,
-            c.id AS contact_id, c.name AS contact_name, c.city, c.email
+            c.id AS contact_id, c.name AS contact_name, c.city, c.email, c.website
         FROM approval_queue aq
         JOIN contacts c ON c.id = aq.contact_id
         WHERE aq.status = 'pending'
         ORDER BY aq.created_at ASC
+    """)
+    return [dict(row) for row in cur.fetchall()]
+
+
+def _fetch_on_hold(conn) -> list[dict]:
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT
+            aq.id, aq.draft_subject, aq.draft_body, aq.created_at,
+            c.id AS contact_id, c.name AS contact_name, c.city, c.email, c.website
+        FROM approval_queue aq
+        JOIN contacts c ON c.id = aq.contact_id
+        WHERE aq.status = 'on_hold'
+        ORDER BY aq.created_at ASC
+    """)
+    return [dict(row) for row in cur.fetchall()]
+
+
+def _fetch_rejected(conn) -> list[dict]:
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT
+            aq.id, aq.draft_subject, aq.created_at, aq.reviewed_at, aq.reviewer_note,
+            c.id AS contact_id, c.name AS contact_name, c.city, c.email
+        FROM approval_queue aq
+        JOIN contacts c ON c.id = aq.contact_id
+        WHERE aq.status = 'rejected'
+        ORDER BY aq.reviewed_at DESC
     """)
     return [dict(row) for row in cur.fetchall()]
 
@@ -41,7 +69,7 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
         with db() as conn:
             cur = conn.cursor()
             cur.execute(
-                "UPDATE contacts SET status = 'contacted', updated_at = NOW() WHERE id = %s AND status = 'cold'",
+                "UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s AND status IN ('cold', 'on_hold')",
                 (contact_id,),
             )
         return success, "sent" if success else "approved_unsent"
@@ -54,7 +82,8 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
 def approval_list(request: Request):
     with db() as conn:
         items = _fetch_pending(conn)
-    return templates.TemplateResponse("approval.html", {"request": request, "items": items})
+        on_hold = _fetch_on_hold(conn)
+    return templates.TemplateResponse("approval.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
 @router.post("/{item_id}/approve", response_class=HTMLResponse)
@@ -64,7 +93,7 @@ def approve(request: Request, item_id: int, note: str = Form(default="")):
         cur.execute("""
             SELECT aq.draft_subject, aq.draft_body, aq.contact_id, c.email
             FROM approval_queue aq JOIN contacts c ON c.id = aq.contact_id
-            WHERE aq.id = %s AND aq.status = 'pending'
+            WHERE aq.id = %s AND aq.status IN ('pending', 'on_hold')
         """, (item_id,))
         row = cur.fetchone()
         if not row:
@@ -87,8 +116,9 @@ def approve(request: Request, item_id: int, note: str = Form(default="")):
             WHERE id = %s
         """, (final_status, (note or send_msg) or None, item_id))
         items = _fetch_pending(conn)
+        on_hold = _fetch_on_hold(conn)
 
-    return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items})
+    return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
 @router.post("/{item_id}/reject", response_class=HTMLResponse)
@@ -98,12 +128,38 @@ def reject(request: Request, item_id: int, note: str = Form(default="")):
         cur.execute("""
             UPDATE approval_queue
             SET status = 'rejected', reviewed_at = NOW(), reviewer_note = %s
-            WHERE id = %s AND status = 'pending'
+            WHERE id = %s AND status IN ('pending', 'on_hold')
+            RETURNING contact_id
         """, (note or None, item_id))
-        if cur.rowcount == 0:
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Item not found or already reviewed")
+        cur.execute(
+            "UPDATE contacts SET status = 'dropped', updated_at = NOW() WHERE id = %s",
+            (row["contact_id"],),
+        )
         items = _fetch_pending(conn)
-    return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items})
+        on_hold = _fetch_on_hold(conn)
+    return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
+
+
+@router.post("/{item_id}/delete", response_class=HTMLResponse)
+def delete_draft(request: Request, item_id: int):
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM approval_queue WHERE id = %s", (item_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Item not found")
+        items = _fetch_pending(conn)
+        on_hold = _fetch_on_hold(conn)
+    return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
+
+
+@router.get("/dropped/", response_class=HTMLResponse)
+def dropped_list(request: Request):
+    with db() as conn:
+        items = _fetch_rejected(conn)
+    return templates.TemplateResponse("dropped.html", {"request": request, "items": items})
 
 
 @router.post("/{item_id}/edit", response_class=HTMLResponse)

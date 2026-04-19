@@ -175,8 +175,8 @@ def approval_approve(item_id: int, note: str = "") -> str:
                 WHERE id = %s
             """, (final_status, note or None, item_id))
             cur.execute("""
-                UPDATE contacts SET status = 'contacted', updated_at = NOW()
-                WHERE id = %s AND status = 'cold'
+                UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
+                WHERE id = %s AND status IN ('cold', 'on_hold')
             """, (row["contact_id"],))
 
         return json.dumps({
@@ -200,10 +200,16 @@ def approval_reject(item_id: int, note: str = "") -> str:
             cur.execute("""
                 UPDATE approval_queue
                 SET status = 'rejected', reviewed_at = NOW(), reviewer_note = %s
-                WHERE id = %s AND status = 'pending'
+                WHERE id = %s AND status IN ('pending', 'on_hold')
+                RETURNING contact_id
             """, (note or None, item_id))
-            if cur.rowcount == 0:
+            row = cur.fetchone()
+            if not row:
                 return json.dumps({"error": f"Item {item_id} not found or already reviewed"})
+            cur.execute(
+                "UPDATE contacts SET status = 'dropped', updated_at = NOW() WHERE id = %s",
+                (row["contact_id"],),
+            )
 
         return json.dumps({"rejected": True, "item_id": item_id})
     except Exception as e:
