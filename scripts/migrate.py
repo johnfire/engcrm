@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pathlib import Path
 from gcrm.db.connection import db
 
-MIGRATIONS_DIR = Path(__file__).parent.parent / "src" / "db" / "migrations"
+MIGRATIONS_DIR = Path(__file__).parent.parent / "gcrm" / "db" / "migrations"
 
 
 def run():
@@ -21,10 +21,22 @@ def run():
 
     with db() as conn:
         cur = conn.cursor()
+        cur.execute("SELECT migration_name FROM schema_migrations")
+        applied = {r["migration_name"] for r in cur.fetchall()}
+
+        ran = 0
         for f in sql_files:
+            if f.name in applied:
+                print(f"Skipping {f.name} (already applied)")
+                continue
             print(f"Running {f.name}...")
             cur.execute(f.read_text())
-        print(f"Done. {len(sql_files)} migration(s) applied.")
+            cur.execute(
+                "INSERT INTO schema_migrations (migration_name) VALUES (%s) ON CONFLICT DO NOTHING",
+                (f.name,),
+            )
+            ran += 1
+        print(f"Done. {ran} migration(s) applied.")
 
 
 if __name__ == "__main__":

@@ -143,23 +143,49 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
     return results
 
 
+BRIGHTDATA_UNLOCKER_URL = "https://api.brightdata.com/request"
+BRIGHTDATA_UNLOCKER_ZONE = "mcp_unlocker"
+
+
 def fetch_page(url: str, max_chars: int = 3000) -> str:
     """
-    Fetch a web page and return its plain text content (HTML stripped).
-    Returns empty string on any failure.
+    Fetch a web page and return its content as markdown.
+    Uses Bright Data Web Unlocker (bot-bypass) when BRIGHTDATA_API_TOKEN is set,
+    falls back to plain httpx + HTML stripping.
     """
+    from gcrm.config import BRIGHTDATA_API_TOKEN
+    if BRIGHTDATA_API_TOKEN:
+        try:
+            resp = httpx.post(
+                BRIGHTDATA_UNLOCKER_URL,
+                headers={
+                    "Authorization": f"Bearer {BRIGHTDATA_API_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "zone": BRIGHTDATA_UNLOCKER_ZONE,
+                    "url": url,
+                    "format": "raw",
+                    "data_format": "markdown",
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            logger.debug("fetch_page (brightdata): %s — %d chars", url, len(resp.text))
+            return resp.text[:max_chars]
+        except Exception as e:
+            logger.debug("brightdata fetch_page failed for %s: %s — falling back", url, e)
+
+    # Fallback: plain httpx with HTML stripping
+    import re
     try:
         resp = httpx.get(url, timeout=10, follow_redirects=True, headers={
             "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
         })
         resp.raise_for_status()
         html = resp.text
-        # Remove script and style blocks entirely
-        import re
         html = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-        # Strip remaining HTML tags
         text = re.sub(r'<[^>]+>', ' ', html)
-        # Collapse whitespace
         text = re.sub(r'\s+', ' ', text).strip()
         return text[:max_chars]
     except Exception as e:

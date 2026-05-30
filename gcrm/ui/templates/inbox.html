@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Inbox Replies — AI-CRM Leads{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Inbox Replies</h1>
+  <span class="muted">{{ total }} classified in the last {{ days }} days</span>
+</div>
+
+<form class="filter-bar" method="get" action="/inbox/">
+  <select name="classification">
+    <option value="" {% if active_classification == '' %}selected{% endif %}>All replies</option>
+    {% for cls in classifications %}
+    <option value="{{ cls }}" {% if cls == active_classification %}selected{% endif %}>
+      {{ cls }}{% if counts.get(cls) %} ({{ counts[cls] }}){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  <select name="days">
+    {% for d in [7, 14, 30, 60, 90] %}
+    <option value="{{ d }}" {% if d == days %}selected{% endif %}>Last {{ d }} days</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn-primary">Filter</button>
+  {% if active_classification %}
+  <a href="/inbox/" class="muted" style="align-self:center">clear</a>
+  {% endif %}
+</form>
+
+{% if not messages %}
+  <p class="empty">No replies found for this filter.</p>
+{% else %}
+
+<div class="inbox-summary">
+  {% for cls in ['interested', 'warm', 'not_interested', 'not_possible', 'opt_out', 'other'] %}
+  {% if counts.get(cls) %}
+  <a href="?classification={{ cls }}&days={{ days }}" class="inbox-pill inbox-pill--{{ cls }} {% if cls == active_classification %}active{% endif %}">
+    {{ cls }} <span>{{ counts[cls] }}</span>
+  </a>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Contact</th>
+      <th>Classification</th>
+      <th>Subject</th>
+      <th>Snippet</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in messages %}
+    <tr class="inbox-row inbox-row--{{ m.classification or 'other' }}">
+      <td class="muted small">{{ m.received_at.strftime('%Y-%m-%d %H:%M') if m.received_at else '—' }}</td>
+      <td>
+        {% if m.contact_id %}
+        <a href="/contacts/{{ m.contact_id }}"><strong>{{ m.contact_name }}</strong></a>
+        <div class="muted small">{{ m.city or '' }} · <span class="badge badge-{{ m.contact_status }}">{{ m.contact_status }}</span></div>
+        {% else %}
+        <span class="muted">{{ m.from_email }}</span>
+        {% endif %}
+      </td>
+      <td>
+        <span class="badge inbox-badge--{{ m.classification or 'other' }}">{{ m.classification or '—' }}</span>
+        {% if m.visit_when_nearby %}
+        <span title="Flagged for visit when nearby" style="margin-left:0.3rem;color:#e67e22">&#9655;</span>
+        {% endif %}
+      </td>
+      <td class="small">{{ m.subject or '—' }}</td>
+      <td class="muted small" style="max-width:280px;white-space:pre-wrap">{{ m.body_snippet or '—' }}</td>
+      <td class="muted small" style="max-width:200px">{{ m.classification_reasoning or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endif %}
+
+<style>
+.inbox-summary { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
+.inbox-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.25rem 0.65rem; border-radius:20px; font-size:0.8rem; text-decoration:none; border:1px solid transparent; }
+.inbox-pill span { font-weight:bold; }
+.inbox-pill.active { border-color: currentColor; }
+.inbox-pill--interested  { background:#d4edda; color:#155724; }
+.inbox-pill--warm        { background:#fff3cd; color:#856404; }
+.inbox-pill--not_interested { background:#f8d7da; color:#721c24; }
+.inbox-pill--not_possible   { background:#e2e3e5; color:#383d41; }
+.inbox-pill--opt_out     { background:#f5c6cb; color:#491217; }
+.inbox-pill--other       { background:#d1ecf1; color:#0c5460; }
+
+.inbox-badge--interested  { background:#d4edda; color:#155724; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--warm        { background:#fff3cd; color:#856404; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--not_interested { background:#f8d7da; color:#721c24; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--not_possible   { background:#e2e3e5; color:#383d41; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--opt_out     { background:#f5c6cb; color:#491217; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--other       { background:#d1ecf1; color:#0c5460; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--skipped     { background:#f0f0f0; color:#888; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+
+.inbox-row--interested  { background:#fafff9; }
+.inbox-row--warm        { background:#fffef5; }
+.inbox-row--opt_out     { background:#fff9f9; }
+</style>
+{% endblock %}

@@ -17,6 +17,9 @@ ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 # --- Google Maps ---
 GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
+# --- Bright Data ---
+BRIGHTDATA_API_TOKEN: str = os.getenv("BRIGHTDATA_API_TOKEN", "")
+
 # --- Proton Bridge (IMAP + SMTP) ---
 PROTON_IMAP_HOST: str = os.getenv("PROTON_IMAP_HOST", "127.0.0.1")
 PROTON_IMAP_PORT: int = int(os.getenv("PROTON_IMAP_PORT", "1143"))
@@ -38,6 +41,10 @@ SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))
 # --- Email ---
 # Set EMAIL_ENABLED=false to disable all outgoing email (approvals will be marked approved_unsent)
 EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
+
+# --- Open Brain memory ---
+OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
+OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 
 # --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
 # Options: deepseek-chat, claude-haiku

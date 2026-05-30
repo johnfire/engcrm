@@ -1,0 +1,290 @@
+{% extends "base.html" %} {% block title %}{{ contact.name }} — ArtCRM{%
+endblock %} {% block content %}
+<div class="page-header">
+  <h1>{{ contact.name }}</h1>
+  <span class="muted"
+    >{{ contact.city }}{% if contact.country %} · {{ contact.country }}{% endif
+    %} ·
+    <span class="badge badge-{{ contact.status }}"
+      >{{ contact.status }}</span
+    ></span
+  >
+</div>
+
+{% if saved %}
+<div class="flash-success">Saved.</div>
+{% endif %}
+
+<form method="post" action="/contacts/{{ contact.id }}/edit">
+  <div class="detail-grid">
+    <section class="detail-section">
+      <h2>Basic Info</h2>
+      <div class="field-row">
+        <label>Name</label>
+        <input type="text" name="name" value="{{ contact.name or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>City</label>
+        <input type="text" name="city" value="{{ contact.city or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>Country</label>
+        <input
+          type="text"
+          name="country"
+          value="{{ contact.country or '' }}"
+          maxlength="2"
+          style="width: 4rem"
+        />
+      </div>
+      <div class="field-row">
+        <label>Type</label>
+        <input type="text" name="type" value="{{ contact.type or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>Status</label>
+        <select name="status">
+          {% for s in valid_statuses %}
+          <option
+            value="{{ s }}"
+            {%
+            if
+            s=""
+            ="contact.status"
+            %}selected{%
+            endif
+            %}
+          >
+            {{ s }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Fit score</label>
+        <input
+          type="number"
+          name="fit_score"
+          value="{{ contact.fit_score or '' }}"
+          min="0"
+          max="100"
+          style="width: 5rem"
+        />
+      </div>
+      <div class="field-row">
+        <label>Email</label>
+        <input type="text" name="email" value="{{ contact.email or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>Phone</label>
+        <input type="text" name="phone" value="{{ contact.phone or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>Website</label>
+        <input type="text" name="website" value="{{ contact.website or '' }}" />
+      </div>
+      <div class="field-row">
+        <label>Preferred contact</label>
+        <select name="preferred_contact_method">
+          <option value="">—</option>
+          {% for m in ['email', 'phone', 'drop in', 'Instagram DM', 'contact
+          form'] %}
+          <option
+            value="{{ m }}"
+            {%
+            if
+            contact.preferred_contact_method=""
+            ="m"
+            %}selected{%
+            endif
+            %}
+          >
+            {{ m }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Decision maker</label>
+        <input
+          type="text"
+          name="decision_maker"
+          value="{{ contact.decision_maker or '' }}"
+          placeholder="Name of person to speak to"
+        />
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h2>Visit Info</h2>
+      <div class="field-row">
+        <label>Last visited</label>
+        <input
+          type="date"
+          name="last_visited_at"
+          value="{{ contact.last_visited_at or '' }}"
+        />
+      </div>
+      <div class="field-row">
+        <label>Best time to visit</label>
+        <input
+          type="text"
+          name="best_visit_time"
+          value="{{ contact.best_visit_time or '' }}"
+          placeholder="e.g. Tue–Sat afternoons"
+        />
+      </div>
+      <div class="field-row">
+        <label>Visit duration</label>
+        <input
+          type="text"
+          name="visit_duration"
+          value="{{ contact.visit_duration or '' }}"
+          placeholder="e.g. 20 min, half day"
+        />
+      </div>
+      <div class="field-row">
+        <label>First impression</label>
+        <select name="first_impression">
+          <option value="">—</option>
+          {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
+          <option
+            value="{{ v }}"
+            {%
+            if
+            contact.first_impression=""
+            ="v"
+            %}selected{%
+            endif
+            %}
+          >
+            {{ v }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Last impression</label>
+        <select name="last_impression">
+          <option value="">—</option>
+          {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
+          <option
+            value="{{ v }}"
+            {%
+            if
+            contact.last_impression=""
+            ="v"
+            %}selected{%
+            endif
+            %}
+          >
+            {{ v }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
+        <label>Materials left</label>
+        <input
+          type="text"
+          name="materials_left"
+          value="{{ contact.materials_left or '' }}"
+          placeholder="e.g. prints, postcards, portfolio"
+        />
+      </div>
+      <div class="field-row">
+        <label>Follow-up promised</label>
+        <input
+          type="text"
+          name="followup_promised"
+          value="{{ contact.followup_promised or '' }}"
+          placeholder="e.g. send price list, visit in May"
+        />
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h2>Venue Notes</h2>
+      <div class="field-row field-row--tall">
+        <label>Access / logistics</label>
+        <textarea
+          name="access_notes"
+          rows="3"
+          placeholder="Train, bus, parking, hilly, no bike…"
+        >
+{{ contact.access_notes or '' }}</textarea
+        >
+      </div>
+      <div class="field-row field-row--tall">
+        <label>Space notes</label>
+        <textarea
+          name="space_notes"
+          rows="3"
+          placeholder="Wall size, lighting, no hanging, intimate…"
+        >
+{{ contact.space_notes or '' }}</textarea
+        >
+      </div>
+      <div class="field-row field-row--tall">
+        <label>Price sensitivity</label>
+        <textarea
+          name="price_sensitivity"
+          rows="2"
+          placeholder="Cares about price, prefers consignment, wants exclusivity…"
+        >
+{{ contact.price_sensitivity or '' }}</textarea
+        >
+      </div>
+      <div class="field-row field-row--tall">
+        <label>General notes</label>
+        <textarea name="notes" rows="5">{{ contact.notes or '' }}</textarea>
+      </div>
+    </section>
+  </div>
+
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">Save</button>
+    <a href="/contacts/{{ contact.id }}/brief" class="btn-secondary"
+      >Pre-visit brief</a
+    >
+    <a href="/contacts/" class="btn-secondary">Back to list</a>
+  </div>
+</form>
+
+{% if interactions %}
+<section class="detail-section" style="margin-top: 2rem">
+  <h2>Interaction History</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Method</th>
+        <th>Direction</th>
+        <th>Summary</th>
+        <th>Outcome</th>
+        <th>Next action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in interactions %}
+      <tr>
+        <td class="muted small">
+          {{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date else
+          '—' }}
+        </td>
+        <td>{{ i.method or '—' }}</td>
+        <td class="muted">{{ i.direction or '—' }}</td>
+        <td class="muted small">{{ i.summary or '—' }}</td>
+        <td class="muted small">{{ i.outcome or '—' }}</td>
+        <td class="muted small">
+          {{ i.next_action or '—' }}{% if i.next_action_date %}
+          <span class="muted"
+            >({{ i.next_action_date.strftime('%Y-%m-%d') }})</span
+          >{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %} {% endblock %}

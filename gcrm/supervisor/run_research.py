@@ -56,6 +56,15 @@ def main():
     summary = result.get("summary", "")
     contacts_found = len(result.get("saved_ids", []))
     record_scan_result(args.city, args.country, args.level, contacts_found)
+
+    if contacts_found > 0:
+        from gcrm.tools.memory import capture_thought
+        capture_thought(
+            f"gcrm city scan: {args.city} (level {args.level}). "
+            f"Found {contacts_found} new contacts. {summary}"
+        )
+        logger.info("memory: captured city observation for %s", args.city)
+
     logger.info("Done: %s", summary)
 
 

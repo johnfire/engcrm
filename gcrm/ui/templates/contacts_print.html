@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      Contacts{% if active_filters %} — {{ active_filters | join(', ') }}{%
+      endif %}
+    </title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 9.5px;
+        color: #111;
+        background: #fff;
+        padding: 1rem;
+      }
+      h1 {
+        font-size: 0.95rem;
+        margin-bottom: 0.2rem;
+      }
+      .meta {
+        color: #666;
+        font-size: 0.85em;
+        margin-bottom: 0.75rem;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        table-layout: fixed;
+      }
+      th {
+        text-align: left;
+        font-weight: bold;
+        border-bottom: 1.5px solid #111;
+        padding: 0.2rem 0.35rem;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      td {
+        padding: 0.2rem 0.35rem;
+        border-bottom: 1px solid #ddd;
+        vertical-align: top;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      .badge {
+        font-size: 0.85em;
+        padding: 0.05em 0.3em;
+        border: 1px solid #999;
+        border-radius: 2px;
+      }
+      td.notes {
+        white-space: normal;
+        word-break: break-word;
+      }
+      /* A4 landscape printable width ≈ 267mm ≈ 1009px.
+       Fixed cols: 180+80+80+65+30+150+185 = 770px, leaving ~239px for notes */
+      col.c-name {
+        width: 180px;
+      }
+      col.c-city {
+        width: 80px;
+      }
+      col.c-type {
+        width: 80px;
+      }
+      col.c-status {
+        width: 65px;
+      }
+      col.c-fit {
+        width: 30px;
+      }
+      col.c-email {
+        width: 150px;
+      }
+      col.c-website {
+        width: 185px;
+      }
+      col.c-notes {
+        width: auto;
+      }
+      @media print {
+        body {
+          padding: 0;
+        }
+        @page {
+          margin: 1.2cm;
+          size: A4 landscape;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      Contacts{% if active_filters %} — {{ active_filters | join(' · ') }}{%
+      endif %}
+    </h1>
+    <p class="meta">{{ total }} contacts · {{ now }}</p>
+
+    <table>
+      <colgroup>
+        <col class="c-name" />
+        <col class="c-city" />
+        <col class="c-type" />
+        <col class="c-status" />
+        <col class="c-fit" />
+        <col class="c-email" />
+        <col class="c-website" />
+        <col class="c-notes" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>City</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Fit</th>
+          <th>Email</th>
+          <th>Website</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contacts %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td>{{ c.city }}{% if c.country %} {{ c.country }}{% endif %}</td>
+          <td>{{ c.type or '—' }}</td>
+          <td><span class="badge">{{ c.status }}</span></td>
+          <td>{{ c.fit_score if c.fit_score is not none else '—' }}</td>
+          <td>{{ c.email or '—' }}</td>
+          <td>{{ c.website or '—' }}</td>
+          <td class="notes">{{ c.notes or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

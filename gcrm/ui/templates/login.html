@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EngCRM — Login</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .login-box {
+        width: 320px;
+        padding: 2rem;
+        background: var(--surface, #1e1e2e);
+        border-radius: 8px;
+      }
+      .login-box h1 {
+        margin: 0 0 1.5rem;
+        font-size: 1.2rem;
+      }
+      .login-box input {
+        width: 100%;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+      }
+      .login-box button {
+        width: 100%;
+        padding: 0.5rem;
+      }
+      .error {
+        color: #f38ba8;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-box">
+      <h1>EngCRM Supervisor</h1>
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+      <form method="post" action="/login">
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          autofocus
+          required
+        />
+        <button type="submit">Sign in</button>
+      </form>
+    </div>
+  </body>
+</html>

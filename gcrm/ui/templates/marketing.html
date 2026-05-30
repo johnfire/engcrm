@@ -1,0 +1,59 @@
+{% extends "base.html" %} {% block title %}Marketing — AI-CRM Leads{% endblock
+%} {% block content %}
+<div class="page-header">
+  <h1>Marketing</h1>
+  <span class="muted">Weekly strategy digest</span>
+</div>
+
+{% if digest %}
+<section style="margin-bottom: 2rem;">
+  <h2
+    style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;"
+  >
+    Digest — {{ digest.week_date }}
+  </h2>
+  <div class="digest-content" style="max-width:72ch; line-height:1.7;">
+    {{ digest.content_html | safe }}
+  </div>
+</section>
+{% else %}
+<section style="margin-bottom: 2rem;">
+  <p class="muted">No digest yet.</p>
+</section>
+{% endif %} {% if strategies %}
+<section style="margin-bottom: 2rem;">
+  <h2
+    style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;"
+  >
+    Strategies
+  </h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Last reviewed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in strategies %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td>
+          <span
+            class="badge {% if s.status == 'active' %}badge-green{% elif s.status == 'on_hold' %}badge-yellow{% else %}badge-grey{% endif %}"
+          >
+            {{ s.status }}
+          </span>
+        </td>
+        <td class="center">{{ s.priority }}</td>
+        <td class="muted small">
+          {{ s.last_reviewed_at[:10] if s.last_reviewed_at else '—' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %} {% endblock %}

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brief — {{ contact.name }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+      body {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 1rem;
+        font-size: 1rem;
+      }
+      .brief-header {
+        margin-bottom: 1.5rem;
+      }
+      .brief-header h1 {
+        font-size: 1.6rem;
+        margin: 0 0 0.25rem;
+      }
+      .brief-meta {
+        color: var(--muted, #888);
+        font-size: 0.9rem;
+      }
+      .brief-section {
+        margin: 1.25rem 0;
+      }
+      .brief-section h2 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted, #888);
+        margin: 0 0 0.5rem;
+        border-bottom: 1px solid var(--border, #e0e0e0);
+        padding-bottom: 0.25rem;
+      }
+      .brief-row {
+        display: flex;
+        gap: 0.75rem;
+        margin: 0.35rem 0;
+        font-size: 0.95rem;
+      }
+      .brief-label {
+        flex: 0 0 9rem;
+        color: var(--muted, #888);
+        font-size: 0.85rem;
+        padding-top: 0.05rem;
+      }
+      .brief-val {
+        flex: 1;
+      }
+      .brief-val a {
+        color: inherit;
+      }
+      .fit-score {
+        display: inline-block;
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-left: 0.5rem;
+      }
+      .interaction-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .interaction-list li {
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--border, #e8e8e8);
+        font-size: 0.9rem;
+      }
+      .interaction-list li:last-child {
+        border-bottom: none;
+      }
+      .int-date {
+        color: var(--muted, #888);
+        font-size: 0.8rem;
+        min-width: 6rem;
+        display: inline-block;
+      }
+      .int-summary {
+        color: #333;
+      }
+      .interview-box {
+        margin-top: 1.75rem;
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 1rem;
+      }
+      .interview-box h2 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted, #888);
+        margin: 0 0 0.5rem;
+      }
+      .interview-box code {
+        display: block;
+        background: #e8e8e8;
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        user-select: all;
+      }
+      .brief-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .brief-actions a {
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+      }
+      .btn-back {
+        background: #eee;
+        color: #333;
+      }
+      .btn-edit {
+        background: #333;
+        color: #fff;
+      }
+      .no-data {
+        color: var(--muted, #aaa);
+        font-style: italic;
+      }
+      @media (max-width: 400px) {
+        .brief-label {
+          flex: 0 0 7rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="brief-header">
+      <h1>{{ contact.name }}</h1>
+      <div class="brief-meta">
+        {{ contact.city }}{% if contact.country %} · {{ contact.country }}{%
+        endif %} {% if contact.type %} · {{ contact.type }}{% endif %}
+        <span
+          class="badge badge-{{ contact.status }}"
+          style="margin-left: 0.5rem"
+          >{{ contact.status }}</span
+        >
+        {% if contact.fit_score is not none %}<span class="fit-score"
+          >{{ contact.fit_score }}/100</span
+        >{% endif %}
+      </div>
+    </div>
+
+    <div class="brief-section">
+      <h2>At a glance</h2>
+      {% if contact.decision_maker %}
+      <div class="brief-row">
+        <span class="brief-label">Decision maker</span>
+        <span class="brief-val">{{ contact.decision_maker }}</span>
+      </div>
+      {% endif %} {% if contact.best_visit_time %}
+      <div class="brief-row">
+        <span class="brief-label">Best time</span>
+        <span class="brief-val">{{ contact.best_visit_time }}</span>
+      </div>
+      {% endif %} {% if contact.visit_duration %}
+      <div class="brief-row">
+        <span class="brief-label">Duration</span>
+        <span class="brief-val">{{ contact.visit_duration }}</span>
+      </div>
+      {% endif %} {% if contact.phone %}
+      <div class="brief-row">
+        <span class="brief-label">Phone</span>
+        <span class="brief-val"
+          ><a href="tel:{{ contact.phone }}">{{ contact.phone }}</a></span
+        >
+      </div>
+      {% endif %} {% if contact.email %}
+      <div class="brief-row">
+        <span class="brief-label">Email</span>
+        <span class="brief-val"
+          ><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></span
+        >
+      </div>
+      {% endif %} {% if contact.website %}
+      <div class="brief-row">
+        <span class="brief-label">Website</span>
+        <span class="brief-val"
+          ><a href="{{ contact.website }}" target="_blank"
+            >{{ contact.website }}</a
+          ></span
+        >
+      </div>
+      {% endif %} {% if contact.address %}
+      <div class="brief-row">
+        <span class="brief-label">Address</span>
+        <span class="brief-val">
+          <a
+            href="https://www.google.com/maps/search/{{ (contact.address ~ ' ' ~ (contact.city or '')) | urlencode }}"
+            target="_blank"
+            >{{ contact.address }}</a
+          >
+        </span>
+      </div>
+      {% elif contact.city %}
+      <div class="brief-row">
+        <span class="brief-label">Maps</span>
+        <span class="brief-val">
+          <a
+            href="https://www.google.com/maps/search/{{ (contact.name ~ ' ' ~ (contact.city or '')) | urlencode }}"
+            target="_blank"
+            >Search {{ contact.name }} in Maps ↗</a
+          >
+        </span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="brief-section">
+      <h2>Your history</h2>
+      {% if contact.last_visited_at %}
+      <div class="brief-row">
+        <span class="brief-label">Last visited</span>
+        <span class="brief-val">{{ contact.last_visited_at }}</span>
+      </div>
+      {% endif %} {% if contact.first_impression %}
+      <div class="brief-row">
+        <span class="brief-label">First impression</span>
+        <span class="brief-val">{{ contact.first_impression }}</span>
+      </div>
+      {% endif %} {% if contact.last_impression %}
+      <div class="brief-row">
+        <span class="brief-label">Last impression</span>
+        <span class="brief-val">{{ contact.last_impression }}</span>
+      </div>
+      {% endif %} {% if contact.materials_left %}
+      <div class="brief-row">
+        <span class="brief-label">Materials left</span>
+        <span class="brief-val">{{ contact.materials_left }}</span>
+      </div>
+      {% endif %} {% if contact.followup_promised %}
+      <div class="brief-row">
+        <span class="brief-label">Follow-up promised</span>
+        <span class="brief-val">{{ contact.followup_promised }}</span>
+      </div>
+      {% endif %} {% if interactions %}
+      <ul class="interaction-list" style="margin-top: 0.75rem">
+        {% for i in interactions %}
+        <li>
+          <span class="int-date"
+            >{{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date
+            else '—' }}</span
+          >
+          {% if i.method %}<span class="muted" style="font-size: 0.8rem"
+            >{{ i.method }}{% if i.direction %} · {{ i.direction }}{% endif
+            %}</span
+          >
+          — {% endif %}
+          <span class="int-summary">{{ i.summary or i.outcome or '—' }}</span>
+          {% if i.next_action %}
+          <div style="font-size: 0.8rem; color: #888; padding-left: 6.5rem">
+            → {{ i.next_action }}{% if i.next_action_date %} ({{
+            i.next_action_date }}){% endif %}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="no-data" style="margin-top: 0.5rem">
+        No interactions logged yet.
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="brief-section">
+      <h2>Venue intel</h2>
+      {% if contact.space_notes %}
+      <div class="brief-row">
+        <span class="brief-label">Space</span>
+        <span class="brief-val">{{ contact.space_notes }}</span>
+      </div>
+      {% endif %} {% if contact.access_notes %}
+      <div class="brief-row">
+        <span class="brief-label">Access</span>
+        <span class="brief-val">{{ contact.access_notes }}</span>
+      </div>
+      {% endif %} {% if contact.price_sensitivity %}
+      <div class="brief-row">
+        <span class="brief-label">Price sensitivity</span>
+        <span class="brief-val">{{ contact.price_sensitivity }}</span>
+      </div>
+      {% endif %} {% if not contact.space_notes and not contact.access_notes and
+      not contact.price_sensitivity %}
+      <p class="no-data">No venue notes yet.</p>
+      {% endif %}
+    </div>
+
+    {% if contact.notes %}
+    <div class="brief-section">
+      <h2>Notes</h2>
+      <p style="font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap">
+        {{ contact.notes }}
+      </p>
+    </div>
+    {% endif %}
+
+    <div class="interview-box">
+      <h2>After the meeting</h2>
+      <p style="font-size: 0.85rem; margin: 0 0 0.25rem">
+        Run the debrief interview in your terminal:
+      </p>
+      <code>engcrm-interview</code>
+      <p style="font-size: 0.8rem; color: #888; margin: 0.5rem 0 0">
+        It will ask for company name "{{ contact.name }}" — search for it there.
+      </p>
+    </div>
+
+    <div class="brief-actions">
+      <a href="/contacts/{{ contact.id }}" class="btn-edit">Edit record</a>
+      <a href="/contacts/" class="btn-back">← All contacts</a>
+    </div>
+  </body>
+</html>

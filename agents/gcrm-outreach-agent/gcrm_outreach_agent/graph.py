@@ -40,6 +40,7 @@ def create_outreach_agent(
         return {
             "run_id": run_id,
             "limit": state.get("limit", 20),
+            "learnings": state.get("learnings", []),
             "contacts": [],
             "drafts": [],
             "errors": [],
@@ -94,6 +95,7 @@ def create_outreach_agent(
                 mission, contact, language,
                 interactions=interactions,
                 website_content=website_content,
+                learnings=state.get("learnings", []),
             )
             try:
                 response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])

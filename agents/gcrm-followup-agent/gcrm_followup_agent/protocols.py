@@ -75,6 +75,11 @@ class ApprovalQueuer(Protocol):
     def __call__(self, contact_id: int, run_id: int, subject: str, body: str) -> int: ...
 
 
+class WarmOutcomeRecorder(Protocol):
+    """Record that a contact sent a warm or interested reply. Used for outreach quality analysis."""
+    def __call__(self, contact_id: int) -> None: ...
+
+
 class RunStarter(Protocol):
     """Log the start of an agent run. Returns run_id."""
     def __call__(self, agent_name: str, input_data: dict) -> int: ...

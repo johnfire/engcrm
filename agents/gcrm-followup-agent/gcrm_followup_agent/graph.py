@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, END
 from .protocols import (
     AgentMission, LanguageModel, InboxFetcher, ContactMatcher,
     InteractionLogger, OptOutSetter, InboxMessageMarker,
-    OverdueFetcher, EmailSender, ApprovalQueuer, RunStarter, RunFinisher,
+    OverdueFetcher, EmailSender, ApprovalQueuer, WarmOutcomeRecorder, RunStarter, RunFinisher,
 )
 from .state import FollowupState
 from .prompts import classify_reply_prompt, draft_reply_prompt, draft_followup_prompt
@@ -21,6 +21,7 @@ def create_followup_agent(
     fetch_overdue: OverdueFetcher,
     send_email: EmailSender,
     queue_for_approval: ApprovalQueuer,
+    record_warm_outcome: WarmOutcomeRecorder,
     start_run: RunStarter,
     finish_run: RunFinisher,
     mission: AgentMission,
@@ -131,6 +132,7 @@ def create_followup_agent(
                 "opt_out": "no_reply",
                 "other": "no_reply",
             }
+            interaction_logged = False
             try:
                 log_interaction(
                     contact_id=contact["id"],
@@ -139,8 +141,16 @@ def create_followup_agent(
                     summary=f"{classification}: {msg.get('subject', '')}",
                     outcome=outcome_map.get(classification, "no_reply"),
                 )
-            except Exception:
-                pass
+                interaction_logged = True
+            except Exception as e:
+                logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), e)
+
+            # Record warm signal for outreach quality loop — only if interaction committed
+            if interaction_logged and classification in ("interested", "warm"):
+                try:
+                    record_warm_outcome(contact["id"])
+                except Exception as e:
+                    logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), e)
 
             # Draft and send a reply for interested contacts
             # These are time-sensitive — someone just said yes — so send autonomously

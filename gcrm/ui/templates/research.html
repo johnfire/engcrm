@@ -1,10 +1,11 @@
-{% extends "base.html" %}
-{% block title %}Research — ArtCRM Supervisor{% endblock %}
-
+{% extends "base.html" %} {% block title %}Research — AI-CRM Leads{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1>Research</h1>
-  <span class="muted">{{ total }} cities — {{ level1_done }} level 1 done — {{ unscanned }} unscanned</span>
+  <span class="muted"
+    >{{ total }} cities — {{ level1_done }} level 1 done — {{ unscanned }}
+    unscanned</span
+  >
 </div>
 
 <div class="stats-row">
@@ -27,11 +28,9 @@
     <tr>
       <th>City</th>
       <th>Region</th>
-      <th>L1</th>
-      <th>L2</th>
-      <th>L3</th>
-      <th>L4</th>
-      <th>L5</th>
+      {% for lvl in levels %}
+      <th>L{{ lvl }}</th>
+      {% endfor %}
       <th>Contacts</th>
     </tr>
   </thead>
@@ -43,10 +42,13 @@
       {% for scan in c.levels %}
       <td class="center">
         {% if scan %}
-          <span title="Last run: {{ scan.last_run_at[:10] if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
-                style="color:var(--success); cursor:default">●</span>
+        <span
+          title="Last run: {{ scan.last_run_at[:10] if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
+          style="color: var(--success); cursor: default"
+          >●</span
+        >
         {% else %}
-          <span class="muted" title="Not yet run">○</span>
+        <span class="muted" title="Not yet run">○</span>
         {% endif %}
       </td>
       {% endfor %}
@@ -56,8 +58,9 @@
   </tbody>
 </table>
 
-<div class="muted small" style="margin-top:1rem">
-  ● = done &nbsp;○ = not run &nbsp;|&nbsp;
-  {% for lvl, label in level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %} &nbsp;|&nbsp; {% endif %}{% endfor %}
+<div class="muted small" style="margin-top: 1rem">
+  ● = done &nbsp;○ = not run &nbsp;|&nbsp; {% for lvl, label in
+  level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %}
+  &nbsp;|&nbsp; {% endif %}{% endfor %}
 </div>
 {% endblock %}

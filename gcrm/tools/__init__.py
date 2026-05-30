@@ -36,6 +36,8 @@ from .db import (
 from .search import web_search, geo_search, google_maps_search, fetch_page
 from .email import send_email, read_inbox
 from .llm import get_llm
+from .memory import capture_thought, search_gcrm_thoughts
+from .db import record_warm_outcome, get_outreach_outcomes
 
 __all__ = [
     "save_contact", "get_candidates", "get_cold_contacts", "update_contact",
@@ -51,4 +53,6 @@ __all__ = [
     "web_search", "geo_search", "google_maps_search", "fetch_page",
     "send_email", "read_inbox",
     "get_llm",
+    "capture_thought", "search_gcrm_thoughts",
+    "record_warm_outcome", "get_outreach_outcomes",
 ]

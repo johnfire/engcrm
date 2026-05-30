@@ -4,6 +4,7 @@ from typing import TypedDict
 class OutreachState(TypedDict):
     # --- inputs ---
     limit: int          # max contacts to process per run
+    learnings: list[str]  # style notes from Open Brain, empty list if none
 
     # --- working state ---
     run_id: int

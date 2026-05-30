@@ -9,6 +9,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "jinja2>=3.1.4",
     "python-multipart>=0.0.12",
+    "itsdangerous>=2.0",
     "httpx>=0.28.0",
     "mcp[cli]>=1.0.0",
     "gcrm-research-agent",
@@ -16,6 +17,7 @@ dependencies = [
     "gcrm-scout-agent",
     "gcrm-outreach-agent",
     "gcrm-followup-agent",
+    "duckduckgo-search>=8.1.1",
 ]
 
 [project.optional-dependencies]

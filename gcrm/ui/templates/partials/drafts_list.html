@@ -1,0 +1,56 @@
+{% if drafts %}
+<table class="drafts-table">
+  <thead>
+    <tr>
+      <th>Prospect</th>
+      <th>City</th>
+      <th>Type</th>
+      <th>Email</th>
+      <th>Subject</th>
+      <th>Held since</th>
+      <th>Note</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in drafts %}
+    <tr id="draft-{{ d.id }}">
+      <td>
+        <strong><a href="/contacts/{{ d.contact_id }}">{{ d.contact_name }}</a></strong>
+        {% if d.contact_notes %}
+        <div class="muted small notes-cell-inner" style="max-width:200px">{{ d.contact_notes[:120] }}{% if d.contact_notes|length > 120 %}…{% endif %}</div>
+        {% endif %}
+      </td>
+      <td class="muted">{{ d.city }}{% if d.country and d.country != 'DE' %} <span>{{ d.country }}</span>{% endif %}</td>
+      <td class="muted small">{{ d.contact_type or '—' }}</td>
+      <td class="muted small">{{ d.email or '—' }}</td>
+      <td>
+        <div class="draft-subject">{{ d.draft_subject }}</div>
+        <details style="margin-top:0.3rem">
+          <summary class="muted small" style="cursor:pointer">Preview email</summary>
+          <pre class="body-preview" style="margin-top:0.5rem">{{ d.draft_body }}</pre>
+        </details>
+      </td>
+      <td class="muted small">{{ d.created_at.strftime('%Y-%m-%d') }}</td>
+      <td class="muted small">{{ d.reviewer_note or '—' }}</td>
+      <td style="white-space:nowrap">
+        <form hx-post="/drafts/{{ d.id }}/approve"
+              hx-target="#drafts-list"
+              hx-swap="innerHTML"
+              style="display:inline">
+          <button type="submit" class="btn-primary btn-tiny">Send</button>
+        </form>
+        <form hx-post="/drafts/{{ d.id }}/reject"
+              hx-target="#drafts-list"
+              hx-swap="innerHTML"
+              style="display:inline;margin-left:0.3rem">
+          <button type="submit" class="btn-danger btn-tiny">Drop</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">No held drafts.</p>
+{% endif %}

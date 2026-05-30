@@ -1,0 +1,12 @@
+{% extends "base.html" %} {% block title %}Held Drafts — AI-CRM Leads{% endblock
+%} {% block content %}
+<div class="page-header">
+  <h1>Held Drafts</h1>
+  <span class="muted"
+    >{{ drafts|length }} email{{ 's' if drafts|length != 1 else '' }} on
+    hold</span
+  >
+</div>
+
+<div id="drafts-list">{% include "partials/drafts_list.html" %}</div>
+{% endblock %}
