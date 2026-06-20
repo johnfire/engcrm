@@ -30,6 +30,19 @@ All of this runs on demand. You approve emails and trigger scans through convers
 
 ---
 
+## Docs
+
+| Doc | Read it when… |
+| --- | --- |
+| [README.md](README.md) | You want the overview, setup, and how to run the pipeline (this file). |
+| [AGENTS.md](AGENTS.md) | You need how each of the agents works and how they're wired together. *(refreshed to `gcrm` paths; architecture prose rewrite pending)* |
+| [RUNBOOK.md](RUNBOOK.md) | You're setting up, operating, scheduling, or testing the system. *(refreshed to `gcrm` paths; architecture prose rewrite pending)* |
+| [STATUSES.md](STATUSES.md) | You need the meaning of each contact status in the pipeline. |
+| [docs/open-brain-guide.md](docs/open-brain-guide.md) | You're integrating the Open Brain memory server (connection, tools, project usage). |
+| [docs/older-docs/](docs/older-docs/) | Historical plans for shipped features — kept for provenance, not current. |
+
+---
+
 ## Architecture
 
 ```

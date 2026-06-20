@@ -31,7 +31,7 @@ Add to `.env`:
 
 ```
 OPEN_BRAIN_URL=https://qaonmvqhlvrrvfkqcjbf.supabase.co/functions/v1/open-brain-mcp
-OPEN_BRAIN_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb25tdnFobHZycnZma3FjamJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Mjk2NDksImV4cCI6MjA4OTAwNTY0OX0.AZwWYEdMQ93W2Bxkj-dGgy3_LMnSLPH885auXkYi5Ow
+OPEN_BRAIN_TOKEN=<SUPABASE_ANON_KEY>
 ```
 
 ---

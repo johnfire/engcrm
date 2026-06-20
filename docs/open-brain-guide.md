@@ -15,8 +15,8 @@ https://qaonmvqhlvrrvfkqcjbf.supabase.co/functions/v1/open-brain-mcp
 **Required headers:**
 
 ```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb25tdnFobHZycnZma3FjamJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Mjk2NDksImV4cCI6MjA4OTAwNTY0OX0.AZwWYEdMQ93W2Bxkj-dGgy3_LMnSLPH885auXkYi5Ow
-x-brain-key: bf402ca9240a2d5481bf7314033b3d02cbb3a691a6efc871ccb72d8cf022227c
+Authorization: Bearer <SUPABASE_ANON_KEY>
+x-brain-key: <OPEN_BRAIN_KEY>
 ```
 
 Both headers are required. The JWT (`Authorization`) authenticates with Supabase. The `x-brain-key` is the application-level key.
@@ -32,8 +32,8 @@ Add to your MCP server config (e.g. `~/.claude.json` under `mcpServers`):
   "type": "http",
   "url": "https://qaonmvqhlvrrvfkqcjbf.supabase.co/functions/v1/open-brain-mcp",
   "headers": {
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb25tdnFobHZycnZma3FjamJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Mjk2NDksImV4cCI6MjA4OTAwNTY0OX0.AZwWYEdMQ93W2Bxkj-dGgy3_LMnSLPH885auXkYi5Ow",
-    "x-brain-key": "bf402ca9240a2d5481bf7314033b3d02cbb3a691a6efc871ccb72d8cf022227c"
+    "Authorization": "Bearer <SUPABASE_ANON_KEY>",
+    "x-brain-key": "<OPEN_BRAIN_KEY>"
   }
 }
 ```
@@ -60,7 +60,7 @@ import logging
 import concurrent.futures
 
 OPEN_BRAIN_URL = "https://qaonmvqhlvrrvfkqcjbf.supabase.co/functions/v1/open-brain-mcp"
-OPEN_BRAIN_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhb25tdnFobHZycnZma3FjamJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0Mjk2NDksImV4cCI6MjA4OTAwNTY0OX0.AZwWYEdMQ93W2Bxkj-dGgy3_LMnSLPH885auXkYi5Ow"
+OPEN_BRAIN_TOKEN = "<SUPABASE_ANON_KEY>"
 
 logger = logging.getLogger(__name__)
 
@@ -250,5 +250,5 @@ Config comes from `.env`:
 
 ```
 OPEN_BRAIN_URL=https://qaonmvqhlvrrvfkqcjbf.supabase.co/functions/v1/open-brain-mcp
-OPEN_BRAIN_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+OPEN_BRAIN_TOKEN=<SUPABASE_ANON_KEY>
 ```

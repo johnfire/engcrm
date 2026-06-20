@@ -1,6 +1,8 @@
-# ArtCRM Agents — How They Work
+# gcrm Agents — How They Work
 
-This document explains all six agents in the artcrm system, how they interact, and how the whole thing relates to `theo-hits-the-road`.
+> **Note:** Paths, module names (`gcrm.supervisor.run`), and config locations (`gcrm/…`) have been refreshed to the generalized `gcrm` layout. The prose below still carries the original `theo-hits-the-road` two-system framing (separate "original CRM" + supervisor); a deeper narrative rewrite to reflect the self-contained `general-crm` is recommended. See README.md for the current overview.
+
+This document explains all six agents in the gcrm system, how they interact, and how the whole thing relates to `theo-hits-the-road`.
 
 ---
 
@@ -8,13 +10,13 @@ This document explains all six agents in the artcrm system, how they interact, a
 
 `theo-hits-the-road` is the original CRM. It owns the database schema — specifically the `contacts`, `interactions`, and `shows` tables — and provides a CLI and MCP server for managing them by hand. It is never modified by the agent system and always works as a standalone fallback.
 
-`artcrm-supervisor` adds four new tables to the same PostgreSQL database (`agent_runs`, `consent_log`, `approval_queue`, `inbox_messages`) and then automates the top of the contact funnel: finding leads, qualifying them, and initiating outreach. The two systems share data but do not depend on each other's code.
+`gcrm supervisor` adds four new tables to the same PostgreSQL database (`agent_runs`, `consent_log`, `approval_queue`, `inbox_messages`) and then automates the top of the contact funnel: finding leads, qualifying them, and initiating outreach. The two systems share data but do not depend on each other's code.
 
 ---
 
 ## The six agents
 
-### 1. Supervisor (artcrm-supervisor)
+### 1. Supervisor (gcrm supervisor)
 
 **What it is:** The orchestrator. Not really an "agent" itself — it's a LangGraph `StateGraph` that runs the five worker agents in sequence.
 
@@ -36,14 +38,14 @@ research → enrich → scout → outreach → followup
 
 **Configuration knobs:**
 
-- `ACTIVE_MISSION` in `src/config.py` — what the agents are working toward, including `website` for email sign-offs
-- `SCAN_LEVELS` in `src/supervisor/targets.py` — Google Maps search terms per scan level
+- `ACTIVE_MISSION` in `gcrm/config.py` — what the agents are working toward, including `website` for email sign-offs
+- `SCAN_LEVELS` in `gcrm/supervisor/targets.py` — Google Maps search terms per scan level
 - `EMAIL_ENABLED` in `.env` — set to `false` to disable all outgoing email globally
 - `PROTON_FROM_EMAIL` in `.env` — the From address on outgoing emails (can differ from the SMTP login address, e.g. an alias)
 
 ---
 
-### 2. Research Agent (artcrm-research-agent)
+### 2. Research Agent (gcrm-research-agent)
 
 **What it does:** Finds new potential contacts for a given city + level combination and saves them to the database as `status=candidate`.
 
@@ -77,7 +79,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ---
 
-### 3. Enrichment Agent (artcrm-enrichment-agent)
+### 3. Enrichment Agent (gcrm-enrichment-agent)
 
 **What it does:** Fills in missing contact details — website, email, phone — for contacts that came back from research without them. Runs automatically between research and scout on every pipeline invocation.
 
@@ -102,7 +104,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ---
 
-### 4. Scout Agent (artcrm-scout-agent)
+### 4. Scout Agent (gcrm-scout-agent)
 
 **What it does:** Evaluates every `candidate` contact and decides whether to pursue them.
 
@@ -138,7 +140,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ---
 
-### 5. Outreach Agent (artcrm-outreach-agent)
+### 5. Outreach Agent (gcrm-outreach-agent)
 
 **What it does:** Researches each venue, drafts a personalized first-contact email, and puts it in the approval queue. Does not send anything.
 
@@ -174,7 +176,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 ---
 
-### 6. Follow-up Agent (artcrm-followup-agent)
+### 6. Follow-up Agent (gcrm-followup-agent)
 
 > **Currently disabled.** The supervisor short-circuits this agent and returns immediately. All follow-up is handled manually while patterns are established.
 
@@ -236,7 +238,7 @@ The five worker agents are **tool-agnostic**. Each one defines its dependencies 
 - The supervisor injects concrete implementations at startup
 - Tests inject fakes — no real DB, no real LLM, no real SMTP needed
 
-The supervisor (`src/supervisor/graph.py`) is the only place that knows about the actual infrastructure.
+The supervisor (`gcrm/supervisor/graph.py`) is the only place that knows about the actual infrastructure.
 
 ---
 
@@ -258,14 +260,14 @@ The supervisor (`src/supervisor/graph.py`) is the only place that knows about th
 **Full pipeline run:**
 
 ```bash
-uv run python -m src.supervisor.run
+uv run python -m gcrm.supervisor.run
 ```
 
 **Research only (single city + level):**
 
 ```bash
-uv run python -m src.supervisor.run_research --city Konstanz --level 1
-uv run python -m src.supervisor.run_research --city Innsbruck --level 1 --country AT
+uv run python -m gcrm.supervisor.run_research --city Konstanz --level 1
+uv run python -m gcrm.supervisor.run_research --city Innsbruck --level 1 --country AT
 ```
 
 **Individual agent (for debugging):**
@@ -274,7 +276,7 @@ Each agent package exposes a `create_*_agent()` factory. You can instantiate and
 **Scheduled:**
 
 ```cron
-0 7 * * * cd ~/programming/artcrm-supervisor && uv run python -m src.supervisor.run >> ~/logs/supervisor.log 2>&1
+0 7 * * * cd ~/ppp2/engcrm && uv run python -m gcrm.supervisor.run >> ~/logs/supervisor.log 2>&1
 ```
 
 ---

@@ -1,4 +1,4 @@
-# ArtCRM Agent System — Runbook
+# gcrm Agent System — Runbook
 
 Complete setup, operation, and testing guide.
 
@@ -9,19 +9,21 @@ Complete setup, operation, and testing guide.
 | Repo | Purpose | Status |
 |---|---|---|
 | `theo-hits-the-road` | Original CRM, CLI, PostgreSQL schema | Untouched — always works as fallback |
-| `artcrm-supervisor` | Orchestrator, FastAPI UI, tool implementations, supervisor graph | Done |
-| `artcrm-research-agent` | Researches cities/industries for new contacts | Done |
-| `artcrm-scout-agent` | Scores candidates for mission fit | Done |
-| `artcrm-outreach-agent` | Drafts first-contact emails, queues for approval | Done |
-| `artcrm-followup-agent` | Monitors inbox, classifies replies, sends follow-ups | Done |
+| `gcrm supervisor` | Orchestrator, FastAPI UI, tool implementations, supervisor graph | Done |
+| `gcrm-research-agent` | Researches cities/industries for new contacts | Done |
+| `gcrm-scout-agent` | Scores candidates for mission fit | Done |
+| `gcrm-outreach-agent` | Drafts first-contact emails, queues for approval | Done |
+| `gcrm-followup-agent` | Monitors inbox, classifies replies, sends follow-ups | Done |
 
-All repos live at `~/programming/`.
+The repo lives at `~/ppp2/engcrm`. The five agent packages are vendored in-repo under `agents/gcrm-*-agent/` (installed as editable sources), not separate sibling repos.
+
+> **Note:** This Runbook still describes the original multi-repo `theo-hits-the-road` lineage (separate agent repos, shared `artcrm` DB, "original CRM fallback" framing). Paths, module names, and the DB name have been refreshed to the generalized `gcrm` layout, but a deeper prose rewrite of the architecture narrative is recommended. See README.md for the current self-contained `general-crm` description.
 
 ---
 
 ## Prerequisites
 
-- PostgreSQL running with the `artcrm` database (same one used by `theo-hits-the-road`)
+- PostgreSQL running with the `gcrm` database (same one used by `theo-hits-the-road`)
 - `uv` installed (`~/.local/bin/uv`)
 - Proton Bridge running locally (required for any email send/receive)
 - DeepSeek API key (routine tasks) and/or Anthropic API key (high-stakes drafts)
@@ -34,13 +36,13 @@ All repos live at `~/programming/`.
 ### 1. Configure
 
 ```bash
-cd ~/programming/artcrm-supervisor
+cd ~/ppp2/engcrm
 cp .env.example .env
 ```
 
 Edit `.env`:
 ```
-DATABASE_URL=postgresql://user:password@localhost/artcrm
+DATABASE_URL=postgresql://user:password@localhost/gcrm
 DEEPSEEK_API_KEY=your_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 ANTHROPIC_API_KEY=your_key          # optional
@@ -73,16 +75,16 @@ uv sync --extra agents --extra dev
 The four agent packages are listed as editable sources in `pyproject.toml` pointing to sibling directories. If they need reinstalling:
 
 ```bash
-uv add --editable ../artcrm-research-agent
-uv add --editable ../artcrm-scout-agent
-uv add --editable ../artcrm-outreach-agent
-uv add --editable ../artcrm-followup-agent
+uv add --editable agents/gcrm-research-agent
+uv add --editable agents/gcrm-scout-agent
+uv add --editable agents/gcrm-outreach-agent
+uv add --editable agents/gcrm-followup-agent
 ```
 
 ### 4. Start the UI
 
 ```bash
-uv run python -m src.api.main
+uv run python -m gcrm.api.main
 # http://127.0.0.1:8000
 ```
 
@@ -93,11 +95,11 @@ uv run python -m src.api.main
 ### Full supervisor run
 
 ```bash
-uv run python -m src.supervisor.run
+uv run python -m gcrm.supervisor.run
 ```
 
 Run order:
-1. **Research** — once per target in `src/supervisor/targets.py`
+1. **Research** — once per target in `gcrm/supervisor/targets.py`
 2. **Scout** — scores all `status=candidate` contacts
 3. **Outreach** — drafts emails for `status=cold` contacts, queues for approval
 4. **Follow-up** — reads inbox, classifies replies, sends follow-ups to overdue contacts
@@ -107,7 +109,7 @@ Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
 ### Schedule with cron
 
 ```cron
-0 7 * * * cd /home/christopher/programming/artcrm-supervisor && /home/christopher/.local/bin/uv run python -m src.supervisor.run >> /home/christopher/logs/supervisor.log 2>&1
+0 7 * * * cd ~/ppp2/engcrm && ~/.local/bin/uv run python -m gcrm.supervisor.run >> ~/logs/supervisor.log 2>&1
 ```
 
 ---
@@ -165,7 +167,7 @@ This reads the 6 city markdown files in `~/ai-workzone/art-marketing-by-city/`, 
 
 After import, run the supervisor normally. The scout agent will score and promote them; the research step will find nothing new to add for the same cities (also harmless).
 
-To skip the research step entirely, clear the target list in [src/supervisor/targets.py](src/supervisor/targets.py):
+To skip the research step entirely, clear the target list in [gcrm/supervisor/targets.py](gcrm/supervisor/targets.py):
 
 ```python
 RESEARCH_TARGETS = []
@@ -193,7 +195,7 @@ Default is `75`. Contacts that score below the threshold are set to `status=drop
 
 ## Configuring Research Targets
 
-Edit [src/supervisor/targets.py](src/supervisor/targets.py):
+Edit [gcrm/supervisor/targets.py](gcrm/supervisor/targets.py):
 
 ```python
 RESEARCH_TARGETS = [
@@ -208,7 +210,7 @@ Supported industries: `gallery`, `restaurant`, `hotel`, `cafe`, `museum`, `offic
 
 ## Changing the Mission
 
-Edit `src/config.py` — replace `ART_MISSION` and point `ACTIVE_MISSION` to it:
+Edit `gcrm/config.py` — replace `ART_MISSION` and point `ACTIVE_MISSION` to it:
 
 ```python
 SOFTWARE_MISSION = Mission(
@@ -247,24 +249,24 @@ pytest              # its own tests
 
 ```bash
 # Agent repos (each has its own venv)
-for repo in artcrm-research-agent artcrm-scout-agent artcrm-outreach-agent artcrm-followup-agent; do
+for repo in gcrm-research-agent gcrm-scout-agent gcrm-outreach-agent gcrm-followup-agent; do
     echo "=== $repo ===" && cd ~/programming/$repo && uv run pytest -v
 done
 
 # Supervisor
-cd ~/programming/artcrm-supervisor && uv run pytest -v
+cd ~/ppp2/engcrm && uv run pytest -v
 ```
 
 ### Test count and coverage
 
 | Repo | Tests | What's covered |
 |---|---|---|
-| `artcrm-research-agent` | 4 | Saves contacts, empty results, LLM JSON error, markdown-wrapped JSON |
-| `artcrm-scout-agent` | 4 | Promotes high score, drops low score, empty candidates, batch continues on error |
-| `artcrm-outreach-agent` | 4 | Queues compliant contact, blocks opted-out, handles draft error, empty contacts |
-| `artcrm-followup-agent` | 7 | Interested reply, opt-out flagging, rejected reply, overdue follow-up, empty inbox, unmatched sender, SMTP failure |
-| `artcrm-supervisor` — tools | 9 | `save_contact`, `check_compliance` (4 cases), `set_opt_out`, `start_run`, `finish_run` |
-| `artcrm-supervisor` — supervisor | 3 | All agents run, continues on failure, report includes all summaries |
+| `gcrm-research-agent` | 4 | Saves contacts, empty results, LLM JSON error, markdown-wrapped JSON |
+| `gcrm-scout-agent` | 4 | Promotes high score, drops low score, empty candidates, batch continues on error |
+| `gcrm-outreach-agent` | 4 | Queues compliant contact, blocks opted-out, handles draft error, empty contacts |
+| `gcrm-followup-agent` | 7 | Interested reply, opt-out flagging, rejected reply, overdue follow-up, empty inbox, unmatched sender, SMTP failure |
+| `gcrm supervisor` — tools | 9 | `save_contact`, `check_compliance` (4 cases), `set_opt_out`, `start_run`, `finish_run` |
+| `gcrm supervisor` — supervisor | 3 | All agents run, continues on failure, report includes all summaries |
 | **Total** | **31** | |
 
 ### Testing philosophy
@@ -331,9 +333,11 @@ Each run uses `thread_id = "supervisor-YYYY-MM-DDTHH"`. A crash mid-run resumes 
 ## File Layout (supervisor repo)
 
 ```
-artcrm-supervisor/
-  src/
+general-crm/
+  gcrm/
     mission.py              Mission dataclass (frozen)
+    vertical.py             Target-vertical config (edit to retarget)
+    vertical_context.md     Narrative context injected into outreach drafts
     config.py               Active mission + all env config
     db/
       connection.py         db() context manager
@@ -356,6 +360,13 @@ artcrm-supervisor/
     ui/
       templates/            Jinja2 + HTMX
       static/style.css
+    mcp/                    MCP server (optional Claude Code integration)
+  agents/
+    gcrm-research-agent/    LangGraph agent: finds contacts via Maps + web
+    gcrm-enrichment-agent/  LangGraph agent: fills in missing emails/websites
+    gcrm-scout-agent/       LangGraph agent: scores candidates for fit
+    gcrm-outreach-agent/    LangGraph agent: drafts and queues emails
+    gcrm-followup-agent/    LangGraph agent: inbox replies and follow-ups
   tests/
     conftest.py             Dummy env vars for test environment
     test_tools.py           DB tool unit tests (mocked)
