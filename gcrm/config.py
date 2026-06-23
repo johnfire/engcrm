@@ -17,6 +17,9 @@ ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 # --- Google Maps ---
 GOOGLE_MAPS_API_KEY: str = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
+# --- Whisper (self-hosted transcription, internal container on the compose network) ---
+WHISPER_URL: str = os.getenv("WHISPER_URL", "http://whisper:9000")
+
 # --- Bright Data ---
 BRIGHTDATA_API_TOKEN: str = os.getenv("BRIGHTDATA_API_TOKEN", "")
 

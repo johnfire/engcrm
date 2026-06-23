@@ -417,6 +417,43 @@ def log_interaction(
         )
 
 
+def search_contacts_by_name(query: str, limit: int = 5) -> list[dict]:
+    """Fuzzy contact search by business name or decision-maker — for voice-memo matching."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    like = f"%{q}%"
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, name, city, email, phone, decision_maker FROM contacts "
+            "WHERE deleted_at IS NULL AND (name ILIKE %s OR decision_maker ILIKE %s) "
+            "ORDER BY (lower(name) = lower(%s)) DESC, name ASC LIMIT %s",
+            (like, like, q, limit),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def log_voice_interaction(
+    contact_id: int,
+    summary: str,
+    *,
+    outcome: str | None = None,
+    next_action: str | None = None,
+    next_action_date: str | None = None,
+) -> None:
+    """Log a voice-memo interaction (method='voice'), with an optional follow-up date."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO interactions "
+            "(contact_id, interaction_date, method, direction, summary, outcome, next_action, next_action_date) "
+            "VALUES (%s, CURRENT_DATE, 'voice', NULL, %s, %s, %s, %s)",
+            (contact_id, summary, outcome, next_action, next_action_date or None),
+        )
+        cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))
+
+
 def get_overdue_contacts(days: int = 90) -> list[dict]:
     """
     Return contacts with status='contacted' that haven't had an interaction
