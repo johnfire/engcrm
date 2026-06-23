@@ -15,6 +15,7 @@ COPY agents/gcrm-outreach-agent/   ./agents/gcrm-outreach-agent/
 COPY agents/gcrm-followup-agent/   ./agents/gcrm-followup-agent/
 COPY engcrm-interview-agent/       ./engcrm-interview-agent/
 COPY gcrm/                         ./gcrm/
+COPY scripts/                      ./scripts/
 COPY pyproject.toml uv.lock ./
 
 RUN uv sync --extra agents --no-dev
