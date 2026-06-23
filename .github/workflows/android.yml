@@ -32,12 +32,11 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: android-actions/setup-android@v3
       - name: Install JS deps
         run: npm ci
       - name: Install NDK + cmake
-        run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "ndk;27.1.12297006" "cmake;3.22.1" >/dev/null
+        run: sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"
       - name: Write signing config from secrets
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/upload.keystore
