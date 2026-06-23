@@ -1,0 +1,268 @@
+"""
+Post-visit debrief interview — ask questions after a recon trip and save answers to the DB.
+
+Usage:
+    uv run python -m gcrm.supervisor.run_interview
+
+Voice input tip (Ubuntu):
+    Install nerd-dictation for system-wide voice typing:
+    https://github.com/ideasman42/nerd-dictation
+    Works in any terminal — speak and it types for you.
+"""
+import sys
+from datetime import date
+
+from gcrm.db.connection import db
+from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
+
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+def hr():
+    print("\n" + "─" * 50)
+
+
+def ask(prompt, default=None):
+    """Free-text input. Enter skips (returns default)."""
+    suffix = f" [{default}]" if default else " (Enter to skip)"
+    val = input(f"  {prompt}{suffix}: ").strip()
+    return val if val else default
+
+
+def menu(prompt, options, allow_skip=True):
+    """Numbered menu. Returns chosen value or None if skipped."""
+    print(f"\n  {prompt}")
+    for i, opt in enumerate(options, 1):
+        print(f"    {i}. {opt}")
+    if allow_skip:
+        print("    0. skip")
+    while True:
+        raw = input("  Choice: ").strip()
+        if allow_skip and raw in ("", "0"):
+            return None
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(options):
+                return options[idx]
+        except ValueError:
+            pass
+        print("  Invalid — try again.")
+
+
+def multi_menu(prompt, options):
+    """Numbered menu where multiple choices can be selected (comma-separated)."""
+    print(f"\n  {prompt}")
+    for i, opt in enumerate(options, 1):
+        print(f"    {i}. {opt}")
+    print("    0. skip / none")
+    while True:
+        raw = input("  Choices (e.g. 1,3): ").strip()
+        if not raw or raw == "0":
+            return []
+        try:
+            idxs = [int(x.strip()) - 1 for x in raw.split(",")]
+            if all(0 <= i < len(options) for i in idxs):
+                return [options[i] for i in idxs]
+        except ValueError:
+            pass
+        print("  Invalid — try again.")
+
+
+# ── contact search ────────────────────────────────────────────────────────────
+
+def search_contacts(query: str) -> list[dict]:
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, name, city, country, status, type
+            FROM contacts
+            WHERE deleted_at IS NULL
+              AND (lower(name) LIKE %s OR lower(city) LIKE %s)
+            ORDER BY lower(name)
+            LIMIT 15
+            """,
+            (f"%{query.lower()}%", f"%{query.lower()}%"),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def pick_contact() -> dict | None:
+    """Search for a contact and let the user select one. Returns contact dict or None."""
+    while True:
+        query = input("\n  Search business name or city (or Enter to finish): ").strip()
+        if not query:
+            return None
+
+        results = search_contacts(query)
+        if not results:
+            print("  No matches. Try again or Enter to finish.")
+            continue
+
+        print(f"\n  Found {len(results)} match(es):")
+        for i, c in enumerate(results, 1):
+            loc = f"{c['city']}, {c['country']}" if c.get("country") else c.get("city", "")
+            print(f"    {i}. {c['name']}  [{loc}]  {c['status']}")
+        print("    0. search again")
+
+        raw = input("  Select: ").strip()
+        if raw == "0" or not raw:
+            continue
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(results):
+                return results[idx]
+        except ValueError:
+            pass
+        print("  Invalid — try again.")
+
+
+# ── save ──────────────────────────────────────────────────────────────────────
+
+def save_updates(contact_id: int, updates: dict):
+    if not updates:
+        return
+    fields = ", ".join(f"{k} = %s" for k in updates)
+    values = list(updates.values()) + [contact_id]
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE contacts SET {fields}, updated_at = NOW() WHERE id = %s",
+            values,
+        )
+
+
+def append_notes(contact_id: int, new_text: str):
+    """Append text to existing notes without overwriting."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT notes FROM contacts WHERE id = %s", (contact_id,))
+        row = cur.fetchone()
+        existing = (row["notes"] or "").strip()
+        today = date.today().isoformat()
+        combined = f"{existing}\n\n[{today}] {new_text}".strip() if existing else f"[{today}] {new_text}"
+        cur.execute("UPDATE contacts SET notes = %s, updated_at = NOW() WHERE id = %s", (combined, contact_id))
+
+
+# ── interview ─────────────────────────────────────────────────────────────────
+
+def interview_contact(contact: dict) -> None:
+    hr()
+    loc = f"{contact['city']}" if contact.get("city") else ""
+    print(f"\n  Business: {contact['name']}  {loc}  [{contact['status']}]")
+
+    updates = {}
+    today_str = date.today().isoformat()
+
+    # Always mark last visited as today (can override)
+    visited = ask("Date of visit", default=today_str)
+    if visited:
+        updates["last_visited_at"] = visited
+
+    # Status update
+    current = contact.get("status", "")
+    new_status = menu(
+        f"Update status? (current: {current})",
+        ["candidate", "cold", "contacted", "networking_visit", "meeting", "accepted", "on_hold", "dropped", "do_not_contact"],
+    )
+    if new_status:
+        updates["status"] = new_status
+
+    # Decision maker
+    dm = ask("Who did you speak to? (name/role)")
+    if dm:
+        updates["decision_maker"] = dm
+
+    # Impressions
+    impression = menu(
+        "How did it go? (impression)",
+        ["warm", "neutral", "cold", "skeptical"],
+    )
+    if impression:
+        # First visit sets first_impression; always updates last_impression
+        updates["last_impression"] = impression
+        # Only set first_impression if not already set
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (contact["id"],))
+            row = cur.fetchone()
+            if not row["first_impression"]:
+                updates["first_impression"] = impression
+
+    # Materials left
+    materials = multi_menu(
+        "What did you leave behind?",
+        INTERVIEW_MATERIALS_OPTIONS,
+    )
+    if materials:
+        updates["materials_left"] = ", ".join(materials)
+
+    # Follow-up promised
+    followup = ask("Did you promise anything? (e.g. 'send proposal', 'visit in May')")
+    if followup:
+        updates["followup_promised"] = followup
+
+    # Preferred contact method
+    pref = menu(
+        "Best way to reach them?",
+        ["email", "phone", "drop in", "LinkedIn", "contact form"],
+    )
+    if pref:
+        updates["preferred_contact_method"] = pref
+
+    # Access / logistics
+    access = ask("Access notes? (train, parking, hilly, hard to find…)")
+    if access:
+        updates["access_notes"] = access
+
+    # Space
+    space = ask("Site notes? (size, setup, vibe…)")
+    if space:
+        updates["space_notes"] = space
+
+    # Price sensitivity
+    price = ask("Price/commercial notes? (budget-conscious, wants fixed price…)")
+    if price:
+        updates["price_sensitivity"] = price
+
+    # Free notes — appended, not overwritten
+    free_notes = ask("Anything else to note?")
+
+    # Save
+    save_updates(contact["id"], updates)
+    if free_notes:
+        append_notes(contact["id"], free_notes)
+
+    changed = list(updates.keys()) + (["notes"] if free_notes else [])
+    print(f"\n  Saved: {', '.join(changed)}")
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    print(f"\n  {INTERVIEW_APP_NAME} — Post-Visit Debrief")
+    print("  Enter each business you visited. Empty search = done.\n")
+    print("  Tip: use nerd-dictation for voice input on Ubuntu.")
+    print("  https://github.com/ideasman42/nerd-dictation")
+
+    count = 0
+    while True:
+        contact = pick_contact()
+        if contact is None:
+            break
+        interview_contact(contact)
+        count += 1
+
+    hr()
+    if count == 0:
+        print("\n  No businesses logged. Goodbye.\n")
+    else:
+        print(f"\n  Done. {count} business(es) updated. Goodbye.\n")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n  Interrupted. Any saves already made are kept.\n")
+        sys.exit(0)

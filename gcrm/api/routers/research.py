@@ -16,16 +16,25 @@ LEVEL_LABELS = {lvl: cfg["label"] for lvl, cfg in SCAN_LEVELS.items()}
 def research_page(request: Request):
     cities = get_all_city_scan_status()
 
-    # Build per-city level map for easy template access
+    # Build per-city level map (scan + emailed count) for easy template access
     for c in cities:
         scans_by_level = {s["level"]: s for s in (c["scans"] or [])}
-        c["levels"] = [scans_by_level.get(lvl) for lvl in SCAN_LEVELS]
-        c["total_contacts"] = sum(s["contacts_found"] for s in (c["scans"] or []))
+        emailed = c.get("emailed_by_level") or {}
+        c["levels"] = [
+            {"scan": scans_by_level.get(lvl), "emailed": int(emailed.get(str(lvl), 0))}
+            for lvl in SCAN_LEVELS
+        ]
+        c["emailed_total"] = sum(int(v) for v in emailed.values())
+        c["total_contacts"] = c.get("total_contacts") or 0
         c["scanned_levels"] = len(c["scans"] or [])
 
     total = len(cities)
-    level1_done = sum(1 for c in cities if any((s or {}).get("level") == 1 for s in c["levels"] if s))
+    level1_done = sum(1 for c in cities if any((l["scan"] or {}).get("level") == 1 for l in c["levels"]))
     unscanned = sum(1 for c in cities if not c["scans"])
+    totals = {
+        "contacts": sum(c["total_contacts"] for c in cities),
+        "emailed": sum(c["emailed_total"] for c in cities),
+    }
 
     return templates.TemplateResponse("research.html", {
         "request": request,
@@ -34,5 +43,6 @@ def research_page(request: Request):
         "total": total,
         "level1_done": level1_done,
         "unscanned": unscanned,
+        "totals": totals,
         "levels": list(SCAN_LEVELS.keys()),
     })

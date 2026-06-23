@@ -14,7 +14,7 @@ templates.env.filters["urlenc"] = quote_plus
 VALID_STATUSES = (
     "candidate", "cold", "contacted", "meeting", "proposal",
     "accepted", "rejected", "dormant", "on_hold", "dropped", "do_not_contact",
-    "networking_visit", "bad_email",
+    "networking_visit", "bad_email", "cannot_find_more_data",
 )
 
 PAGE_SIZE = 100

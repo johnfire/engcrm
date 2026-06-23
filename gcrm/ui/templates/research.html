@@ -21,6 +21,10 @@
     <span class="stat-value">{{ unscanned }}</span>
     <span class="stat-label">unscanned</span>
   </div>
+  <div class="stat">
+    <span class="stat-value">{{ totals.emailed }}</span>
+    <span class="stat-label">emailed</span>
+  </div>
 </div>
 
 <table>
@@ -31,6 +35,7 @@
       {% for lvl in levels %}
       <th>L{{ lvl }}</th>
       {% endfor %}
+      <th>Sent</th>
       <th>Contacts</th>
     </tr>
   </thead>
@@ -39,23 +44,34 @@
     <tr>
       <td><strong>{{ c.city }}</strong></td>
       <td class="muted small">{{ c.region or c.country }}</td>
-      {% for scan in c.levels %}
+      {% for l in c.levels %}
       <td class="center">
-        {% if scan %}
+        {% if l.scan %}
         <span
-          title="Last run: {{ scan.last_run_at[:10] if scan.last_run_at else '—' }} | Found: {{ scan.contacts_found }}"
+          title="Last run: {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }} | Found: {{ l.scan.contacts_found }}"
           style="color: var(--success); cursor: default"
           >●</span
         >
         {% else %}
         <span class="muted" title="Not yet run">○</span>
         {% endif %}
+        {% if l.emailed %}<span class="muted small" title="{{ l.emailed }} emailed">{{ l.emailed }}</span>{% endif %}
       </td>
       {% endfor %}
+      <td class="center">{{ c.emailed_total or '—' }}</td>
       <td class="muted">{{ c.total_contacts or '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>
+  <tfoot>
+    <tr>
+      <td><strong>Total</strong></td>
+      <td></td>
+      {% for lvl in levels %}<td></td>{% endfor %}
+      <td class="center"><strong>{{ totals.emailed }}</strong></td>
+      <td><strong>{{ totals.contacts }}</strong></td>
+    </tr>
+  </tfoot>
 </table>
 
 <div class="muted small" style="margin-top: 1rem">
