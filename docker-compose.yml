@@ -1,5 +1,8 @@
 services:
   app:
+    # Image is built and pushed by CI (.github/workflows/backend.yml); the VPS pulls it.
+    # For a local build instead, run: docker compose build (uses the Dockerfile).
+    image: ghcr.io/johnfire/engcrm:latest
     build:
       context: .
       dockerfile: Dockerfile

@@ -1,0 +1,65 @@
+name: android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engcrm-mobile/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Empty unless the secret is set — the Play submit step is skipped when empty.
+      PLAY_SA: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+    defaults:
+      run:
+        working-directory: engcrm-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: engcrm-mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install JS deps
+        run: npm ci
+      - name: Install NDK + cmake
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "ndk;27.1.12297006" "cmake;3.22.1" >/dev/null
+      - name: Write signing config from secrets
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/upload.keystore
+          cat > android/keystore.properties <<EOF
+          ENGCRM_UPLOAD_STORE_FILE=$(pwd)/android/upload.keystore
+          ENGCRM_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
+          ENGCRM_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ENGCRM_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+      - name: Build signed AAB
+        run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }}
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: engcrm-release-aab
+          path: engcrm-mobile/android/app/build/outputs/bundle/release/app-release.aab
+      - name: Submit to Google Play (internal track)
+        if: ${{ env.PLAY_SA != '' }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ env.PLAY_SA }}
+          packageName: de.christopherrehm.engcrm
+          releaseFiles: engcrm-mobile/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

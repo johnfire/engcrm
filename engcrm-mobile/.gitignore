@@ -3,3 +3,7 @@ node_modules/
 dist/
 *.orig.*
 .env
+
+# signing secrets (never commit)
+credentials/
+android/keystore.properties
