@@ -87,6 +87,46 @@ export async function runResearch(
   await client.post("/api/research/run", { city, level, country });
 }
 
+// --- Card capture ---
+// Upload a card photo (multipart). Don't set Content-Type — RN sets the
+// multipart boundary itself; overriding it drops the boundary and breaks parsing.
+export async function captureCard(
+  imageUri: string,
+  gps?: { lat: number; lng: number },
+): Promise<CaptureResult> {
+  const form = new FormData();
+  form.append("image", { uri: imageUri, name: "card.jpg", type: "image/jpeg" } as any);
+  if (gps) {
+    form.append("gps_lat", String(gps.lat));
+    form.append("gps_lng", String(gps.lng));
+  }
+  const resp = await client.post("/api/cards", form, { timeout: 60000 });
+  return resp.data;
+}
+
+export async function confirmCard(
+  captureId: number,
+  fields: CardFields,
+  linkToContactId?: number | null,
+): Promise<{ contact_id: number; capture_id: number }> {
+  const resp = await client.post(`/api/cards/${captureId}/confirm`, {
+    fields,
+    link_to_contact_id: linkToContactId ?? null,
+  });
+  return resp.data;
+}
+
+export async function discardCard(captureId: number): Promise<void> {
+  await client.post(`/api/cards/${captureId}/discard`);
+}
+
+export async function listPendingCards(): Promise<PendingCard[]> {
+  const resp = await client.get("/api/cards", {
+    params: { status: "pending_review" },
+  });
+  return resp.data;
+}
+
 // --- Types ---
 export interface Approval {
   id: number;
@@ -148,4 +188,51 @@ export interface AgentRun {
   summary: string | null;
   started_at: string;
   finished_at: string | null;
+}
+
+export interface CardFields {
+  is_card?: boolean;
+  confidence?: number | null;
+  company?: string | null;
+  name?: string | null;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  industry?: string | null;
+  language?: string | null;
+  note?: string | null;
+  error?: string;
+}
+
+export interface DupSuggestion {
+  id: number;
+  name: string;
+  city: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface CaptureResult {
+  capture_id: number;
+  is_card: boolean;
+  confidence: number | null;
+  fields: CardFields;
+  dup_suggestion: DupSuggestion | null;
+  cost_usd: number;
+}
+
+export interface PendingCard {
+  id: number;
+  captured_at: string;
+  status: string;
+  extraction_status: string;
+  confidence: number | null;
+  extracted: CardFields | null;
+  dup_contact_id: number | null;
+  contact_id: number | null;
 }

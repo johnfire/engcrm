@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  View,
   Text,
   TextInput,
   TouchableOpacity,
@@ -17,6 +18,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleLogin() {
@@ -52,21 +54,29 @@ export default function LoginScreen() {
         returnKeyType="next"
         autoFocus
       />
-      <TextInput
-        style={s.input}
-        placeholder="Password"
-        placeholderTextColor="#555"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        onSubmitEditing={handleLogin}
-        returnKeyType="go"
-      />
-      <TouchableOpacity
-        style={s.button}
-        onPress={handleLogin}
-        disabled={loading}
-      >
+      <View style={s.pwRow}>
+        <TextInput
+          style={s.pwInput}
+          placeholder="Password"
+          placeholderTextColor="#555"
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType="password"
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={handleLogin}
+          returnKeyType="go"
+        />
+        <TouchableOpacity
+          onPress={() => setShowPassword((v) => !v)}
+          style={s.eyeBtn}
+          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+        >
+          <Text style={s.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
+        </TouchableOpacity>
+      </View>
+      <TouchableOpacity style={s.button} onPress={handleLogin} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
@@ -96,6 +106,18 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ffffff20",
   },
+  pwRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1a1a2e",
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#ffffff20",
+  },
+  pwInput: { flex: 1, color: "#fff", padding: 16, fontSize: 16 },
+  eyeBtn: { paddingHorizontal: 14, paddingVertical: 12 },
+  eyeText: { fontSize: 20 },
   button: {
     backgroundColor: "#7c6fff",
     borderRadius: 10,

@@ -34,6 +34,10 @@ export default function DrawerLayout() {
         options={{ title: "Approvals", drawerLabel: "Approvals" }}
       />
       <Drawer.Screen
+        name="capture"
+        options={{ title: "Scan Card", drawerLabel: "📷 Scan Card" }}
+      />
+      <Drawer.Screen
         name="inbox"
         options={{ title: "Inbox", drawerLabel: "Inbox" }}
       />
@@ -52,6 +56,10 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="contact-detail"
         options={{ drawerItemStyle: { display: "none" }, title: "Contact" }}
+      />
+      <Drawer.Screen
+        name="card-confirm"
+        options={{ drawerItemStyle: { display: "none" }, title: "Review Card" }}
       />
     </Drawer>
   );
