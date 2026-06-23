@@ -13,8 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Fast gate: typecheck + unit tests. The (slow) build only runs if this passes.
+  mobile-test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engcrm-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: engcrm-mobile/package-lock.json
+      - name: Install JS deps
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+
+  build:
+    needs: mobile-test
+    # Self-hosted runner on the laptop (free, fast, has the Android toolchain).
+    # Falls back to nothing if the laptop is off — the job queues until it's up.
+    runs-on: [self-hosted, android]
     env:
       # Empty unless the secret is set — the Play submit step is skipped when empty.
       PLAY_SA: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
