@@ -32,6 +32,7 @@ from gcrm.tools import (
     send_email, read_inbox,
     get_llm,
     record_warm_outcome, search_gcrm_thoughts,
+    mark_bad_email, set_visit_when_nearby, save_inbox_classification,
 )
 
 from gcrm_research_agent import create_research_agent
@@ -77,6 +78,7 @@ def _build_agents():
     enrichment = create_enrichment_agent(
         llm=enrichment_llm,
         web_search=web_search,
+        fetch_page=fetch_page,
         fetch_contacts=get_contacts_needing_enrichment,
         update_contact=update_contact_details,
         start_run=start_run,
@@ -112,7 +114,9 @@ def _build_agents():
         match_contact=match_contact_by_email,
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,
-        mark_message_processed=mark_message_processed,
+        handle_bounce=mark_bad_email,
+        set_visit_when_nearby=set_visit_when_nearby,
+        save_classification=save_inbox_classification,
         fetch_overdue=get_overdue_contacts,
         send_email=send_email,
         queue_for_approval=queue_for_approval,

@@ -20,4 +20,6 @@ class FollowupState(TypedDict):
     sent_count: int
     queued_count: int
     opt_out_count: int
+    warm_count: int         # warm replies — flagged for visit_when_nearby
+    bounce_count: int       # delivery failures detected and marked as bad_email
     summary: str

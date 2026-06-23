@@ -2,8 +2,10 @@
 All database operations used as injected tools in the agents.
 Every function uses parameterised queries — no string interpolation on user data.
 """
+import difflib
 import json
 import logging
+import re
 from datetime import date, datetime, timezone
 
 from gcrm.db.connection import db
@@ -23,6 +25,37 @@ def _serialize_row(row: dict) -> dict:
 # Contacts
 # ---------------------------------------------------------------------------
 
+def _load_ignored_chains(cur) -> list[str]:
+    cur.execute("SELECT name FROM ignored_chains")
+    return [r["name"] for r in cur.fetchall()]
+
+
+def get_ignored_chains() -> list[str]:
+    """Return all chain names from the ignored_chains blocklist."""
+    with db() as conn:
+        cur = conn.cursor()
+        return _load_ignored_chains(cur)
+
+
+def _normalize_for_chain_match(name: str) -> str:
+    return re.sub(r"[\s\-_/&'\".,;:!?]+", " ", name.lower()).strip()
+
+
+def _is_ignored_chain(name: str, chains: list[str], threshold: float = 0.90) -> bool:
+    """True if `name` matches a blocklisted chain (prefix or fuzzy ~90%)."""
+    n = _normalize_for_chain_match(name)
+    for chain in chains:
+        c = _normalize_for_chain_match(chain)
+        # Prefix match: catches "Brand - Branch Name" patterns
+        if n == c or n.startswith(c + " "):
+            return True
+        # Fuzzy match: catches typos / punctuation variants
+        sm = difflib.SequenceMatcher(None, n, c)
+        if sm.quick_ratio() >= threshold and sm.ratio() >= threshold:
+            return True
+    return False
+
+
 def save_contact(
     name: str,
     city: str,
@@ -33,33 +66,52 @@ def save_contact(
     email: str = "",
     phone: str = "",
     notes: str = "",
+    scan_level: int | None = None,
+    status: str = "candidate",
+    neighborhood: str = "",
 ) -> int:
     """
-    Insert a new contact with status='candidate'.
-    Deduplication key is (name, city). Returns the new contact's id on insert,
-    or 0 if the contact already exists (duplicate) or on error. A 0 return means
-    "not newly created" — callers rely on this falsy value to skip/count
-    duplicates rather than re-process an already-known contact.
+    Insert a new contact (default status 'candidate').
+    Returns the new contact's id on insert, or 0 if NOT newly created — i.e. an
+    ignored chain, an email duplicate, or a (name, city) duplicate. Callers rely
+    on this falsy value to skip/count duplicates rather than re-process a known
+    contact.
     """
     with db() as conn:
         cur = conn.cursor()
-        # Check for duplicate
+        # Skip names matching the ignored-chains blocklist
+        if _is_ignored_chain(name, _load_ignored_chains(cur)):
+            logger.info("save_contact: ignored chain skipped — %s / %s", name, city)
+            return 0
+
+        # Email dedup — already have an active contact with this email
+        if email:
+            cur.execute(
+                "SELECT id FROM contacts WHERE lower(email) = lower(%s) AND deleted_at IS NULL",
+                (email,),
+            )
+            if cur.fetchone():
+                logger.debug("save_contact: email duplicate skipped — %s (%s)", name, email)
+                return 0
+
+        # Name+city dedup
         cur.execute(
             "SELECT id FROM contacts WHERE lower(name) = lower(%s) AND lower(city) = lower(%s)",
             (name, city),
         )
-        existing = cur.fetchone()
-        if existing:
+        if cur.fetchone():
             logger.debug("save_contact: duplicate skipped — %s / %s", name, city)
             return 0
 
         cur.execute(
             """
-            INSERT INTO contacts (name, city, country, type, website, email, phone, notes, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'candidate')
+            INSERT INTO contacts
+                (name, city, country, type, website, email, phone, notes, status, scan_level, neighborhood)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (name, city, country, type or None, website or None, email or None, phone or None, notes or None),
+            (name, city, country, type or None, website or None, email or None,
+             phone or None, notes or None, status, scan_level, neighborhood or None),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
@@ -78,13 +130,43 @@ def get_candidates(limit: int = 50) -> list[dict]:
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
-def get_cold_contacts(limit: int = 20) -> list[dict]:
-    """Return contacts with status='cold' ready for first outreach."""
+def get_cold_contacts(
+    limit: int = 20,
+    city: str | None = None,
+    scan_level: int | None = None,
+    neighborhood: str | None = None,
+    min_tier: str | None = None,
+) -> list[dict]:
+    """
+    Return contacts with status='cold' ready for first outreach, excluding any
+    already in the approval queue, best-fit first.
+
+    min_tier: 'normal' excludes tier='poor'; 'wealthy' returns only wealthy.
+              NULL-tier contacts are always included unless min_tier is set.
+    """
     with db() as conn:
         cur = conn.cursor()
+        conditions = ["status = 'cold'", "id NOT IN (SELECT contact_id FROM approval_queue)"]
+        params: list = []
+        if city:
+            conditions.append("lower(city) = lower(%s)")
+            params.append(city)
+        if scan_level is not None:
+            conditions.append("scan_level = %s")
+            params.append(scan_level)
+        if neighborhood:
+            conditions.append("lower(neighborhood) = lower(%s)")
+            params.append(neighborhood)
+        if min_tier == "normal":
+            conditions.append("(neighborhood_tier IS NULL OR neighborhood_tier != 'poor')")
+        elif min_tier == "wealthy":
+            conditions.append("neighborhood_tier = 'wealthy'")
+        params.append(limit)
+        where = " AND ".join(conditions)
         cur.execute(
-            "SELECT * FROM contacts WHERE status = 'cold' ORDER BY created_at ASC LIMIT %s",
-            (limit,),
+            f"SELECT * FROM contacts WHERE {where} "
+            f"ORDER BY fit_score DESC NULLS LAST, created_at ASC LIMIT %s",
+            params,
         )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
@@ -111,41 +193,59 @@ def update_contact(contact_id: int, status: str, fit_score: int, notes: str = ""
             )
 
 
-def get_contacts_needing_enrichment(limit: int = 50) -> list[dict]:
-    """Return contacts missing both website and email, any status."""
+def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
+    """Return contacts missing an email, never-enriched first, skipping dead-ends."""
     with db() as conn:
         cur = conn.cursor()
+        conditions = [
+            "(email IS NULL OR email = '')",
+            "deleted_at IS NULL",
+            "status != 'cannot_find_more_data'",
+        ]
+        params: list = []
+        if city:
+            conditions.append("lower(city) = lower(%s)")
+            params.append(city)
+        params.append(limit)
+        where = " AND ".join(conditions)
         cur.execute(
-            """
-            SELECT * FROM contacts
-            WHERE (website IS NULL OR website = '')
-              AND (email IS NULL OR email = '')
-            ORDER BY created_at ASC
-            LIMIT %s
-            """,
-            (limit,),
+            f"SELECT * FROM contacts WHERE {where} "
+            f"ORDER BY enriched_at ASC NULLS FIRST, created_at ASC LIMIT %s",
+            params,
         )
         return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
-    """Update arbitrary contact fields (website, email, phone). Ignores unknown keys."""
-    allowed = {"website", "email", "phone"}
+    """
+    Update contact fields (website, email, phone, status). Ignores unknown keys.
+    Always stamps enriched_at so the contact counts as processed by enrichment,
+    even when no field changed.
+    """
+    allowed = {"website", "email", "phone", "status"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v}
-    if not fields:
-        return
     set_clause = ", ".join(f"{k} = %s" for k in fields)
+    if set_clause:
+        set_clause += ", enriched_at = NOW(), updated_at = NOW()"
+    else:
+        set_clause = "enriched_at = NOW(), updated_at = NOW()"
     values = list(fields.values()) + [contact_id]
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"UPDATE contacts SET {set_clause}, updated_at = NOW() WHERE id = %s",
+            f"UPDATE contacts SET {set_clause} WHERE id = %s",
             values,
         )
 
 
+_GENERIC_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "proton.me",
+    "protonmail.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "icloud.com",
+}
+
+
 def match_contact_by_email(from_email: str) -> dict | None:
-    """Find a contact by email address. Returns None if not found."""
+    """Find a contact by email, with a corporate-domain fallback. None if not found."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -153,6 +253,16 @@ def match_contact_by_email(from_email: str) -> dict | None:
             (from_email,),
         )
         row = cur.fetchone()
+        if row:
+            return _serialize_row(dict(row))
+        # Fallback: match any contact at the same corporate domain (not freemail)
+        domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
+        if domain and domain not in _GENERIC_EMAIL_DOMAINS:
+            cur.execute(
+                "SELECT * FROM contacts WHERE lower(email) LIKE lower(%s) LIMIT 1",
+                (f"%@{domain}",),
+            )
+            row = cur.fetchone()
         return _serialize_row(dict(row)) if row else None
 
 
@@ -366,6 +476,58 @@ def mark_message_processed(inbox_message_id: int, contact_id: int | None) -> Non
         )
 
 
+def save_inbox_classification(
+    inbox_message_id: int,
+    contact_id: int | None,
+    classification: str,
+    reasoning: str,
+) -> None:
+    """Persist the LLM classification + reasoning and mark the message processed."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE inbox_messages
+            SET processed = TRUE,
+                matched_contact_id = %s,
+                classification = %s,
+                classification_reasoning = %s
+            WHERE id = %s
+            """,
+            (contact_id, classification, reasoning, inbox_message_id),
+        )
+
+
+def mark_bad_email(contact_id: int) -> None:
+    """Mark a contact's email undeliverable: status='bad_email' + log a bounce interaction."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET status = 'bad_email', updated_at = NOW() WHERE id = %s",
+            (contact_id,),
+        )
+        cur.execute(
+            """
+            INSERT INTO interactions
+                (contact_id, interaction_date, method, direction, summary, outcome)
+            VALUES (%s, NOW(), 'email', 'inbound', 'Delivery failure — email bounced', 'bounce')
+            """,
+            (contact_id,),
+        )
+        logger.info("mark_bad_email: contact_id=%d marked as bad_email", contact_id)
+
+
+def set_visit_when_nearby(contact_id: int) -> None:
+    """Flag a contact for a personal visit next time you're in the area."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET visit_when_nearby = TRUE, updated_at = NOW() WHERE id = %s",
+            (contact_id,),
+        )
+        logger.info("set_visit_when_nearby: contact_id=%d flagged", contact_id)
+
+
 # ---------------------------------------------------------------------------
 # Cities + scan levels
 # ---------------------------------------------------------------------------
@@ -470,10 +632,28 @@ def get_all_city_scan_status() -> list[dict]:
                         ) ORDER BY cs.level
                     ) FILTER (WHERE cs.level IS NOT NULL),
                     '[]'
-                ) AS scans
+                ) AS scans,
+                COALESCE(
+                    json_object_agg(emailed.scan_level::text, emailed.cnt)
+                        FILTER (WHERE emailed.scan_level IS NOT NULL),
+                    '{}'
+                ) AS emailed_by_level,
+                COALESCE(live.cnt, 0) AS total_contacts
             FROM cities ci
             LEFT JOIN city_scans cs ON cs.city_id = ci.id
-            GROUP BY ci.id, ci.city, ci.country, ci.region
+            LEFT JOIN (
+                SELECT lower(city) AS city_lower, scan_level, COUNT(*) AS cnt
+                FROM contacts
+                WHERE status IN ('contacted', 'meeting', 'proposal', 'accepted')
+                  AND scan_level IS NOT NULL
+                GROUP BY lower(city), scan_level
+            ) emailed ON lower(ci.city) = emailed.city_lower
+            LEFT JOIN (
+                SELECT lower(city) AS city_lower, COUNT(*) AS cnt
+                FROM contacts
+                GROUP BY lower(city)
+            ) live ON lower(ci.city) = live.city_lower
+            GROUP BY ci.id, ci.city, ci.country, ci.region, live.cnt
             ORDER BY ci.city, ci.country
             """,
         )
@@ -601,7 +781,9 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def start_run(agent_name: str, input_data: dict) -> int:
-    """Insert a new agent_run record. Returns run_id."""
+    """Insert a new agent_run record. Returns run_id. Resets per-run cost counters."""
+    from gcrm.tools.costs import reset_costs
+    reset_costs()
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -615,7 +797,11 @@ def start_run(agent_name: str, input_data: dict) -> int:
 
 
 def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> None:
-    """Update an agent_run record with completion details."""
+    """Update an agent_run record with completion details + record run costs."""
+    from gcrm.tools.costs import get_costs, format_costs
+    costs = get_costs()
+    cost_line = format_costs()
+    full_summary = f"{summary} | {cost_line}" if summary else cost_line
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -624,8 +810,39 @@ def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> Non
             SET status = %s, summary = %s, output_json = %s, finished_at = NOW()
             WHERE id = %s
             """,
-            (status, summary, json.dumps(output_data, default=str), run_id),
+            (status, full_summary, json.dumps(output_data, default=str), run_id),
         )
+        cur.execute(
+            """
+            INSERT INTO run_costs (run_id, search_queries, llm_usage_json, total_usd)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                run_id,
+                costs["breakdown"].get("web_search", {}).get("queries", 0),
+                json.dumps({k: v for k, v in costs["breakdown"].items() if k != "web_search"}),
+                costs["total_usd"],
+            ),
+        )
+
+
+def get_run_costs(limit: int = 20) -> list[dict]:
+    """Return recent run costs joined with agent_run summaries."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT
+                rc.run_id, ar.agent_name, ar.started_at, ar.finished_at,
+                rc.search_queries, rc.llm_usage_json, rc.total_usd
+            FROM run_costs rc
+            JOIN agent_runs ar ON ar.id = rc.run_id
+            ORDER BY rc.recorded_at DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
+        return [_serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------

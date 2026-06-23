@@ -42,8 +42,10 @@ def make_tools():
     def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
         return [{"name": "Test Gallery", "address": "Main St 1", "city": city, "country": country}]
 
-    def save_contact(name, city, *, country="DE", type="", website="", email="", phone="", notes="") -> int:
-        saved.append({"name": name, "city": city})
+    def save_contact(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
+                     scan_level=None, neighborhood="", status="candidate") -> int:
+        saved.append({"name": name, "city": city, "scan_level": scan_level,
+                      "neighborhood": neighborhood, "status": status})
         return len(saved)
 
     def start_run(agent_name: str, input_data: dict) -> int:

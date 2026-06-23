@@ -13,6 +13,45 @@ from gcrm.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, ANTHROPIC_API_KEY
 
 logger = logging.getLogger(__name__)
 
+_cost_cb = None
+
+
+def _get_cost_callback():
+    """
+    Lazily build a callback that captures token usage into the cost tracker.
+    Built on demand so this module stays importable without the agents extra
+    (langchain) installed — the base web app imports get_llm transitively.
+    """
+    global _cost_cb
+    if _cost_cb is not None:
+        return _cost_cb
+    from langchain_core.callbacks import BaseCallbackHandler
+
+    class _CostCallback(BaseCallbackHandler):
+        def on_llm_end(self, response, **kwargs) -> None:
+            from gcrm.tools.costs import record_llm
+            try:
+                for gen_list in response.generations:
+                    for gen in gen_list:
+                        msg = getattr(gen, "message", None)
+                        if msg and hasattr(msg, "usage_metadata"):
+                            meta = msg.usage_metadata or {}
+                            rmeta = getattr(msg, "response_metadata", None) or {}
+                            model = rmeta.get("model_name") or rmeta.get("model", "unknown")
+                            cached = (meta.get("input_token_details") or {}).get("cache_read", 0)
+                            record_llm(model, meta.get("input_tokens", 0), meta.get("output_tokens", 0), cached)
+                            return
+                # Fallback: OpenAI-compatible response (DeepSeek)
+                usage = (response.llm_output or {}).get("token_usage", {})
+                if usage:
+                    model = (response.llm_output or {}).get("model_name", "deepseek-chat")
+                    record_llm(model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+            except Exception as e:
+                logger.debug("cost callback error: %s", e)
+
+    _cost_cb = _CostCallback()
+    return _cost_cb
+
 
 def get_llm(model: str = "deepseek-chat"):
     """
@@ -27,6 +66,7 @@ def get_llm(model: str = "deepseek-chat"):
             api_key=DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL,
             temperature=0.3,
+            callbacks=[_get_cost_callback()],
         )
     elif model in ("claude", "claude-sonnet"):
         from langchain_anthropic import ChatAnthropic
@@ -35,6 +75,7 @@ def get_llm(model: str = "deepseek-chat"):
             api_key=ANTHROPIC_API_KEY,
             temperature=0.3,
             max_tokens=8192,
+            callbacks=[_get_cost_callback()],
         )
     elif model == "claude-haiku":
         from langchain_anthropic import ChatAnthropic
@@ -43,6 +84,7 @@ def get_llm(model: str = "deepseek-chat"):
             api_key=ANTHROPIC_API_KEY,
             temperature=0.3,
             max_tokens=8192,
+            callbacks=[_get_cost_callback()],
         )
     else:
         raise ValueError(f"Unknown model '{model}'. Use: deepseek-chat, deepseek-reasoner, claude-haiku, claude")

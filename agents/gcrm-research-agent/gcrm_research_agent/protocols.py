@@ -50,6 +50,9 @@ class ContactSaver(Protocol):
         email: str = "",
         phone: str = "",
         notes: str = "",
+        scan_level: int | None = None,
+        neighborhood: str = "",
+        status: str = "candidate",
     ) -> int: ...
 
 

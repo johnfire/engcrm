@@ -97,47 +97,70 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
 def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]:
     """
     Search for venues using Google Places API (New).
-    Returns list of dicts with: name, address, city, country, website, phone.
-    Falls back to empty list if API key is missing or request fails.
+    Paginates up to 3 pages (max 60 results) via nextPageToken, and extracts the
+    neighborhood (sublocality) from each result's address components.
+    Returns dicts: name, address, city, country, website, phone, email, neighborhood.
+    Falls back to empty list if the API key is missing or a request fails.
     """
     from gcrm.config import GOOGLE_MAPS_API_KEY
     if not GOOGLE_MAPS_API_KEY:
         logger.warning("google_maps_search: GOOGLE_MAPS_API_KEY not set")
         return []
 
-    payload = {
-        "textQuery": f"{query} {city}",
-        "languageCode": "de",
-        "regionCode": country,
-        "maxResultCount": 20,
-    }
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-        "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber",
+        "X-Goog-FieldMask": (
+            "places.displayName,places.formattedAddress,places.addressComponents,"
+            "places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,"
+            "nextPageToken"
+        ),
     }
-    try:
-        resp = httpx.post(GOOGLE_PLACES_URL, json=payload, headers=headers, timeout=15)
-        resp.raise_for_status()
-        places = resp.json().get("places", [])
-    except Exception as e:
-        logger.warning("google_maps_search failed for '%s' in %s: %s", query, city, e)
-        return []
 
-    results = []
-    for p in places:
-        name = p.get("displayName", {}).get("text", "")
-        if not name:
-            continue
-        results.append({
-            "name": name,
-            "address": p.get("formattedAddress", ""),
-            "city": city,
-            "country": country,
-            "website": p.get("websiteUri", ""),
-            "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
-            "email": "",
-        })
+    results: list[dict] = []
+    page_token = None
+    for page in range(3):  # up to 3 pages × 20 = 60 results
+        payload = {
+            "textQuery": f"{query} {city}",
+            "languageCode": "de",
+            "regionCode": country,
+            "maxResultCount": 20,
+        }
+        if page_token:
+            payload["pageToken"] = page_token
+        try:
+            resp = httpx.post(GOOGLE_PLACES_URL, json=payload, headers=headers, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            places = data.get("places", [])
+            page_token = data.get("nextPageToken")
+        except Exception as e:
+            logger.warning("google_maps_search failed for '%s' in %s (page %d): %s", query, city, page + 1, e)
+            break
+
+        for p in places:
+            name = p.get("displayName", {}).get("text", "")
+            if not name:
+                continue
+            neighborhood = ""
+            for comp in p.get("addressComponents", []):
+                types = comp.get("types", [])
+                if "sublocality_level_1" in types or "neighborhood" in types:
+                    neighborhood = comp.get("longText", "")
+                    break
+            results.append({
+                "name": name,
+                "address": p.get("formattedAddress", ""),
+                "city": city,
+                "country": country,
+                "website": p.get("websiteUri", ""),
+                "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
+                "email": "",
+                "neighborhood": neighborhood,
+            })
+
+        if not page_token:
+            break
 
     logger.info("google_maps_search: %d results for '%s' in %s", len(results), query, city)
     return results
@@ -198,6 +221,8 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
     Search the web using DuckDuckGo. No API key required.
     Returns list of dicts with: title, url, snippet.
     """
+    from gcrm.tools.costs import record_search
+    record_search(1)
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=max_results))

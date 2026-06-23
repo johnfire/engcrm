@@ -1,18 +1,67 @@
 import logging
+import re
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
 from .protocols import (
     AgentMission, LanguageModel, InboxFetcher, ContactMatcher,
-    InteractionLogger, OptOutSetter, InboxMessageMarker,
-    OverdueFetcher, EmailSender, ApprovalQueuer, WarmOutcomeRecorder, RunStarter, RunFinisher,
+    InteractionLogger, OptOutSetter, BounceHandler, VisitFlagSetter,
+    InboxClassificationSaver, OverdueFetcher, EmailSender, ApprovalQueuer,
+    WarmOutcomeRecorder, RunStarter, RunFinisher,
 )
 from .state import FollowupState
-from .prompts import classify_reply_prompt, draft_reply_prompt, draft_followup_prompt
+from .prompts import (
+    classify_reply_prompt, draft_reply_prompt,
+    draft_warm_reply_prompt, draft_followup_prompt,
+)
 from ._utils import parse_json_response
 
 logger = logging.getLogger(__name__)
+
+# Statuses that mean we have already sent outreach to this contact. Replies only
+# get classified when the contact is in one of these — a reply from a not-yet-
+# contacted contact is noise (or a cold inbound) and is skipped.
+POST_OUTREACH_STATUSES = {
+    "contacted", "meeting", "networking_visit", "dormant",
+    "on_hold", "bad_email", "proposal", "accepted",
+}
+
+_BOUNCE_SENDERS = re.compile(
+    r"(mailer-daemon|postmaster|delivery.notification|"
+    r"mail-daemon|noreply\+bounce|mailerdaemon)",
+    re.IGNORECASE,
+)
+_BOUNCE_SUBJECTS = re.compile(
+    r"(undelivered mail|delivery (status notification|failed|failure)|"
+    r"returned mail|failure notice|mail delivery failed|"
+    r"unzustellbar|zustellungs(fehler|benachrichtigung)|"
+    r"nicht zugestellt)",
+    re.IGNORECASE,
+)
+_EMAIL_RE = re.compile(r"[\w.+\-]+@[\w.\-]+\.[a-z]{2,}", re.IGNORECASE)
+
+# Richer reply taxonomy → interaction outcome stored on the contact.
+_OUTCOME_MAP = {
+    "interested":     "interested",
+    "warm":           "warm",
+    "not_interested": "rejected",
+    "not_possible":   "not_possible",
+    "opt_out":        "no_reply",
+    "other":          "no_reply",
+}
+
+
+def _is_bounce(msg: dict) -> bool:
+    return bool(
+        _BOUNCE_SENDERS.search(msg.get("from_email", ""))
+        or _BOUNCE_SUBJECTS.search(msg.get("subject", ""))
+    )
+
+
+def _extract_recipient_emails(msg: dict) -> list[str]:
+    """Deduplicated emails from bounce body — one is likely the failed recipient."""
+    return list(dict.fromkeys(_EMAIL_RE.findall(msg.get("body", ""))))
 
 
 def create_followup_agent(
@@ -21,7 +70,9 @@ def create_followup_agent(
     match_contact: ContactMatcher,
     log_interaction: InteractionLogger,
     set_opt_out: OptOutSetter,
-    mark_message_processed: InboxMessageMarker,
+    handle_bounce: BounceHandler,
+    set_visit_when_nearby: VisitFlagSetter,
+    save_classification: InboxClassificationSaver,
     fetch_overdue: OverdueFetcher,
     send_email: EmailSender,
     queue_for_approval: ApprovalQueuer,
@@ -35,9 +86,17 @@ def create_followup_agent(
     Build and return a compiled LangGraph follow-up agent.
 
     Processes two work streams per run:
-      1. Inbox replies — reads unread emails, skips any that don't match a known
-         contact, classifies the rest, logs interactions, flags opt-outs, and
-         sends replies autonomously for interested contacts.
+      1. Inbox replies — reads unread emails. Delivery-failure bounces are
+         detected first and mark the failed contact as bad_email. Remaining
+         replies are matched to a known POST-OUTREACH contact (pre-outreach
+         and unmatched senders are skipped, not classified), classified by the
+         LLM, logged, and acted on:
+           - opt_out          → flag opt-out
+           - warm             → flag visit_when_nearby + send a gentle reply
+           - interested       → send an enthusiastic reply
+         Interested and warm replies are sent autonomously (time-sensitive —
+         someone just engaged). Every message gets its classification + reasoning
+         persisted to the inbox_messages audit trail.
       2. Overdue contacts — finds contacted contacts with no reply after
          `overdue_days` days and queues a brief nudge for human approval.
 
@@ -59,6 +118,8 @@ def create_followup_agent(
             "sent_count": 0,
             "queued_count": 0,
             "opt_out_count": 0,
+            "warm_count": 0,
+            "bounce_count": 0,
             "summary": "",
         }
 
@@ -69,38 +130,89 @@ def create_followup_agent(
             return {"errors": state["errors"] + [f"fetch_inbox: {e}"]}
         return {"inbox_messages": messages}
 
+    def _handle_bounce_message(msg: dict) -> int:
+        """Process a bounce notification. Returns 1 if a contact was marked bad_email, else 0."""
+        bounced_contact = None
+        for email in _extract_recipient_emails(msg):
+            try:
+                c = match_contact(email)
+                if c and c.get("status") in POST_OUTREACH_STATUSES:
+                    bounced_contact = c
+                    break
+            except Exception:
+                pass
+
+        if bounced_contact:
+            try:
+                handle_bounce(bounced_contact["id"])
+            except Exception as e:
+                logger.warning("handle_bounce failed: contact_id=%s error=%s", bounced_contact.get("id"), e)
+            try:
+                save_classification(
+                    msg["id"], bounced_contact["id"], "bounce",
+                    f"Delivery failure for {bounced_contact.get('email', '')}",
+                )
+            except Exception:
+                pass
+            return 1
+
+        try:
+            save_classification(msg["id"], None, "bounce", "No matching contact found in bounce body")
+        except Exception:
+            pass
+        return 0
+
     def classify_replies(state: FollowupState) -> dict:
         """
         For each inbox message:
-        - Try to match to a contact by sender email
-        - Skip (mark processed) if no match — it's not one of our contacts
-        - Classify the reply with the LLM
-        - If opt_out: flag immediately
-        - If interested: draft a reply and send autonomously
-        - Log the interaction regardless
-        - Mark message as processed
+        - If it's a delivery-failure bounce: mark the failed contact bad_email and skip.
+        - Match to a contact by sender email; skip (record) if no match.
+        - Skip (record) if the contact is pre-outreach — replies only matter once
+          we've actually reached out.
+        - Classify the reply with the LLM.
+        - opt_out: flag immediately. warm: flag visit_when_nearby.
+        - interested / warm: draft a reply and send autonomously.
+        - Log the interaction and persist the classification audit trail.
         """
         classified = []
         emails_to_send = list(state.get("emails_to_send", []))
         opt_out_count = 0
+        warm_count = 0
+        bounce_count = 0
 
         for msg in state.get("inbox_messages", []):
+            # Bounces handled before any LLM classification.
+            if _is_bounce(msg):
+                bounce_count += _handle_bounce_message(msg)
+                continue
+
             contact = None
             try:
                 contact = match_contact(msg["from_email"])
             except Exception:
                 pass
 
-            # Not one of our contacts — mark processed and skip entirely
-            # Don't waste LLM tokens classifying newsletters or personal email
+            # Not one of our contacts — record and skip. Don't waste LLM tokens
+            # classifying newsletters or personal email.
             if contact is None:
                 try:
-                    mark_message_processed(msg["id"], None)
+                    save_classification(msg["id"], None, "skipped", "no matching contact")
                 except Exception:
                     pass
                 continue
 
-            # Classify the reply
+            # Pre-outreach contact — a reply here is noise; record and skip.
+            if contact.get("status") not in POST_OUTREACH_STATUSES:
+                try:
+                    save_classification(
+                        msg["id"], contact["id"], "skipped",
+                        f"contact status '{contact.get('status')}' is pre-outreach",
+                    )
+                except Exception:
+                    pass
+                continue
+
+            # Classify the reply.
             system, user = classify_reply_prompt(mission, msg)
             classification = "other"
             reasoning = ""
@@ -121,7 +233,7 @@ def create_followup_agent(
                 "reasoning": reasoning,
             }
 
-            # Handle opt-out immediately
+            # Handle opt-out immediately.
             if classification == "opt_out":
                 try:
                     set_opt_out(contact["id"])
@@ -129,13 +241,16 @@ def create_followup_agent(
                 except Exception as e:
                     entry["error"] = f"set_opt_out: {e}"
 
-            # Log the interaction
-            outcome_map = {
-                "interested": "interested",
-                "rejected": "rejected",
-                "opt_out": "no_reply",
-                "other": "no_reply",
-            }
+            # Warm reply: flag the contact for an in-person visit when nearby.
+            if classification == "warm":
+                try:
+                    set_visit_when_nearby(contact["id"])
+                    warm_count += 1
+                    entry["visit_flagged"] = True
+                except Exception as e:
+                    entry["error"] = f"set_visit_when_nearby: {e}"
+
+            # Log the interaction.
             interaction_logged = False
             try:
                 log_interaction(
@@ -143,24 +258,28 @@ def create_followup_agent(
                     method="email",
                     direction="inbound",
                     summary=f"{classification}: {msg.get('subject', '')}",
-                    outcome=outcome_map.get(classification, "no_reply"),
+                    outcome=_OUTCOME_MAP.get(classification, "no_reply"),
                 )
                 interaction_logged = True
             except Exception as e:
                 logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), e)
 
-            # Record warm signal for outreach quality loop — only if interaction committed
+            # Record warm signal for outreach quality loop — only if interaction committed.
             if interaction_logged and classification in ("interested", "warm"):
                 try:
                     record_warm_outcome(contact["id"])
                 except Exception as e:
                     logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), e)
 
-            # Draft and send a reply for interested contacts
-            # These are time-sensitive — someone just said yes — so send autonomously
-            if classification == "interested" and contact.get("email"):
+            # Draft and send a reply for interested and warm contacts.
+            # These are time-sensitive — someone just engaged — so send autonomously.
+            # Interested gets an enthusiastic reply; warm gets a gentle, low-pressure one.
+            if classification in ("interested", "warm") and contact.get("email"):
                 language = contact.get("preferred_language") or mission.language_default
-                sys_p, usr_p = draft_reply_prompt(mission, contact, msg, language)
+                if classification == "interested":
+                    sys_p, usr_p = draft_reply_prompt(mission, contact, msg, language)
+                else:
+                    sys_p, usr_p = draft_warm_reply_prompt(mission, contact, msg, language)
                 try:
                     draft_resp = llm.invoke([SystemMessage(content=sys_p), HumanMessage(content=usr_p)])
                     draft = parse_json_response(draft_resp.content)
@@ -175,9 +294,9 @@ def create_followup_agent(
                 except Exception as e:
                     entry["draft_error"] = str(e)
 
-            # Mark the inbox message as processed
+            # Persist the classification + reasoning to the inbox audit trail.
             try:
-                mark_message_processed(msg["id"], contact["id"])
+                save_classification(msg["id"], contact["id"], classification, reasoning)
             except Exception:
                 pass
 
@@ -187,6 +306,8 @@ def create_followup_agent(
             "classified_replies": classified,
             "emails_to_send": emails_to_send,
             "opt_out_count": opt_out_count,
+            "warm_count": warm_count,
+            "bounce_count": bounce_count,
         }
 
     def fetch_overdue_contacts(state: FollowupState) -> dict:
@@ -225,7 +346,7 @@ def create_followup_agent(
         return {"queued_count": queued}
 
     def send_all_emails(state: FollowupState) -> dict:
-        """Send replies to interested contacts. Overdue nudges go through approval instead."""
+        """Send replies to interested/warm contacts. Overdue nudges go through approval instead."""
         sent = 0
         for email in state.get("emails_to_send", []):
             if not email.get("to_email") or not email.get("body"):
@@ -256,13 +377,17 @@ def create_followup_agent(
         sent = state.get("sent_count", 0)
         queued = state.get("queued_count", 0)
         opt_outs = state.get("opt_out_count", 0)
+        warm = state.get("warm_count", 0)
+        bounces = state.get("bounce_count", 0)
         errs = state.get("errors", [])
 
         summary = (
             f"followup_agent: {inbox_count} replies processed, "
             f"{overdue_count} overdue contacts, "
             f"{sent} replies sent, {queued} follow-ups queued for approval, "
-            f"{opt_outs} opt-outs recorded"
+            f"{warm} warm replies flagged for visit, "
+            f"{opt_outs} opt-outs recorded, "
+            f"{bounces} bounces marked as bad_email"
         )
         if errs:
             summary += f", {len(errs)} error(s)"
@@ -276,7 +401,9 @@ def create_followup_agent(
                 "overdue_handled": overdue_count,
                 "sent": sent,
                 "queued": queued,
+                "warm": warm,
                 "opt_outs": opt_outs,
+                "bounces": bounces,
             },
         )
         return {"summary": summary}

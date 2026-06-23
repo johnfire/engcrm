@@ -51,9 +51,27 @@ class OptOutSetter(Protocol):
     def __call__(self, contact_id: int) -> None: ...
 
 
-class InboxMessageMarker(Protocol):
-    """Mark an inbox message as processed, optionally linking it to a contact."""
-    def __call__(self, inbox_message_id: int, contact_id: int | None) -> None: ...
+class BounceHandler(Protocol):
+    """
+    Mark a contact's email as undeliverable (bad_email) and log a bounce interaction.
+    Called when a delivery failure notification is detected in the inbox.
+    """
+    def __call__(self, contact_id: int) -> None: ...
+
+
+class VisitFlagSetter(Protocol):
+    """Set visit_when_nearby = True on a contact. Used for warm replies."""
+    def __call__(self, contact_id: int) -> None: ...
+
+
+class InboxClassificationSaver(Protocol):
+    """
+    Persist the LLM classification result back to the inbox_messages row
+    (classification + reasoning) and mark the message processed.
+    """
+    def __call__(
+        self, inbox_message_id: int, contact_id: int | None, classification: str, reasoning: str
+    ) -> None: ...
 
 
 class OverdueFetcher(Protocol):

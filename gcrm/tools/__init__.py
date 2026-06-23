@@ -38,6 +38,13 @@ from .email import send_email, read_inbox
 from .llm import get_llm
 from .memory import capture_thought, search_gcrm_thoughts
 from .db import record_warm_outcome, get_outreach_outcomes
+from .db import (
+    get_ignored_chains,
+    mark_bad_email,
+    set_visit_when_nearby,
+    save_inbox_classification,
+    get_run_costs,
+)
 
 __all__ = [
     "save_contact", "get_candidates", "get_cold_contacts", "update_contact",
@@ -55,4 +62,6 @@ __all__ = [
     "get_llm",
     "capture_thought", "search_gcrm_thoughts",
     "record_warm_outcome", "get_outreach_outcomes",
+    "get_ignored_chains", "mark_bad_email", "set_visit_when_nearby",
+    "save_inbox_classification", "get_run_costs",
 ]

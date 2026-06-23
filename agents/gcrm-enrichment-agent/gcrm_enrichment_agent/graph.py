@@ -2,26 +2,61 @@
 LangGraph enrichment agent.
 
 Fetches contacts that are missing website or email, searches the web for each,
-and updates the contact record with whatever it finds.
+fetches the business's own candidate pages (emails live on Impressum/Kontakt
+pages, not in search snippets), and writes whatever it finds — without ever
+overwriting data the contact already has.
 
 Pipeline position: research → enrich → scout → outreach → followup
 """
 import logging
+import re
 
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
-from .protocols import LanguageModel, WebSearcher, ContactFetcher, ContactUpdater, RunStarter, RunFinisher
+from .protocols import (
+    LanguageModel,
+    WebSearcher,
+    PageFetcher,
+    ContactFetcher,
+    ContactUpdater,
+    RunStarter,
+    RunFinisher,
+)
 from .state import EnrichmentState
-from .prompts import enrich_contact_prompt
+from .prompts import build_search_query, enrich_contact_prompt
 from ._utils import parse_json_response
 
 logger = logging.getLogger(__name__)
+
+# Domains that are directories / maps / social — not the business's own site.
+# We skip fetching these because they won't carry the business's real email.
+_SKIP_FETCH_DOMAINS = re.compile(
+    r"(google\.|facebook\.|instagram\.|yelp\.|tripadvisor\.|gelbeseiten\.|"
+    r"yellowpages\.|booking\.|maps\.|wikipedia\.|openstreetmap\.)",
+    re.IGNORECASE,
+)
+
+
+def _candidate_urls(search_results: list[dict]) -> list[str]:
+    """
+    Pick URLs from search results that are likely the business's own website.
+    Returns up to 2, skipping known directory/social domains.
+    """
+    candidates = []
+    for r in search_results:
+        url = r.get("url", "")
+        if url and not _SKIP_FETCH_DOMAINS.search(url):
+            candidates.append(url)
+        if len(candidates) >= 2:
+            break
+    return candidates
 
 
 def create_enrichment_agent(
     llm: LanguageModel,
     web_search: WebSearcher,
+    fetch_page: PageFetcher,
     fetch_contacts: ContactFetcher,
     update_contact: ContactUpdater,
     start_run: RunStarter,
@@ -31,7 +66,7 @@ def create_enrichment_agent(
     Build and return a compiled LangGraph enrichment agent.
 
     Usage:
-        agent = create_enrichment_agent(llm=..., web_search=..., ...)
+        agent = create_enrichment_agent(llm=..., web_search=..., fetch_page=..., ...)
         result = agent.invoke({"limit": 50})
         print(result["summary"])
     """
@@ -66,9 +101,12 @@ def create_enrichment_agent(
             name = contact["name"]
             city = contact["city"]
             contact_id = contact["id"]
+            # Track what was actually missing so we never overwrite existing data later.
+            missing_website = not contact.get("website")
+            missing_email = not contact.get("email")
+            missing_phone = not contact.get("phone")
 
-            # Build search query
-            query = f"{name} {city} website email contact"
+            query = build_search_query(contact)
 
             try:
                 search_results = web_search(query=query)
@@ -81,26 +119,44 @@ def create_enrichment_agent(
                 results.append({"contact_id": contact_id, "found": False})
                 continue
 
-            # Ask LLM to extract website/email/phone
-            system, user = enrich_contact_prompt(contact, search_results)
+            # Fetch candidate pages — snippets rarely contain the real email.
+            page_texts = []
+            for url in _candidate_urls(search_results):
+                try:
+                    text = fetch_page(url)
+                    if text:
+                        page_texts.append(f"[Page: {url}]\n{text[:2000]}")
+                except Exception:
+                    pass
+
+            # Ask LLM to extract website/email/phone from snippets + page content.
+            system, user = enrich_contact_prompt(contact, search_results, page_texts)
             try:
                 response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
                 data = parse_json_response(response.content)
-                website = (data.get("website") or "").strip()
-                email = (data.get("email") or "").strip()
-                phone = (data.get("phone") or "").strip()
-                found = bool(website or email or phone)
+                website = (data.get("website") or "").strip() or None
+                email = (data.get("email") or "").strip() or None
+                phone = (data.get("phone") or "").strip() or None
+                # "found" means we have new data for a field that was actually missing.
+                found = bool(
+                    (missing_website and website)
+                    or (missing_email and email)
+                    or (missing_phone and phone)
+                )
                 results.append({
                     "contact_id": contact_id,
-                    "website": website or None,
-                    "email": email or None,
-                    "phone": phone or None,
+                    "website": website,
+                    "email": email,
+                    "phone": phone,
+                    "missing_website": missing_website,
+                    "missing_email": missing_email,
+                    "missing_phone": missing_phone,
                     "found": found,
                 })
                 if found:
                     logger.info("enrichment: found data for %s / %s — %s %s", name, city, website, email)
                 else:
-                    logger.debug("enrichment: nothing found for %s / %s", name, city)
+                    logger.debug("enrichment: nothing new for %s / %s", name, city)
             except Exception as e:
                 logger.warning("enrichment: LLM extraction failed for %s — %s", name, e)
                 results.append({"contact_id": contact_id, "found": False})
@@ -111,22 +167,27 @@ def create_enrichment_agent(
         enriched = 0
         not_found = 0
         for r in state.get("results", []):
-            if not r.get("found"):
-                not_found += 1
-                continue
+            contact_id = r.get("contact_id")
+            # Only write fields that were actually missing — never overwrite existing data.
+            updates = {}
+            if r.get("missing_website") and r.get("website"):
+                updates["website"] = r["website"]
+            if r.get("missing_email") and r.get("email"):
+                updates["email"] = r["email"]
+            if r.get("missing_phone") and r.get("phone"):
+                updates["phone"] = r["phone"]
+
             try:
-                updates = {}
-                if r.get("website"):
-                    updates["website"] = r["website"]
-                if r.get("email"):
-                    updates["email"] = r["email"]
-                if r.get("phone"):
-                    updates["phone"] = r["phone"]
                 if updates:
-                    update_contact(contact_id=r["contact_id"], **updates)
+                    update_contact(contact_id=contact_id, **updates)
                     enriched += 1
+                else:
+                    # Nothing usable found — mark as a dead-end so we stop retrying it.
+                    # update_contact always stamps enriched_at, so it counts as processed.
+                    not_found += 1
+                    update_contact(contact_id=contact_id, status="cannot_find_more_data")
             except Exception as e:
-                logger.warning("enrichment: update failed for contact %d — %s", r["contact_id"], e)
+                logger.warning("enrichment: update failed for contact %s — %s", contact_id, e)
         return {"enriched_count": enriched, "not_found_count": not_found}
 
     def generate_report(state: EnrichmentState) -> dict:

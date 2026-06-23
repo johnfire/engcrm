@@ -1,3 +1,6 @@
+import logging
+import re
+
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
@@ -6,6 +9,8 @@ from .state import ResearchState
 from .prompts import extract_contacts_prompt
 from gcrm.vertical import SCAN_LEVELS
 from ._utils import parse_json_response
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -127,10 +132,60 @@ def create_research_agent(
             return {"errors": state.get("errors", []) + [f"extract_contacts: {e}"], "contacts_to_save": []}
         return {"contacts_to_save": contacts}
 
+    def fetch_missing_emails(state: ResearchState) -> dict:
+        """For each extracted contact with a website but no email, fetch the page
+        and regex-extract an email, skipping noise/builder domains. Contacts with
+        no website (or where no usable email turns up) are flagged _no_data=True so
+        save_contacts records them as cannot_find_more_data."""
+        contacts = state.get("contacts_to_save", [])
+        if not contacts:
+            return {}
+        email_re = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+        noise_domains = {
+            "example.com", "sentry.io", "wixpress.com", "squarespace.com",
+            "wordpress.com", "shopify.com", "amazonaws.com", "googletagmanager.com",
+        }
+        found = 0
+        no_data = 0
+        for contact in contacts:
+            if contact.get("email"):
+                continue
+            if not contact.get("website"):
+                contact["_no_data"] = True
+                no_data += 1
+                continue
+            try:
+                text = fetch_page(contact["website"])
+                if not text:
+                    contact["_no_data"] = True
+                    no_data += 1
+                    continue
+                for match in email_re.finditer(text):
+                    email = match.group(0).lower()
+                    domain = email.split("@")[1]
+                    if domain not in noise_domains:
+                        contact["email"] = email
+                        found += 1
+                        logger.info("research: email found for %s — %s", contact.get("name", ""), email)
+                        break
+                else:
+                    contact["_no_data"] = True
+                    no_data += 1
+            except Exception:
+                contact["_no_data"] = True
+                no_data += 1
+        if found:
+            logger.info("research: fetched emails for %d contact(s) in %s", found, state["city"])
+        if no_data:
+            logger.info("research: %d contact(s) have no web presence in %s — will save as cannot_find_more_data", no_data, state["city"])
+        return {"contacts_to_save": contacts}
+
     def save_contacts(state: ResearchState) -> dict:
+        level = state.get("level", 1)
         saved_ids = []
         for contact in state.get("contacts_to_save", []):
             try:
+                status = "cannot_find_more_data" if contact.get("_no_data") else "candidate"
                 contact_id = save_contact(
                     name=contact.get("name", ""),
                     city=contact.get("city", state["city"]),
@@ -140,6 +195,9 @@ def create_research_agent(
                     email=contact.get("email", ""),
                     phone=contact.get("phone", ""),
                     notes=contact.get("notes", ""),
+                    scan_level=level,
+                    neighborhood=contact.get("neighborhood", ""),
+                    status=status,
                 )
                 if contact_id:
                     saved_ids.append(contact_id)
@@ -172,6 +230,7 @@ def create_research_agent(
     graph.add_node("run_web_search", run_web_search)
     graph.add_node("fetch_pages", fetch_pages)
     graph.add_node("extract_contacts", extract_contacts)
+    graph.add_node("fetch_missing_emails", fetch_missing_emails)
     graph.add_node("save_contacts", save_contacts)
     graph.add_node("generate_report", generate_report)
 
@@ -180,7 +239,8 @@ def create_research_agent(
     graph.add_edge("run_maps_search", "run_web_search")
     graph.add_edge("run_web_search", "fetch_pages")
     graph.add_edge("fetch_pages", "extract_contacts")
-    graph.add_edge("extract_contacts", "save_contacts")
+    graph.add_edge("extract_contacts", "fetch_missing_emails")
+    graph.add_edge("fetch_missing_emails", "save_contacts")
     graph.add_edge("save_contacts", "generate_report")
     graph.add_edge("generate_report", END)
 
