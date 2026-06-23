@@ -38,6 +38,10 @@ export default function DrawerLayout() {
         options={{ title: "Scan Card", drawerLabel: "📷 Scan Card" }}
       />
       <Drawer.Screen
+        name="card-queue"
+        options={{ title: "Card Queue", drawerLabel: "🗂 Card Queue" }}
+      />
+      <Drawer.Screen
         name="inbox"
         options={{ title: "Inbox", drawerLabel: "Inbox" }}
       />
