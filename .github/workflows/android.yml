@@ -47,7 +47,9 @@ jobs:
           ENGCRM_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
       - name: Build signed AAB
-        run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }}
+        # Only the two real-device ABIs (x86/x86_64 are emulators) — faster build,
+        # less memory on the 4-core runner. Play serves the right ABI per device.
+        run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
