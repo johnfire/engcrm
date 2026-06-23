@@ -1,4 +1,4 @@
-# artcrm-followup-agent
+# gcrm-followup-agent
 
 LangGraph agent that monitors the inbox for replies and queues follow-up emails for overdue contacts.
 
@@ -25,7 +25,7 @@ LangGraph agent that monitors the inbox for replies and queues follow-up emails 
 ## Usage
 
 ```python
-from artcrm_followup_agent import create_followup_agent
+from gcrm_followup_agent import create_followup_agent
 
 agent = create_followup_agent(
     llm=your_llm,

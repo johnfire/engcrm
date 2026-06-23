@@ -1,4 +1,4 @@
-# artcrm-outreach-agent
+# gcrm-outreach-agent
 
 LangGraph agent that researches venues, drafts personalized first-contact emails, and queues them for human approval. Nothing is sent until a human approves via the UI.
 
@@ -27,7 +27,7 @@ The LLM is instructed to:
 ## Usage
 
 ```python
-from artcrm_outreach_agent import create_outreach_agent
+from gcrm_outreach_agent import create_outreach_agent
 
 agent = create_outreach_agent(
     llm=your_llm,
@@ -62,7 +62,7 @@ print(result["summary"])
 
 ## Opt-out compliance
 
-Opt-out lines are included in every email in 7 languages (de, en, fr, cs, nl, es, it), selected automatically from the contact's `preferred_language`. See [prompts.py](artcrm_outreach_agent/prompts.py).
+Opt-out lines are included in every email in 7 languages (de, en, fr, cs, nl, es, it), selected automatically from the contact's `preferred_language`. See [prompts.py](gcrm_outreach_agent/prompts.py).
 
 ## Testing
 

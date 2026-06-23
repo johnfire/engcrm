@@ -1,4 +1,4 @@
-# artcrm-research-agent
+# gcrm-research-agent
 
 LangGraph agent that researches cities and industries for potential contacts. Saves results to the database as `status=candidate` for the scout agent to score.
 
@@ -13,7 +13,7 @@ Given a city and industry (e.g. `Munich` / `gallery`), it:
 ## Usage
 
 ```python
-from artcrm_research_agent import create_research_agent
+from gcrm_research_agent import create_research_agent
 
 agent = create_research_agent(
     llm=your_llm,
@@ -32,7 +32,7 @@ print(result["summary"])
 
 ## Protocols
 
-All dependencies are injected. Each callable must match the Protocol defined in [protocols.py](artcrm_research_agent/protocols.py):
+All dependencies are injected. Each callable must match the Protocol defined in [protocols.py](gcrm_research_agent/protocols.py):
 
 | Parameter | Protocol | Description |
 |---|---|---|

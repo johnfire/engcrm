@@ -1,5 +1,5 @@
 """
-Run all pending migrations against the shared artcrm PostgreSQL database.
+Run all pending migrations against the shared gcrm PostgreSQL database.
 Usage: uv run python scripts/migrate.py
 """
 import os

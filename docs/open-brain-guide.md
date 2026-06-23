@@ -108,14 +108,14 @@ Save a thought, observation, or learning. Open Brain auto-extracts type, topics,
 **Arguments:**
 
 - `content` (required) — the thought text
-- `project` (optional) — tag it to a project, e.g. `"artcrm"`, `"personal"`
+- `project` (optional) — tag it to a project, e.g. `"gcrm"`, `"personal"`
 
 **Python:**
 
 ```python
 _call_tool("capture_thought", {
     "content": "Munich hotel galleries respond better to emails under 150 words",
-    "project": "artcrm"
+    "project": "gcrm"
 })
 ```
 
@@ -137,7 +137,7 @@ Semantic search over stored thoughts. Returns the top N matches above a similari
 
 ```python
 raw = _call_tool("search_thoughts", {
-    "query": "artcrm outreach email tone gallery",
+    "query": "gcrm outreach email tone gallery",
     "limit": 5,
     "threshold": 0.45,
 })
@@ -151,7 +151,7 @@ Found 2 thought(s):
 --- Result 1 (78.0% match) ---
 Captured: 4/12/2026
 Type: observation
-Project: artcrm
+Project: gcrm
 Status: active
 Topics: outreach
 
@@ -184,7 +184,7 @@ List recently captured thoughts with optional filters.
 
 ```python
 raw = _call_tool("list_thoughts", {
-    "project": "artcrm",
+    "project": "gcrm",
     "days": 30,
     "limit": 20,
 })
@@ -200,7 +200,7 @@ Register a topic hint so Open Brain recognizes it during future ingestion. This 
 
 **Arguments:**
 
-- `topic` (required) — topic name, e.g. `"artcrm-outreach"`
+- `topic` (required) — topic name, e.g. `"gcrm-outreach"`
 - `description` (required) — what this topic covers
 - `category` (default: `"general"`) — grouping: `ai`, `engineering`, `projects`, `art`, `personal`, etc.
 
@@ -208,7 +208,7 @@ Register a topic hint so Open Brain recognizes it during future ingestion. This 
 
 ```python
 _call_tool("add_topic_hint", {
-    "topic": "artcrm-outreach",
+    "topic": "gcrm-outreach",
     "description": "Email tone, length, subject lines, response rates for art venue outreach",
     "category": "projects",
 })
@@ -230,21 +230,21 @@ List registered topic hints.
 
 ---
 
-## artcrm Project Usage
+## gcrm Project Usage
 
-In this project, Open Brain is used with `project="artcrm"`. Four topic hints are registered:
+In this project, Open Brain is used with `project="gcrm"`. Four topic hints are registered:
 
 | Topic             | Covers                                              |
 | ----------------- | --------------------------------------------------- |
-| `artcrm-outreach` | Email tone, length, subject lines, response rates   |
-| `artcrm-city`     | City-level venue notes, seasonal patterns           |
-| `artcrm-venue`    | Venue type patterns (galleries, hotels, cafes)      |
-| `artcrm-seasonal` | Time-of-year observations, events, plein air season |
+| `gcrm-outreach` | Email tone, word count, subject lines, response rates          |
+| `gcrm-city`     | Company density, responsiveness, regional patterns             |
+| `gcrm-venue`    | Company type patterns: startups, SMEs, enterprises, consulting  |
+| `gcrm-seasonal` | Hiring cycles, budget cycles, conference seasons               |
 
-The project wrapper is in `src/tools/memory.py`:
+The project wrapper is in `gcrm/tools/memory.py`:
 
-- `capture_thought(content, project="artcrm")` — saves to Open Brain
-- `search_artcrm_thoughts(query, limit=5)` — searches and returns a clean `list[str]`
+- `capture_thought(content, project="gcrm")` — saves to Open Brain
+- `search_gcrm_thoughts(query, limit=5)` — searches and returns a clean `list[str]`
 
 Config comes from `.env`:
 

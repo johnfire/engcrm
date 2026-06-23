@@ -1,4 +1,4 @@
-# artcrm-scout-agent
+# gcrm-scout-agent
 
 LangGraph agent that evaluates candidate contacts and decides whether to pursue them. Galleries get deep research; everything else is auto-promoted.
 
@@ -22,7 +22,7 @@ The scout reads the city's `market_character` (tourist / mixed / upscale / unkno
 ## Usage
 
 ```python
-from artcrm_scout_agent import create_scout_agent
+from gcrm_scout_agent import create_scout_agent
 
 agent = create_scout_agent(
     llm=your_llm,
@@ -42,7 +42,7 @@ print(result["summary"])
 
 ## Protocols
 
-All dependencies are injected. Each callable must match the Protocol defined in [protocols.py](artcrm_scout_agent/protocols.py):
+All dependencies are injected. Each callable must match the Protocol defined in [protocols.py](gcrm_scout_agent/protocols.py):
 
 | Parameter            | Protocol             | Description                                                 |
 | -------------------- | -------------------- | ----------------------------------------------------------- |

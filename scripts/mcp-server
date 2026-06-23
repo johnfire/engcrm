@@ -1,5 +1,5 @@
 #!/bin/bash
-# ArtCRM Supervisor MCP Server Launcher
+# gcrm Supervisor MCP Server Launcher
 # Starts the MCP server via stdio transport for Claude Code / Claude Desktop.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
