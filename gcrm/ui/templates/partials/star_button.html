@@ -1,0 +1,9 @@
+<button
+  type="button"
+  class="star-btn{% if c.starred %} starred{% endif %}"
+  hx-post="/contacts/{{ c.id }}/star"
+  hx-swap="outerHTML"
+  title="{{ 'Unstar' if c.starred else 'Star' }}"
+  aria-label="{{ 'Unstar' if c.starred else 'Star' }}"
+  aria-pressed="{{ 'true' if c.starred else 'false' }}"
+>{{ '★' if c.starred else '☆' }}</button>

@@ -378,3 +378,32 @@ code {
   color: var(--muted);
   font-size: 0.85em;
 }
+
+/* Wide page variant — for data-table views that need the full screen width
+   instead of the default 960px reading column. */
+main.main-wide {
+  max-width: 1600px;
+}
+
+/* Favourite star toggle in list rows */
+.star-col {
+  width: 1.75rem;
+  text-align: center;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0;
+}
+.star-btn:hover {
+  color: var(--text);
+}
+.star-btn.starred {
+  color: #f9e2af;
+}

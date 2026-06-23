@@ -1,5 +1,5 @@
 {% extends "base.html" %} {% block title %}Contacts — EngCRM{% endblock %} {%
-block content %}
+block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
   <h1>Contacts</h1>
   <span class="muted"
@@ -68,6 +68,7 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
 <table>
   <thead>
     <tr>
+      <th class="star-col"></th>
       <th>{{ sort_link('id', '#') }}</th>
       <th>{{ sort_link('name', 'Name') }}</th>
       <th>{{ sort_link('city', 'City') }}</th>
@@ -84,6 +85,7 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
   <tbody>
     {% for c in contacts %}
     <tr>
+      <td class="star-col">{% include 'partials/star_button.html' %}</td>
       <td class="muted small">{{ c.id }}</td>
       <td>
         <strong><a href="/contacts/{{ c.id }}">{{ c.name }}</a></strong>

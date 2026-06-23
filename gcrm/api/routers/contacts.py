@@ -76,7 +76,7 @@ def contact_list(
             f"""
             SELECT
                 c.id, c.name, c.city, c.country, c.type, c.status,
-                c.email, c.website, c.fit_score, c.notes, c.flagged,
+                c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 MAX(i.interaction_date) AS last_contact
             FROM contacts c
             LEFT JOIN interactions i ON i.contact_id = c.id
@@ -298,3 +298,20 @@ def unflag_contact(contact_id: int, request: Request):
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
     ref = request.headers.get("referer", "/contacts/")
     return RedirectResponse(url=ref, status_code=303)
+
+
+@router.post("/{contact_id}/star", response_class=HTMLResponse)
+def toggle_star(contact_id: int, request: Request):
+    """Toggle a contact's favourite star and return the refreshed button (HTMX swap)."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET starred = NOT starred WHERE id = %s RETURNING starred",
+            (contact_id,),
+        )
+        row = cur.fetchone()
+    starred = bool(row["starred"]) if row else False
+    return templates.TemplateResponse(
+        "partials/star_button.html",
+        {"request": request, "c": {"id": contact_id, "starred": starred}},
+    )
