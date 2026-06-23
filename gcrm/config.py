@@ -37,6 +37,13 @@ PORT: int = int(os.getenv("PORT", "8000"))
 # Mobile JSON API: secret for signing bearer JWTs. MUST be set in production.
 JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
 
+# --- Business-card capture ---
+# Where photographed business-card images are stored (a Docker volume in prod).
+CARD_IMAGE_DIR: str = os.getenv("CARD_IMAGE_DIR", "/data/card-images")
+# Card images are personal data — delete on confirm by default (we keep the
+# extracted text). Set >0 to retain the image file for that many days instead.
+CARD_IMAGE_RETENTION_DAYS: int = int(os.getenv("CARD_IMAGE_RETENTION_DAYS", "0"))
+
 # --- Scout threshold ---
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))

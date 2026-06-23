@@ -266,6 +266,15 @@ def match_contact_by_email(from_email: str) -> dict | None:
         return _serialize_row(dict(row)) if row else None
 
 
+def get_contact(contact_id: int) -> dict | None:
+    """Return a single contact by id (serialized), or None if not found."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+        row = cur.fetchone()
+        return _serialize_row(dict(row)) if row else None
+
+
 # ---------------------------------------------------------------------------
 # GDPR / Compliance
 # ---------------------------------------------------------------------------

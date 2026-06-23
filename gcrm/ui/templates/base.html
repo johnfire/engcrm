@@ -38,6 +38,11 @@
     <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
       Dropped
     </a>
+    {% if request.session.get('role') == 'admin' %}
+    <a href="/users/" {% if request.url.path.startswith('/users') %}class="active"{% endif %}>
+      Users
+    </a>
+    {% endif %}
   </nav>
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}

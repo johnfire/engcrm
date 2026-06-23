@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Users — EngCRM{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Users</h1>
+</div>
+
+{% if flash %}
+  {% if flash.error %}
+    <div class="card" style="border-color:#c0392b"><strong>⚠ {{ flash.error }}</strong></div>
+  {% endif %}
+  {% if flash.msg %}
+    <div class="card">
+      <strong>{{ flash.msg }}</strong>
+      {% if flash.pw %}
+        <div style="margin-top:8px">Password (shown once — copy it now):
+          <code style="font-size:15px">{{ flash.pw }}</code>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
+
+<div class="card">
+  <div class="card-header">Add user</div>
+  <form method="post" action="/users/add" class="user-add-form">
+    <input type="email" name="email" placeholder="email@domain.com" required>
+    <input type="text" name="name" placeholder="Name (optional)">
+    <select name="role">
+      {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+    </select>
+    <input type="text" name="password" placeholder="Password (blank = auto-generate)">
+    <button type="submit" class="btn-primary">Add user</button>
+  </form>
+</div>
+
+{% if users %}
+<table>
+  <thead>
+    <tr>
+      <th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.email }}</td>
+      <td>{{ u.name or '—' }}</td>
+      <td><span class="badge badge-{{ 'completed' if u.role == 'admin' else 'candidate' }}">{{ u.role }}</span></td>
+      <td>
+        {% if u.is_active %}<span class="badge badge-running">active</span>
+        {% else %}<span class="badge badge-dropped">disabled</span>{% endif %}
+      </td>
+      <td class="muted">{{ u.last_login_at or 'never' }}</td>
+      <td style="white-space:nowrap">
+        <form method="post" action="/users/passwd" style="display:inline"
+              onsubmit="return confirm('Reset password for {{ u.email }}?')">
+          <input type="hidden" name="email" value="{{ u.email }}">
+          <button type="submit" class="btn-tiny btn-secondary">Reset PW</button>
+        </form>
+        <form method="post" action="/users/active" style="display:inline">
+          <input type="hidden" name="email" value="{{ u.email }}">
+          <input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}">
+          <button type="submit" class="btn-tiny {{ 'btn-danger' if u.is_active else 'btn-secondary' }}">
+            {{ 'Disable' if u.is_active else 'Enable' }}
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No users yet. Add the first admin above, then we can retire the shared break-glass password.</p>
+{% endif %}
+
+<style>
+  .user-add-form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .user-add-form input, .user-add-form select { padding:9px 12px; }
+  .user-add-form input[name="email"] { min-width:220px; }
+</style>
+{% endblock %}
