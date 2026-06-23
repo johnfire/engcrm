@@ -42,6 +42,10 @@ export default function DrawerLayout() {
         options={{ title: "Card Queue", drawerLabel: "🗂 Card Queue" }}
       />
       <Drawer.Screen
+        name="voice"
+        options={{ title: "Voice Entry", drawerLabel: "🎙 Voice Entry" }}
+      />
+      <Drawer.Screen
         name="inbox"
         options={{ title: "Inbox", drawerLabel: "Inbox" }}
       />
@@ -64,6 +68,10 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="card-confirm"
         options={{ drawerItemStyle: { display: "none" }, title: "Review Card" }}
+      />
+      <Drawer.Screen
+        name="voice-confirm"
+        options={{ drawerItemStyle: { display: "none" }, title: "Voice Note" }}
       />
     </Drawer>
   );

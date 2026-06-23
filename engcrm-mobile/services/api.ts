@@ -236,3 +236,41 @@ export interface PendingCard {
   dup_contact_id: number | null;
   contact_id: number | null;
 }
+
+// --- Voice capture ---
+export async function processVoice(audioUri: string): Promise<VoiceResult> {
+  const form = new FormData();
+  form.append("audio", { uri: audioUri, name: "memo.m4a", type: "audio/m4a" } as any);
+  const resp = await client.post("/api/voice", form, { timeout: 120000 });
+  return resp.data;
+}
+
+export async function confirmVoice(body: {
+  contact_id?: number | null;
+  new_contact_name?: string | null;
+  summary: string;
+  follow_up_date?: string | null;
+  follow_up_text?: string | null;
+}): Promise<{ contact_id: number }> {
+  const resp = await client.post("/api/voice/confirm", body);
+  return resp.data;
+}
+
+export interface VoiceCandidate {
+  id: number;
+  name: string;
+  city: string | null;
+  email: string | null;
+  phone: string | null;
+  decision_maker: string | null;
+}
+
+export interface VoiceResult {
+  transcript: string;
+  summary: string;
+  contact_query: string | null;
+  follow_up_date: string | null;
+  follow_up_text: string | null;
+  is_new_lead: boolean;
+  candidates: VoiceCandidate[];
+}
