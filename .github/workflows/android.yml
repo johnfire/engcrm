@@ -34,7 +34,9 @@ jobs:
           java-version: "17"
       - uses: android-actions/setup-android@v3
       - name: Install JS deps
-        run: npm ci
+        # npm install (not ci): npm ci is too strict on the React 19 peer warning;
+        # npm install resolves it and produces the flat tree Metro needs.
+        run: npm install --no-audit --no-fund
       - name: Install NDK + cmake
         run: sdkmanager "ndk;27.1.12297006" "cmake;3.22.1"
       - name: Write signing config from secrets
