@@ -47,10 +47,18 @@
       {% endif %}
       <form method="post" action="/login">
         <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          autocomplete="username"
+          autofocus
+          required
+        />
+        <input
           type="password"
           name="password"
           placeholder="Password"
-          autofocus
+          autocomplete="current-password"
           required
         />
         <button type="submit">Sign in</button>

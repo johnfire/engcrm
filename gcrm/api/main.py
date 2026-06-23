@@ -12,7 +12,15 @@ from gcrm.api import auth
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None)
 
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-me-in-production")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET, https_only=False)
+# Secure-flag the session cookie in production (HTTPS). Leave false for local
+# HTTP dev, or the browser won't send the cookie back. Set SESSION_COOKIE_SECURE=true
+# in the deployed .env.
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    https_only=SESSION_COOKIE_SECURE,
+)
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
