@@ -1,3 +1,5 @@
+import logging
+
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
@@ -9,6 +11,8 @@ from .protocols import (
 from .state import FollowupState
 from .prompts import classify_reply_prompt, draft_reply_prompt, draft_followup_prompt
 from ._utils import parse_json_response
+
+logger = logging.getLogger(__name__)
 
 
 def create_followup_agent(

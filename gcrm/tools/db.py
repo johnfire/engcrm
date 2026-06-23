@@ -36,8 +36,10 @@ def save_contact(
 ) -> int:
     """
     Insert a new contact with status='candidate'.
-    Deduplication key is (name, city) — returns existing contact's id if duplicate.
-    Returns contact id, or 0 on error.
+    Deduplication key is (name, city). Returns the new contact's id on insert,
+    or 0 if the contact already exists (duplicate) or on error. A 0 return means
+    "not newly created" — callers rely on this falsy value to skip/count
+    duplicates rather than re-process an already-known contact.
     """
     with db() as conn:
         cur = conn.cursor()

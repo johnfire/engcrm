@@ -34,7 +34,7 @@ class TestSaveContact:
         assert result == 42
         assert cur.execute.call_count >= 2
 
-    def test_returns_existing_id_on_duplicate(self):
+    def test_returns_zero_on_duplicate(self):
         from gcrm.tools.db import save_contact
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"id": 7}  # duplicate found
@@ -43,7 +43,9 @@ class TestSaveContact:
             mock_db.return_value.__enter__.return_value = conn
             result = save_contact("Galerie Nord", "Munich")
 
-        assert result == 7
+        # 0 = "not newly created". The research agent and import_studies both rely
+        # on a falsy return to skip/count duplicates instead of re-processing them.
+        assert result == 0
 
 
 class TestCheckCompliance:

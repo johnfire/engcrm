@@ -11,6 +11,8 @@ class DummyMission:
     fit_criteria: str = "contemporary art friendly"
     outreach_style: str = "personal"
     language_default: str = "de"
+    website: str = "https://example.com"
+    context: str = ""
 
 
 class FakeLLM:
@@ -22,6 +24,16 @@ class FakeLLM:
         response = self._responses[self._index % len(self._responses)]
         self._index += 1
         return AIMessage(content=response)
+
+
+def _no_interactions(contact_id) -> list:
+    """No interaction history in tests."""
+    return []
+
+
+def _no_page(url: str) -> str:
+    """Website fetch is a no-op in tests — drafting is driven by the fake LLM."""
+    return ""
 
 
 SAMPLE_CONTACT = {
@@ -63,6 +75,7 @@ def test_agent_queues_compliant_contact():
 
     agent = create_outreach_agent(
         llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
     )
@@ -82,6 +95,7 @@ def test_agent_blocks_opted_out_contact():
 
     agent = create_outreach_agent(
         llm=llm, fetch_ready_contacts=fetch, check_compliance=check_compliance_false,
+        fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
     )
@@ -98,6 +112,7 @@ def test_agent_handles_draft_parse_error():
 
     agent = create_outreach_agent(
         llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
     )
@@ -114,6 +129,7 @@ def test_agent_handles_empty_contacts():
 
     agent = create_outreach_agent(
         llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
     )

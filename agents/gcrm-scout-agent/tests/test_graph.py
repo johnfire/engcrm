@@ -24,9 +24,20 @@ class FakeLLM:
         return AIMessage(content=response)
 
 
+def _no_page(url: str) -> str:
+    """Website fetch is a no-op in tests — scoring is driven by the fake LLM."""
+    return ""
+
+
+def _no_city_context(city: str, country: str = "DE") -> dict:
+    """No city market context in tests."""
+    return {}
+
+
+# Mixed-case type that IS a SCORED_TYPES member — also exercises case-insensitive matching.
 SAMPLE_CANDIDATE = {
-    "id": 1, "name": "Galerie Nord", "city": "Munich",
-    "type": "gallery", "status": "candidate",
+    "id": 1, "name": "Nord Unternehmensberatung", "city": "Munich",
+    "type": "Unternehmensberatung", "status": "candidate",
 }
 
 
@@ -53,10 +64,11 @@ def make_tools(candidates=None):
 
 def test_agent_promotes_high_score():
     fetch, update, start_run, finish_run, updates, runs = make_tools()
-    llm = FakeLLM(['{"score": 80, "reasoning": "Good contemporary focus", "promote": true}'])
+    llm = FakeLLM(['{"outcome": "cold", "reasoning": "Good contemporary focus"}'])
 
     agent = create_scout_agent(
         llm=llm, fetch_candidates=fetch, update_contact=update,
+        fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
     result = agent.invoke({"limit": 50})
@@ -64,15 +76,16 @@ def test_agent_promotes_high_score():
     assert result["promoted_count"] == 1
     assert result["dropped_count"] == 0
     assert updates[0]["status"] == "cold"
-    assert updates[0]["score"] == 80
+    assert updates[0]["score"] == 75  # outcome_score["cold"]
 
 
 def test_agent_drops_low_score():
     fetch, update, start_run, finish_run, updates, runs = make_tools()
-    llm = FakeLLM(['{"score": 30, "reasoning": "Wrong style", "promote": false}'])
+    llm = FakeLLM(['{"outcome": "dropped", "reasoning": "Wrong style"}'])
 
     agent = create_scout_agent(
         llm=llm, fetch_candidates=fetch, update_contact=update,
+        fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
     result = agent.invoke({"limit": 50})
@@ -88,6 +101,7 @@ def test_agent_handles_empty_candidates():
 
     agent = create_scout_agent(
         llm=llm, fetch_candidates=fetch, update_contact=update,
+        fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
     result = agent.invoke({"limit": 50})
@@ -99,19 +113,21 @@ def test_agent_handles_empty_candidates():
 
 def test_agent_continues_on_score_parse_error():
     candidates = [
-        {"id": 1, "name": "Gallery A", "city": "Munich", "type": "gallery"},
-        {"id": 2, "name": "Gallery B", "city": "Berlin", "type": "gallery"},
+        {"id": 1, "name": "Beratung A", "city": "Munich", "type": "Unternehmensberatung"},
+        {"id": 2, "name": "Beratung B", "city": "Berlin", "type": "Unternehmensberatung"},
     ]
     fetch, update, start_run, finish_run, updates, runs = make_tools(candidates=candidates)
-    # first response invalid, second valid
-    llm = FakeLLM(["not json", '{"score": 75, "reasoning": "Good fit", "promote": true}'])
+    # first response invalid (scoring error -> flagged 'maybe'), second valid -> 'cold'
+    llm = FakeLLM(["not json", '{"outcome": "cold", "reasoning": "Good fit"}'])
 
     agent = create_scout_agent(
         llm=llm, fetch_candidates=fetch, update_contact=update,
+        fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
     result = agent.invoke({"limit": 50})
 
-    # first contact dropped due to score error, second promoted
+    # first contact flagged 'maybe' (scoring error is non-fatal), second promoted to 'cold'
     assert result["promoted_count"] == 1
-    assert result["dropped_count"] == 1
+    assert result["maybe_count"] == 1
+    assert result["dropped_count"] == 0

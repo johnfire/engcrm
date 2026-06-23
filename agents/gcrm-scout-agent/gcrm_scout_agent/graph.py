@@ -8,6 +8,13 @@ from ._utils import parse_json_response
 
 from gcrm.vertical import SCORED_TYPES
 
+# Match contact types case-insensitively. vertical.py is user-edited (the README
+# example uses lowercase, e.g. {"cafe"}) and split_and_promote lowercases each
+# contact's type before comparing — so normalise the configured set too. Without
+# this, capitalised entries like "Unternehmensberatung" never match and every
+# candidate is auto-promoted, silently disabling LLM scoring.
+SCORED_TYPES_LC = {t.lower() for t in SCORED_TYPES}
+
 
 def create_scout_agent(
     llm: LanguageModel,
@@ -63,7 +70,7 @@ def create_scout_agent(
         to_score = []
         for contact in state.get("candidates", []):
             contact_type = (contact.get("type") or "").lower()
-            if contact_type in SCORED_TYPES:
+            if contact_type in SCORED_TYPES_LC:
                 to_score.append(contact)
             else:
                 try:

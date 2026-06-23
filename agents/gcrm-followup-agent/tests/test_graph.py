@@ -14,6 +14,8 @@ class DummyMission:
     fit_criteria: str = "contemporary art friendly"
     outreach_style: str = "personal"
     language_default: str = "de"
+    website: str = "https://example.com"
+    context: str = ""
 
 
 class FakeLLM:
@@ -70,6 +72,8 @@ def make_tools(
     interactions = []
     marked = []
     sent = []
+    queued = []
+    warm = []
     runs = {}
 
     def fetch_inbox():
@@ -94,6 +98,13 @@ def make_tools(
         sent.append({"to": to_email, "subject": subject})
         return send_result
 
+    def queue_for_approval(contact_id, run_id, subject, body):
+        queued.append({"contact_id": contact_id, "subject": subject, "body": body})
+        return len(queued)
+
+    def record_warm_outcome(contact_id):
+        warm.append(contact_id)
+
     def start_run(agent_name, input_data):
         run_id = len(runs) + 1
         runs[run_id] = {"status": "running"}
@@ -105,8 +116,9 @@ def make_tools(
     return (
         fetch_inbox, match_contact, log_interaction, set_opt_out,
         mark_message_processed, fetch_overdue, send_email,
+        queue_for_approval, record_warm_outcome,
         start_run, finish_run,
-        opt_outs, interactions, marked, sent, runs,
+        opt_outs, interactions, marked, sent, queued, warm, runs,
     )
 
 
@@ -114,8 +126,9 @@ def make_agent(llm, **tool_overrides):
     (
         fetch_inbox, match_contact, log_interaction, set_opt_out,
         mark_message_processed, fetch_overdue, send_email,
+        queue_for_approval, record_warm_outcome,
         start_run, finish_run,
-        opt_outs, interactions, marked, sent, runs,
+        opt_outs, interactions, marked, sent, queued, warm, runs,
     ) = make_tools(**tool_overrides)
 
     agent = create_followup_agent(
@@ -127,11 +140,13 @@ def make_agent(llm, **tool_overrides):
         mark_message_processed=mark_message_processed,
         fetch_overdue=fetch_overdue,
         send_email=send_email,
+        queue_for_approval=queue_for_approval,
+        record_warm_outcome=record_warm_outcome,
         start_run=start_run,
         finish_run=finish_run,
         mission=DummyMission(),
     )
-    return agent, opt_outs, interactions, marked, sent
+    return agent, opt_outs, interactions, marked, sent, queued
 
 
 def test_interested_reply_logs_and_sends():
@@ -139,7 +154,7 @@ def test_interested_reply_logs_and_sends():
         '{"classification": "interested", "reasoning": "They want to meet"}',
         DRAFT,   # draft_reply response
     ])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         contact_for_email=SAMPLE_CONTACT,
     )
@@ -158,7 +173,7 @@ def test_interested_reply_logs_and_sends():
 
 def test_opt_out_reply_sets_flag_and_does_not_send():
     llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         contact_for_email=SAMPLE_CONTACT,
     )
@@ -173,7 +188,7 @@ def test_opt_out_reply_sets_flag_and_does_not_send():
 
 def test_rejected_reply_logs_and_does_not_send():
     llm = FakeLLM(['{"classification": "rejected", "reasoning": "Not interested"}'])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         contact_for_email=SAMPLE_CONTACT,
     )
@@ -185,12 +200,12 @@ def test_rejected_reply_logs_and_does_not_send():
     assert opt_outs == []
 
 
-def test_overdue_contact_gets_followup_sent():
+def test_overdue_contact_gets_followup_queued():
     llm = FakeLLM([
         # No inbox messages so classify_replies makes no LLM calls
         FOLLOWUP_DRAFT,  # draft_followup response
     ])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         inbox=[],
         overdue=[OVERDUE_CONTACT],
@@ -198,13 +213,16 @@ def test_overdue_contact_gets_followup_sent():
 
     result = agent.invoke({})
 
-    assert result["sent_count"] == 1
-    assert sent[0]["to"] == "sued@example.com"
+    # Overdue nudges are queued for human approval, not sent autonomously.
+    assert result["queued_count"] == 1
+    assert result["sent_count"] == 0
+    assert queued[0]["contact_id"] == 20
+    assert queued[0]["subject"] == "Kurze Nachfrage"
 
 
 def test_empty_inbox_and_no_overdue():
     llm = FakeLLM(["{}"])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         inbox=[],
         overdue=[],
@@ -214,13 +232,13 @@ def test_empty_inbox_and_no_overdue():
 
     assert result["sent_count"] == 0
     assert result["opt_out_count"] == 0
-    assert "0 inbox messages" in result["summary"]
+    assert "0 replies processed" in result["summary"]
 
 
 def test_unmatched_inbox_message_still_processed():
     """Message from unknown sender: classified but no interaction logged, no opt-out."""
     llm = FakeLLM(['{"classification": "interested", "reasoning": "Interested"}'])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         contact_for_email=None,  # no contact match
     )
@@ -240,7 +258,7 @@ def test_send_failure_does_not_crash():
         '{"classification": "interested", "reasoning": "Interested"}',
         DRAFT,
     ])
-    agent, opt_outs, interactions, marked, sent = make_agent(
+    agent, opt_outs, interactions, marked, sent, queued = make_agent(
         llm=llm,
         contact_for_email=SAMPLE_CONTACT,
         send_result=False,  # SMTP fails
@@ -250,3 +268,35 @@ def test_send_failure_does_not_crash():
 
     # Attempted but failed — no crash, sent_count stays 0
     assert result["sent_count"] == 0
+
+
+def test_log_interaction_failure_does_not_crash():
+    """Regression guard: a failing log_interaction must not crash the run. The
+    agent's exception path calls logger.warning(), so the module must define a
+    logger — otherwise it NameErrors and takes down the very error handling that
+    is supposed to keep the run alive."""
+    llm = FakeLLM(['{"classification": "rejected", "reasoning": "n/a"}'])
+
+    def boom(**kwargs):
+        raise RuntimeError("db down")
+
+    agent = create_followup_agent(
+        llm=llm,
+        fetch_inbox=lambda: [SAMPLE_MESSAGE],
+        match_contact=lambda from_email: SAMPLE_CONTACT,
+        log_interaction=boom,
+        set_opt_out=lambda contact_id: None,
+        mark_message_processed=lambda inbox_message_id, contact_id: None,
+        fetch_overdue=lambda days=90: [],
+        send_email=lambda to_email, subject, body: True,
+        queue_for_approval=lambda **kwargs: 1,
+        record_warm_outcome=lambda contact_id: None,
+        start_run=lambda agent_name, input_data: 1,
+        finish_run=lambda run_id, status, summary, output_data: None,
+        mission=DummyMission(),
+    )
+
+    result = agent.invoke({})
+
+    # Run still completes despite the logging failure inside classify_replies.
+    assert "replies processed" in result["summary"]

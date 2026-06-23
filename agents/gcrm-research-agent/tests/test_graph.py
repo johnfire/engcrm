@@ -27,6 +27,11 @@ class FakeLLM:
         return AIMessage(content=response)
 
 
+def _no_page(url: str) -> str:
+    """Page fetching is a no-op in tests — contact extraction is driven by the fake LLM."""
+    return ""
+
+
 def make_tools():
     saved = []
     runs = {}
@@ -57,14 +62,14 @@ def test_agent_saves_contacts():
     web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM([
-        '["galleries Munich", "art Munich"]',             # plan_queries response
-        '[{"name": "Galerie Nord", "city": "Munich", "country": "DE", "type": "gallery"}]',  # extract_contacts
+        '[{"name": "Galerie Nord", "city": "Munich", "country": "DE", "type": "gallery"}]',  # extract_contacts (only LLM call)
     ])
 
     agent = create_research_agent(
         llm=llm,
         web_search=web_search,
         geo_search=geo_search,
+        fetch_page=_no_page,
         save_contact=save_contact,
         start_run=start_run,
         finish_run=finish_run,
@@ -97,6 +102,7 @@ def test_agent_handles_empty_search_results():
         llm=llm,
         web_search=empty_web_search,
         geo_search=empty_geo_search,
+        fetch_page=_no_page,
         save_contact=save_contact,
         start_run=start_run,
         finish_run=finish_run,
@@ -119,6 +125,7 @@ def test_agent_handles_llm_json_error():
         llm=llm,
         web_search=web_search,
         geo_search=geo_search,
+        fetch_page=_no_page,
         save_contact=save_contact,
         start_run=start_run,
         finish_run=finish_run,
@@ -128,7 +135,7 @@ def test_agent_handles_llm_json_error():
     result = agent.invoke({"city": "Munich", "industry": "gallery"})
 
     assert len(result["errors"]) > 0
-    assert "plan_queries" in result["errors"][0]
+    assert "extract_contacts" in result["errors"][0]
     assert result["saved_ids"] == []
 
 
@@ -136,14 +143,14 @@ def test_agent_handles_markdown_wrapped_json():
     web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM([
-        '```json\n["galleries Munich"]\n```',
-        '```json\n[{"name": "Galerie Süd", "city": "Munich"}]\n```',
+        '```json\n[{"name": "Galerie Süd", "city": "Munich"}]\n```',  # extract_contacts (only LLM call)
     ])
 
     agent = create_research_agent(
         llm=llm,
         web_search=web_search,
         geo_search=geo_search,
+        fetch_page=_no_page,
         save_contact=save_contact,
         start_run=start_run,
         finish_run=finish_run,
