@@ -34,6 +34,9 @@ PROTON_FROM_EMAIL: str = os.getenv("PROTON_FROM_EMAIL", "") or os.getenv("PROTON
 HOST: str = os.getenv("HOST", "127.0.0.1")
 PORT: int = int(os.getenv("PORT", "8000"))
 
+# Mobile JSON API: secret for signing bearer JWTs. MUST be set in production.
+JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
+
 # --- Scout threshold ---
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))

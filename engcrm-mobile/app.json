@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "EngCRM",
+    "slug": "engcrm-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "engcrm",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "de.christopherrehm.engcrm"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#7c6fff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

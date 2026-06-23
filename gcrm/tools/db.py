@@ -349,7 +349,10 @@ def set_opt_out(contact_id: int) -> None:
 # ---------------------------------------------------------------------------
 
 def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) -> int:
-    """Insert an email draft into the approval queue. Returns queue item id."""
+    """
+    Insert an email draft into the approval queue. Returns queue item id.
+    Best-effort: pings registered mobile devices that a new draft is waiting.
+    """
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -359,7 +362,22 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
             """,
             (contact_id, run_id or None, subject, body),
         )
-        return cur.fetchone()["id"]
+        queue_id = cur.fetchone()["id"]
+        cur.execute("SELECT name FROM contacts WHERE id = %s", (contact_id,))
+        row = cur.fetchone()
+        contact_name = row["name"] if row else "a contact"
+
+    # Notify mobile devices after the row is committed. Never blocks queueing.
+    try:
+        from gcrm.api.push import send_push_to_all
+        send_push_to_all(
+            title="New approval waiting",
+            body=f"{contact_name} — {subject}",
+            data={"screen": "approvals"},
+        )
+    except Exception:
+        pass
+    return queue_id
 
 
 # ---------------------------------------------------------------------------
