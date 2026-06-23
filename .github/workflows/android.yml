@@ -33,6 +33,14 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('engcrm-mobile/android/**/*.gradle*', 'engcrm-mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
       - name: Install JS deps
         run: npm ci
       - name: Install NDK + cmake
@@ -47,9 +55,10 @@ jobs:
           ENGCRM_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
       - name: Build signed AAB
-        # Only the two real-device ABIs (x86/x86_64 are emulators) — faster build,
-        # less memory on the 4-core runner. Play serves the right ABI per device.
-        run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        # arm64-v8a only — covers virtually all modern devices; keeps the 4-core
+        # runner's native compile fast. Add armeabi-v7a back for a production track
+        # if you need 32-bit/legacy device coverage.
+        run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
