@@ -48,3 +48,20 @@ class TestAuthGuard:
     def test_protected_route_rejects_bad_token(self):
         r = client.get("/api/activity", headers={"Authorization": "Bearer garbage"})
         assert r.status_code == 401
+
+
+class TestRoleEnforcement:
+    """Mutating mobile endpoints require the admin role; a read-only spectator
+    token is rejected with 403 at the auth dependency (before any DB access)."""
+    SPECTATOR = {"Authorization": f"Bearer {create_token('spectator')}"}
+
+    def test_spectator_cannot_discard_card(self):
+        assert client.post("/api/cards/1/discard", headers=self.SPECTATOR).status_code == 403
+
+    def test_spectator_cannot_confirm_card(self):
+        r = client.post("/api/cards/1/confirm", headers=self.SPECTATOR, json={"fields": {}})
+        assert r.status_code == 403
+
+    def test_spectator_cannot_confirm_voice(self):
+        r = client.post("/api/voice/confirm", headers=self.SPECTATOR, json={"summary": "x"})
+        assert r.status_code == 403

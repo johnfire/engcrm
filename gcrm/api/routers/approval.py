@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login
+from gcrm.api.auth import require_login, require_admin
 
 router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
@@ -88,7 +88,7 @@ def approval_list(request: Request):
 
 
 @router.post("/{item_id}/approve", response_class=HTMLResponse)
-def approve(request: Request, item_id: int, note: str = Form(default="")):
+def approve(request: Request, item_id: int, note: str = Form(default=""), _admin: str = Depends(require_admin)):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -123,7 +123,7 @@ def approve(request: Request, item_id: int, note: str = Form(default="")):
 
 
 @router.post("/{item_id}/reject", response_class=HTMLResponse)
-def reject(request: Request, item_id: int, note: str = Form(default="")):
+def reject(request: Request, item_id: int, note: str = Form(default=""), _admin: str = Depends(require_admin)):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -145,7 +145,7 @@ def reject(request: Request, item_id: int, note: str = Form(default="")):
 
 
 @router.post("/{item_id}/delete", response_class=HTMLResponse)
-def delete_draft(request: Request, item_id: int):
+def delete_draft(request: Request, item_id: int, _admin: str = Depends(require_admin)):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("DELETE FROM approval_queue WHERE id = %s", (item_id,))
@@ -170,6 +170,7 @@ def edit_and_approve(
     final_subject: str = Form(...),
     final_body: str = Form(...),
     note: str = Form(default=""),
+    _admin: str = Depends(require_admin),
 ):
     with db() as conn:
         cur = conn.cursor()

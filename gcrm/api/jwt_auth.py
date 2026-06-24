@@ -3,7 +3,7 @@ cookie/session auth used by the server-rendered web UI."""
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import HTTPException, Security
+from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from gcrm.config import JWT_SECRET
@@ -38,3 +38,10 @@ def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def require_jwt_admin(role: str = Depends(require_jwt)) -> str:
+    """FastAPI dependency: like require_jwt but requires the admin role (403 otherwise)."""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return role

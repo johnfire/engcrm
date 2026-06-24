@@ -11,7 +11,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.tools.transcribe import transcribe
 from gcrm.tools.voice import structure_transcript
 from gcrm.tools.db import search_contacts_by_name, log_voice_interaction, save_contact
@@ -35,7 +35,7 @@ def _valid_iso_date(s: str | None) -> str | None:
 def process_voice(
     audio: UploadFile = File(...),
     language: str = Form(""),
-    _role: str = Depends(require_jwt),
+    _role: str = Depends(require_jwt_admin),
 ) -> dict:
     audio_bytes = audio.file.read()
     if not audio_bytes:
@@ -70,7 +70,7 @@ class VoiceConfirm(BaseModel):
 
 
 @router.post("/confirm")
-def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt)) -> dict:
+def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt_admin)) -> dict:
     contact_id = body.contact_id
     if not contact_id:
         name = (body.new_contact_name or "").strip()

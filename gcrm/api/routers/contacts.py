@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Request, Query, Form
+from fastapi import APIRouter, Depends, Request, Query, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from urllib.parse import quote_plus
 from typing import Optional
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login
+from gcrm.api.auth import require_login, require_admin
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
@@ -48,7 +48,7 @@ def contact_list(
     with db() as conn:
         cur = conn.cursor()
 
-        conditions = []
+        conditions = ["c.deleted_at IS NULL"]
         params = []
         if status:
             conditions.append("c.status = %s")
@@ -129,7 +129,7 @@ def contact_print(
     with db() as conn:
         cur = conn.cursor()
 
-        conditions = []
+        conditions = ["c.deleted_at IS NULL"]
         params = []
         if status:
             conditions.append("c.status = %s")
@@ -181,8 +181,11 @@ def contact_print(
 def contact_brief(contact_id: int, request: Request):
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
-        contact = dict(cur.fetchone())
+        cur.execute("SELECT * FROM contacts WHERE id = %s AND deleted_at IS NULL", (contact_id,))
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        contact = dict(row)
         cur.execute(
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 5",
             (contact_id,),
@@ -199,8 +202,11 @@ def contact_brief(contact_id: int, request: Request):
 def contact_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
-        contact = dict(cur.fetchone())
+        cur.execute("SELECT * FROM contacts WHERE id = %s AND deleted_at IS NULL", (contact_id,))
+        row = cur.fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Contact not found")
+        contact = dict(row)
         cur.execute(
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
             (contact_id,),
@@ -241,6 +247,7 @@ def contact_edit(
     space_notes: str = Form(""),
     price_sensitivity: str = Form(""),
     notes: str = Form(""),
+    _admin: str = Depends(require_admin),
 ):
     def empty_none(v):
         return v if v and v.strip() else None
@@ -265,7 +272,7 @@ def contact_edit(
                 materials_left = %s, followup_promised = %s,
                 access_notes = %s, space_notes = %s, price_sensitivity = %s,
                 notes = %s, updated_at = NOW()
-            WHERE id = %s
+            WHERE id = %s AND deleted_at IS NULL
             """,
             (
                 empty_none(name), empty_none(city), empty_none(country), empty_none(type),
@@ -283,16 +290,21 @@ def contact_edit(
 
 
 @router.post("/{contact_id}/delete")
-def delete_contact(contact_id: int, request: Request):
+def delete_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
+    # Soft delete: set deleted_at (the model used everywhere else) so the row
+    # leaves listings but isn't irreversibly destroyed.
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
+        cur.execute(
+            "UPDATE contacts SET deleted_at = NOW(), updated_at = NOW() WHERE id = %s AND deleted_at IS NULL",
+            (contact_id,),
+        )
     ref = request.headers.get("referer", "/contacts/")
     return RedirectResponse(url=ref, status_code=303)
 
 
 @router.post("/{contact_id}/unflag")
-def unflag_contact(contact_id: int, request: Request):
+def unflag_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
@@ -301,7 +313,7 @@ def unflag_contact(contact_id: int, request: Request):
 
 
 @router.post("/{contact_id}/star", response_class=HTMLResponse)
-def toggle_star(contact_id: int, request: Request):
+def toggle_star(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
     """Toggle a contact's favourite star and return the refreshed button (HTMX swap)."""
     with db() as conn:
         cur = conn.cursor()
