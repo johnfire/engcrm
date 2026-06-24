@@ -64,6 +64,13 @@ def _extract_recipient_emails(msg: dict) -> list[str]:
     return list(dict.fromkeys(_EMAIL_RE.findall(msg.get("body", ""))))
 
 
+def _is_exact_match(contact: dict) -> bool:
+    """Whether the contact was matched by exact email rather than a corporate-
+    domain fallback. An absent tag means the matcher doesn't distinguish, so we
+    treat it as exact and preserve prior behavior."""
+    return contact.get("_match_type") != "domain"
+
+
 def create_followup_agent(
     llm: LanguageModel,
     fetch_inbox: InboxFetcher,
@@ -133,7 +140,9 @@ def create_followup_agent(
         for email in _extract_recipient_emails(msg):
             try:
                 c = match_contact(email)
-                if c and c.get("status") in POST_OUTREACH_STATUSES:
+                # Only an exact-email match may be auto-marked bad_email — a
+                # domain-only match could be a colleague, not the failed recipient.
+                if c and c.get("status") in POST_OUTREACH_STATUSES and _is_exact_match(c):
                     bounced_contact = c
                     break
             except Exception:
@@ -168,7 +177,7 @@ def create_followup_agent(
           we've actually reached out.
         - Classify the reply with the LLM.
         - opt_out: flag immediately. warm: flag visit_when_nearby.
-        - interested / warm: draft a reply and send autonomously.
+        - interested / warm: draft a reply and queue it for human approval.
         - Log the interaction and persist the classification audit trail.
         """
         run_id = state.get("run_id", 0)
@@ -231,22 +240,31 @@ def create_followup_agent(
                 "reasoning": reasoning,
             }
 
-            # Handle opt-out immediately.
+            # Handle opt-out immediately — but only for an exact-email match. A
+            # domain-only match may be a colleague, so it's classified + logged
+            # for human review rather than auto-opted-out.
             if classification == "opt_out":
-                try:
-                    set_opt_out(contact["id"])
-                    opt_out_count += 1
-                except Exception as e:
-                    entry["error"] = f"set_opt_out: {e}"
+                if _is_exact_match(contact):
+                    try:
+                        set_opt_out(contact["id"])
+                        opt_out_count += 1
+                    except Exception as e:
+                        entry["error"] = f"set_opt_out: {e}"
+                else:
+                    entry["auto_action_skipped"] = "opt_out: domain-only match, needs human review"
 
-            # Warm reply: flag the contact for an in-person visit when nearby.
+            # Warm reply: flag the contact for an in-person visit when nearby
+            # (exact-email match only; a domain-only match needs human review).
             if classification == "warm":
-                try:
-                    set_visit_when_nearby(contact["id"])
-                    warm_count += 1
-                    entry["visit_flagged"] = True
-                except Exception as e:
-                    entry["error"] = f"set_visit_when_nearby: {e}"
+                if _is_exact_match(contact):
+                    try:
+                        set_visit_when_nearby(contact["id"])
+                        warm_count += 1
+                        entry["visit_flagged"] = True
+                    except Exception as e:
+                        entry["error"] = f"set_visit_when_nearby: {e}"
+                else:
+                    entry["auto_action_skipped"] = "visit_flag: domain-only match, needs human review"
 
             # Log the interaction.
             interaction_logged = False

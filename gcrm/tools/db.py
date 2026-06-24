@@ -245,7 +245,13 @@ _GENERIC_EMAIL_DOMAINS = {
 
 
 def match_contact_by_email(from_email: str) -> dict | None:
-    """Find a contact by email, with a corporate-domain fallback. None if not found."""
+    """Find a contact by email, with a corporate-domain fallback. None if not found.
+
+    The result carries `_match_type`: "exact" when the address matches a contact
+    directly, "domain" when it only matched another contact at the same corporate
+    domain. Callers must not let a "domain" match drive irreversible autonomous
+    actions (opt-out, bad_email, visit flag) — it may be a colleague, not the
+    contact."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -254,7 +260,9 @@ def match_contact_by_email(from_email: str) -> dict | None:
         )
         row = cur.fetchone()
         if row:
-            return _serialize_row(dict(row))
+            contact = _serialize_row(dict(row))
+            contact["_match_type"] = "exact"
+            return contact
         # Fallback: match any contact at the same corporate domain (not freemail)
         domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
         if domain and domain not in _GENERIC_EMAIL_DOMAINS:
@@ -263,7 +271,11 @@ def match_contact_by_email(from_email: str) -> dict | None:
                 (f"%@{domain}",),
             )
             row = cur.fetchone()
-        return _serialize_row(dict(row)) if row else None
+            if row:
+                contact = _serialize_row(dict(row))
+                contact["_match_type"] = "domain"
+                return contact
+        return None
 
 
 def get_contact(contact_id: int) -> dict | None:

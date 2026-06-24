@@ -244,6 +244,22 @@ def test_opt_out_reply_sets_flag_and_does_not_queue():
     assert t["visit_flagged"] == []
 
 
+def test_domain_only_match_does_not_auto_opt_out():
+    """A reply that matches a contact only by corporate domain (not exact email)
+    must not auto-apply the irreversible opt-out — it's classified and recorded
+    for human review instead."""
+    llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
+    domain_contact = {**SAMPLE_CONTACT, "_match_type": "domain"}
+    agent, t = make_agent(llm=llm, contact_for_email=domain_contact)
+
+    result = agent.invoke({})
+
+    assert t["opt_outs"] == []
+    assert result["opt_out_count"] == 0
+    # still classified + recorded in the audit trail
+    assert any(c[2] == "opt_out" for c in t["classifications"])
+
+
 def test_not_interested_reply_logs_and_does_not_queue():
     llm = FakeLLM(['{"classification": "not_interested", "reasoning": "Not interested"}'])
     agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
