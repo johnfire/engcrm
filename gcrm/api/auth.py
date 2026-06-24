@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
@@ -8,6 +8,7 @@ import os
 
 from gcrm.tools.db import get_user_by_email, touch_user_login
 from gcrm.api.security import verify_password
+from gcrm.api.rate_limit import rate_limit_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,7 +73,7 @@ def login_page(request: Request):
 
 
 @router.post("/login", response_class=HTMLResponse)
-def login_submit(request: Request, email: str = Form(""), password: str = Form(...)):
+def login_submit(request: Request, email: str = Form(""), password: str = Form(...), _throttle: None = Depends(rate_limit_auth)):
     payload = authenticate(email, password, _lookup_user(email))
     if payload:
         request.session.update(payload)

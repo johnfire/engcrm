@@ -2,11 +2,12 @@
 bearer JWT. Reuses the same per-user authentication as the web login."""
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import create_token
 from gcrm.api.auth import authenticate
+from gcrm.api.rate_limit import rate_limit_auth
 from gcrm.tools.db import get_user_by_email
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/token", response_model=TokenResponse)
-def get_token(body: TokenRequest) -> TokenResponse:
+def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) -> TokenResponse:
     user = None
     if body.email:
         try:
