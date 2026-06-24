@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
+from gcrm.api.templates import templates
 from gcrm.tools.db import get_all_city_scan_status
 from gcrm.vertical import SCAN_LEVELS
 from gcrm.api.auth import require_login
 
 router = APIRouter(dependencies=[Depends(require_login)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
 LEVEL_LABELS = {lvl: cfg["label"] for lvl, cfg in SCAN_LEVELS.items()}
 

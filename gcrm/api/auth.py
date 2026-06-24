@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
+from gcrm.api.templates import templates
 import hmac
 import logging
 import os
@@ -12,9 +11,6 @@ from gcrm.api.rate_limit import rate_limit_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-UI_DIR = Path(__file__).parent.parent / "ui"
-templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
 # Transitional break-glass: a shared admin password from the environment, honoured
 # until real user accounts exist. Unset ADMIN_PASSWORD in the deployed .env to

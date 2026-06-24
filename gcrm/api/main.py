@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
@@ -36,7 +35,6 @@ app.add_middleware(
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
 app.include_router(auth.router)
 app.include_router(approval.router)

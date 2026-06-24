@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Depends, Request, Query, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-from urllib.parse import quote_plus
+from gcrm.api.templates import templates
 from typing import Optional
 from gcrm.db.connection import db
 from gcrm.api.auth import require_login, require_admin
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
-templates.env.filters["urlenc"] = quote_plus
 
 VALID_STATUSES = (
     "candidate", "cold", "contacted", "meeting", "proposal",

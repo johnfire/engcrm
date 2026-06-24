@@ -5,11 +5,10 @@ first real accounts and then retire the shared ADMIN_PASSWORD break-glass.
 """
 import secrets
 import string
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from gcrm.api.templates import templates
 
 from gcrm.api.auth import require_admin
 from gcrm.api.security import hash_password
@@ -18,7 +17,6 @@ from gcrm.tools.db import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
 ROLES = ["admin", "spectator"]
 

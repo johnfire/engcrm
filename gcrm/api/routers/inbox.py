@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, Request, Query
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
+from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.api.auth import require_login
 
 router = APIRouter(prefix="/inbox", tags=["inbox"], dependencies=[Depends(require_login)])
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent.parent / "ui" / "templates"))
 
 CLASSIFICATIONS = ("interested", "warm", "not_interested", "not_possible", "opt_out", "other", "skipped")
 
