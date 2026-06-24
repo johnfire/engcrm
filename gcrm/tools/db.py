@@ -533,6 +533,10 @@ from gcrm.tools.db_outreach import record_warm_outcome, get_outreach_outcomes
 from gcrm.tools.db_agent_runs import start_run, finish_run, get_run_costs
 
 
+# --- People operations live in db_people.py; re-exported here ---
+from gcrm.tools.db_people import save_person, get_people, get_person
+
+
 # --- Inbox-message operations live in db_inbox.py; re-exported here ---
 from gcrm.tools.db_inbox import (
     save_inbox_message, get_unprocessed_inbox, mark_message_processed,

@@ -8,7 +8,7 @@ from pathlib import Path
 from gcrm.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, users
 from gcrm.api.routers import (
     api_auth, api_push, api_approvals, api_inbox,
-    api_contacts, api_activity, api_research, api_cards, api_voice,
+    api_contacts, api_activity, api_research, api_cards, api_voice, api_people,
 )
 from gcrm.api import auth
 from gcrm.config import SESSION_SECRET, SESSION_COOKIE_SECURE
@@ -57,6 +57,7 @@ app.include_router(api_activity.router)
 app.include_router(api_research.router)
 app.include_router(api_cards.router)
 app.include_router(api_voice.router)
+app.include_router(api_people.router)
 
 
 @app.get("/", response_class=HTMLResponse)

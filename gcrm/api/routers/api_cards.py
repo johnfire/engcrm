@@ -156,11 +156,19 @@ def confirm_capture(
             (contact_id, capture_id),
         )
 
+    # Issue #10: also record the individual on the card as a person, linked to
+    # the company contact. Best-effort — a person failure must not fail the save.
+    try:
+        person_id = cards.promote_to_person(body.fields, contact_id)
+    except Exception:
+        logger.exception("confirm_capture: person creation failed (capture %s)", capture_id)
+        person_id = 0
+
     if CARD_IMAGE_RETENTION_DAYS <= 0 and cap["image_path"]:
         cards.delete_card_image(cap["image_path"])
 
     background.add_task(cards.enrich_one, contact_id)
-    return {"contact_id": contact_id, "capture_id": capture_id}
+    return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
 
 
 @router.post("/{capture_id}/discard")

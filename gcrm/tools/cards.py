@@ -209,6 +209,30 @@ def promote_to_contact(fields: dict) -> int:
     return cid
 
 
+def promote_to_person(fields: dict, contact_id: int | None) -> int:
+    """
+    Create a people-table entry for the individual on a scanned card, linked to
+    their company contact. Returns the new (or existing) person id, or 0 if the
+    card carries no person name (nothing to create).
+    """
+    from gcrm.tools.db import save_person
+
+    name = (fields.get("name") or "").strip()
+    if not name:
+        return 0
+    return save_person(
+        name=name,
+        title=(fields.get("title") or "").strip(),
+        email=(fields.get("email") or "").strip(),
+        phone=(fields.get("phone") or fields.get("mobile") or "").strip(),
+        website=(fields.get("website") or "").strip(),
+        city=(fields.get("city") or "").strip(),
+        country=_country_code(fields.get("country")),
+        contact_id=contact_id,
+        source="card_capture",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Enrich a single contact (background task on confirm)
 # ---------------------------------------------------------------------------
