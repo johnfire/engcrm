@@ -83,11 +83,6 @@ class OverdueFetcher(Protocol):
     def __call__(self, days: int = 90) -> list[dict]: ...
 
 
-class EmailSender(Protocol):
-    """Send an email. Returns True on success, False on failure."""
-    def __call__(self, to_email: str, subject: str, body: str) -> bool: ...
-
-
 class ApprovalQueuer(Protocol):
     """Insert a drafted email into the approval queue. Returns queue item id."""
     def __call__(self, contact_id: int, run_id: int, subject: str, body: str) -> int: ...

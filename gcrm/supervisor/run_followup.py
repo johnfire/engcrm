@@ -22,7 +22,7 @@ def main():
     from gcrm.tools import (
         read_inbox, match_contact_by_email, log_interaction, set_opt_out,
         mark_bad_email, record_warm_outcome, set_visit_when_nearby, save_inbox_classification,
-        get_overdue_contacts, get_unprocessed_inbox, queue_for_approval, send_email,
+        get_overdue_contacts, get_unprocessed_inbox, queue_for_approval,
         start_run, finish_run, get_llm,
     )
     from gcrm_followup_agent import create_followup_agent
@@ -46,7 +46,6 @@ def main():
         set_visit_when_nearby=set_visit_when_nearby,
         save_classification=save_inbox_classification,
         fetch_overdue=get_overdue_contacts,
-        send_email=send_email,
         queue_for_approval=queue_for_approval,
         record_warm_outcome=record_warm_outcome,
         start_run=start_run,

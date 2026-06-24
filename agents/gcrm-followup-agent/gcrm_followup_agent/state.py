@@ -11,13 +11,9 @@ class FollowupState(TypedDict):
 
     overdue_contacts: list[dict]
 
-    # [{contact_id, to_email, subject, body}] — both reply drafts and proactive follow-ups
-    emails_to_send: list[dict]
-
     errors: list[str]
 
     # --- output ---
-    sent_count: int
     queued_count: int
     opt_out_count: int
     warm_count: int         # warm replies — flagged for visit_when_nearby

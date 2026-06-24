@@ -29,7 +29,7 @@ from gcrm.tools import (
     record_scan_result, can_run_level,
     get_city_market_context,
     web_search, geo_search, google_maps_search, fetch_page,
-    send_email, read_inbox,
+    read_inbox,
     get_llm,
     record_warm_outcome, search_gcrm_thoughts,
     mark_bad_email, set_visit_when_nearby, save_inbox_classification,
@@ -118,7 +118,6 @@ def _build_agents():
         set_visit_when_nearby=set_visit_when_nearby,
         save_classification=save_inbox_classification,
         fetch_overdue=get_overdue_contacts,
-        send_email=send_email,
         queue_for_approval=queue_for_approval,
         record_warm_outcome=record_warm_outcome,
         start_run=start_run,
@@ -216,8 +215,14 @@ def create_supervisor(checkpointer=None):
             return {"outreach_summary": msg, "errors": state["errors"] + [msg]}
 
     def run_followup(state: SupervisorState) -> dict:
-        # Disabled — follow-up handled manually for now
-        return {"followup_summary": "followup: disabled"}
+        try:
+            result = followup_agent.invoke({})
+            logger.info("followup: %s", result.get("summary", ""))
+            return {"followup_summary": result.get("summary", "")}
+        except Exception as e:
+            msg = f"followup failed: {e}"
+            logger.error(msg)
+            return {"followup_summary": msg, "errors": state["errors"] + [msg]}
 
     def generate_report(state: SupervisorState) -> dict:
         cities = sorted({j["city"] for j in state.get("research_jobs", [])})

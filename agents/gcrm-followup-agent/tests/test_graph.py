@@ -1,5 +1,8 @@
 """
 Tests use dummy implementations of every Protocol — no real LLM, DB, or network.
+
+The follow-up agent never sends email: interested/warm replies and overdue
+nudges are all drafted and put in the approval queue for a human to send.
 """
 from dataclasses import dataclass
 from langchain_core.messages import AIMessage
@@ -85,14 +88,12 @@ def make_tools(
     inbox=None,
     contact_for_email=None,
     overdue=None,
-    send_result=True,
 ):
     opt_outs = []
     interactions = []
     bounced = []
     visit_flagged = []
     classifications = []   # (msg_id, contact_id, classification, reasoning)
-    sent = []
     queued = []
     warm = []
     runs = {}
@@ -121,10 +122,6 @@ def make_tools(
     def fetch_overdue(days=90):
         return overdue if overdue is not None else []
 
-    def send_email(to_email, subject, body):
-        sent.append({"to": to_email, "subject": subject})
-        return send_result
-
     def queue_for_approval(contact_id, run_id, subject, body):
         queued.append({"contact_id": contact_id, "subject": subject, "body": body})
         return len(queued)
@@ -149,7 +146,6 @@ def make_tools(
         "set_visit_when_nearby": set_visit_when_nearby,
         "save_classification": save_classification,
         "fetch_overdue": fetch_overdue,
-        "send_email": send_email,
         "queue_for_approval": queue_for_approval,
         "record_warm_outcome": record_warm_outcome,
         "start_run": start_run,
@@ -160,7 +156,6 @@ def make_tools(
         "bounced": bounced,
         "visit_flagged": visit_flagged,
         "classifications": classifications,
-        "sent": sent,
         "queued": queued,
         "warm": warm,
         "runs": runs,
@@ -179,7 +174,6 @@ def make_agent(llm, **tool_overrides):
         set_visit_when_nearby=t["set_visit_when_nearby"],
         save_classification=t["save_classification"],
         fetch_overdue=t["fetch_overdue"],
-        send_email=t["send_email"],
         queue_for_approval=t["queue_for_approval"],
         record_warm_outcome=t["record_warm_outcome"],
         start_run=t["start_run"],
@@ -189,7 +183,7 @@ def make_agent(llm, **tool_overrides):
     return agent, t
 
 
-def test_interested_reply_logs_and_sends():
+def test_interested_reply_logs_and_queues():
     llm = FakeLLM([
         '{"classification": "interested", "reasoning": "They want to meet"}',
         DRAFT,   # draft_reply response
@@ -200,9 +194,10 @@ def test_interested_reply_logs_and_sends():
 
     # interaction logged as inbound/interested
     assert any(i["direction"] == "inbound" and i["outcome"] == "interested" for i in t["interactions"])
-    # reply email sent autonomously
-    assert result["sent_count"] == 1
-    assert t["sent"][0]["to"] == "gallery@example.com"
+    # reply drafted and queued for approval — never sent autonomously
+    assert result["queued_count"] == 1
+    assert t["queued"][0]["contact_id"] == 10
+    assert t["queued"][0]["subject"] == "Re: Danke"
     # warm-outcome recorded (interested counts as a positive signal)
     assert 10 in t["warm"]
     # no opt-out
@@ -212,8 +207,8 @@ def test_interested_reply_logs_and_sends():
     assert (1, 10, "interested", "They want to meet") in t["classifications"]
 
 
-def test_warm_reply_flags_visit_and_sends_gentle_reply():
-    """A warm reply flags visit_when_nearby and still sends a (gentle) reply autonomously."""
+def test_warm_reply_flags_visit_and_queues_gentle_reply():
+    """A warm reply flags visit_when_nearby and queues a (gentle) reply draft for approval."""
     llm = FakeLLM([
         '{"classification": "warm", "reasoning": "Friendly but no commitment"}',
         DRAFT,   # draft_warm_reply response
@@ -229,13 +224,14 @@ def test_warm_reply_flags_visit_and_sends_gentle_reply():
     assert any(i["outcome"] == "warm" for i in t["interactions"])
     # warm-outcome recorded for the quality loop
     assert 10 in t["warm"]
-    # gentle reply sent autonomously
-    assert result["sent_count"] == 1
+    # gentle reply drafted and queued for approval
+    assert result["queued_count"] == 1
+    assert t["queued"][0]["contact_id"] == 10
     # audit trail records the warm classification
     assert (1, 10, "warm", "Friendly but no commitment") in t["classifications"]
 
 
-def test_opt_out_reply_sets_flag_and_does_not_send():
+def test_opt_out_reply_sets_flag_and_does_not_queue():
     llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
     agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
 
@@ -243,12 +239,12 @@ def test_opt_out_reply_sets_flag_and_does_not_send():
 
     assert 10 in t["opt_outs"]
     assert result["opt_out_count"] == 1
-    assert result["sent_count"] == 0
-    assert t["sent"] == []
+    assert result["queued_count"] == 0
+    assert t["queued"] == []
     assert t["visit_flagged"] == []
 
 
-def test_not_interested_reply_logs_and_does_not_send():
+def test_not_interested_reply_logs_and_does_not_queue():
     llm = FakeLLM(['{"classification": "not_interested", "reasoning": "Not interested"}'])
     agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
 
@@ -256,7 +252,8 @@ def test_not_interested_reply_logs_and_does_not_send():
 
     # not_interested maps to the "rejected" interaction outcome
     assert any(i["outcome"] == "rejected" for i in t["interactions"])
-    assert result["sent_count"] == 0
+    assert result["queued_count"] == 0
+    assert t["queued"] == []
     assert t["opt_outs"] == []
     assert t["visit_flagged"] == []
 
@@ -277,8 +274,9 @@ def test_bounce_marks_contact_bad_email_before_classification():
 
     assert result["bounce_count"] == 1
     assert 10 in t["bounced"]
-    # bounce is not a "classified reply", and no reply is sent
-    assert result["sent_count"] == 0
+    # bounce is not a "classified reply", and nothing is queued
+    assert result["queued_count"] == 0
+    assert t["queued"] == []
     # audit trail records the bounce
     assert any(c[2] == "bounce" for c in t["classifications"])
 
@@ -292,9 +290,8 @@ def test_overdue_contact_gets_followup_queued():
 
     result = agent.invoke({})
 
-    # Overdue nudges are queued for human approval, not sent autonomously.
+    # Overdue nudges are queued for human approval.
     assert result["queued_count"] == 1
-    assert result["sent_count"] == 0
     assert t["queued"][0]["contact_id"] == 20
     assert t["queued"][0]["subject"] == "Kurze Nachfrage"
 
@@ -305,13 +302,13 @@ def test_empty_inbox_and_no_overdue():
 
     result = agent.invoke({})
 
-    assert result["sent_count"] == 0
+    assert result["queued_count"] == 0
     assert result["opt_out_count"] == 0
     assert "0 replies processed" in result["summary"]
 
 
 def test_unmatched_inbox_message_recorded_and_skipped():
-    """Message from unknown sender: recorded as skipped, no LLM, no interaction, no send."""
+    """Message from unknown sender: recorded as skipped, no LLM, no interaction, nothing queued."""
 
     def llm_should_not_run(messages):
         raise AssertionError("LLM must not classify an unmatched sender")
@@ -325,8 +322,9 @@ def test_unmatched_inbox_message_recorded_and_skipped():
 
     # No interaction logged (no contact to link to)
     assert t["interactions"] == []
-    # No email sent
-    assert result["sent_count"] == 0
+    # Nothing queued
+    assert result["queued_count"] == 0
+    assert t["queued"] == []
     # Recorded in the audit trail as skipped (replaces the old mark_processed call)
     assert (1, None, "skipped", "no matching contact") in t["classifications"]
 
@@ -345,23 +343,46 @@ def test_pre_outreach_contact_reply_is_skipped():
 
     result = agent.invoke({})
 
-    assert result["sent_count"] == 0
+    assert result["queued_count"] == 0
     assert t["interactions"] == []
     # Recorded with a pre-outreach reason
     assert any(c[1] == 10 and c[2] == "skipped" and "pre-outreach" in c[3] for c in t["classifications"])
 
 
-def test_send_failure_does_not_crash():
+def test_queue_failure_does_not_crash():
+    """Regression guard: a failing queue_for_approval must not crash the run. The
+    draft+queue step is wrapped per-message, so one queue failure is isolated and
+    the run still completes."""
     llm = FakeLLM([
         '{"classification": "interested", "reasoning": "Interested"}',
         DRAFT,
     ])
-    agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT, send_result=False)
+
+    def boom(contact_id, run_id, subject, body):
+        raise RuntimeError("queue down")
+
+    agent = create_followup_agent(
+        llm=llm,
+        fetch_inbox=lambda: [SAMPLE_MESSAGE],
+        match_contact=lambda from_email: SAMPLE_CONTACT,
+        log_interaction=lambda **kwargs: None,
+        set_opt_out=lambda contact_id: None,
+        handle_bounce=lambda contact_id: None,
+        set_visit_when_nearby=lambda contact_id: None,
+        save_classification=lambda inbox_message_id, contact_id, classification, reasoning: None,
+        fetch_overdue=lambda days=90: [],
+        queue_for_approval=boom,
+        record_warm_outcome=lambda contact_id: None,
+        start_run=lambda agent_name, input_data: 1,
+        finish_run=lambda run_id, status, summary, output_data: None,
+        mission=DummyMission(),
+    )
 
     result = agent.invoke({})
 
-    # Attempted but failed — no crash, sent_count stays 0
-    assert result["sent_count"] == 0
+    # Attempted but failed — no crash, nothing counted as queued.
+    assert result["queued_count"] == 0
+    assert "replies processed" in result["summary"]
 
 
 def test_log_interaction_failure_does_not_crash():
@@ -384,7 +405,6 @@ def test_log_interaction_failure_does_not_crash():
         set_visit_when_nearby=lambda contact_id: None,
         save_classification=lambda inbox_message_id, contact_id, classification, reasoning: None,
         fetch_overdue=lambda days=90: [],
-        send_email=lambda to_email, subject, body: True,
         queue_for_approval=lambda **kwargs: 1,
         record_warm_outcome=lambda contact_id: None,
         start_run=lambda agent_name, input_data: 1,
