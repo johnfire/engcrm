@@ -1,10 +1,14 @@
+import logging
 import os
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv
 from gcrm.mission import Mission
 from gcrm import vertical
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # --- Database ---
 DATABASE_URL: str = os.environ["DATABASE_URL"]
@@ -37,8 +41,48 @@ PROTON_FROM_EMAIL: str = os.getenv("PROTON_FROM_EMAIL", "") or os.getenv("PROTON
 HOST: str = os.getenv("HOST", "127.0.0.1")
 PORT: int = int(os.getenv("PORT", "8000"))
 
-# Mobile JSON API: secret for signing bearer JWTs. MUST be set in production.
-JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-in-production")
+# Deployment environment. Set APP_ENV=production in the deployed .env so the app
+# fails closed on missing or default signing secrets instead of booting insecure.
+APP_ENV: str = os.getenv("APP_ENV", "development")
+
+_PLACEHOLDER_SECRET = "change-me-in-production"
+
+
+def resolve_secret(name: str, value: str | None, app_env: str) -> str:
+    """
+    Resolve a signing secret, failing closed in production.
+
+    A real, non-placeholder value is used as-is. In production, a missing or
+    placeholder value is a fatal misconfiguration (raises at startup). Outside
+    production we generate a random per-process secret so local/dev/test runs
+    work without shipping a guessable default — such tokens/sessions simply do
+    not survive a restart.
+    """
+    if value and value != _PLACEHOLDER_SECRET:
+        return value
+    if app_env == "production":
+        raise RuntimeError(
+            f"{name} must be set to a strong random value in production "
+            f"(generate one with: openssl rand -hex 32)"
+        )
+    logger.warning(
+        "%s is not set — using a random ephemeral secret for this process; "
+        "tokens/sessions will not survive a restart. Set %s and APP_ENV=production "
+        "for a real deployment.",
+        name, name,
+    )
+    return secrets.token_hex(32)
+
+
+# Mobile JSON API: secret for signing bearer JWTs.
+JWT_SECRET: str = resolve_secret("JWT_SECRET", os.getenv("JWT_SECRET"), APP_ENV)
+
+# Web UI: secret for signing the Starlette session cookie.
+SESSION_SECRET: str = resolve_secret("SESSION_SECRET", os.getenv("SESSION_SECRET"), APP_ENV)
+
+# Secure-flag the session cookie when served over HTTPS (production). Leave false
+# for local HTTP dev, or the browser won't send the cookie back.
+SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
 # --- Business-card capture ---
 # Where photographed business-card images are stored (a Docker volume in prod).

@@ -5,7 +5,6 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
-import os
 
 from gcrm.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, users
 from gcrm.api.routers import (
@@ -13,6 +12,7 @@ from gcrm.api.routers import (
     api_contacts, api_activity, api_research, api_cards, api_voice,
 )
 from gcrm.api import auth
+from gcrm.config import SESSION_SECRET, SESSION_COOKIE_SECURE
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None)
 
@@ -25,11 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SESSION_SECRET = os.environ.get("SESSION_SECRET", "change-me-in-production")
-# Secure-flag the session cookie in production (HTTPS). Leave false for local
-# HTTP dev, or the browser won't send the cookie back. Set SESSION_COOKIE_SECURE=true
-# in the deployed .env.
-SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() == "true"
+# Session secret + cookie-secure flag are resolved in gcrm.config (fail-closed in
+# production). https_only must be true when the app is served over HTTPS.
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,

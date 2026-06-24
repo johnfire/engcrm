@@ -2,6 +2,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
+import hmac
 import logging
 import os
 
@@ -46,7 +47,8 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
     if user and user.get("is_active") and verify_password(password, user["password_hash"]):
         return {"role": user["role"], "user_id": user["id"], "email": user["email"]}
     # Break-glass: shared env admin password (transitional; email ignored).
-    if ADMIN_PASSWORD and password == ADMIN_PASSWORD:
+    # Constant-time compare so a wrong password can't be inferred from timing.
+    if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):
         return {"role": "admin", "user_id": None, "email": "shared-admin"}
     return None
 
