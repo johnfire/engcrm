@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
 from gcrm.api.templates import templates
 from gcrm.tools.db import get_all_city_scan_status
 from gcrm.vertical import SCAN_LEVELS
-from gcrm.api.auth import require_login
+from gcrm.api.auth import require_login, require_admin
+from gcrm.supervisor.pipeline import spawn_stage
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
@@ -11,7 +14,7 @@ LEVEL_LABELS = {lvl: cfg["label"] for lvl, cfg in SCAN_LEVELS.items()}
 
 
 @router.get("/research/", response_class=HTMLResponse)
-def research_page(request: Request):
+def research_page(request: Request, queued: str = "", error: str = "", city: str = ""):
     cities = get_all_city_scan_status()
 
     # Build per-city level map (scan + emailed count) for easy template access
@@ -43,4 +46,29 @@ def research_page(request: Request):
         "unscanned": unscanned,
         "totals": totals,
         "levels": list(SCAN_LEVELS.keys()),
+        "queued": queued,
+        "error": error,
+        "ran_city": city,
     })
+
+
+@router.post("/research/run")
+def research_run(
+    stage: str = Form(...),
+    city: str = Form(""),
+    level: int = Form(1),
+    country: str = Form("DE"),
+    _role: str = Depends(require_admin),
+):
+    """Trigger a pipeline stage from the web research page (admin only)."""
+    try:
+        spawn_stage(stage, city=city, level=level, country=country)
+    except ValueError as error:
+        return RedirectResponse(
+            url=f"/research/?error={quote(str(error))}&city={quote(city)}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/research/?queued={quote(stage)}&city={quote(city)}",
+        status_code=303,
+    )

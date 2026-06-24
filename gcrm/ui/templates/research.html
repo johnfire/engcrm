@@ -8,6 +8,44 @@
   >
 </div>
 
+{% if queued %}
+<div class="run-banner ok">Queued <strong>{{ queued }}</strong> — watch the Activity page for progress.</div>
+{% endif %}
+{% if error %}
+<div class="run-banner err">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/research/run" class="pipeline-run">
+  <input type="text" name="city" placeholder="City" value="{{ ran_city }}" />
+  <select name="level" aria-label="Level">
+    {% for lvl in levels %}<option value="{{ lvl }}">L{{ lvl }}</option>{% endfor %}
+  </select>
+  <select name="country" aria-label="Country">
+    <option value="DE">DE</option>
+    <option value="AT">AT</option>
+  </select>
+  <button type="submit" name="stage" value="research">Research</button>
+  <button type="submit" name="stage" value="scout">Scout</button>
+  <button type="submit" name="stage" value="enrichment">Enrich</button>
+  <button type="submit" name="stage" value="outreach">Outreach</button>
+  <button type="submit" name="stage" value="all" class="primary">Run all</button>
+  <button type="submit" name="stage" value="followup" class="ghost">
+    Followup (all cities)
+  </button>
+</form>
+
+<style>
+  .pipeline-run { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 1rem 0; padding: 1rem; background: #1a1a2e; border-radius: 10px; }
+  .pipeline-run input, .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid #ffffff20; background: #0f0f23; color: #fff; }
+  .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid #7c6fff55; background: #1a1a2e; color: #fff; cursor: pointer; }
+  .pipeline-run button:hover { border-color: #7c6fff; }
+  .pipeline-run button.primary { background: #7c6fff; border-color: #7c6fff; font-weight: 600; }
+  .pipeline-run button.ghost { border-color: #ffffff20; color: #ccc; }
+  .run-banner { margin: 1rem 0; padding: 10px 14px; border-radius: 8px; }
+  .run-banner.ok { background: #1c3a26; color: #6ee7a0; }
+  .run-banner.err { background: #3a1c1c; color: #ef8a8a; }
+</style>
+
 <div class="stats-row">
   <div class="stat">
     <span class="stat-value">{{ total }}</span>
