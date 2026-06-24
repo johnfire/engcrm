@@ -13,8 +13,8 @@ def score_contact_prompt(mission, contact: dict, city_context: dict | None = Non
         notes = city_context.get("market_notes", "")
         city_context_str = f"\nCity market context ({char}): {notes}\n"
 
-    positive_signals = "\n".join(f"- {s}" for s in FIT_SIGNALS)
-    negative_signals = "\n".join(f"- {s}" for s in ANTI_SIGNALS)
+    positive_signals = "\n".join(f"- {signal}" for signal in FIT_SIGNALS)
+    negative_signals = "\n".join(f"- {signal}" for signal in ANTI_SIGNALS)
 
     system = (
         f"You are researching potential contacts on behalf of {mission.identity}.\n"

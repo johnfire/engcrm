@@ -48,8 +48,8 @@ def enrich_contact_prompt(
     )
 
     snippets = "\n\n".join(
-        f"Title: {r.get('title', '')}\nURL: {r.get('url', '')}\nSnippet: {r.get('snippet', '')}"
-        for r in search_results[:5]
+        f"Title: {result.get('title', '')}\nURL: {result.get('url', '')}\nSnippet: {result.get('snippet', '')}"
+        for result in search_results[:5]
     ) or "No results found."
 
     user = (

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def _load_ignored_chains(cur) -> list[str]:
     cur.execute("SELECT name FROM ignored_chains")
-    return [r["name"] for r in cur.fetchall()]
+    return [row["name"] for row in cur.fetchall()]
 
 
 def get_ignored_chains() -> list[str]:
@@ -120,7 +120,7 @@ def get_candidates(limit: int = 50) -> list[dict]:
             "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
             (limit,),
         )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 def get_cold_contacts(
@@ -161,7 +161,7 @@ def get_cold_contacts(
             f"ORDER BY fit_score DESC NULLS LAST, created_at ASC LIMIT %s",
             params,
         )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 def update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
@@ -206,7 +206,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
             f"ORDER BY enriched_at ASC NULLS FIRST, created_at ASC LIMIT %s",
             params,
         )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
@@ -217,7 +217,7 @@ def update_contact_details(contact_id: int, **kwargs) -> None:
     """
     allowed = {"website", "email", "phone", "status"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v}
-    set_clause = ", ".join(f"{k} = %s" for k in fields)
+    set_clause = ", ".join(f"{column} = %s" for column in fields)
     if set_clause:
         set_clause += ", enriched_at = NOW(), updated_at = NOW()"
     else:
@@ -430,7 +430,7 @@ def search_contacts_by_name(query: str, limit: int = 5) -> list[dict]:
             "ORDER BY (lower(name) = lower(%s)) DESC, name ASC LIMIT %s",
             (like, like, q, limit),
         )
-        return [dict(r) for r in cur.fetchall()]
+        return [dict(row) for row in cur.fetchall()]
 
 
 def log_voice_interaction(
@@ -482,7 +482,7 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
             """,
             (days,),
         )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -502,7 +502,7 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
             """,
             (contact_id,),
         )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 # --- User-account operations live in db_users.py; re-exported here so callers

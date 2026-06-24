@@ -31,7 +31,7 @@ def draft_email_prompt(
 
     learnings_section = ""
     if learnings:
-        items = "\n".join(f"- {l}" for l in learnings)
+        items = "\n".join(f"- {learning}" for learning in learnings)
         learnings_section = f"\nRecent learnings from past outreach (apply these patterns):\n{items}\n"
 
     system = (
@@ -50,10 +50,10 @@ def draft_email_prompt(
 
     if interactions:
         lines = []
-        for i in interactions:
+        for interaction in interactions:
             lines.append(
-                f"  {i.get('interaction_date', '?')} | {i.get('direction', '?')} | "
-                f"{i.get('method', '?')} | {i.get('summary', '')} | outcome: {i.get('outcome', '?')}"
+                f"  {interaction.get('interaction_date', '?')} | {interaction.get('direction', '?')} | "
+                f"{interaction.get('method', '?')} | {interaction.get('summary', '')} | outcome: {interaction.get('outcome', '?')}"
             )
         interaction_section = "Previous interactions with this contact:\n" + "\n".join(lines)
     else:
