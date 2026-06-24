@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from gcrm.db.connection import db
 from gcrm.tools.db import log_interaction, update_city_market
 from gcrm.tools.email import send_email
+from gcrm.vertical import SCAN_LEVELS
 
 logger = logging.getLogger(__name__)
 
@@ -273,8 +274,9 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
         return json.dumps({"dropped": True, "contact": row["name"], "city": row["city"], "reason": reason})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception as error:
+        logger.warning("manual_drop failed for contact %s: %s", contact_id, error)
+        return json.dumps({"error": str(error)})
 
 
 @server.tool()
@@ -300,8 +302,9 @@ def manual_promote(contact_id: int, note: str = "") -> str:
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
         return json.dumps({"promoted": True, "contact": row["name"], "city": row["city"]})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception as error:
+        logger.warning("manual_promote failed for contact %s: %s", contact_id, error)
+        return json.dumps({"error": str(error)})
 
 
 @server.tool()
@@ -318,15 +321,14 @@ def set_city_notes(city: str, notes: str, character: str = "", country: str = "D
             return json.dumps({"error": f"City '{city}' not found in registry"})
         return json.dumps({"updated": True, "city": city, "country": country.upper(),
                            "character": character or "unchanged", "notes": notes})
-    except Exception as e:
-        return json.dumps({"error": str(e)})
+    except Exception as error:
+        logger.warning("set_city_notes failed for city '%s': %s", city, error)
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
 # RESEARCH STATUS
 # =============================================================================
-
-from gcrm.vertical import SCAN_LEVELS
 LEVEL_LABELS = {lvl: info["label"] for lvl, info in SCAN_LEVELS.items()}
 
 @server.tool()
@@ -488,8 +490,9 @@ def resource_pipeline() -> str:
             lines.append(f"  {status}: {count}")
         lines.append(f"\nPending approvals: {pending}")
         return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception as error:
+        logger.warning("resource_pipeline failed: %s", error)
+        return f"Error: {error}"
 
 
 @server.resource("supervisor://queue")
@@ -518,8 +521,9 @@ def resource_queue() -> str:
                 f"| {item['draft_subject']} | {str(item['created_at'])[:10]}"
             )
         return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception as error:
+        logger.warning("resource_queue failed: %s", error)
+        return f"Error: {error}"
 
 
 # =============================================================================
