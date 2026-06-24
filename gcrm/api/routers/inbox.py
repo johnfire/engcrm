@@ -27,7 +27,7 @@ def inbox_list(
             conditions.append("i.classification = %s")
             params.append(classification)
         else:
-            conditions.append("i.classification != 'skipped' OR i.classification IS NULL")
+            conditions.append("(i.classification != 'skipped' OR i.classification IS NULL)")
 
         where = "WHERE " + " AND ".join(conditions)
 

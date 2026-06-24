@@ -91,6 +91,10 @@ CARD_IMAGE_DIR: str = os.getenv("CARD_IMAGE_DIR", "/data/card-images")
 # extracted text). Set >0 to retain the image file for that many days instead.
 CARD_IMAGE_RETENTION_DAYS: int = int(os.getenv("CARD_IMAGE_RETENTION_DAYS", "0"))
 
+# Max accepted upload size (card images, voice memos) — guards against memory
+# exhaustion from an oversized multipart body.
+MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+
 # --- Scout threshold ---
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))

@@ -6,12 +6,14 @@ POST /api/voice/confirm  apply: log the interaction on the chosen/new contact,
                          with an optional follow-up date
 """
 import logging
+import os
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin
+from gcrm.config import MAX_UPLOAD_BYTES
 from gcrm.tools.transcribe import transcribe
 from gcrm.tools.voice import structure_transcript
 from gcrm.tools.db import search_contacts_by_name, log_voice_interaction, save_contact
@@ -37,11 +39,14 @@ def process_voice(
     language: str = Form(""),
     _role: str = Depends(require_jwt_admin),
 ) -> dict:
-    audio_bytes = audio.file.read()
+    audio_bytes = audio.file.read(MAX_UPLOAD_BYTES + 1)
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Empty audio")
+    if len(audio_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Audio too large")
+    safe_name = os.path.basename(audio.filename or "memo.m4a")
     try:
-        transcript = transcribe(audio_bytes, audio.filename or "memo.m4a", language or None)
+        transcript = transcribe(audio_bytes, safe_name, language or None)
     except Exception:
         logger.exception("transcription failed")
         raise HTTPException(status_code=502, detail="Transcription service unavailable")

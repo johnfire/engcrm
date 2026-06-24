@@ -6,6 +6,7 @@ import email as email_lib
 import imaplib
 import logging
 import smtplib
+import ssl
 from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -19,6 +20,19 @@ from gcrm.config import (
 from gcrm.tools.db import save_inbox_message
 
 logger = logging.getLogger(__name__)
+
+_LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def _starttls_context(host: str) -> ssl.SSLContext:
+    """Verify the server certificate for remote hosts. The local Proton Bridge
+    (loopback) presents a self-signed cert, so verification is skipped there,
+    preserving the current local-bridge behavior."""
+    ctx = ssl.create_default_context()
+    if host in _LOOPBACK_HOSTS:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
@@ -43,7 +57,7 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
     try:
         with smtplib.SMTP(PROTON_SMTP_HOST, PROTON_SMTP_PORT) as smtp:
             smtp.ehlo()
-            smtp.starttls()
+            smtp.starttls(context=_starttls_context(PROTON_SMTP_HOST))
             smtp.login(PROTON_EMAIL, PROTON_PASSWORD)
             smtp.sendmail(PROTON_EMAIL, [to_email], msg.as_string())
         logger.info("send_email: sent to %s — %s", to_email, subject)
@@ -63,7 +77,7 @@ def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
     messages = []
     try:
         with imaplib.IMAP4(PROTON_IMAP_HOST, PROTON_IMAP_PORT) as imap:
-            imap.starttls()
+            imap.starttls(ssl_context=_starttls_context(PROTON_IMAP_HOST))
             imap.login(PROTON_EMAIL, PROTON_PASSWORD)
             imap.select("INBOX")
 

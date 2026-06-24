@@ -31,6 +31,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
     https_only=SESSION_COOKIE_SECURE,
+    same_site="lax",
 )
 
 UI_DIR = Path(__file__).parent.parent / "ui"

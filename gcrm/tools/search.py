@@ -4,7 +4,11 @@ geo_search uses the Overpass API (OpenStreetMap) — no API key required.
 google_maps_search uses Google Places API (New) — requires GOOGLE_MAPS_API_KEY.
 web_search uses DuckDuckGo — no API key required.
 """
+import ipaddress
 import logging
+import socket
+from urllib.parse import urlparse
+
 import httpx
 from duckduckgo_search import DDGS
 
@@ -170,12 +174,38 @@ BRIGHTDATA_UNLOCKER_URL = "https://api.brightdata.com/request"
 BRIGHTDATA_UNLOCKER_ZONE = "mcp_unlocker"
 
 
+def _is_public_http_url(url: str) -> bool:
+    """True only for http(s) URLs whose host resolves entirely to public IPs.
+    Blocks SSRF to loopback/private/link-local/reserved ranges, including the
+    cloud metadata endpoint at 169.254.169.254."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, port, proto=socket.IPPROTO_TCP)
+    except Exception:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
 def fetch_page(url: str, max_chars: int = 3000) -> str:
     """
     Fetch a web page and return its content as markdown.
     Uses Bright Data Web Unlocker (bot-bypass) when BRIGHTDATA_API_TOKEN is set,
     falls back to plain httpx + HTML stripping.
     """
+    if not _is_public_http_url(url):
+        logger.warning("fetch_page: refusing non-public or unsafe URL: %s", url)
+        return ""
     from gcrm.config import BRIGHTDATA_API_TOKEN
     if BRIGHTDATA_API_TOKEN:
         try:

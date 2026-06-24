@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from psycopg2.extras import Json
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
-from gcrm.config import CARD_IMAGE_RETENTION_DAYS
+from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards
 
@@ -35,9 +35,13 @@ def capture_card(
 ) -> dict:
     """Store the photo, extract fields with Claude vision, return fields + any
     likely duplicate for the confirm screen."""
-    image_bytes = image.file.read()
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=415, detail="Expected an image upload")
+    image_bytes = image.file.read(MAX_UPLOAD_BYTES + 1)
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Empty image")
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large")
 
     with db() as conn:
         cur = conn.cursor()
