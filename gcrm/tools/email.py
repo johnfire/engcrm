@@ -99,13 +99,18 @@ def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
                 html_body = ""
                 if parsed.is_multipart():
                     for part in parsed.walk():
-                        ct = part.get_content_type()
-                        if ct == "text/plain" and not body:
-                            body = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                        elif ct == "text/html" and not html_body:
-                            html_body = part.get_payload(decode=True).decode("utf-8", errors="replace")
+                        content_type = part.get_content_type()
+                        if content_type == "text/plain" and not body:
+                            payload = part.get_payload(decode=True)
+                            if payload is not None:
+                                body = payload.decode("utf-8", errors="replace")
+                        elif content_type == "text/html" and not html_body:
+                            payload = part.get_payload(decode=True)
+                            if payload is not None:
+                                html_body = payload.decode("utf-8", errors="replace")
                 else:
-                    body = parsed.get_payload(decode=True).decode("utf-8", errors="replace")
+                    payload = parsed.get_payload(decode=True)
+                    body = payload.decode("utf-8", errors="replace") if payload is not None else ""
 
                 if not body.strip() and html_body:
                     import html as html_mod

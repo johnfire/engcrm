@@ -396,8 +396,8 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
             body=f"{contact_name} — {subject}",
             data={"screen": "approvals"},
         )
-    except Exception:
-        pass
+    except Exception as error:
+        logger.debug("approval push notification failed (non-blocking): %s", error)
     return queue_id
 
 
