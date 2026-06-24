@@ -2,24 +2,11 @@
 
 Uses the cheap LLM (DeepSeek by default) — this is a text task, no vision needed.
 """
-import json
 import logging
 
+from gcrm.tools.json_parsing import parse_llm_json
+
 logger = logging.getLogger(__name__)
-
-
-def _parse_json(text: str) -> dict:
-    """Tolerant JSON extraction — strips markdown fences and surrounding prose."""
-    t = (text or "").strip()
-    if t.startswith("```"):
-        t = t[3:]
-        if t[:4].lower() == "json":
-            t = t[4:]
-        t = t.rsplit("```", 1)[0]
-    start, end = t.find("{"), t.rfind("}")
-    if start >= 0 and end > start:
-        t = t[start : end + 1]
-    return json.loads(t)
 
 
 def structure_transcript(transcript: str, today: str) -> dict:
@@ -35,7 +22,7 @@ def structure_transcript(transcript: str, today: str) -> dict:
             [SystemMessage(content=VOICE_SYSTEM_PROMPT), HumanMessage(content=user)]
         )
         content = resp.content if isinstance(resp.content, str) else str(resp.content)
-        data = _parse_json(content)
+        data = parse_llm_json(content)
     except Exception:
         logger.warning("voice structuring failed; returning summary-only", exc_info=True)
         return {

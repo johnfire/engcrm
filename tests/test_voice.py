@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token
 from gcrm.tools import voice
+from gcrm.tools.json_parsing import parse_llm_json
 from gcrm.api.routers import api_voice
 
 client = TestClient(main.app)
@@ -23,10 +24,10 @@ def _llm_returning(content: str):
 
 class TestParsing:
     def test_parse_json_fenced(self):
-        assert voice._parse_json('```json\n{"summary":"hi"}\n```') == {"summary": "hi"}
+        assert parse_llm_json('```json\n{"summary":"hi"}\n```') == {"summary": "hi"}
 
     def test_parse_json_prose_wrapped(self):
-        assert voice._parse_json('Sure: {"summary":"x"} done') == {"summary": "x"}
+        assert parse_llm_json('Sure: {"summary":"x"} done') == {"summary": "x"}
 
     def test_valid_iso_date(self):
         assert api_voice._valid_iso_date("2026-07-15") == "2026-07-15"

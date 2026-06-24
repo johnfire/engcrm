@@ -6,13 +6,13 @@ helpers (JSON parsing, dedup, promotion) stay importable and testable without
 the agents extra installed.
 """
 import base64
-import json
 import logging
 import os
 
 from gcrm.config import CARD_IMAGE_DIR
 from gcrm.prompts.cards import CARD_SYSTEM_PROMPT
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
+from gcrm.tools.json_parsing import parse_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -32,20 +32,6 @@ def _content_to_text(content) -> str:
             b.get("text", "") if isinstance(b, dict) else str(b) for b in content
         )
     return str(content)
-
-
-def _parse_json(text: str) -> dict:
-    """Tolerant JSON extraction — strips markdown fences and surrounding prose."""
-    t = text.strip()
-    if t.startswith("```"):
-        t = t[3:]
-        if t[:4].lower() == "json":
-            t = t[4:]
-        t = t.rsplit("```", 1)[0]
-    start, end = t.find("{"), t.rfind("}")
-    if start >= 0 and end > start:
-        t = t[start : end + 1]
-    return json.loads(t)
 
 
 def _usage_cost(model_name: str, input_tokens: int, output_tokens: int) -> float:
@@ -71,7 +57,7 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
     ])
     try:
         resp = get_llm(_EXTRACT_MODEL).invoke([SystemMessage(content=CARD_SYSTEM_PROMPT), user])
-        fields = _parse_json(_content_to_text(resp.content))
+        fields = parse_llm_json(_content_to_text(resp.content))
         usage = getattr(resp, "usage_metadata", None) or {}
         cost = _usage_cost(_EXTRACT_MODEL_NAME, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
     except Exception as e:

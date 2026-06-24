@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token
 from gcrm.tools import cards
+from gcrm.tools.json_parsing import parse_llm_json
 
 client = TestClient(main.app)
 AUTH = {"Authorization": f"Bearer {create_token('admin')}"}
@@ -26,13 +27,13 @@ def make_mock_conn(rows=None):
 
 class TestParsing:
     def test_plain_json(self):
-        assert cards._parse_json('{"a": 1}') == {"a": 1}
+        assert parse_llm_json('{"a": 1}') == {"a": 1}
 
     def test_markdown_fenced(self):
-        assert cards._parse_json('```json\n{"a": 2}\n```') == {"a": 2}
+        assert parse_llm_json('```json\n{"a": 2}\n```') == {"a": 2}
 
     def test_prose_wrapped(self):
-        assert cards._parse_json('Here you go: {"a": 3} — done') == {"a": 3}
+        assert parse_llm_json('Here you go: {"a": 3} — done') == {"a": 3}
 
     def test_content_to_text_str_and_blocks(self):
         assert cards._content_to_text("hi") == "hi"
