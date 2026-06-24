@@ -319,3 +319,30 @@ def normalize_city(name: str, country: str = "DE", limit: int = 4) -> list[dict]
             "type": row.get("addresstype", ""),
         })
     return candidates
+
+
+def geocode(query: str, country: str = "DE") -> tuple[float, float] | None:
+    """Geocode a free-text address (or business name + city) via Nominatim (OSM,
+    free, no key). Returns (latitude, longitude), or None if not found. Callers
+    must rate-limit to ~1 request/second per Nominatim's usage policy."""
+    query = (query or "").strip()
+    if not query:
+        return None
+    try:
+        resp = httpx.get(
+            NOMINATIM_URL,
+            params={"q": query, "countrycodes": country.lower(), "format": "jsonv2", "limit": 1},
+            headers={"User-Agent": NOMINATIM_UA},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception as error:
+        logger.warning("geocode failed for %r: %s", query, error)
+        return None
+    if not rows:
+        return None
+    try:
+        return float(rows[0]["lat"]), float(rows[0]["lon"])
+    except (KeyError, ValueError, TypeError):
+        return None
