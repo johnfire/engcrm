@@ -301,8 +301,8 @@ def ensure_consent_log(contact_id: int, *, conn=None) -> None:
     if conn:
         _insert(conn)
     else:
-        with db() as c:
-            _insert(c)
+        with db() as conn:
+            _insert(conn)
 
 
 def check_compliance(contact_id: int) -> bool:

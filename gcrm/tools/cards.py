@@ -75,8 +75,8 @@ def save_card_image(capture_id: int, image_bytes: bytes) -> str:
     """Write the image under CARD_IMAGE_DIR; return the stored filename."""
     os.makedirs(CARD_IMAGE_DIR, exist_ok=True)
     name = f"{capture_id}.jpg"
-    with open(os.path.join(CARD_IMAGE_DIR, name), "wb") as f:
-        f.write(image_bytes)
+    with open(os.path.join(CARD_IMAGE_DIR, name), "wb") as image_file:
+        image_file.write(image_bytes)
     return name
 
 
@@ -85,8 +85,8 @@ def read_card_image(image_path: str) -> bytes | None:
         return None
     full = os.path.join(CARD_IMAGE_DIR, os.path.basename(image_path))
     try:
-        with open(full, "rb") as f:
-            return f.read()
+        with open(full, "rb") as image_file:
+            return image_file.read()
     except FileNotFoundError:
         return None
 
