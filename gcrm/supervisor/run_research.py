@@ -21,9 +21,9 @@ def main():
     parser.add_argument("--country", default="DE")
     args = parser.parse_args()
 
-    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
+    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, SCAN_CUTOFF
     from gcrm.tools import (
-        save_contact, start_run, finish_run,
+        save_contact, get_existing_contact_names, start_run, finish_run,
         record_scan_result, can_run_level,
         web_search, google_maps_search, fetch_page, get_llm,
     )
@@ -47,6 +47,8 @@ def main():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        get_existing_names=get_existing_contact_names,
+        cutoff=SCAN_CUTOFF,
     )
 
     result = agent.invoke({
@@ -57,7 +59,8 @@ def main():
 
     summary = result.get("summary", "")
     contacts_found = len(result.get("saved_ids", []))
-    record_scan_result(args.city, args.country, args.level, contacts_found)
+    complete = bool(result.get("scan_complete", False))
+    record_scan_result(args.city, args.country, args.level, contacts_found, complete=complete)
 
     if contacts_found > 0:
         from gcrm.tools.memory import capture_thought

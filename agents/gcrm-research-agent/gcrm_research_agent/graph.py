@@ -22,6 +22,8 @@ def create_research_agent(
     start_run: RunStarter,
     finish_run: RunFinisher,
     mission: AgentMission,
+    get_existing_names=None,
+    cutoff: int = 25,
 ):
     """
     Build and return a compiled LangGraph research agent.
@@ -72,6 +74,30 @@ def create_research_agent(
                 seen.add(key)
                 deduped.append(result)
         return {"raw_results": deduped}
+
+    def select_new_chunk(state: ResearchState) -> dict:
+        """Keep only businesses not already saved for this city, alphabetically, up
+        to `cutoff` — so repeated scans march through the full list instead of
+        redoing the top results. The already-saved contacts are the implicit cursor."""
+        businesses = [b for b in state.get("raw_results", []) if b.get("name")]
+        if get_existing_names is None:
+            return {"raw_results": businesses, "new_found": len(businesses),
+                    "scan_complete": True, "coords_by_name": {}}
+        existing = get_existing_names(state["city"], state.get("country", "DE"))
+        new_ones = [b for b in businesses if b["name"].strip().lower() not in existing]
+        new_ones.sort(key=lambda business: business["name"].strip().lower())
+        chunk = new_ones[:cutoff]
+        coords = {
+            b["name"].strip().lower(): (b.get("latitude"), b.get("longitude"))
+            for b in chunk
+        }
+        complete = len(new_ones) <= cutoff
+        logger.info(
+            "research: %s L%s — %d new of %d found; scanning %d this pass (complete=%s)",
+            state["city"], state.get("level"), len(new_ones), len(businesses), len(chunk), complete,
+        )
+        return {"raw_results": chunk, "new_found": len(new_ones),
+                "scan_complete": complete, "coords_by_name": coords}
 
     def run_web_search(state: ResearchState) -> dict:
         """Run up to 2 targeted web searches per level to supplement Maps data.
@@ -181,10 +207,12 @@ def create_research_agent(
 
     def save_contacts(state: ResearchState) -> dict:
         level = state.get("level", 1)
+        coords = state.get("coords_by_name", {})
         saved_ids = []
         for contact in state.get("contacts_to_save", []):
             try:
                 status = "cannot_find_more_data" if contact.get("_no_data") else "candidate"
+                latitude, longitude = coords.get((contact.get("name") or "").strip().lower(), (None, None))
                 contact_id = save_contact(
                     name=contact.get("name", ""),
                     city=contact.get("city", state["city"]),
@@ -197,6 +225,8 @@ def create_research_agent(
                     scan_level=level,
                     neighborhood=contact.get("neighborhood", ""),
                     status=status,
+                    latitude=latitude,
+                    longitude=longitude,
                 )
                 if contact_id:
                     saved_ids.append(contact_id)
@@ -226,6 +256,7 @@ def create_research_agent(
     graph = StateGraph(ResearchState)
     graph.add_node("init", init)
     graph.add_node("run_maps_search", run_maps_search)
+    graph.add_node("select_new_chunk", select_new_chunk)
     graph.add_node("run_web_search", run_web_search)
     graph.add_node("fetch_pages", fetch_pages)
     graph.add_node("extract_contacts", extract_contacts)
@@ -235,7 +266,8 @@ def create_research_agent(
 
     graph.set_entry_point("init")
     graph.add_edge("init", "run_maps_search")
-    graph.add_edge("run_maps_search", "run_web_search")
+    graph.add_edge("run_maps_search", "select_new_chunk")
+    graph.add_edge("select_new_chunk", "run_web_search")
     graph.add_edge("run_web_search", "fetch_pages")
     graph.add_edge("fetch_pages", "extract_contacts")
     graph.add_edge("extract_contacts", "fetch_missing_emails")

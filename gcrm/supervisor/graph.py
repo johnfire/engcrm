@@ -18,9 +18,9 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 
-from gcrm.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM, SMART_LLM
+from gcrm.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM, SMART_LLM, SCAN_CUTOFF
 from gcrm.tools import (
-    save_contact, get_candidates, get_cold_contacts, update_contact,
+    save_contact, get_existing_contact_names, get_candidates, get_cold_contacts, update_contact,
     get_contacts_needing_enrichment, update_contact_details,
     check_compliance, queue_for_approval, log_interaction, get_contact_interactions, set_opt_out,
     get_overdue_contacts, get_unprocessed_inbox, mark_message_processed,
@@ -73,6 +73,8 @@ def _build_agents():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        get_existing_names=get_existing_contact_names,
+        cutoff=SCAN_CUTOFF,
     )
 
     enrichment = create_enrichment_agent(
@@ -172,9 +174,10 @@ def create_supervisor(checkpointer=None):
                 })
                 summary = result.get("summary", "")
                 contacts_found = len(result.get("saved_ids", []))
+                complete = bool(result.get("scan_complete", False))
                 summaries.append(summary)
                 logger.info("research: %s", summary)
-                record_scan_result(city, country, level, contacts_found)
+                record_scan_result(city, country, level, contacts_found, complete=complete)
             except Exception as error:
                 msg = f"research failed for {city} level {level}: {error}"
                 logger.error(msg)

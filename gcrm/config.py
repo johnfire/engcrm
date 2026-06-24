@@ -115,6 +115,11 @@ OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-v4-flash")
 SMART_LLM: str = os.getenv("SMART_LLM", "deepseek-v4-flash")
 
+# How many NEW businesses one research scan processes (an alphabetical batch).
+# Each scan picks up where the last left off, so repeated scans march through the
+# full list instead of redoing the same ones. Raise to scan more per press.
+SCAN_CUTOFF: int = int(os.getenv("SCAN_CUTOFF", "25"))
+
 # --- Mission ---
 # Edit gcrm/vertical.py to change the target domain. Nothing else needs to change.
 # Edit gcrm/vertical_context.md to provide richer narrative context for outreach emails.

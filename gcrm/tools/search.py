@@ -117,7 +117,7 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
         "X-Goog-FieldMask": (
             "places.displayName,places.formattedAddress,places.addressComponents,"
             "places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,"
-            "nextPageToken"
+            "places.location,nextPageToken"
         ),
     }
 
@@ -152,6 +152,7 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
                 if "sublocality_level_1" in types or "neighborhood" in types:
                     neighborhood = component.get("longText", "")
                     break
+            location = place.get("location", {})
             results.append({
                 "name": name,
                 "address": place.get("formattedAddress", ""),
@@ -161,6 +162,8 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
                 "phone": place.get("nationalPhoneNumber", "") or place.get("internationalPhoneNumber", ""),
                 "email": "",
                 "neighborhood": neighborhood,
+                "latitude": location.get("latitude"),
+                "longitude": location.get("longitude"),
             })
 
         if not page_token:

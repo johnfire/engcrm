@@ -43,9 +43,11 @@ def make_tools():
         return [{"name": "Test Gallery", "address": "Main St 1", "city": city, "country": country}]
 
     def save_contact(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
-                     scan_level=None, neighborhood="", status="candidate") -> int:
+                     scan_level=None, neighborhood="", status="candidate",
+                     latitude=None, longitude=None) -> int:
         saved.append({"name": name, "city": city, "scan_level": scan_level,
-                      "neighborhood": neighborhood, "status": status})
+                      "neighborhood": neighborhood, "status": status,
+                      "latitude": latitude, "longitude": longitude})
         return len(saved)
 
     def start_run(agent_name: str, input_data: dict) -> int:

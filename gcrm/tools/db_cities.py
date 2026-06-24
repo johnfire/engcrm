@@ -98,7 +98,8 @@ def get_all_city_scan_status() -> list[dict]:
                             'last_run_at', cs.last_run_at,
                             'contacts_found', cs.contacts_found,
                             'run_count', cs.run_count,
-                            'due_for_rerun', cs.due_for_rerun
+                            'due_for_rerun', cs.due_for_rerun,
+                            'complete', cs.complete
                         ) ORDER BY cs.level
                     ) FILTER (WHERE cs.level IS NOT NULL),
                     '[]'
@@ -130,8 +131,9 @@ def get_all_city_scan_status() -> list[dict]:
         return [dict(row) for row in cur.fetchall()]
 
 
-def record_scan_result(city: str, country: str, level: int, contacts_found: int) -> None:
-    """Record the result of a completed scan. Creates or updates the city_scans row."""
+def record_scan_result(city: str, country: str, level: int, contacts_found: int, complete: bool = False) -> None:
+    """Record the result of a completed scan. Creates or updates the city_scans row.
+    `complete` is True once a scan turns up no new businesses for the level."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT id FROM cities WHERE LOWER(city) = LOWER(%s) AND country = %s", (city, country))
@@ -145,15 +147,16 @@ def record_scan_result(city: str, country: str, level: int, contacts_found: int)
         city_id = row["id"]
         cur.execute(
             """
-            INSERT INTO city_scans (city_id, level, last_run_at, contacts_found, run_count)
-            VALUES (%s, %s, NOW(), %s, 1)
+            INSERT INTO city_scans (city_id, level, last_run_at, contacts_found, run_count, complete)
+            VALUES (%s, %s, NOW(), %s, 1, %s)
             ON CONFLICT (city_id, level) DO UPDATE
                 SET last_run_at = NOW(),
                     contacts_found = city_scans.contacts_found + EXCLUDED.contacts_found,
                     run_count = city_scans.run_count + 1,
-                    due_for_rerun = FALSE
+                    due_for_rerun = FALSE,
+                    complete = EXCLUDED.complete
             """,
-            (city_id, level, contacts_found),
+            (city_id, level, contacts_found, complete),
         )
 
 

@@ -62,6 +62,8 @@ def save_contact(
     scan_level: int | None = None,
     status: str = "candidate",
     neighborhood: str = "",
+    latitude: float | None = None,
+    longitude: float | None = None,
 ) -> int:
     """
     Insert a new contact (default status 'candidate').
@@ -99,17 +101,28 @@ def save_contact(
         cur.execute(
             """
             INSERT INTO contacts
-                (name, city, country, type, website, email, phone, notes, status, scan_level, neighborhood)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (name, city, country, type, website, email, phone, notes, status,
+                 scan_level, neighborhood, latitude, longitude)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (name, city, country, type or None, website or None, email or None,
-             phone or None, notes or None, status, scan_level, neighborhood or None),
+             phone or None, notes or None, status, scan_level, neighborhood or None,
+             latitude, longitude),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
         logger.info("save_contact: created id=%d  %s / %s", contact_id, name, city)
         return contact_id
+
+
+def get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
+    """Lowercased names of contacts already saved for a city — the research
+    agent's 'already scanned' set, so each scan only processes new businesses."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT lower(name) AS name FROM contacts WHERE lower(city) = lower(%s)", (city,))
+        return {row["name"] for row in cur.fetchall()}
 
 
 def get_candidates(limit: int = 50) -> list[dict]:

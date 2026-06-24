@@ -34,7 +34,7 @@ def extract_contacts_prompt(
         f"  2. Signals about fit (openness to new suppliers/collaborators, relevant specialisation, etc.)\n"
         f"  3. Fit assessment: strong fit / weak fit / unclear — be specific\n\n"
         f"Include ALL venues from the results — do not filter here. The scout agent will score and drop bad fits.\n\n"
-        f"Search results:\n{json.dumps(raw_results, ensure_ascii=False, indent=2)[:7000]}\n\n"
+        f"Search results:\n{json.dumps(raw_results, ensure_ascii=False, indent=2)[:40000]}\n\n"
         f"Return a JSON array of objects. If nothing found at all, return [].\n"
         f"Return ONLY the JSON array, no other text."
     )

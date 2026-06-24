@@ -128,11 +128,17 @@
       <td class="muted small">{{ c.region or c.country }}</td>
       {% for l in c.levels %}
       <td class="center">
-        {% if l.scan %}
+        {% if l.scan and l.scan.complete %}
         <span
-          title="Last run: {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }} | Found: {{ l.scan.contacts_found }}"
+          title="Complete — last run {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }}, {{ l.scan.contacts_found }} found"
           style="color: var(--success); cursor: default"
           >●</span
+        >
+        {% elif l.scan %}
+        <span
+          title="Partial — more to scan. Last run {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }}, {{ l.scan.contacts_found }} so far"
+          style="color: #eab308; cursor: default"
+          >◐</span
         >
         {% else %}
         <span class="muted" title="Not yet run">○</span>
@@ -157,7 +163,7 @@
 </table>
 
 <div class="muted small" style="margin-top: 1rem">
-  ● = done &nbsp;○ = not run &nbsp;|&nbsp; {% for lvl, label in
+  ● = complete &nbsp;◐ = partial (more to scan) &nbsp;○ = not run &nbsp;|&nbsp; {% for lvl, label in
   level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %}
   &nbsp;|&nbsp; {% endif %}{% endfor %}
 </div>

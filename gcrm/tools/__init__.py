@@ -4,6 +4,7 @@ Each function satisfies a Protocol defined in the relevant agent repo.
 """
 from .db import (
     save_contact,
+    get_existing_contact_names,
     get_candidates,
     get_cold_contacts,
     update_contact,
@@ -45,7 +46,7 @@ from .db import (
 )
 
 __all__ = [
-    "save_contact", "get_candidates", "get_cold_contacts", "update_contact",
+    "save_contact", "get_existing_contact_names", "get_candidates", "get_cold_contacts", "update_contact",
     "get_contacts_needing_enrichment", "update_contact_details",
     "check_compliance", "ensure_consent_log", "queue_for_approval",
     "log_interaction", "get_contact_interactions", "set_opt_out", "get_overdue_contacts",
