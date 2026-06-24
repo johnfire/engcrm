@@ -12,6 +12,7 @@ import os
 
 from gcrm.config import CARD_IMAGE_DIR
 from gcrm.prompts.cards import CARD_SYSTEM_PROMPT
+from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 
 logger = logging.getLogger(__name__)
 
@@ -116,12 +117,6 @@ def delete_card_image(image_path: str) -> None:
 # ---------------------------------------------------------------------------
 # Dedup
 # ---------------------------------------------------------------------------
-_GENERIC_DOMAINS = {
-    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "proton.me",
-    "protonmail.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "icloud.com",
-}
-
-
 def _digits(s: str) -> str:
     return "".join(ch for ch in (s or "") if ch.isdigit())
 
@@ -150,7 +145,7 @@ def find_possible_duplicate(fields: dict) -> dict | None:
             if row:
                 return dict(row)
             domain = email.split("@")[-1].lower() if "@" in email else ""
-            if domain and domain not in _GENERIC_DOMAINS:
+            if domain and domain not in FREEMAIL_DOMAINS:
                 cur.execute(
                     f"SELECT {cols} FROM contacts WHERE lower(email) LIKE %s AND deleted_at IS NULL LIMIT 1",
                     (f"%@{domain}",),

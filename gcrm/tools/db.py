@@ -9,6 +9,7 @@ import re
 from datetime import date, datetime, timezone
 
 from gcrm.db.connection import db
+from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 
 logger = logging.getLogger(__name__)
 
@@ -238,12 +239,6 @@ def update_contact_details(contact_id: int, **kwargs) -> None:
         )
 
 
-_GENERIC_EMAIL_DOMAINS = {
-    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "proton.me",
-    "protonmail.com", "gmx.de", "gmx.net", "web.de", "t-online.de", "icloud.com",
-}
-
-
 def match_contact_by_email(from_email: str) -> dict | None:
     """Find a contact by email, with a corporate-domain fallback. None if not found.
 
@@ -265,7 +260,7 @@ def match_contact_by_email(from_email: str) -> dict | None:
             return contact
         # Fallback: match any contact at the same corporate domain (not freemail)
         domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
-        if domain and domain not in _GENERIC_EMAIL_DOMAINS:
+        if domain and domain not in FREEMAIL_DOMAINS:
             cur.execute(
                 "SELECT * FROM contacts WHERE lower(email) LIKE lower(%s) LIMIT 1",
                 (f"%@{domain}",),
