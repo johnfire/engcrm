@@ -58,8 +58,8 @@ def rate_limit_auth(request: Request) -> None:
     """FastAPI dependency: throttle repeated auth attempts per client (HTTP 429)."""
     try:
         allowed = _auth_limiter.allow(client_key(request))
-    except Exception as e:  # never let the limiter itself block a legitimate login
-        logger.warning("auth rate limiter error (failing open): %s", e)
+    except Exception as error:  # never let the limiter itself block a legitimate login
+        logger.warning("auth rate limiter error (failing open): %s", error)
         return
     if not allowed:
         raise HTTPException(

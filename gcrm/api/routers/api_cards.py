@@ -100,7 +100,7 @@ def list_captures(status: str = "pending_review", _role: str = Depends(require_j
             (status,),
         )
         rows = cur.fetchall()
-    return [serialize_row(dict(r)) for r in rows]
+    return [serialize_row(dict(row)) for row in rows]
 
 
 @router.get("/{capture_id}/image")

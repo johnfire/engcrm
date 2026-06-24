@@ -65,8 +65,8 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
             summary=row["draft_subject"],
             outcome="no_reply",
         )
-    except Exception as e:
-        logger.error("drafts approve send failed: item_id=%d error=%s", item_id, e)
+    except Exception as error:
+        logger.error("drafts approve send failed: item_id=%d error=%s", item_id, error)
         success = False
 
     final_status = "approved" if success else "approved_unsent"

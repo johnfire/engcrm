@@ -22,7 +22,7 @@ def people_list(request: Request, q: str = ""):
             )
         else:
             cur.execute("SELECT * FROM people ORDER BY name ASC")
-        people = [dict(r) for r in cur.fetchall()]
+        people = [dict(row) for row in cur.fetchall()]
 
     return templates.TemplateResponse("people.html", {
         "request": request,

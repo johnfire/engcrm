@@ -30,8 +30,8 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
     if body.email:
         try:
             user = get_user_by_email(body.email)
-        except Exception as e:  # tolerate DB hiccup so break-glass still works
-            logger.warning("mobile auth user lookup failed: %s", e)
+        except Exception as error:  # tolerate DB hiccup so break-glass still works
+            logger.warning("mobile auth user lookup failed: %s", error)
     payload = authenticate(body.email, body.password, user)
     if payload:
         return TokenResponse(

@@ -72,9 +72,9 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
                 (contact_id,),
             )
         return success, "sent" if success else "approved_unsent"
-    except Exception as e:
-        logger.error("_send_and_log: item_id=%d error=%s", item_id, e)
-        return False, str(e)
+    except Exception as error:
+        logger.error("_send_and_log: item_id=%d error=%s", item_id, error)
+        return False, str(error)
 
 
 @router.get("/", response_class=HTMLResponse)

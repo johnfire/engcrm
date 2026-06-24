@@ -83,13 +83,13 @@ def contact_list(
             """,
             params,
         )
-        contacts = [dict(r) for r in cur.fetchall()]
+        contacts = [dict(row) for row in cur.fetchall()]
 
         cur.execute("SELECT DISTINCT status FROM contacts WHERE status IS NOT NULL ORDER BY status")
-        statuses = [r["status"] for r in cur.fetchall()]
+        statuses = [row["status"] for row in cur.fetchall()]
 
         cur.execute("SELECT DISTINCT type FROM contacts WHERE type IS NOT NULL AND type != '' ORDER BY type")
-        types = [r["type"] for r in cur.fetchall()]
+        types = [row["type"] for row in cur.fetchall()]
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
@@ -153,7 +153,7 @@ def contact_print(
             """,
             params,
         )
-        contacts = [dict(r) for r in cur.fetchall()]
+        contacts = [dict(row) for row in cur.fetchall()]
 
     from datetime import date
     active_filters = []
@@ -186,7 +186,7 @@ def contact_brief(contact_id: int, request: Request):
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 5",
             (contact_id,),
         )
-        interactions = [dict(r) for r in cur.fetchall()]
+        interactions = [dict(row) for row in cur.fetchall()]
     return templates.TemplateResponse("contact_brief.html", {
         "request": request,
         "contact": contact,
@@ -207,7 +207,7 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
             (contact_id,),
         )
-        interactions = [dict(r) for r in cur.fetchall()]
+        interactions = [dict(row) for row in cur.fetchall()]
     return templates.TemplateResponse("contact_detail.html", {
         "request": request,
         "contact": contact,

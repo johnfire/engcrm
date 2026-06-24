@@ -59,8 +59,8 @@ def add_user(
     pw = password.strip() or _generate_password()
     try:
         create_user(email, hash_password(pw), role=role, name=name.strip())
-    except Exception as e:  # surface DB errors instead of a 500
-        _flash(request, error=f"Could not create user: {e}")
+    except Exception as error:  # surface DB errors instead of a 500
+        _flash(request, error=f"Could not create user: {error}")
         return RedirectResponse("/users/", status_code=303)
     # Show the password once only when we generated it (admin typed their own → don't echo).
     _flash(request, msg=f"Created {email} ({role}).", pw="" if password.strip() else pw)

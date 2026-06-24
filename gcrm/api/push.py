@@ -23,10 +23,10 @@ def send_push_to_all(title: str, body: str, data: dict | None = None) -> None:
         if not tokens:
             return
         messages = [
-            {"to": t, "title": title, "body": body, **({"data": data} if data else {})}
-            for t in tokens
+            {"to": token, "title": title, "body": body, **({"data": data} if data else {})}
+            for token in tokens
         ]
         with httpx.Client(timeout=5) as client:
             client.post(EXPO_PUSH_URL, json=messages)
-    except Exception as e:
-        logger.warning("push notification failed: %s", e)
+    except Exception as error:
+        logger.warning("push notification failed: %s", error)

@@ -59,8 +59,8 @@ def _lookup_user(email: str) -> dict | None:
         return None
     try:
         return get_user_by_email(email)
-    except Exception as e:  # login must not 500 on a DB hiccup
-        logger.warning("user lookup failed during login (%s); break-glass only", e)
+    except Exception as error:  # login must not 500 on a DB hiccup
+        logger.warning("user lookup failed during login (%s); break-glass only", error)
         return None
 
 
@@ -79,8 +79,8 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form(.
         if payload["user_id"] is not None:
             try:
                 touch_user_login(payload["user_id"])
-            except Exception as e:  # a failed timestamp update must not block login
-                logger.warning("touch_user_login failed: %s", e)
+            except Exception as error:  # a failed timestamp update must not block login
+                logger.warning("touch_user_login failed: %s", error)
         return RedirectResponse(url="/approvals/", status_code=303)
     return templates.TemplateResponse(
         "login.html",

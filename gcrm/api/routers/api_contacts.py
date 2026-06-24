@@ -81,7 +81,7 @@ def get_contact(contact_id: int, _role: str = Depends(require_jwt)) -> dict:
             [contact_id],
         )
         contact["interactions"] = [
-            {**dict(r), "interaction_date": r["interaction_date"].isoformat() if r["interaction_date"] else None}
-            for r in cur.fetchall()
+            {**dict(row), "interaction_date": row["interaction_date"].isoformat() if row["interaction_date"] else None}
+            for row in cur.fetchall()
         ]
         return contact

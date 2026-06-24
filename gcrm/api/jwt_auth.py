@@ -61,8 +61,8 @@ def _token_version_ok(user_id: int, token_version) -> bool:
     token still can't do anything during an outage."""
     try:
         current = get_user_token_version(user_id)
-    except Exception as e:
-        logger.warning("token version check failed (allowing request): %s", e)
+    except Exception as error:
+        logger.warning("token version check failed (allowing request): %s", error)
         return True
     return current is not None and current == token_version
 

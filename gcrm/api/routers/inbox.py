@@ -46,7 +46,7 @@ def inbox_list(
             """,
             params,
         )
-        messages = [dict(r) for r in cur.fetchall()]
+        messages = [dict(row) for row in cur.fetchall()]
 
         cur.execute(
             """
@@ -59,7 +59,7 @@ def inbox_list(
             """,
             (days,),
         )
-        counts = {r["classification"]: r["cnt"] for r in cur.fetchall()}
+        counts = {row["classification"]: row["cnt"] for row in cur.fetchall()}
         total = sum(counts.values())
 
     return templates.TemplateResponse("inbox.html", {
