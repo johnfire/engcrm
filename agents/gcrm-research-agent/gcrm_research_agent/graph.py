@@ -13,7 +13,6 @@ from ._utils import parse_json_response
 logger = logging.getLogger(__name__)
 
 
-
 def create_research_agent(
     llm: LanguageModel,
     web_search: WebSearcher,

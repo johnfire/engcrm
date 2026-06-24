@@ -1,5 +1,5 @@
 import json
-from gcrm.vertical import SCAN_LEVELS, FIT_CRITERIA
+from gcrm.vertical import SCAN_LEVELS
 
 
 def extract_contacts_prompt(

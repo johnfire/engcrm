@@ -12,6 +12,7 @@ Each run gets a unique thread_id (date + hour) so that:
 import logging
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,7 +20,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(
-            f"{__import__('pathlib').Path.home()}/logs/supervisor.log",
+            f"{Path.home()}/logs/supervisor.log",
             mode="a",
         ),
     ],

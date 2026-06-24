@@ -25,7 +25,7 @@ def main():
         record_scan_result, can_run_level,
         web_search, google_maps_search, fetch_page, get_llm,
     )
-    from gcrm.supervisor.targets import SCAN_LEVELS
+    from gcrm.vertical import SCAN_LEVELS
     from gcrm_research_agent import create_research_agent
 
     allowed, reason = can_run_level(args.city, args.country, args.level)
