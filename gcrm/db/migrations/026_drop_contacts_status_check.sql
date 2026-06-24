@@ -1,0 +1,14 @@
+-- Drop the contacts_status_check CHECK constraint.
+--
+-- It allowed only 8 statuses (candidate, cold, contacted, warm, on_hold, dropped,
+-- opt_out, bad_email) but the pipeline legitimately writes others — notably
+-- `cannot_find_more_data` (every business the research agent can't find an email
+-- for) and `maybe` (scout). Those INSERTs were rejected, so most small/email-less
+-- businesses were silently dropped, gutting lead capture. The research agents run
+-- detached (stdout/stderr -> /dev/null), so the error never surfaced — scans just
+-- reported "0 new contacts saved".
+--
+-- Contact status is set by application code, not arbitrary user input, so a DB-level
+-- enum adds little and here caused a severe silent outage. Drop it; the app is the
+-- source of truth for valid statuses.
+ALTER TABLE contacts DROP CONSTRAINT IF EXISTS contacts_status_check;
