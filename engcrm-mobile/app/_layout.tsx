@@ -9,18 +9,26 @@ export default function RootLayout() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    isLoggedIn().then((loggedIn) => {
-      setChecked(true);
-      const inDrawer = segments[0] === "(drawer)";
-      if (!loggedIn && inDrawer) {
-        router.replace("/login");
-      } else if (loggedIn && !inDrawer) {
-        router.replace("/(drawer)/approvals");
-      }
-    });
+    isLoggedIn()
+      .then((loggedIn) => {
+        setChecked(true);
+        const inDrawer = segments[0] === "(drawer)";
+        if (!loggedIn && inDrawer) {
+          router.replace("/login");
+        } else if (loggedIn && !inDrawer) {
+          router.replace("/(drawer)/approvals");
+        }
+      })
+      .catch(() => {
+        // Auth storage unreadable — fall through to login rather than hang
+        // forever on the blank (!checked) screen.
+        setChecked(true);
+        if (segments[0] === "(drawer)") router.replace("/login");
+      });
   }, []);
 
   useEffect(() => {
+    // Push registration is best-effort; never let it disrupt startup.
     if (checked) registerForPushNotifications();
   }, [checked]);
 
