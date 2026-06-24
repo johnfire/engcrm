@@ -2,7 +2,7 @@
 
 LangGraph agent that monitors the inbox for replies and queues follow-up emails for overdue contacts.
 
-> **Currently disabled.** The supervisor returns immediately without running this agent. All follow-up is handled manually for now.
+> **Queue-only.** The supervisor runs this agent each cycle. Every drafted email — interested/warm replies and overdue nudges alike — goes to the human approval queue; nothing is sent autonomously. Drafts go out only once approved in the UI.
 
 ## What it does
 
@@ -13,7 +13,7 @@ LangGraph agent that monitors the inbox for replies and queues follow-up emails 
 - Classifies the reply: `interested` / `rejected` / `opt_out` / `other`
 - Logs the interaction to the database
 - If `opt_out`: flags the contact immediately, no further outreach ever
-- If `interested`: drafts a warm reply and sends it (time-sensitive, bypasses approval queue)
+- If `interested`: drafts a reply and queues it for human approval (never sent autonomously)
 - Marks each message as processed
 
 **Stream 2 — Proactive follow-ups:**
@@ -45,7 +45,7 @@ agent = create_followup_agent(
 
 result = agent.invoke({})
 print(result["summary"])
-# "followup_agent: 3 inbox messages processed, 2 overdue queued for approval, 1 reply sent, 1 opt-out recorded"
+# "followup_agent: 3 replies processed, 2 overdue contacts, 2 drafts queued for approval, 1 warm replies flagged for visit, 1 opt-outs recorded, 0 bounces marked as bad_email"
 ```
 
 ## Protocols
