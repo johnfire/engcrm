@@ -486,112 +486,6 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Inbox messages
-# ---------------------------------------------------------------------------
-
-def save_inbox_message(
-    message_id: str,
-    from_email: str,
-    subject: str,
-    body: str,
-    received_at: datetime,
-) -> int:
-    """Cache an inbox message from IMAP. Returns id, or 0 if duplicate."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT id FROM inbox_messages WHERE message_id = %s",
-            (message_id,),
-        )
-        if cur.fetchone():
-            return 0
-        cur.execute(
-            """
-            INSERT INTO inbox_messages (message_id, from_email, subject, body, received_at)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """,
-            (message_id, from_email, subject, body, received_at),
-        )
-        return cur.fetchone()["id"]
-
-
-def get_unprocessed_inbox() -> list[dict]:
-    """Return inbox messages not yet processed by the follow-up agent."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT * FROM inbox_messages WHERE processed = FALSE ORDER BY received_at ASC"
-        )
-        return [dict(r) for r in cur.fetchall()]
-
-
-def mark_message_processed(inbox_message_id: int, contact_id: int | None) -> None:
-    """Mark an inbox message as processed, linking it to a contact if matched."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE inbox_messages
-            SET processed = TRUE, matched_contact_id = %s
-            WHERE id = %s
-            """,
-            (contact_id, inbox_message_id),
-        )
-
-
-def save_inbox_classification(
-    inbox_message_id: int,
-    contact_id: int | None,
-    classification: str,
-    reasoning: str,
-) -> None:
-    """Persist the LLM classification + reasoning and mark the message processed."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE inbox_messages
-            SET processed = TRUE,
-                matched_contact_id = %s,
-                classification = %s,
-                classification_reasoning = %s
-            WHERE id = %s
-            """,
-            (contact_id, classification, reasoning, inbox_message_id),
-        )
-
-
-def mark_bad_email(contact_id: int) -> None:
-    """Mark a contact's email undeliverable: status='bad_email' + log a bounce interaction."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE contacts SET status = 'bad_email', updated_at = NOW() WHERE id = %s",
-            (contact_id,),
-        )
-        cur.execute(
-            """
-            INSERT INTO interactions
-                (contact_id, interaction_date, method, direction, summary, outcome)
-            VALUES (%s, NOW(), 'email', 'inbound', 'Delivery failure — email bounced', 'bounce')
-            """,
-            (contact_id,),
-        )
-        logger.info("mark_bad_email: contact_id=%d marked as bad_email", contact_id)
-
-
-def set_visit_when_nearby(contact_id: int) -> None:
-    """Flag a contact for a personal visit next time you're in the area."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE contacts SET visit_when_nearby = TRUE, updated_at = NOW() WHERE id = %s",
-            (contact_id,),
-        )
-        logger.info("set_visit_when_nearby: contact_id=%d flagged", contact_id)
-
-
-# ---------------------------------------------------------------------------
 # Interactions
 # ---------------------------------------------------------------------------
 
@@ -607,165 +501,6 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
             ORDER BY interaction_date DESC
             """,
             (contact_id,),
-        )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
-
-
-# ---------------------------------------------------------------------------
-# Agent run logging
-# ---------------------------------------------------------------------------
-
-def start_run(agent_name: str, input_data: dict) -> int:
-    """Insert a new agent_run record. Returns run_id. Resets per-run cost counters."""
-    from gcrm.tools.costs import reset_costs
-    reset_costs()
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO agent_runs (agent_name, status, input_json)
-            VALUES (%s, 'running', %s) RETURNING id
-            """,
-            (agent_name, json.dumps(input_data, default=str)),
-        )
-        return cur.fetchone()["id"]
-
-
-def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> None:
-    """Update an agent_run record with completion details + record run costs."""
-    from gcrm.tools.costs import get_costs, format_costs
-    costs = get_costs()
-    cost_line = format_costs()
-    full_summary = f"{summary} | {cost_line}" if summary else cost_line
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE agent_runs
-            SET status = %s, summary = %s, output_json = %s, finished_at = NOW()
-            WHERE id = %s
-            """,
-            (status, full_summary, json.dumps(output_data, default=str), run_id),
-        )
-        cur.execute(
-            """
-            INSERT INTO run_costs (run_id, search_queries, llm_usage_json, total_usd)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                run_id,
-                costs["breakdown"].get("web_search", {}).get("queries", 0),
-                json.dumps({k: v for k, v in costs["breakdown"].items() if k != "web_search"}),
-                costs["total_usd"],
-            ),
-        )
-
-
-def get_run_costs(limit: int = 20) -> list[dict]:
-    """Return recent run costs joined with agent_run summaries."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT
-                rc.run_id, ar.agent_name, ar.started_at, ar.finished_at,
-                rc.search_queries, rc.llm_usage_json, rc.total_usd
-            FROM run_costs rc
-            JOIN agent_runs ar ON ar.id = rc.run_id
-            ORDER BY rc.recorded_at DESC
-            LIMIT %s
-            """,
-            (limit,),
-        )
-        return [serialize_row(dict(r)) for r in cur.fetchall()]
-
-
-# ---------------------------------------------------------------------------
-# Outreach quality loop
-# ---------------------------------------------------------------------------
-
-def record_warm_outcome(contact_id: int) -> None:
-    """
-    Record that a contact sent a warm/interested reply.
-    Looks up the most recent outbound and inbound interactions for the contact,
-    and the most recently approved queue item for word count.
-    Silently skips if no outbound interaction exists yet.
-    """
-    with db() as conn:
-        cur = conn.cursor()
-
-        cur.execute(
-            """
-            SELECT id FROM interactions
-            WHERE contact_id = %s AND direction = 'outbound' AND method = 'email'
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (contact_id,),
-        )
-        sent_row = cur.fetchone()
-        if not sent_row:
-            logger.info("record_warm_outcome: no outbound interaction found for contact_id=%d — skipping", contact_id)
-            return
-        sent_interaction_id = sent_row["id"]
-
-        cur.execute(
-            """
-            SELECT id FROM interactions
-            WHERE contact_id = %s AND direction = 'inbound' AND method = 'email'
-            ORDER BY created_at DESC LIMIT 1
-            """,
-            (contact_id,),
-        )
-        reply_row = cur.fetchone()
-        reply_interaction_id = reply_row["id"] if reply_row else None
-
-        cur.execute(
-            """
-            SELECT draft_body FROM approval_queue
-            WHERE contact_id = %s AND status IN ('approved', 'approved_unsent')
-            ORDER BY COALESCE(reviewed_at, created_at) DESC LIMIT 1
-            """,
-            (contact_id,),
-        )
-        queue_row = cur.fetchone()
-        word_count = len(queue_row["draft_body"].split()) if queue_row else None
-
-        cur.execute(
-            """
-            INSERT INTO outreach_outcomes
-                (contact_id, sent_interaction_id, reply_interaction_id, warm, word_count)
-            VALUES (%s, %s, %s, true, %s)
-            ON CONFLICT (sent_interaction_id) DO NOTHING
-            """,
-            (contact_id, sent_interaction_id, reply_interaction_id, word_count),
-        )
-        logger.info("record_warm_outcome: recorded for contact_id=%d word_count=%s", contact_id, word_count)
-
-
-def get_outreach_outcomes(days: int = 90) -> list[dict]:
-    """Return outreach_outcomes with sent email bodies for the last N days."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT
-                oo.id, oo.contact_id, oo.warm, oo.word_count, oo.created_at,
-                aq.draft_subject, aq.draft_body,
-                c.name AS contact_name, c.city, c.type AS contact_type
-            FROM outreach_outcomes oo
-            JOIN contacts c ON c.id = oo.contact_id
-            LEFT JOIN LATERAL (
-                SELECT draft_subject, draft_body
-                FROM approval_queue
-                WHERE contact_id = oo.contact_id
-                  AND status IN ('approved', 'approved_unsent')
-                ORDER BY COALESCE(reviewed_at, created_at) DESC
-                LIMIT 1
-            ) aq ON true
-            WHERE oo.created_at >= NOW() - %s * INTERVAL '1 day'
-            ORDER BY oo.created_at DESC
-            """,
-            (days,),
         )
         return [serialize_row(dict(r)) for r in cur.fetchall()]
 
@@ -787,4 +522,19 @@ from gcrm.tools.db_users import (
 from gcrm.tools.db_cities import (
     get_cities, get_city_market_context, update_city_market, add_city,
     get_city_scan_status, get_all_city_scan_status, record_scan_result, can_run_level,
+)
+
+
+# --- Outreach quality-loop operations live in db_outreach.py; re-exported here ---
+from gcrm.tools.db_outreach import record_warm_outcome, get_outreach_outcomes
+
+
+# --- Agent-run logging operations live in db_agent_runs.py; re-exported here ---
+from gcrm.tools.db_agent_runs import start_run, finish_run, get_run_costs
+
+
+# --- Inbox-message operations live in db_inbox.py; re-exported here ---
+from gcrm.tools.db_inbox import (
+    save_inbox_message, get_unprocessed_inbox, mark_message_processed,
+    save_inbox_classification, mark_bad_email, set_visit_when_nearby,
 )

@@ -125,7 +125,7 @@ class TestStartFinishRun:
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"id": 99}
 
-        with patch("gcrm.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db_agent_runs.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             run_id = start_run("test_agent", {"key": "value"})
 
@@ -135,9 +135,9 @@ class TestStartFinishRun:
         from gcrm.tools.db import finish_run
         conn, cur = make_mock_conn()
 
-        with patch("gcrm.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db_agent_runs.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             finish_run(99, "completed", "all done", {"count": 5})
 
-        sql_calls = [str(c) for c in cur.execute.call_args_list]
-        assert any("UPDATE" in s for s in sql_calls)
+        sql_calls = [str(call_obj) for call_obj in cur.execute.call_args_list]
+        assert any("UPDATE" in sql for sql in sql_calls)
