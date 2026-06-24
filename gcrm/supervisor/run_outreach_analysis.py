@@ -33,8 +33,8 @@ def main():
     from langchain_core.messages import SystemMessage, HumanMessage
 
     outcomes = get_outreach_outcomes(days=args.days)
-    warm = [o for o in outcomes if o["warm"]]
-    cold = [o for o in outcomes if not o["warm"]]
+    warm = [outcome for outcome in outcomes if outcome["warm"]]
+    cold = [outcome for outcome in outcomes if not outcome["warm"]]
 
     if len(warm) < MIN_WARM_OUTCOMES:
         logger.info(
@@ -51,8 +51,8 @@ def main():
         ctype = o.get("contact_type") or "?"
         return f"[{ctype} / {city} / {words} words]\nSubject: {subject}\n{body}"
 
-    warm_block = "\n\n---\n\n".join(_fmt(o) for o in warm[:20])
-    cold_block  = "\n\n---\n\n".join(_fmt(o) for o in cold[:20])
+    warm_block = "\n\n---\n\n".join(_fmt(outcome) for outcome in warm[:20])
+    cold_block  = "\n\n---\n\n".join(_fmt(outcome) for outcome in cold[:20])
 
     system = (
         "You are analysing email outreach patterns for an AI engineer and consultant "

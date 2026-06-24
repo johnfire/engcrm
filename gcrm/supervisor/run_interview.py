@@ -60,9 +60,9 @@ def multi_menu(prompt, options):
         if not raw or raw == "0":
             return []
         try:
-            idxs = [int(x.strip()) - 1 for x in raw.split(",")]
-            if all(0 <= i < len(options) for i in idxs):
-                return [options[i] for i in idxs]
+            indexes = [int(part.strip()) - 1 for part in raw.split(",")]
+            if all(0 <= index < len(options) for index in indexes):
+                return [options[index] for index in indexes]
         except ValueError:
             pass
         print("  Invalid — try again.")
@@ -84,7 +84,7 @@ def search_contacts(query: str) -> list[dict]:
             """,
             (f"%{query.lower()}%", f"%{query.lower()}%"),
         )
-        return [dict(r) for r in cur.fetchall()]
+        return [dict(row) for row in cur.fetchall()]
 
 
 def pick_contact() -> dict | None:
@@ -100,9 +100,9 @@ def pick_contact() -> dict | None:
             continue
 
         print(f"\n  Found {len(results)} match(es):")
-        for i, c in enumerate(results, 1):
-            loc = f"{c['city']}, {c['country']}" if c.get("country") else c.get("city", "")
-            print(f"    {i}. {c['name']}  [{loc}]  {c['status']}")
+        for index, contact in enumerate(results, 1):
+            location = f"{contact['city']}, {contact['country']}" if contact.get("country") else contact.get("city", "")
+            print(f"    {index}. {contact['name']}  [{location}]  {contact['status']}")
         print("    0. search again")
 
         raw = input("  Select: ").strip()
@@ -122,7 +122,7 @@ def pick_contact() -> dict | None:
 def save_updates(contact_id: int, updates: dict):
     if not updates:
         return
-    fields = ", ".join(f"{k} = %s" for k in updates)
+    fields = ", ".join(f"{column} = %s" for column in updates)
     values = list(updates.values()) + [contact_id]
     with db() as conn:
         cur = conn.cursor()

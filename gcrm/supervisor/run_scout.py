@@ -49,7 +49,7 @@ def main():
     if args.city:
         def fetch_candidates(limit):
             rows = get_candidates(limit=limit)
-            return [c for c in rows if (c.get("city") or "").lower() == args.city.lower()]
+            return [contact for contact in rows if (contact.get("city") or "").lower() == args.city.lower()]
     else:
         fetch_candidates = get_candidates
 

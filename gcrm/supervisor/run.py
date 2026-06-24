@@ -46,8 +46,8 @@ def main():
                 config={"configurable": {"thread_id": thread_id}},
             )
             print(result["summary"])
-    except Exception as e:
-        logger.exception("supervisor: fatal error — %s", e)
+    except Exception as error:
+        logger.exception("supervisor: fatal error — %s", error)
         sys.exit(1)
 
 

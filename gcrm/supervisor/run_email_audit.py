@@ -45,7 +45,7 @@ def fetch_sent_recipients(imap_host: str, imap_port: int, username: str, passwor
     recipients = set()
     for chunk_start in range(0, len(msg_ids), 100):
         chunk = msg_ids[chunk_start:chunk_start + 100]
-        id_str = ",".join(i.decode() for i in chunk)
+        id_str = ",".join(message_id.decode() for message_id in chunk)
         _, fetch_data = m.fetch(id_str, "(BODY.PEEK[HEADER.FIELDS (TO CC)])")
         for item in fetch_data:
             if not isinstance(item, tuple):
@@ -73,7 +73,7 @@ def get_contacts(city: str | None) -> list[dict]:
             cur.execute(
                 "SELECT id, name, city, email, status FROM contacts WHERE email IS NOT NULL AND email != '' AND deleted_at IS NULL"
             )
-        return [dict(r) for r in cur.fetchall()]
+        return [dict(row) for row in cur.fetchall()]
 
 
 def mark_contacted(contact_ids: list[int]) -> None:
@@ -116,16 +116,16 @@ def main():
     already_ok = []
     not_found = []
 
-    for c in contacts:
-        addr = c["email"].lower().strip()
+    for contact in contacts:
+        addr = contact["email"].lower().strip()
         if addr in sent_recipients:
-            if c["status"] in ACTIVE_STATUSES:
-                already_ok.append(c)
-            elif c["status"] in UPGRADEABLE_STATUSES:
-                to_fix.append(c)
+            if contact["status"] in ACTIVE_STATUSES:
+                already_ok.append(contact)
+            elif contact["status"] in UPGRADEABLE_STATUSES:
+                to_fix.append(contact)
             # dropped / do_not_contact — leave alone
         else:
-            not_found.append(c)
+            not_found.append(contact)
 
     print(f"\n── Sent Folder Audit — {label} ──────────────────────")
     print(f"  Sent folder recipients : {len(sent_recipients)}")
@@ -136,11 +136,11 @@ def main():
 
     if to_fix:
         print(f"\n── Contacts to fix ({'will auto-apply' if args.fix else 'dry run — use --fix to apply'}) ──")
-        for c in to_fix:
-            print(f"  [{c['status']:20s}] → contacted   {c['name']} ({c['city']})  <{c['email']}>")
+        for contact in to_fix:
+            print(f"  [{contact['status']:20s}] → contacted   {contact['name']} ({contact['city']})  <{contact['email']}>")
 
         if args.fix:
-            ids = [c["id"] for c in to_fix]
+            ids = [contact["id"] for contact in to_fix]
             mark_contacted(ids)
             print(f"\n  Fixed {len(ids)} contact(s).")
         else:

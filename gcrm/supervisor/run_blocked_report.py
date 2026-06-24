@@ -56,24 +56,24 @@ def main():
         rows = cur.fetchall()
 
     blocked = []
-    for r in rows:
+    for row in rows:
         reasons = []
-        if r["status"] == "do_not_contact":
+        if row["status"] == "do_not_contact":
             reasons.append("do_not_contact status")
-        if r["opt_out"]:
+        if row["opt_out"]:
             reasons.append("opt-out in consent_log")
-        if r["erasure_requested"]:
+        if row["erasure_requested"]:
             reasons.append("erasure requested")
-        if not r["email"]:
+        if not row["email"]:
             reasons.append("no email address")
 
         if reasons:
             blocked.append({
-                "id": r["id"],
-                "name": r["name"],
-                "city": r["city"],
-                "type": r["type"],
-                "status": r["status"],
+                "id": row["id"],
+                "name": row["name"],
+                "city": row["city"],
+                "type": row["type"],
+                "status": row["status"],
                 "reasons": reasons,
             })
 
@@ -83,17 +83,17 @@ def main():
 
     # Group by city
     by_city: dict[str, list] = {}
-    for b in blocked:
-        by_city.setdefault(b["city"], []).append(b)
+    for blocked_contact in blocked:
+        by_city.setdefault(blocked_contact["city"], []).append(blocked_contact)
 
     total = len(blocked)
     print(f"Blocked prospects: {total}\n")
 
     for city, contacts in sorted(by_city.items()):
         print(f"── {city} ({len(contacts)})")
-        for c in contacts:
-            reasons_str = ", ".join(c["reasons"])
-            print(f"   [{c['id']}] {c['name']} ({c['type']}) — {reasons_str}")
+        for contact in contacts:
+            reasons_str = ", ".join(contact["reasons"])
+            print(f"   [{contact['id']}] {contact['name']} ({contact['type']}) — {reasons_str}")
         print()
 
 

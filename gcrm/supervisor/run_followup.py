@@ -32,8 +32,8 @@ def main():
     def fetch_inbox_with_backlog(limit: int = 50) -> list[dict]:
         """Fetch new messages from IMAP, then merge any previously unprocessed DB messages."""
         new_messages = read_inbox(limit=limit)
-        new_ids = {m["id"] for m in new_messages}
-        backlog = [m for m in get_unprocessed_inbox() if m["id"] not in new_ids]
+        new_ids = {message["id"] for message in new_messages}
+        backlog = [message for message in get_unprocessed_inbox() if message["id"] not in new_ids]
         if backlog:
             logger.info("fetch_inbox_with_backlog: %d backlog message(s) added", len(backlog))
         return new_messages + backlog

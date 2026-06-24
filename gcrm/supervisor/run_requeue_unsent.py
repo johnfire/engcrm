@@ -31,7 +31,7 @@ def get_cities_with_unsent() -> list[str]:
             WHERE aq.status = 'approved_unsent'
             ORDER BY c.city
         """)
-        return [r["city"] for r in cur.fetchall()]
+        return [row["city"] for row in cur.fetchall()]
 
 
 def requeue_contacts_with_email(dry_run: bool = False) -> int:
@@ -48,10 +48,10 @@ def requeue_contacts_with_email(dry_run: bool = False) -> int:
         rows = cur.fetchall()
         if not rows:
             return 0
-        for r in rows:
-            logger.info("requeue: %s / %s  email=%s  aq_id=%d", r["name"], r["city"], r["email"], r["id"])
+        for row in rows:
+            logger.info("requeue: %s / %s  email=%s  aq_id=%d", row["name"], row["city"], row["email"], row["id"])
         if not dry_run:
-            ids = [r["id"] for r in rows]
+            ids = [row["id"] for row in rows]
             cur.execute(
                 """
                 UPDATE approval_queue
