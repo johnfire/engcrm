@@ -130,8 +130,8 @@ def create_followup_agent(
     def fetch_inbox_messages(state: FollowupState) -> dict:
         try:
             messages = fetch_inbox()
-        except Exception as e:
-            return {"errors": state["errors"] + [f"fetch_inbox: {e}"]}
+        except Exception as error:
+            return {"errors": state["errors"] + [f"fetch_inbox: {error}"]}
         return {"inbox_messages": messages}
 
     def _handle_bounce_message(msg: dict) -> int:
@@ -151,8 +151,8 @@ def create_followup_agent(
         if bounced_contact:
             try:
                 handle_bounce(bounced_contact["id"])
-            except Exception as e:
-                logger.warning("handle_bounce failed: contact_id=%s error=%s", bounced_contact.get("id"), e)
+            except Exception as error:
+                logger.warning("handle_bounce failed: contact_id=%s error=%s", bounced_contact.get("id"), error)
             try:
                 save_classification(
                     msg["id"], bounced_contact["id"], "bounce",
@@ -228,9 +228,9 @@ def create_followup_agent(
                 result = parse_json_response(response.content)
                 classification = result.get("classification", "other")
                 reasoning = result.get("reasoning", "")
-            except Exception as e:
+            except Exception as error:
                 classification = "other"
-                reasoning = f"classification error: {e}"
+                reasoning = f"classification error: {error}"
 
             entry = {
                 "inbox_message_id": msg["id"],
@@ -248,8 +248,8 @@ def create_followup_agent(
                     try:
                         set_opt_out(contact["id"])
                         opt_out_count += 1
-                    except Exception as e:
-                        entry["error"] = f"set_opt_out: {e}"
+                    except Exception as error:
+                        entry["error"] = f"set_opt_out: {error}"
                 else:
                     entry["auto_action_skipped"] = "opt_out: domain-only match, needs human review"
 
@@ -261,8 +261,8 @@ def create_followup_agent(
                         set_visit_when_nearby(contact["id"])
                         warm_count += 1
                         entry["visit_flagged"] = True
-                    except Exception as e:
-                        entry["error"] = f"set_visit_when_nearby: {e}"
+                    except Exception as error:
+                        entry["error"] = f"set_visit_when_nearby: {error}"
                 else:
                     entry["auto_action_skipped"] = "visit_flag: domain-only match, needs human review"
 
@@ -277,15 +277,15 @@ def create_followup_agent(
                     outcome=_OUTCOME_MAP.get(classification, "no_reply"),
                 )
                 interaction_logged = True
-            except Exception as e:
-                logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), e)
+            except Exception as error:
+                logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), error)
 
             # Record warm signal for outreach quality loop — only if interaction committed.
             if interaction_logged and classification in ("interested", "warm"):
                 try:
                     record_warm_outcome(contact["id"])
-                except Exception as e:
-                    logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), e)
+                except Exception as error:
+                    logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), error)
 
             # Draft a reply for interested and warm contacts and queue it for
             # human approval — interested gets an enthusiastic reply, warm a
@@ -307,8 +307,8 @@ def create_followup_agent(
                     )
                     queued += 1
                     entry["reply_queued"] = True
-                except Exception as e:
-                    entry["draft_error"] = str(e)
+                except Exception as error:
+                    entry["draft_error"] = str(error)
 
             # Persist the classification + reasoning to the inbox audit trail.
             try:
@@ -329,8 +329,8 @@ def create_followup_agent(
     def fetch_overdue_contacts(state: FollowupState) -> dict:
         try:
             overdue = fetch_overdue(days=overdue_days)
-        except Exception as e:
-            return {"errors": state["errors"] + [f"fetch_overdue: {e}"], "overdue_contacts": []}
+        except Exception as error:
+            return {"errors": state["errors"] + [f"fetch_overdue: {error}"], "overdue_contacts": []}
         return {"overdue_contacts": overdue}
 
     def queue_followup_drafts(state: FollowupState) -> dict:
