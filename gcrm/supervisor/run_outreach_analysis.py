@@ -30,6 +30,7 @@ def main():
     from gcrm.tools.db import get_outreach_outcomes
     from gcrm.tools.memory import capture_thought
     from gcrm.tools.llm import get_llm
+    from gcrm.config import SMART_LLM
     from langchain_core.messages import SystemMessage, HumanMessage
 
     outcomes = get_outreach_outcomes(days=args.days)
@@ -72,7 +73,7 @@ def main():
         f"Be specific — mention word counts, phrases, or structural patterns you notice."
     )
 
-    llm = get_llm("claude")
+    llm = get_llm(SMART_LLM)
     response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
     synthesis = response.content.strip()
 

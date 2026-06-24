@@ -18,7 +18,7 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 
-from gcrm.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM
+from gcrm.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM, SMART_LLM
 from gcrm.tools import (
     save_contact, get_candidates, get_cold_contacts, update_contact,
     get_contacts_needing_enrichment, update_contact_details,
@@ -61,8 +61,8 @@ def _build_agents():
     research_llm = get_llm(CHEAP_LLM)
     enrichment_llm = get_llm(CHEAP_LLM)
     scout_llm = get_llm(CHEAP_LLM)
-    outreach_llm = get_llm("claude")
-    followup_llm = get_llm("claude")
+    outreach_llm = get_llm(SMART_LLM)
+    followup_llm = get_llm(SMART_LLM)
 
     research = create_research_agent(
         llm=research_llm,

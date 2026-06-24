@@ -107,9 +107,13 @@ EMAIL_ENABLED: bool = os.getenv("EMAIL_ENABLED", "true").lower() == "true"
 OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
 OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 
-# --- LLM backend for cheap/high-volume tasks (research, enrichment, scouting) ---
-# Options: deepseek-chat, claude-haiku
-CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-chat")
+# --- LLM backends ---
+# Default everywhere is the cheap DeepSeek V4 Flash. CHEAP_LLM drives the high-
+# volume stages (research, enrichment, scouting, voice); SMART_LLM drives the
+# higher-stakes drafting/classification (outreach, followup). Set SMART_LLM=claude
+# to put outreach back on Sonnet. Card OCR stays on claude-haiku (vision-only).
+CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-v4-flash")
+SMART_LLM: str = os.getenv("SMART_LLM", "deepseek-v4-flash")
 
 # --- Mission ---
 # Edit gcrm/vertical.py to change the target domain. Nothing else needs to change.

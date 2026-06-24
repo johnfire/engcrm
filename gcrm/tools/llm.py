@@ -3,9 +3,11 @@ LLM factory. Returns a LangChain BaseChatModel that satisfies the
 LanguageModel Protocol used by all agents.
 
 Supported model strings:
-  deepseek-chat       — DeepSeek Chat (fast, low cost, routine tasks)
-  deepseek-reasoner   — DeepSeek R1 (slower, better reasoning, drafts)
-  claude-haiku        — Claude Haiku 4.5 (cheap Anthropic alternative for routine tasks)
+  deepseek-v4-flash   — DeepSeek V4 Flash (fast, low cost; the default everywhere)
+  deepseek-v4-pro     — DeepSeek V4 Pro (stronger reasoning)
+  deepseek-chat /     — legacy aliases for V4 Flash non-thinking / thinking modes
+  deepseek-reasoner     (deprecated 2026-07-24; still resolve meanwhile)
+  claude-haiku        — Claude Haiku 4.5 (the ONLY vision-capable option; card OCR)
   claude              — Claude Sonnet 4.6 (high-stakes writing)
 """
 import logging
@@ -60,9 +62,10 @@ def get_llm(model: str = "deepseek-chat"):
     """
     if model.startswith("deepseek"):
         from langchain_openai import ChatOpenAI
-        model_name = "deepseek-reasoner" if model == "deepseek-reasoner" else "deepseek-chat"
+        # Pass the model string straight through — deepseek-v4-flash / -v4-pro and
+        # the legacy deepseek-chat / deepseek-reasoner aliases are all valid names.
         return ChatOpenAI(
-            model=model_name,
+            model=model,
             api_key=DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL,
             temperature=0.3,

@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 # USD per million tokens
 PRICING: dict[str, dict[str, float]] = {
+    "deepseek-v4-flash":         {"input": 0.14, "output": 0.28, "cached": 0.0028},
+    "deepseek-v4-pro":           {"input": 0.435, "output": 0.87, "cached": 0.003625},
     "deepseek-chat":             {"input": 0.27, "output": 1.10, "cached": 0.07},
     "deepseek-reasoner":         {"input": 0.55, "output": 2.19, "cached": 0.14},
     "claude-sonnet-4-6":         {"input": 3.00, "output": 15.00},

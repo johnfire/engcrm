@@ -25,7 +25,7 @@ def main():
     parser.add_argument("--min-tier", default=None, choices=["normal", "wealthy"], help="Exclude poor-tier neighborhoods (normal=exclude poor, wealthy=only wealthy)")
     args = parser.parse_args()
 
-    from gcrm.config import ACTIVE_MISSION
+    from gcrm.config import ACTIVE_MISSION, SMART_LLM
     from gcrm.tools import (
         get_cold_contacts, get_contact_interactions,
         fetch_page, check_compliance, queue_for_approval,
@@ -46,7 +46,7 @@ def main():
     fetch_fn = functools.partial(get_cold_contacts, **fetch_kwargs) if fetch_kwargs else get_cold_contacts
 
     agent = create_outreach_agent(
-        llm=get_llm("claude"),
+        llm=get_llm(SMART_LLM),
         fetch_ready_contacts=fetch_fn,
         fetch_interactions=get_contact_interactions,
         fetch_page=fetch_page,
