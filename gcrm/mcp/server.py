@@ -48,8 +48,8 @@ def pipeline_status() -> str:
             "contacts_by_status": counts,
             "pending_approvals": pending_approvals,
         }, indent=2)
-    except Exception as e:
-        logger.error("pipeline_status failed: %s", e)
+    except Exception as error:
+        logger.error("pipeline_status failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
@@ -89,15 +89,15 @@ def contacts_list(status: str = "", limit: int = 200) -> str:
                     ORDER BY c.status, c.updated_at DESC
                     LIMIT %s
                 """, (limit,))
-            rows = [dict(r) for r in cur.fetchall()]
+            rows = [dict(row) for row in cur.fetchall()]
 
-        for r in rows:
-            if r.get("last_contact"):
-                r["last_contact"] = str(r["last_contact"])
+        for row in rows:
+            if row.get("last_contact"):
+                row["last_contact"] = str(row["last_contact"])
 
         return json.dumps(rows, indent=2)
-    except Exception as e:
-        logger.error("contacts_list failed: %s", e)
+    except Exception as error:
+        logger.error("contacts_list failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
@@ -127,8 +127,8 @@ def approval_list() -> str:
                 item["created_at"] = str(item["created_at"])
 
         return json.dumps(items, indent=2)
-    except Exception as e:
-        logger.error("approval_list failed: %s", e)
+    except Exception as error:
+        logger.error("approval_list failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
@@ -187,8 +187,8 @@ def approval_approve(item_id: int, note: str = "") -> str:
             "contact": row["name"],
             "to": row["email"],
         })
-    except Exception as e:
-        logger.error("approval_approve failed: item_id=%d error=%s", item_id, e)
+    except Exception as error:
+        logger.error("approval_approve failed: item_id=%d error=%s", item_id, error)
         return json.dumps({"error": str(e)})
 
 
@@ -213,8 +213,8 @@ def approval_reject(item_id: int, note: str = "") -> str:
             )
 
         return json.dumps({"rejected": True, "item_id": item_id})
-    except Exception as e:
-        logger.error("approval_reject failed: item_id=%d error=%s", item_id, e)
+    except Exception as error:
+        logger.error("approval_reject failed: item_id=%d error=%s", item_id, error)
         return json.dumps({"error": str(e)})
 
 
@@ -242,8 +242,8 @@ def agent_runs(limit: int = 20) -> str:
                     run[key] = str(run[key])
 
         return json.dumps(runs, indent=2)
-    except Exception as e:
-        logger.error("agent_runs failed: %s", e)
+    except Exception as error:
+        logger.error("agent_runs failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
@@ -369,30 +369,30 @@ def research_status(country: str = "", region: str = "") -> str:
         current_region = None
         lines = []
         total_cities = len(rows)
-        scanned = sum(1 for r in rows if r["scans"])
+        scanned = sum(1 for row in rows if row["scans"])
         unscanned = total_cities - scanned
 
         lines.append(f"Research status: {total_cities} cities | {scanned} scanned | {unscanned} unscanned\n")
 
-        for r in rows:
-            reg = f"{r['country']} / {r['region'] or 'Unknown'}"
+        for row in rows:
+            reg = f"{row['country']} / {row['region'] or 'Unknown'}"
             if reg != current_region:
                 current_region = reg
                 lines.append(f"\n{reg}:")
-            scans = r["scans"] or []
+            scans = row["scans"] or []
             if not scans:
-                lines.append(f"  {r['city']:30} — not scanned")
+                lines.append(f"  {row['city']:30} — not scanned")
             else:
                 level_parts = []
-                for s in scans:
-                    level_parts.append(f"L{s['level']}:{s['contacts_found']}✓")
-                unrun = [l for l in range(1, 6) if l not in {s['level'] for s in scans}]
+                for scan in scans:
+                    level_parts.append(f"L{scan['level']}:{scan['contacts_found']}✓")
+                unrun = [level for level in range(1, 6) if level not in {scan['level'] for scan in scans}]
                 unrun_str = f"  (L{','.join(map(str,unrun))} pending)" if unrun else ""
-                lines.append(f"  {r['city']:30} — {' '.join(level_parts)}{unrun_str}")
+                lines.append(f"  {row['city']:30} — {' '.join(level_parts)}{unrun_str}")
 
         return "\n".join(lines)
-    except Exception as e:
-        logger.error("research_status failed: %s", e)
+    except Exception as error:
+        logger.error("research_status failed: %s", error)
         return f"Error: {e}"
 
 
@@ -425,8 +425,8 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
             "pid": proc.pid,
             "message": f"Research started for {city} level {level} ({level_label}). Check agent_runs for progress.",
         })
-    except Exception as e:
-        logger.error("run_research failed: %s", e)
+    except Exception as error:
+        logger.error("run_research failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
@@ -458,8 +458,8 @@ def trigger_run() -> str:
             "pid": proc.pid,
             "message": "Supervisor run started in background. Check agent_runs for progress.",
         })
-    except Exception as e:
-        logger.error("trigger_run failed: %s", e)
+    except Exception as error:
+        logger.error("trigger_run failed: %s", error)
         return json.dumps({"error": str(e)})
 
 
