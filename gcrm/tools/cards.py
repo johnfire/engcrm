@@ -12,7 +12,7 @@ import os
 from gcrm.config import CARD_IMAGE_DIR
 from gcrm.prompts.cards import CARD_SYSTEM_PROMPT
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
-from gcrm.tools.json_parsing import parse_llm_json
+from gcrm.json_parsing import parse_llm_json
 
 logger = logging.getLogger(__name__)
 

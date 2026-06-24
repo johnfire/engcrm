@@ -4,7 +4,7 @@ Uses the cheap LLM (DeepSeek by default) — this is a text task, no vision need
 """
 import logging
 
-from gcrm.tools.json_parsing import parse_llm_json
+from gcrm.json_parsing import parse_llm_json
 
 logger = logging.getLogger(__name__)
 

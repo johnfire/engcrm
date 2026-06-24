@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token
 from gcrm.tools import voice
-from gcrm.tools.json_parsing import parse_llm_json
+from gcrm.json_parsing import parse_llm_json
 from gcrm.api.routers import api_voice
 
 client = TestClient(main.app)

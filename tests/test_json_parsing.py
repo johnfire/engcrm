@@ -1,7 +1,7 @@
 """Tests for the shared LLM-JSON parser (objects, arrays, fences, prose)."""
 import pytest
 
-from gcrm.tools.json_parsing import parse_llm_json
+from gcrm.json_parsing import parse_llm_json
 
 
 def test_clean_object():
