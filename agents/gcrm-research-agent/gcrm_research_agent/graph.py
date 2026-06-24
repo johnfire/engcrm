@@ -62,8 +62,8 @@ def create_research_agent(
             try:
                 hits = geo_search(term, state["city"], state.get("country", "DE"))
                 results.extend(hits)
-            except Exception as e:
-                pass  # individual term failures are non-fatal
+            except Exception as error:
+                logger.warning("maps_search term '%s' failed (non-fatal): %s", term, error)
         # Deduplicate by name (case-insensitive)
         seen = set()
         deduped = []
@@ -201,8 +201,8 @@ def create_research_agent(
                 )
                 if contact_id:
                     saved_ids.append(contact_id)
-            except Exception:
-                pass
+            except Exception as error:
+                logger.warning("save_contact failed for '%s': %s", contact.get("name", ""), error)
         return {"saved_ids": saved_ids}
 
     def generate_report(state: ResearchState) -> dict:

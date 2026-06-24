@@ -1,3 +1,5 @@
+import logging
+
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, END
 
@@ -7,6 +9,8 @@ from .prompts import score_contact_prompt
 from ._utils import parse_json_response
 
 from gcrm.vertical import SCORED_TYPES
+
+logger = logging.getLogger(__name__)
 
 # Match contact types case-insensitively. vertical.py is user-edited (the README
 # example uses lowercase, e.g. {"cafe"}) and split_and_promote lowercases each
@@ -81,8 +85,8 @@ def create_scout_agent(
                         notes="Auto-promoted: type does not require scoring.",
                     )
                     promoted += 1
-                except Exception:
-                    pass
+                except Exception as error:
+                    logger.warning("auto-promote failed for contact %s: %s", contact.get("id"), error)
         return {"scored_candidates": to_score, "promoted_count": promoted}
 
     def fetch_scored_websites(state: ScoutState) -> dict:
@@ -166,8 +170,8 @@ def create_scout_agent(
                     maybe += 1
                 else:
                     dropped += 1
-            except Exception:
-                pass
+            except Exception as error:
+                logger.warning("applying score outcome failed: %s", error)
         return {"promoted_count": promoted, "maybe_count": maybe, "dropped_count": dropped}
 
     def generate_report(state: ScoutState) -> dict:

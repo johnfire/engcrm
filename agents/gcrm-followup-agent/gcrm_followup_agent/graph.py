@@ -357,8 +357,8 @@ def create_followup_agent(
                     body=draft.get("body", ""),
                 )
                 queued += 1
-            except Exception:
-                pass
+            except Exception as error:
+                logger.warning("overdue follow-up draft failed for contact %s: %s", contact.get("id"), error)
         return {"queued_count": queued}
 
     def generate_report(state: FollowupState) -> dict:
