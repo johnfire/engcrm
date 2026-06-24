@@ -54,6 +54,10 @@ export default function DrawerLayout() {
         options={{ title: "Contacts", drawerLabel: "Contacts" }}
       />
       <Drawer.Screen
+        name="people"
+        options={{ title: "People", drawerLabel: "👤 People" }}
+      />
+      <Drawer.Screen
         name="activity"
         options={{ title: "Activity", drawerLabel: "Activity" }}
       />
@@ -64,6 +68,10 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="contact-detail"
         options={{ drawerItemStyle: { display: "none" }, title: "Contact" }}
+      />
+      <Drawer.Screen
+        name="person-detail"
+        options={{ drawerItemStyle: { display: "none" }, title: "Person" }}
       />
       <Drawer.Screen
         name="card-confirm"

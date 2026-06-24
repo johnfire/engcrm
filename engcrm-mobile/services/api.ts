@@ -274,3 +274,32 @@ export interface VoiceResult {
   is_new_lead: boolean;
   candidates: VoiceCandidate[];
 }
+
+// --- People (individuals on scanned cards, linked to their company contact) ---
+export async function fetchPeople(search = ""): Promise<Person[]> {
+  const resp = await client.get("/api/people", {
+    params: search ? { search } : {},
+  });
+  return resp.data;
+}
+export async function fetchPerson(id: number): Promise<Person> {
+  const resp = await client.get(`/api/people/${id}`);
+  return resp.data;
+}
+
+export interface Person {
+  id: number;
+  name: string;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  city: string | null;
+  country: string | null;
+  relationship: string | null;
+  notes: string | null;
+  contact_id: number | null;
+  company: string | null;
+  source: string | null;
+  created_at: string;
+}
