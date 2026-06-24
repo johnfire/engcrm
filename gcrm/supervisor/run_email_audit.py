@@ -20,7 +20,9 @@ from gcrm.config import (
     PROTON_IMAP_HOST, PROTON_IMAP_PORT, PROTON_EMAIL, PROTON_PASSWORD,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+from gcrm.supervisor.logging_setup import configure_logging
+
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # Statuses that mean "we already have contact" — don't downgrade these
