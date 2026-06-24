@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { fetchInbox, classifyMessage, InboxMessage } from "../../services/api";
@@ -25,6 +26,7 @@ const CLASSIFICATION_COLOR: Record<string, string> = {
 export default function InboxScreen() {
   const [items, setItems] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [classifyTarget, setClassifyTarget] = useState<InboxMessage | null>(
     null,
   );
@@ -33,6 +35,9 @@ export default function InboxScreen() {
     setLoading(true);
     try {
       setItems(await fetchInbox());
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -46,43 +51,52 @@ export default function InboxScreen() {
 
   async function handleClassify(classification: string) {
     if (!classifyTarget) return;
-    await classifyMessage(classifyTarget.id, classification);
-    setItems((prev) =>
-      prev.map((m) =>
-        m.id === classifyTarget.id ? { ...m, classification } : m,
-      ),
-    );
-    setClassifyTarget(null);
+    try {
+      await classifyMessage(classifyTarget.id, classification);
+      setItems((prev) =>
+        prev.map((message) =>
+          message.id === classifyTarget.id
+            ? { ...message, classification }
+            : message,
+        ),
+      );
+      setClassifyTarget(null);
+    } catch (error: any) {
+      Alert.alert(
+        "Couldn't classify",
+        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+      );
+    }
   }
 
   if (loading)
     return (
-      <View style={s.center}>
+      <View style={styles.center}>
         <ActivityIndicator color="#7c6fff" />
       </View>
     );
 
   return (
-    <View style={s.container}>
+    <View style={styles.container}>
       <FlatList
         data={items}
-        keyExtractor={(m) => String(m.id)}
+        keyExtractor={(message) => String(message.id)}
         renderItem={({ item }) => {
           const color = item.classification
             ? (CLASSIFICATION_COLOR[item.classification] ?? "#888")
             : "#444";
           return (
-            <View style={[s.item, { borderLeftColor: color }]}>
-              <Text style={s.from}>{item.contact_name ?? item.from_email}</Text>
-              <Text style={s.subject}>{item.subject}</Text>
-              <Text style={s.body} numberOfLines={2}>
+            <View style={[styles.item, { borderLeftColor: color }]}>
+              <Text style={styles.from}>{item.contact_name ?? item.from_email}</Text>
+              <Text style={styles.subject}>{item.subject}</Text>
+              <Text style={styles.body} numberOfLines={2}>
                 {item.body}
               </Text>
               <TouchableOpacity
-                style={[s.badge, { borderColor: color }]}
+                style={[styles.badge, { borderColor: color }]}
                 onPress={() => setClassifyTarget(item)}
               >
-                <Text style={[s.badgeText, { color }]}>
+                <Text style={[styles.badgeText, { color }]}>
                   {item.classification ?? "Classify"}
                 </Text>
               </TouchableOpacity>
@@ -96,8 +110,12 @@ export default function InboxScreen() {
             tintColor="#7c6fff"
           />
         }
-        contentContainerStyle={s.list}
-        ListEmptyComponent={<Text style={s.empty}>Inbox is empty</Text>}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {loadError ? "Couldn't load — pull down to refresh" : "Inbox is empty"}
+          </Text>
+        }
       />
       <ClassifySheet
         visible={!!classifyTarget}
@@ -108,7 +126,7 @@ export default function InboxScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   list: { padding: 16 },
   center: {

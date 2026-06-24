@@ -37,13 +37,13 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={s.container}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={s.title}>EngCRM</Text>
-      <Text style={s.subtitle}>Sign in to continue</Text>
+      <Text style={styles.title}>EngCRM</Text>
+      <Text style={styles.subtitle}>Sign in to continue</Text>
       <TextInput
-        style={s.input}
+        style={styles.input}
         placeholder="Email"
         placeholderTextColor="#555"
         keyboardType="email-address"
@@ -54,9 +54,9 @@ export default function LoginScreen() {
         returnKeyType="next"
         autoFocus
       />
-      <View style={s.pwRow}>
+      <View style={styles.pwRow}>
         <TextInput
-          style={s.pwInput}
+          style={styles.pwInput}
           placeholder="Password"
           placeholderTextColor="#555"
           secureTextEntry={!showPassword}
@@ -69,25 +69,25 @@ export default function LoginScreen() {
           returnKeyType="go"
         />
         <TouchableOpacity
-          onPress={() => setShowPassword((v) => !v)}
-          style={s.eyeBtn}
+          onPress={() => setShowPassword((visible) => !visible)}
+          style={styles.eyeBtn}
           accessibilityLabel={showPassword ? "Hide password" : "Show password"}
         >
-          <Text style={s.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
+          <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={s.button} onPress={handleLogin} disabled={loading}>
+      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={s.buttonText}>Sign In</Text>
+          <Text style={styles.buttonText}>Sign In</Text>
         )}
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0f0f23",

@@ -58,17 +58,17 @@ export async function flush(): Promise<{ uploaded: number; remaining: number }> 
   if (entries.length === 0) return { uploaded: 0, remaining: 0 };
   const keep: QueueEntry[] = [];
   let uploaded = 0;
-  for (const e of entries) {
+  for (const entry of entries) {
     try {
-      await captureCard(e.uri);
+      await captureCard(entry.uri);
       uploaded += 1;
       try {
-        new File(e.uri).delete();
+        new File(entry.uri).delete();
       } catch {
         // file already gone — ignore
       }
     } catch {
-      keep.push(e); // still offline / server unreachable — retry next time
+      keep.push(entry); // still offline / server unreachable — retry next time
     }
   }
   await writeIndex(keep);

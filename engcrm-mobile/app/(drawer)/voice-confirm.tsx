@@ -17,7 +17,12 @@ import { confirmVoice, VoiceResult } from "../../services/api";
 export default function VoiceConfirmScreen() {
   const router = useRouter();
   const { data } = useLocalSearchParams<{ data: string }>();
-  const result: VoiceResult = JSON.parse(data || "{}");
+  let result: VoiceResult;
+  try {
+    result = JSON.parse(data || "{}");
+  } catch {
+    result = {} as VoiceResult;
+  }
   const candidates = result.candidates || [];
 
   const [summary, setSummary] = useState(result.summary || "");
@@ -46,10 +51,10 @@ export default function VoiceConfirmScreen() {
       Alert.alert("Saved", followDate ? "Interaction logged with a follow-up." : "Interaction logged.", [
         { text: "OK", onPress: () => router.replace("/(drawer)/voice") },
       ]);
-    } catch (e: any) {
+    } catch (error: any) {
       Alert.alert(
         "Couldn't save",
-        e?.response ? `Server error (${e.response.status}).` : e?.message || "Try again.",
+        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
       );
     } finally {
       setSaving(false);
@@ -57,34 +62,34 @@ export default function VoiceConfirmScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={s.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.label}>Heard</Text>
-        <Text style={s.transcript}>{result.transcript}</Text>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={styles.label}>Heard</Text>
+        <Text style={styles.transcript}>{result.transcript}</Text>
 
-        <Text style={s.label}>Contact</Text>
-        {candidates.map((c) => (
+        <Text style={styles.label}>Contact</Text>
+        {candidates.map((candidate) => (
           <TouchableOpacity
-            key={c.id}
-            style={[s.option, selected === c.id && s.optionActive]}
-            onPress={() => setSelected(c.id)}
+            key={candidate.id}
+            style={[styles.option, selected === candidate.id && styles.optionActive]}
+            onPress={() => setSelected(candidate.id)}
           >
-            <Text style={s.optionText}>
-              {c.name}
-              {c.city ? ` — ${c.city}` : ""}
-              {c.decision_maker ? `\n${c.decision_maker}` : ""}
+            <Text style={styles.optionText}>
+              {candidate.name}
+              {candidate.city ? ` — ${candidate.city}` : ""}
+              {candidate.decision_maker ? `\n${candidate.decision_maker}` : ""}
             </Text>
           </TouchableOpacity>
         ))}
         <TouchableOpacity
-          style={[s.option, selected === "new" && s.optionActive]}
+          style={[styles.option, selected === "new" && styles.optionActive]}
           onPress={() => setSelected("new")}
         >
-          <Text style={s.optionText}>+ New contact</Text>
+          <Text style={styles.optionText}>+ New contact</Text>
         </TouchableOpacity>
         {selected === "new" && (
           <TextInput
-            style={s.input}
+            style={styles.input}
             value={newName}
             onChangeText={setNewName}
             placeholder="New contact name"
@@ -92,18 +97,18 @@ export default function VoiceConfirmScreen() {
           />
         )}
 
-        <Text style={s.label}>Summary</Text>
+        <Text style={styles.label}>Summary</Text>
         <TextInput
-          style={[s.input, s.multi]}
+          style={[styles.input, styles.multi]}
           value={summary}
           onChangeText={setSummary}
           multiline
           placeholderTextColor="#555"
         />
 
-        <Text style={s.label}>Follow-up date (YYYY-MM-DD)</Text>
+        <Text style={styles.label}>Follow-up date (YYYY-MM-DD)</Text>
         <TextInput
-          style={s.input}
+          style={styles.input}
           value={followDate}
           onChangeText={setFollowDate}
           placeholder="none"
@@ -111,27 +116,27 @@ export default function VoiceConfirmScreen() {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <Text style={s.label}>Follow-up action</Text>
+        <Text style={styles.label}>Follow-up action</Text>
         <TextInput
-          style={s.input}
+          style={styles.input}
           value={followText}
           onChangeText={setFollowText}
           placeholder="none"
           placeholderTextColor="#555"
         />
 
-        <TouchableOpacity style={s.save} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.saveText}>Save</Text>}
+        <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
         </TouchableOpacity>
-        <TouchableOpacity style={s.cancel} onPress={() => router.replace("/(drawer)/voice")}>
-          <Text style={s.cancelText}>Discard</Text>
+        <TouchableOpacity style={styles.cancel} onPress={() => router.replace("/(drawer)/voice")}>
+          <Text style={styles.cancelText}>Discard</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 16, paddingBottom: 48 },
   label: { color: "#888", fontSize: 12, marginBottom: 5, marginTop: 14, marginLeft: 2 },

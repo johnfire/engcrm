@@ -36,10 +36,10 @@ export default function VoiceScreen() {
           pathname: "/(drawer)/voice-confirm",
           params: { data: JSON.stringify(result) },
         });
-      } catch (e: any) {
+      } catch (error: any) {
         Alert.alert(
           "Couldn't process",
-          e?.response ? `Server error (${e.response.status}). Try again.` : e?.message || "Try again.",
+          error?.response ? `Server error (${error.response.status}). Try again.` : error?.message || "Try again.",
         );
       } finally {
         setBusy(false);
@@ -55,38 +55,38 @@ export default function VoiceScreen() {
         await recorder.prepareToRecordAsync();
         recorder.record();
         setRecording(true);
-      } catch (e: any) {
-        Alert.alert("Couldn't start recording", e?.message || "Try again.");
+      } catch (error: any) {
+        Alert.alert("Couldn't start recording", error?.message || "Try again.");
       }
     }
   }
 
   return (
-    <View style={s.container}>
-      <Text style={s.hint}>
+    <View style={styles.container}>
+      <Text style={styles.hint}>
         Tap to record a note about a visit or call. It’s transcribed, matched to a contact, and logged
         as an interaction with a follow-up.
       </Text>
       {busy ? (
-        <View style={s.center}>
+        <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" size="large" />
-          <Text style={s.busyText}>Transcribing…</Text>
+          <Text style={styles.busyText}>Transcribing…</Text>
         </View>
       ) : (
         <TouchableOpacity
-          style={[s.mic, recording && s.micActive]}
+          style={[styles.mic, recording && styles.micActive]}
           onPress={toggle}
           activeOpacity={0.85}
         >
-          <Text style={s.micIcon}>{recording ? "⏹" : "🎙"}</Text>
-          <Text style={s.micLabel}>{recording ? "Recording… tap to stop" : "Tap to record"}</Text>
+          <Text style={styles.micIcon}>{recording ? "⏹" : "🎙"}</Text>
+          <Text style={styles.micLabel}>{recording ? "Recording… tap to stop" : "Tap to record"}</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23", padding: 28, justifyContent: "center", alignItems: "center" },
   hint: { color: "#888", fontSize: 15, textAlign: "center", marginBottom: 40, lineHeight: 21 },
   mic: {

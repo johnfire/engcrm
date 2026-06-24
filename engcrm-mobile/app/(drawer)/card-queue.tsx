@@ -15,12 +15,15 @@ export default function CardQueueScreen() {
   const router = useRouter();
   const [items, setItems] = useState<PendingCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(await listPendingCards());
+      setLoadError(false);
     } catch {
+      setLoadError(true);
       setItems([]);
     } finally {
       setLoading(false);
@@ -50,24 +53,24 @@ export default function CardQueueScreen() {
   }
 
   return (
-    <View style={s.container}>
+    <View style={styles.container}>
       {loading ? (
-        <View style={s.center}>
+        <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(c) => String(c.id)}
+          keyExtractor={(capture) => String(capture.id)}
           renderItem={({ item }) => {
-            const f = item.extracted || {};
-            const title = f.company || f.name || "Unread card";
-            const sub = [f.name, f.email].filter(Boolean).join("  ·  ");
+            const fields = item.extracted || {};
+            const title = fields.company || fields.name || "Unread card";
+            const sub = [fields.name, fields.email].filter(Boolean).join("  ·  ");
             return (
-              <TouchableOpacity style={s.row} onPress={() => review(item)}>
-                <Text style={s.rowTitle}>{title}</Text>
-                {!!sub && <Text style={s.rowSub}>{sub}</Text>}
-                <Text style={s.rowMeta}>
+              <TouchableOpacity style={styles.row} onPress={() => review(item)}>
+                <Text style={styles.rowTitle}>{title}</Text>
+                {!!sub && <Text style={styles.rowSub}>{sub}</Text>}
+                <Text style={styles.rowMeta}>
                   {typeof item.confidence === "number" ? `${item.confidence}%  ·  ` : ""}
                   {new Date(item.captured_at).toLocaleString()}
                 </Text>
@@ -77,10 +80,12 @@ export default function CardQueueScreen() {
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={load} tintColor="#7c6fff" />
           }
-          contentContainerStyle={s.list}
+          contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={s.empty}>
-              No cards waiting for review.{"\n"}Scanned cards you don’t finish show up here.
+            <Text style={styles.empty}>
+              {loadError
+                ? "Couldn't load — pull down to refresh."
+                : "No cards waiting for review.\nScanned cards you don’t finish show up here."}
             </Text>
           }
         />
@@ -89,7 +94,7 @@ export default function CardQueueScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   list: { padding: 16 },

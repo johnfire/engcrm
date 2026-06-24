@@ -19,11 +19,15 @@ const STATUS_COLOR: Record<string, string> = {
 export default function ActivityScreen() {
   const [items, setItems] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(await fetchActivity());
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -37,24 +41,24 @@ export default function ActivityScreen() {
 
   if (loading)
     return (
-      <View style={s.center}>
+      <View style={styles.center}>
         <ActivityIndicator color="#7c6fff" />
       </View>
     );
 
   return (
-    <View style={s.container}>
+    <View style={styles.container}>
       <FlatList
         data={items}
-        keyExtractor={(r) => String(r.id)}
+        keyExtractor={(run) => String(run.id)}
         renderItem={({ item }) => {
           const color = STATUS_COLOR[item.status] ?? "#888";
           return (
-            <View style={[s.item, { borderLeftColor: color }]}>
-              <Text style={s.agent}>{item.agent_name}</Text>
-              <Text style={[s.status, { color }]}>{item.status}</Text>
-              {item.summary && <Text style={s.summary}>{item.summary}</Text>}
-              <Text style={s.time}>
+            <View style={[styles.item, { borderLeftColor: color }]}>
+              <Text style={styles.agent}>{item.agent_name}</Text>
+              <Text style={[styles.status, { color }]}>{item.status}</Text>
+              {item.summary && <Text style={styles.summary}>{item.summary}</Text>}
+              <Text style={styles.time}>
                 {new Date(item.started_at).toLocaleString()}
               </Text>
             </View>
@@ -67,14 +71,18 @@ export default function ActivityScreen() {
             tintColor="#7c6fff"
           />
         }
-        contentContainerStyle={s.list}
-        ListEmptyComponent={<Text style={s.empty}>No activity yet</Text>}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {loadError ? "Couldn't load — pull down to refresh" : "No activity yet"}
+          </Text>
+        }
       />
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   list: { padding: 16 },
   center: {

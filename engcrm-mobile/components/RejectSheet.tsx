@@ -33,15 +33,15 @@ export function RejectSheet({
   return (
     <Modal visible={visible} transparent animationType="slide">
       <KeyboardAvoidingView
-        style={s.overlay}
+        style={styles.overlay}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={s.sheet}>
-          <Text style={s.title}>Reject draft</Text>
-          <Text style={s.subtitle}>{venueName}</Text>
-          <Text style={s.label}>Reason (optional)</Text>
+        <View style={styles.sheet}>
+          <Text style={styles.title}>Reject draft</Text>
+          <Text style={styles.subtitle}>{venueName}</Text>
+          <Text style={styles.label}>Reason (optional)</Text>
           <TextInput
-            style={s.input}
+            style={styles.input}
             placeholder="e.g. Too formal, needs warmer tone"
             placeholderTextColor="#555"
             value={reason}
@@ -49,12 +49,12 @@ export function RejectSheet({
             multiline
             autoFocus
           />
-          <View style={s.row}>
-            <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-              <Text style={s.cancelText}>Cancel</Text>
+          <View style={styles.row}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+              <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.confirmBtn} onPress={handleConfirm}>
-              <Text style={s.confirmText}>Confirm Reject</Text>
+            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+              <Text style={styles.confirmText}>Confirm Reject</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -63,7 +63,7 @@ export function RejectSheet({
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",

@@ -73,9 +73,9 @@ export default function CaptureScreen() {
         pathname: "/(drawer)/card-confirm",
         params: { data: JSON.stringify(capture) },
       });
-    } catch (e: any) {
+    } catch (error: any) {
       // No response object → network/connection failure: save it so it isn't lost.
-      if (smallUri && !e?.response) {
+      if (smallUri && !error?.response) {
         try {
           await enqueue(smallUri);
           setPending(await pendingCount());
@@ -89,7 +89,7 @@ export default function CaptureScreen() {
       } else {
         Alert.alert(
           "Upload failed",
-          e?.response ? `Server error (${e.response.status}). Try again.` : "Could not process the card. Try again.",
+          error?.response ? `Server error (${error.response.status}). Try again.` : "Could not process the card. Try again.",
         );
       }
     } finally {
@@ -104,28 +104,28 @@ export default function CaptureScreen() {
   }
 
   return (
-    <View style={s.container}>
-      <Text style={s.hint}>Snap a business card — it gets read and turned into a lead.</Text>
+    <View style={styles.container}>
+      <Text style={styles.hint}>Snap a business card — it gets read and turned into a lead.</Text>
       {pending > 0 && !busy && (
-        <TouchableOpacity style={s.pendingBanner} onPress={retryNow}>
-          <Text style={s.pendingText}>
+        <TouchableOpacity style={styles.pendingBanner} onPress={retryNow}>
+          <Text style={styles.pendingText}>
             {pending} card{pending > 1 ? "s" : ""} waiting to upload — tap to retry
           </Text>
         </TouchableOpacity>
       )}
       {busy ? (
-        <View style={s.center}>
-          {preview && <Image source={{ uri: preview }} style={s.preview} resizeMode="contain" />}
+        <View style={styles.center}>
+          {preview && <Image source={{ uri: preview }} style={styles.preview} resizeMode="contain" />}
           <ActivityIndicator color="#7c6fff" size="large" />
-          <Text style={s.busyText}>Reading the card…</Text>
+          <Text style={styles.busyText}>Reading the card…</Text>
         </View>
       ) : (
-        <View style={s.actions}>
-          <TouchableOpacity style={s.primary} onPress={() => pickAndUpload("camera")}>
-            <Text style={s.primaryText}>📷  Take photo</Text>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.primary} onPress={() => pickAndUpload("camera")}>
+            <Text style={styles.primaryText}>📷  Take photo</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.secondary} onPress={() => pickAndUpload("library")}>
-            <Text style={s.secondaryText}>🖼  Choose from library</Text>
+          <TouchableOpacity style={styles.secondary} onPress={() => pickAndUpload("library")}>
+            <Text style={styles.secondaryText}>🖼  Choose from library</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -133,7 +133,7 @@ export default function CaptureScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23", padding: 24, justifyContent: "center" },
   hint: { color: "#888", fontSize: 15, textAlign: "center", marginBottom: 24 },
   pendingBanner: {

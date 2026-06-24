@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import {
@@ -20,12 +21,16 @@ import { RejectSheet } from "../../components/RejectSheet";
 export default function ApprovalsScreen() {
   const [items, setItems] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<Approval | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(await fetchApprovals());
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -38,8 +43,15 @@ export default function ApprovalsScreen() {
   );
 
   async function handleApprove(id: number) {
-    await approveEmail(id);
-    setItems((prev) => prev.filter((a) => a.id !== id));
+    try {
+      await approveEmail(id);
+      setItems((prev) => prev.filter((approval) => approval.id !== id));
+    } catch (error: any) {
+      Alert.alert(
+        "Couldn't approve",
+        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+      );
+    }
   }
 
   async function handleReject(item: Approval) {
@@ -48,23 +60,30 @@ export default function ApprovalsScreen() {
 
   async function confirmReject(reason: string) {
     if (!rejectTarget) return;
-    await rejectEmail(rejectTarget.id, reason);
-    setItems((prev) => prev.filter((a) => a.id !== rejectTarget.id));
-    setRejectTarget(null);
+    try {
+      await rejectEmail(rejectTarget.id, reason);
+      setItems((prev) => prev.filter((approval) => approval.id !== rejectTarget.id));
+      setRejectTarget(null);
+    } catch (error: any) {
+      Alert.alert(
+        "Couldn't reject",
+        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+      );
+    }
   }
 
   if (loading)
     return (
-      <View style={s.center}>
+      <View style={styles.center}>
         <ActivityIndicator color="#7c6fff" />
       </View>
     );
 
   return (
-    <View style={s.container}>
+    <View style={styles.container}>
       <FlatList
         data={items}
-        keyExtractor={(a) => String(a.id)}
+        keyExtractor={(approval) => String(approval.id)}
         renderItem={({ item }) => (
           <ApprovalCard
             item={item}
@@ -80,8 +99,14 @@ export default function ApprovalsScreen() {
             tintColor="#7c6fff"
           />
         }
-        contentContainerStyle={s.list}
-        ListEmptyComponent={<Text style={s.empty}>No pending approvals</Text>}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <Text style={styles.empty}>
+            {loadError
+              ? "Couldn't load — pull down to refresh"
+              : "No pending approvals"}
+          </Text>
+        }
       />
       <RejectSheet
         visible={!!rejectTarget}
@@ -95,7 +120,7 @@ export default function ApprovalsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   list: { padding: 16 },
   center: {

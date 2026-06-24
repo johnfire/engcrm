@@ -22,47 +22,47 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
   return (
     <>
       <TouchableOpacity
-        style={s.card}
+        style={styles.card}
         onPress={() => setExpanded(true)}
         activeOpacity={0.8}
       >
-        <Text style={s.venue}>
+        <Text style={styles.venue}>
           {item.name}, {item.city}
         </Text>
-        <Text style={s.subject}>{item.draft_subject}</Text>
-        <Text style={s.preview} numberOfLines={2}>
+        <Text style={styles.subject}>{item.draft_subject}</Text>
+        <Text style={styles.preview} numberOfLines={2}>
           {item.draft_body}
         </Text>
-        <View style={s.actions}>
+        <View style={styles.actions}>
           <TouchableOpacity
-            style={s.approveBtn}
+            style={styles.approveBtn}
             onPress={() => onApprove(item.id)}
           >
-            <Text style={s.approveTxt}>Approve</Text>
+            <Text style={styles.approveTxt}>Approve</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.rejectBtn} onPress={() => onReject(item)}>
-            <Text style={s.rejectTxt}>Reject</Text>
+          <TouchableOpacity style={styles.rejectBtn} onPress={() => onReject(item)}>
+            <Text style={styles.rejectTxt}>Reject</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.editBtn} onPress={() => onEdit(item)}>
-            <Text style={s.editTxt}>Edit</Text>
+          <TouchableOpacity style={styles.editBtn} onPress={() => onEdit(item)}>
+            <Text style={styles.editTxt}>Edit</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
 
       <Modal visible={expanded} animationType="slide">
-        <View style={s.modal}>
-          <Text style={s.modalTitle}>{item.draft_subject}</Text>
-          <Text style={s.modalVenue}>
+        <View style={styles.modal}>
+          <Text style={styles.modalTitle}>{item.draft_subject}</Text>
+          <Text style={styles.modalVenue}>
             {item.name} · {item.city}
           </Text>
-          <ScrollView style={s.bodyScroll}>
-            <Text style={s.bodyText}>{item.draft_body}</Text>
+          <ScrollView style={styles.bodyScroll}>
+            <Text style={styles.bodyText}>{item.draft_body}</Text>
           </ScrollView>
           <TouchableOpacity
-            style={s.closeBtn}
+            style={styles.closeBtn}
             onPress={() => setExpanded(false)}
           >
-            <Text style={s.closeTxt}>Close</Text>
+            <Text style={styles.closeTxt}>Close</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -70,7 +70,7 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   card: {
     backgroundColor: "#1a1a2e",
     borderRadius: 12,

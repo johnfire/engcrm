@@ -43,10 +43,10 @@ export default function ResearchScreen() {
   }
 
   return (
-    <View style={s.container}>
-      <Text style={s.label}>City</Text>
+    <View style={styles.container}>
+      <Text style={styles.label}>City</Text>
       <TextInput
-        style={s.input}
+        style={styles.input}
         placeholder="e.g. München"
         placeholderTextColor="#555"
         value={city}
@@ -54,52 +54,52 @@ export default function ResearchScreen() {
         autoCapitalize="words"
       />
 
-      <Text style={s.label}>Level</Text>
-      <View style={s.row}>
-        {LEVELS.map((l) => (
+      <Text style={styles.label}>Level</Text>
+      <View style={styles.row}>
+        {LEVELS.map((levelOption) => (
           <TouchableOpacity
-            key={l}
-            style={[s.levelBtn, level === l && s.levelBtnActive]}
-            onPress={() => setLevel(l)}
+            key={levelOption}
+            style={[styles.levelBtn, level === levelOption && styles.levelBtnActive]}
+            onPress={() => setLevel(levelOption)}
           >
-            <Text style={[s.levelText, level === l && s.levelTextActive]}>
-              {l}
+            <Text style={[styles.levelText, level === levelOption && styles.levelTextActive]}>
+              {levelOption}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={s.label}>Country</Text>
-      <View style={s.row}>
-        {COUNTRIES.map((c) => (
+      <Text style={styles.label}>Country</Text>
+      <View style={styles.row}>
+        {COUNTRIES.map((countryOption) => (
           <TouchableOpacity
-            key={c.code}
-            style={[s.countryBtn, country === c.code && s.levelBtnActive]}
-            onPress={() => setCountry(c.code)}
+            key={countryOption.code}
+            style={[styles.countryBtn, country === countryOption.code && styles.levelBtnActive]}
+            onPress={() => setCountry(countryOption.code)}
           >
             <Text
-              style={[s.levelText, country === c.code && s.levelTextActive]}
+              style={[styles.levelText, country === countryOption.code && styles.levelTextActive]}
             >
-              {c.label}
+              {countryOption.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <TouchableOpacity style={s.runBtn} onPress={handleRun} disabled={loading}>
+      <TouchableOpacity style={styles.runBtn} onPress={handleRun} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={s.runText}>Run Scan</Text>
+          <Text style={styles.runText}>Run Scan</Text>
         )}
       </TouchableOpacity>
 
-      <Text style={s.hint}>Results appear in the Activity screen.</Text>
+      <Text style={styles.hint}>Results appear in the Activity screen.</Text>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23", padding: 24 },
   label: {
     color: "#888",

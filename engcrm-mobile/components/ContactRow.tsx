@@ -16,28 +16,28 @@ function scoreBadgeColor(score: number | null) {
 export function ContactRow({ item, onPress }: Props) {
   const color = scoreBadgeColor(item.fit_score);
   return (
-    <TouchableOpacity style={s.row} onPress={() => onPress(item.id)}>
-      <View style={s.info}>
-        <Text style={s.name}>{item.name}</Text>
-        <Text style={s.sub}>
+    <TouchableOpacity style={styles.row} onPress={() => onPress(item.id)}>
+      <View style={styles.info}>
+        <Text style={styles.name}>{item.name}</Text>
+        <Text style={styles.sub}>
           {item.city} · {item.type}
         </Text>
       </View>
       {item.fit_score !== null && (
         <View
           style={[
-            s.badge,
+            styles.badge,
             { backgroundColor: color + "25", borderColor: color + "80" },
           ]}
         >
-          <Text style={[s.badgeText, { color }]}>{item.fit_score}</Text>
+          <Text style={[styles.badgeText, { color }]}>{item.fit_score}</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",

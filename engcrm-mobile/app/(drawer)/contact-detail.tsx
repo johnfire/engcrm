@@ -15,36 +15,43 @@ export default function ContactDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetchContact(Number(id))
-      .then(setContact)
+      .then((loaded) => {
+        setContact(loaded);
+        setLoadError(false);
+      })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [id]);
 
   if (loading)
     return (
-      <View style={s.center}>
+      <View style={styles.center}>
         <ActivityIndicator color="#7c6fff" />
       </View>
     );
   if (!contact)
     return (
-      <View style={s.center}>
-        <Text style={s.empty}>Contact not found</Text>
+      <View style={styles.center}>
+        <Text style={styles.empty}>
+          {loadError ? "Couldn't load — check your connection" : "Contact not found"}
+        </Text>
       </View>
     );
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={s.content}>
-      <Text style={s.name}>{contact.name}</Text>
-      <Text style={s.sub}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.name}>{contact.name}</Text>
+      <Text style={styles.sub}>
         {contact.city}, {contact.country} · {contact.type}
       </Text>
-      <View style={s.statusRow}>
-        <Text style={s.statusBadge}>{contact.status}</Text>
+      <View style={styles.statusRow}>
+        <Text style={styles.statusBadge}>{contact.status}</Text>
         {contact.fit_score !== null && (
-          <Text style={s.score}>Score: {contact.fit_score}</Text>
+          <Text style={styles.score}>Score: {contact.fit_score}</Text>
         )}
       </View>
 
@@ -52,40 +59,40 @@ export default function ContactDetailScreen() {
         <TouchableOpacity
           onPress={() => Linking.openURL(`mailto:${contact.email}`)}
         >
-          <Text style={s.link}>{contact.email}</Text>
+          <Text style={styles.link}>{contact.email}</Text>
         </TouchableOpacity>
       )}
       {contact.website && (
         <TouchableOpacity onPress={() => Linking.openURL(contact.website!)}>
-          <Text style={s.link}>{contact.website}</Text>
+          <Text style={styles.link}>{contact.website}</Text>
         </TouchableOpacity>
       )}
-      {contact.phone && <Text style={s.field}>{contact.phone}</Text>}
+      {contact.phone && <Text style={styles.field}>{contact.phone}</Text>}
       {contact.notes && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Notes</Text>
-          <Text style={s.fieldText}>{contact.notes}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notes</Text>
+          <Text style={styles.fieldText}>{contact.notes}</Text>
         </View>
       )}
 
       {contact.interactions.length > 0 && (
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>History</Text>
-          {contact.interactions.map((interaction, i) => (
-            <View key={i} style={s.interaction}>
-              <Text style={s.interactionType}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>History</Text>
+          {contact.interactions.map((interaction, index) => (
+            <View key={index} style={styles.interaction}>
+              <Text style={styles.interactionType}>
                 {[interaction.method, interaction.direction]
                   .filter(Boolean)
                   .join(" · ") || "Interaction"}
               </Text>
-              <Text style={s.interactionDate}>
+              <Text style={styles.interactionDate}>
                 {new Date(interaction.interaction_date).toLocaleDateString()}
               </Text>
               {interaction.summary && (
-                <Text style={s.interactionNotes}>{interaction.summary}</Text>
+                <Text style={styles.interactionNotes}>{interaction.summary}</Text>
               )}
               {interaction.outcome && (
-                <Text style={s.interactionOutcome}>{interaction.outcome}</Text>
+                <Text style={styles.interactionOutcome}>{interaction.outcome}</Text>
               )}
             </View>
           ))}
@@ -95,7 +102,7 @@ export default function ContactDetailScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 20 },
   center: {

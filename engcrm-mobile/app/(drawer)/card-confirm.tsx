@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -13,49 +12,27 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { confirmCard, discardCard, CaptureResult, CardFields } from "../../services/api";
-
-function Field({
-  label,
-  value,
-  onChange,
-  keyboardType,
-  multiline,
-}: {
-  label: string;
-  value?: string | null;
-  onChange: (v: string) => void;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "url";
-  multiline?: boolean;
-}) {
-  const noCaps = keyboardType === "email-address" || keyboardType === "url";
-  return (
-    <View style={s.field}>
-      <Text style={s.label}>{label}</Text>
-      <TextInput
-        style={[s.input, multiline && s.inputMultiline]}
-        value={value ?? ""}
-        onChangeText={onChange}
-        placeholderTextColor="#555"
-        autoCapitalize={noCaps ? "none" : "sentences"}
-        autoCorrect={false}
-        keyboardType={keyboardType ?? "default"}
-        multiline={multiline}
-      />
-    </View>
-  );
-}
+import { CardField } from "../../components/CardField";
 
 export default function CardConfirmScreen() {
   const router = useRouter();
   const { data } = useLocalSearchParams<{ data: string }>();
-  const capture: CaptureResult = JSON.parse(data || "{}");
+  let capture: CaptureResult;
+  try {
+    capture = JSON.parse(data || "{}");
+  } catch {
+    capture = {} as CaptureResult;
+  }
   const dup = capture.dup_suggestion;
 
   const [fields, setFields] = useState<CardFields>(capture.fields || {});
   const [linkDup, setLinkDup] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const set = (k: keyof CardFields) => (v: string) => setFields((f) => ({ ...f, [k]: v }));
+  const set =
+    (fieldKey: keyof CardFields) =>
+    (value: string) =>
+      setFields((prev) => ({ ...prev, [fieldKey]: value }));
 
   async function save() {
     setSaving(true);
@@ -66,8 +43,8 @@ export default function CardConfirmScreen() {
         "Enrichment is running in the background — you’ll get a notification when it’s ready.",
         [{ text: "OK", onPress: () => router.replace("/(drawer)/capture") }],
       );
-    } catch (e: any) {
-      Alert.alert("Couldn't save", String(e?.message || "Try again."));
+    } catch (error: any) {
+      Alert.alert("Couldn't save", String(error?.message || "Try again."));
     } finally {
       setSaving(false);
     }
@@ -84,65 +61,65 @@ export default function CardConfirmScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={s.container}
+      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {dup && (
-          <View style={s.dupBanner}>
-            <Text style={s.dupTitle}>⚠ Possible duplicate</Text>
-            <Text style={s.dupText}>
+          <View style={styles.dupBanner}>
+            <Text style={styles.dupTitle}>⚠ Possible duplicate</Text>
+            <Text style={styles.dupText}>
               {dup.name}
               {dup.city ? ` — ${dup.city}` : ""}
               {dup.email ? `\n${dup.email}` : ""}
             </Text>
-            <View style={s.dupActions}>
+            <View style={styles.dupActions}>
               <TouchableOpacity
-                style={[s.dupBtn, !linkDup && s.dupBtnActive]}
+                style={[styles.dupBtn, !linkDup && styles.dupBtnActive]}
                 onPress={() => setLinkDup(false)}
               >
-                <Text style={[s.dupBtnText, !linkDup && s.dupBtnTextActive]}>Create new</Text>
+                <Text style={[styles.dupBtnText, !linkDup && styles.dupBtnTextActive]}>Create new</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.dupBtn, linkDup && s.dupBtnActive]}
+                style={[styles.dupBtn, linkDup && styles.dupBtnActive]}
                 onPress={() => setLinkDup(true)}
               >
-                <Text style={[s.dupBtnText, linkDup && s.dupBtnTextActive]}>Link to existing</Text>
+                <Text style={[styles.dupBtnText, linkDup && styles.dupBtnTextActive]}>Link to existing</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {typeof capture.confidence === "number" && (
-          <Text style={s.confidence}>Read confidence: {capture.confidence}%</Text>
+          <Text style={styles.confidence}>Read confidence: {capture.confidence}%</Text>
         )}
 
-        <Field label="Company" value={fields.company} onChange={set("company")} />
-        <Field label="Name" value={fields.name} onChange={set("name")} />
-        <Field label="Title" value={fields.title} onChange={set("title")} />
-        <Field label="Email" value={fields.email} onChange={set("email")} keyboardType="email-address" />
-        <Field label="Phone" value={fields.phone} onChange={set("phone")} keyboardType="phone-pad" />
-        <Field label="Mobile" value={fields.mobile} onChange={set("mobile")} keyboardType="phone-pad" />
-        <Field label="Website" value={fields.website} onChange={set("website")} keyboardType="url" />
-        <Field label="Address" value={fields.address} onChange={set("address")} />
-        <Field label="City" value={fields.city} onChange={set("city")} />
-        <Field label="Country" value={fields.country} onChange={set("country")} />
-        <Field label="Industry" value={fields.industry} onChange={set("industry")} />
-        <Field label="Note" value={fields.note} onChange={set("note")} multiline />
+        <CardField label="Company" value={fields.company} onChange={set("company")} />
+        <CardField label="Name" value={fields.name} onChange={set("name")} />
+        <CardField label="Title" value={fields.title} onChange={set("title")} />
+        <CardField label="Email" value={fields.email} onChange={set("email")} keyboardType="email-address" />
+        <CardField label="Phone" value={fields.phone} onChange={set("phone")} keyboardType="phone-pad" />
+        <CardField label="Mobile" value={fields.mobile} onChange={set("mobile")} keyboardType="phone-pad" />
+        <CardField label="Website" value={fields.website} onChange={set("website")} keyboardType="url" />
+        <CardField label="Address" value={fields.address} onChange={set("address")} />
+        <CardField label="City" value={fields.city} onChange={set("city")} />
+        <CardField label="Country" value={fields.country} onChange={set("country")} />
+        <CardField label="Industry" value={fields.industry} onChange={set("industry")} />
+        <CardField label="Note" value={fields.note} onChange={set("note")} multiline />
 
-        <TouchableOpacity style={s.save} onPress={save} disabled={saving}>
+        <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={s.saveText}>{linkDup ? "Link to existing lead" : "Save lead"}</Text>
+            <Text style={styles.saveText}>{linkDup ? "Link to existing lead" : "Save lead"}</Text>
           )}
         </TouchableOpacity>
-        <View style={s.row}>
-          <TouchableOpacity style={s.retake} onPress={() => router.replace("/(drawer)/capture")}>
-            <Text style={s.retakeText}>Retake</Text>
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.retake} onPress={() => router.replace("/(drawer)/capture")}>
+            <Text style={styles.retakeText}>Retake</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.discardBtn} onPress={discard}>
-            <Text style={s.discardText}>Discard</Text>
+          <TouchableOpacity style={styles.discardBtn} onPress={discard}>
+            <Text style={styles.discardText}>Discard</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -150,7 +127,7 @@ export default function CardConfirmScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 16, paddingBottom: 48 },
   dupBanner: {
@@ -175,18 +152,6 @@ const s = StyleSheet.create({
   dupBtnText: { color: "#aaa", fontSize: 13, fontWeight: "600" },
   dupBtnTextActive: { color: "#fff" },
   confidence: { color: "#666", fontSize: 12, marginBottom: 12, textAlign: "right" },
-  field: { marginBottom: 12 },
-  label: { color: "#888", fontSize: 12, marginBottom: 4, marginLeft: 2 },
-  input: {
-    backgroundColor: "#1a1a2e",
-    color: "#fff",
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: "#ffffff20",
-  },
-  inputMultiline: { minHeight: 70, textAlignVertical: "top" },
   save: {
     backgroundColor: "#7c6fff",
     borderRadius: 12,

@@ -19,20 +19,22 @@ interface Props {
 export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={s.overlay}>
-        <View style={s.sheet}>
-          <Text style={s.title}>Classify reply</Text>
-          {CLASSIFICATIONS.map((c) => (
+      <View style={styles.overlay}>
+        <View style={styles.sheet}>
+          <Text style={styles.title}>Classify reply</Text>
+          {CLASSIFICATIONS.map((classification) => (
             <TouchableOpacity
-              key={c.key}
-              style={s.option}
-              onPress={() => onSelect(c.key)}
+              key={classification.key}
+              style={styles.option}
+              onPress={() => onSelect(classification.key)}
             >
-              <Text style={[s.optionText, { color: c.color }]}>{c.label}</Text>
+              <Text style={[styles.optionText, { color: classification.color }]}>
+                {classification.label}
+              </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-            <Text style={s.cancelText}>Cancel</Text>
+          <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+            <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -40,7 +42,7 @@ export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",

@@ -39,6 +39,7 @@ export default function ContactsScreen() {
   const router = useRouter();
   const [items, setItems] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
 
@@ -46,6 +47,9 @@ export default function ContactsScreen() {
     setLoading(true);
     try {
       setItems(await fetchContacts({ search, status }));
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -58,9 +62,9 @@ export default function ContactsScreen() {
   );
 
   return (
-    <View style={s.container}>
+    <View style={styles.container}>
       <TextInput
-        style={s.search}
+        style={styles.search}
         placeholder="Search city, name, type..."
         placeholderTextColor="#555"
         value={search}
@@ -71,29 +75,29 @@ export default function ContactsScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={s.filters}
-        contentContainerStyle={s.filtersContent}
+        style={styles.filters}
+        contentContainerStyle={styles.filtersContent}
       >
-        {STATUS_FILTERS.map((f) => (
+        {STATUS_FILTERS.map((filter) => (
           <TouchableOpacity
-            key={f}
-            style={[s.chip, status === f && s.chipActive]}
-            onPress={() => setStatus(f)}
+            key={filter}
+            style={[styles.chip, status === filter && styles.chipActive]}
+            onPress={() => setStatus(filter)}
           >
-            <Text style={[s.chipText, status === f && s.chipTextActive]}>
-              {STATUS_LABELS[f]}
+            <Text style={[styles.chipText, status === filter && styles.chipTextActive]}>
+              {STATUS_LABELS[filter]}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
       {loading ? (
-        <View style={s.center}>
+        <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(c) => String(c.id)}
+          keyExtractor={(contact) => String(contact.id)}
           renderItem={({ item }) => (
             <ContactRow
               item={item}
@@ -112,15 +116,19 @@ export default function ContactsScreen() {
               tintColor="#7c6fff"
             />
           }
-          contentContainerStyle={s.list}
-          ListEmptyComponent={<Text style={s.empty}>No contacts found</Text>}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {loadError ? "Couldn't load — pull down to refresh" : "No contacts found"}
+            </Text>
+          }
         />
       )}
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   search: {
     backgroundColor: "#1a1a2e",
