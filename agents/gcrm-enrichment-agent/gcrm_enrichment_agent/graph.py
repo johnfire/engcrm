@@ -44,8 +44,8 @@ def _candidate_urls(search_results: list[dict]) -> list[str]:
     Returns up to 2, skipping known directory/social domains.
     """
     candidates = []
-    for r in search_results:
-        url = r.get("url", "")
+    for result in search_results:
+        url = result.get("url", "")
         if url and not _SKIP_FETCH_DOMAINS.search(url):
             candidates.append(url)
         if len(candidates) >= 2:
@@ -87,8 +87,8 @@ def create_enrichment_agent(
     def fetch(state: EnrichmentState) -> dict:
         try:
             contacts = fetch_contacts(limit=state["limit"])
-        except Exception as e:
-            return {"errors": state["errors"] + [f"fetch failed: {e}"], "contacts": []}
+        except Exception as error:
+            return {"errors": state["errors"] + [f"fetch failed: {error}"], "contacts": []}
         logger.info("enrichment: fetched %d contacts needing enrichment", len(contacts))
         return {"contacts": contacts}
 
@@ -110,8 +110,8 @@ def create_enrichment_agent(
 
             try:
                 search_results = web_search(query=query)
-            except Exception as e:
-                logger.warning("enrichment: search failed for %s — %s", name, e)
+            except Exception as error:
+                logger.warning("enrichment: search failed for %s — %s", name, error)
                 results.append({"contact_id": contact_id, "found": False})
                 continue
 
@@ -157,8 +157,8 @@ def create_enrichment_agent(
                     logger.info("enrichment: found data for %s / %s — %s %s", name, city, website, email)
                 else:
                     logger.debug("enrichment: nothing new for %s / %s", name, city)
-            except Exception as e:
-                logger.warning("enrichment: LLM extraction failed for %s — %s", name, e)
+            except Exception as error:
+                logger.warning("enrichment: LLM extraction failed for %s — %s", name, error)
                 results.append({"contact_id": contact_id, "found": False})
 
         return {"results": results}
@@ -166,16 +166,16 @@ def create_enrichment_agent(
     def apply_results(state: EnrichmentState) -> dict:
         enriched = 0
         not_found = 0
-        for r in state.get("results", []):
-            contact_id = r.get("contact_id")
+        for result in state.get("results", []):
+            contact_id = result.get("contact_id")
             # Only write fields that were actually missing — never overwrite existing data.
             updates = {}
-            if r.get("missing_website") and r.get("website"):
-                updates["website"] = r["website"]
-            if r.get("missing_email") and r.get("email"):
-                updates["email"] = r["email"]
-            if r.get("missing_phone") and r.get("phone"):
-                updates["phone"] = r["phone"]
+            if result.get("missing_website") and result.get("website"):
+                updates["website"] = result["website"]
+            if result.get("missing_email") and result.get("email"):
+                updates["email"] = result["email"]
+            if result.get("missing_phone") and result.get("phone"):
+                updates["phone"] = result["phone"]
 
             try:
                 if updates:
@@ -186,8 +186,8 @@ def create_enrichment_agent(
                     # update_contact always stamps enriched_at, so it counts as processed.
                     not_found += 1
                     update_contact(contact_id=contact_id, status="cannot_find_more_data")
-            except Exception as e:
-                logger.warning("enrichment: update failed for contact %s — %s", contact_id, e)
+            except Exception as error:
+                logger.warning("enrichment: update failed for contact %s — %s", contact_id, error)
         return {"enriched_count": enriched, "not_found_count": not_found}
 
     def generate_report(state: EnrichmentState) -> dict:

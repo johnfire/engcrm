@@ -66,11 +66,11 @@ def create_research_agent(
         # Deduplicate by name (case-insensitive)
         seen = set()
         deduped = []
-        for r in results:
-            key = r.get("name", "").lower().strip()
+        for result in results:
+            key = result.get("name", "").lower().strip()
             if key and key not in seen:
                 seen.add(key)
-                deduped.append(r)
+                deduped.append(result)
         return {"raw_results": deduped}
 
     def run_web_search(state: ResearchState) -> dict:
@@ -82,7 +82,7 @@ def create_research_agent(
         level_info = SCAN_LEVELS.get(level, {})
         raw_queries = level_info.get("web_queries", [])
         if raw_queries:
-            queries = [q.format(city=city) for q in raw_queries[:2]]
+            queries = [query.format(city=city) for query in raw_queries[:2]]
         else:
             maps_terms = level_info.get("maps_terms", [])
             label = level_info.get("label", "venues")
@@ -103,8 +103,8 @@ def create_research_agent(
             return {}
         seen = set()
         urls = []
-        for r in state["raw_results"]:
-            url = r.get("url", "") or r.get("website", "")
+        for result in state["raw_results"]:
+            url = result.get("url", "") or result.get("website", "")
             if url and url not in seen and not url.startswith("https://www.google"):
                 seen.add(url)
                 urls.append(url)
@@ -127,8 +127,8 @@ def create_research_agent(
             contacts = parse_json_response(response.content)
             if not isinstance(contacts, list):
                 raise ValueError("Expected a JSON array")
-        except Exception as e:
-            return {"errors": state.get("errors", []) + [f"extract_contacts: {e}"], "contacts_to_save": []}
+        except Exception as error:
+            return {"errors": state.get("errors", []) + [f"extract_contacts: {error}"], "contacts_to_save": []}
         return {"contacts_to_save": contacts}
 
     def fetch_missing_emails(state: ResearchState) -> dict:

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # contact's type before comparing — so normalise the configured set too. Without
 # this, capitalised entries like "Unternehmensberatung" never match and every
 # candidate is auto-promoted, silently disabling LLM scoring.
-SCORED_TYPES_LC = {t.lower() for t in SCORED_TYPES}
+SCORED_TYPES_LC = {contact_type.lower() for contact_type in SCORED_TYPES}
 
 
 def create_scout_agent(
@@ -61,8 +61,8 @@ def create_scout_agent(
     def fetch(state: ScoutState) -> dict:
         try:
             candidates = fetch_candidates(limit=state["limit"])
-        except Exception as e:
-            return {"errors": state["errors"] + [f"fetch_candidates: {e}"], "candidates": []}
+        except Exception as error:
+            return {"errors": state["errors"] + [f"fetch_candidates: {error}"], "candidates": []}
         return {"candidates": candidates}
 
     def split_and_promote(state: ScoutState) -> dict:
@@ -139,11 +139,11 @@ def create_scout_agent(
                     "outcome": outcome,
                     "reasoning": result.get("reasoning", ""),
                 })
-            except Exception as e:
+            except Exception as error:
                 scores.append({
                     "contact_id": contact["id"],
                     "outcome": "maybe",
-                    "reasoning": f"Scoring error — flagged for manual review: {e}",
+                    "reasoning": f"Scoring error — flagged for manual review: {error}",
                 })
         return {"scores": scores}
 
@@ -156,17 +156,17 @@ def create_scout_agent(
 
         outcome_score = {"cold": 75, "maybe": 50, "dropped": 20}
 
-        for s in state.get("scores", []):
+        for score in state.get("scores", []):
             try:
                 update_contact(
-                    contact_id=s["contact_id"],
-                    status=s["outcome"],
-                    fit_score=outcome_score.get(s["outcome"], 50),
-                    notes=s["reasoning"],
+                    contact_id=score["contact_id"],
+                    status=score["outcome"],
+                    fit_score=outcome_score.get(score["outcome"], 50),
+                    notes=score["reasoning"],
                 )
-                if s["outcome"] == "cold":
+                if score["outcome"] == "cold":
                     promoted += 1
-                elif s["outcome"] == "maybe":
+                elif score["outcome"] == "maybe":
                     maybe += 1
                 else:
                     dropped += 1

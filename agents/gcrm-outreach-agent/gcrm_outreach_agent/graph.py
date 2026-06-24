@@ -52,8 +52,8 @@ def create_outreach_agent(
     def fetch(state: OutreachState) -> dict:
         try:
             contacts = fetch_ready_contacts(limit=state["limit"])
-        except Exception as e:
-            return {"errors": state["errors"] + [f"fetch_ready_contacts: {e}"], "contacts": []}
+        except Exception as error:
+            return {"errors": state["errors"] + [f"fetch_ready_contacts: {error}"], "contacts": []}
         return {"contacts": contacts}
 
     def draft_all(state: OutreachState) -> dict:
@@ -66,8 +66,8 @@ def create_outreach_agent(
             # GDPR compliance check — hard block
             try:
                 allowed = check_compliance(contact_id)
-            except Exception as e:
-                drafts.append({"contact_id": contact_id, "blocked_reason": f"compliance check error: {e}"})
+            except Exception as error:
+                drafts.append({"contact_id": contact_id, "blocked_reason": f"compliance check error: {error}"})
                 continue
 
             if not allowed:
@@ -105,8 +105,8 @@ def create_outreach_agent(
                     "subject": result.get("subject", ""),
                     "body": result.get("body", ""),
                 })
-            except Exception as e:
-                drafts.append({"contact_id": contact_id, "blocked_reason": f"draft error: {e}"})
+            except Exception as error:
+                drafts.append({"contact_id": contact_id, "blocked_reason": f"draft error: {error}"})
 
         return {"drafts": drafts}
 
