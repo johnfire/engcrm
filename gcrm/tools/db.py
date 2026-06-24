@@ -782,52 +782,6 @@ def can_run_level(city: str, country: str, level: int) -> tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
-# Research queue (legacy — kept for reference, not used by new system)
-# ---------------------------------------------------------------------------
-
-def get_next_research_targets(cities_per_run: int = 3) -> list[dict]:
-    """Legacy function — returns next batch from old research_queue table."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT DISTINCT city, country,
-                   MIN(COALESCE(last_run_at, '1970-01-01')) AS oldest
-            FROM research_queue
-            GROUP BY city, country
-            ORDER BY oldest ASC
-            LIMIT %s
-            """,
-            (cities_per_run,),
-        )
-        cities = [(r["city"], r["country"]) for r in cur.fetchall()]
-        if not cities:
-            return []
-        targets = []
-        for city, country in cities:
-            cur.execute(
-                "SELECT city, industry, country FROM research_queue WHERE city = %s AND country = %s",
-                (city, country),
-            )
-            targets.extend([dict(r) for r in cur.fetchall()])
-        return targets
-
-
-def mark_research_target_done(city: str, industry: str) -> None:
-    """Legacy function — updates old research_queue table."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE research_queue
-            SET last_run_at = NOW(), run_count = run_count + 1
-            WHERE city = %s AND industry = %s
-            """,
-            (city, industry),
-        )
-
-
-# ---------------------------------------------------------------------------
 # Interactions
 # ---------------------------------------------------------------------------
 
