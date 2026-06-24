@@ -33,10 +33,12 @@ agent = create_followup_agent(
     match_contact=your_match_fn,
     log_interaction=your_log_fn,
     set_opt_out=your_opt_out_fn,
-    mark_message_processed=your_mark_fn,
+    handle_bounce=your_bounce_fn,
+    set_visit_when_nearby=your_visit_fn,
+    save_classification=your_save_classification_fn,
     fetch_overdue=your_overdue_fn,
-    send_email=your_send_fn,
     queue_for_approval=your_queue_fn,
+    record_warm_outcome=your_warm_outcome_fn,
     start_run=your_start_run_fn,
     finish_run=your_finish_run_fn,
     mission=your_mission,
@@ -50,20 +52,22 @@ print(result["summary"])
 
 ## Protocols
 
-| Parameter                | Protocol             | Description                                                 |
-| ------------------------ | -------------------- | ----------------------------------------------------------- |
-| `llm`                    | `LanguageModel`      | Any LangChain `BaseChatModel`                               |
-| `fetch_inbox`            | `InboxFetcher`       | `() -> list[dict]`                                          |
-| `match_contact`          | `ContactMatcher`     | `(from_email: str) -> dict \| None`                         |
-| `log_interaction`        | `InteractionLogger`  | `(contact_id, method, direction, summary, outcome) -> None` |
-| `set_opt_out`            | `OptOutSetter`       | `(contact_id: int) -> None`                                 |
-| `mark_message_processed` | `InboxMessageMarker` | `(inbox_message_id, contact_id) -> None`                    |
-| `fetch_overdue`          | `OverdueFetcher`     | `(days: int) -> list[dict]`                                 |
-| `send_email`             | `EmailSender`        | `(to_email, subject, body) -> bool`                         |
-| `queue_for_approval`     | `ApprovalQueuer`     | `(contact_id, subject, body, to_email) -> None`             |
-| `start_run`              | `RunStarter`         | `(agent_name, input_data) -> int`                           |
-| `finish_run`             | `RunFinisher`        | `(run_id, status, summary, output_data) -> None`            |
-| `mission`                | `AgentMission`       | Any object with the mission fields                          |
+| Parameter               | Protocol                   | Description                                                         |
+| ----------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `llm`                   | `LanguageModel`            | Any LangChain `BaseChatModel`                                       |
+| `fetch_inbox`           | `InboxFetcher`             | `() -> list[dict]`                                                  |
+| `match_contact`         | `ContactMatcher`           | `(from_email: str) -> dict \| None`                                 |
+| `log_interaction`       | `InteractionLogger`        | `(contact_id, method, direction, summary, outcome) -> None`         |
+| `set_opt_out`           | `OptOutSetter`             | `(contact_id: int) -> None`                                         |
+| `handle_bounce`         | `BounceHandler`            | `(contact_id: int) -> None`                                         |
+| `set_visit_when_nearby` | `VisitFlagSetter`          | `(contact_id: int) -> None`                                         |
+| `save_classification`   | `InboxClassificationSaver` | `(inbox_message_id, contact_id, classification, reasoning) -> None` |
+| `fetch_overdue`         | `OverdueFetcher`           | `(days: int = 90) -> list[dict]`                                    |
+| `queue_for_approval`    | `ApprovalQueuer`           | `(contact_id, run_id, subject, body) -> int`                        |
+| `record_warm_outcome`   | `WarmOutcomeRecorder`      | `(contact_id: int) -> None`                                         |
+| `start_run`             | `RunStarter`               | `(agent_name, input_data) -> int`                                   |
+| `finish_run`            | `RunFinisher`              | `(run_id, status, summary, output_data) -> None`                    |
+| `mission`               | `AgentMission`             | Any object with the mission fields                                  |
 
 ## Testing
 
