@@ -89,13 +89,18 @@ def approval_list(request: Request):
 
 @router.post("/{item_id}/approve", response_class=HTMLResponse)
 def approve(request: Request, item_id: int, note: str = Form(default=""), _admin: str = Depends(require_admin)):
+    # Atomically claim the item (pending/on_hold -> approved) so a concurrent or
+    # double-clicked approve can't send the same draft twice — only the request
+    # that wins the claim proceeds to send.
     with db() as conn:
         cur = conn.cursor()
         cur.execute("""
-            SELECT aq.draft_subject, aq.draft_body, aq.contact_id, c.email
-            FROM approval_queue aq JOIN contacts c ON c.id = aq.contact_id
-            WHERE aq.id = %s AND aq.status IN ('pending', 'on_hold')
-        """, (item_id,))
+            UPDATE approval_queue aq
+            SET status = 'approved', reviewed_at = NOW(), reviewer_note = %s
+            FROM contacts c
+            WHERE aq.id = %s AND aq.status IN ('pending', 'on_hold') AND c.id = aq.contact_id
+            RETURNING aq.draft_subject, aq.draft_body, aq.contact_id, c.email
+        """, (note or None, item_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Item not found or already reviewed")
@@ -107,15 +112,17 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
         subject=row["draft_subject"],
         body=row["draft_body"],
     )
-    final_status = "approved" if success else "approved_unsent"
+
+    # Already claimed as 'approved'; downgrade only if the send failed.
+    if not success:
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE approval_queue SET status = 'approved_unsent', reviewer_note = %s WHERE id = %s",
+                ((note or send_msg) or None, item_id),
+            )
 
     with db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE approval_queue
-            SET status = %s, reviewed_at = NOW(), reviewer_note = %s
-            WHERE id = %s
-        """, (final_status, (note or send_msg) or None, item_id))
         items = _fetch_pending(conn)
         on_hold = _fetch_on_hold(conn)
 
@@ -172,13 +179,18 @@ def edit_and_approve(
     note: str = Form(default=""),
     _admin: str = Depends(require_admin),
 ):
+    # Atomically claim (pending -> edited) so a concurrent edit/approve can't
+    # re-send the same item; only the claim winner proceeds to send.
     with db() as conn:
         cur = conn.cursor()
         cur.execute("""
-            SELECT aq.contact_id, c.email
-            FROM approval_queue aq JOIN contacts c ON c.id = aq.contact_id
-            WHERE aq.id = %s AND aq.status = 'pending'
-        """, (item_id,))
+            UPDATE approval_queue aq
+            SET status = 'edited', reviewed_at = NOW(), reviewer_note = %s,
+                final_subject = %s, final_body = %s
+            FROM contacts c
+            WHERE aq.id = %s AND aq.status = 'pending' AND c.id = aq.contact_id
+            RETURNING aq.contact_id, c.email
+        """, (note or None, final_subject, final_body, item_id))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Item not found or already reviewed")
@@ -190,16 +202,17 @@ def edit_and_approve(
         subject=final_subject,
         body=final_body,
     )
-    final_status = "edited" if success else "edited_unsent"
+
+    # Already claimed as 'edited'; downgrade only if the send failed.
+    if not success:
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE approval_queue SET status = 'edited_unsent', reviewer_note = %s WHERE id = %s",
+                ((note or send_msg) or None, item_id),
+            )
 
     with db() as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            UPDATE approval_queue
-            SET status = %s, reviewed_at = NOW(), reviewer_note = %s,
-                final_subject = %s, final_body = %s
-            WHERE id = %s
-        """, (final_status, (note or send_msg) or None, final_subject, final_body, item_id))
         items = _fetch_pending(conn)
 
     return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items})
