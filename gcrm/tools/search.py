@@ -261,3 +261,58 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
     except Exception as error:
         logger.warning("web_search failed for '%s': %s", query, error)
         return []
+
+
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_UA = "engcrm-city-normalizer/1.0 (+https://engcrm.christopherrehm.de)"
+_PLACE_TYPES = {"city", "town", "village", "municipality", "administrative"}
+
+
+def normalize_city(name: str, country: str = "DE", limit: int = 4) -> list[dict]:
+    """
+    Canonicalize a city name via Nominatim (OpenStreetMap) — free, no API key.
+    Expands variants ('Landsberg' -> 'Landsberg am Lech'), fixes umlauts
+    ('Munchen' -> 'München'), and returns [] for a name it can't place (likely a
+    typo). Each candidate is {name, state, type}, best match first.
+    """
+    name = (name or "").strip()
+    if not name:
+        return []
+    try:
+        resp = httpx.get(
+            NOMINATIM_URL,
+            params={
+                "q": name,
+                "countrycodes": country.lower(),
+                "format": "jsonv2",
+                "limit": limit,
+                "addressdetails": 1,
+            },
+            headers={"User-Agent": NOMINATIM_UA},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception as error:
+        logger.warning("normalize_city failed for %r: %s", name, error)
+        return []
+
+    candidates: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        if row.get("addresstype") not in _PLACE_TYPES:
+            continue
+        address = row.get("address", {})
+        canonical = (
+            address.get("city") or address.get("town") or address.get("village")
+            or address.get("municipality") or row.get("name", "")
+        )
+        if not canonical or canonical.lower() in seen:
+            continue
+        seen.add(canonical.lower())
+        candidates.append({
+            "name": canonical,
+            "state": address.get("state", ""),
+            "type": row.get("addresstype", ""),
+        })
+    return candidates

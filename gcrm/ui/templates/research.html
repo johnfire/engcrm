@@ -15,8 +15,44 @@
 <div class="run-banner err">{{ error }}</div>
 {% endif %}
 
+{% if city_confirm %}
+<div class="city-confirm">
+  {% if city_confirm.candidates %}
+  <p>You entered "<strong>{{ city_confirm.typed }}</strong>". Did you mean:</p>
+  {% else %}
+  <p>
+    Couldn't find "<strong>{{ city_confirm.typed }}</strong>" in
+    {{ city_confirm.country }} — check the spelling, or run it as typed:
+  </p>
+  {% endif %}
+  <div class="city-confirm-row">
+    {% for cand in city_confirm.candidates %}
+    <form method="post" action="/research/run">
+      <input type="hidden" name="stage" value="{{ city_confirm.stage }}" />
+      <input type="hidden" name="level" value="{{ city_confirm.level }}" />
+      <input type="hidden" name="country" value="{{ city_confirm.country }}" />
+      <input type="hidden" name="city" value="{{ cand.name }}" />
+      <input type="hidden" name="confirmed" value="1" />
+      <button type="submit" class="primary">
+        {{ cand.name }}{% if cand.state %} — {{ cand.state }}{% endif %}
+      </button>
+    </form>
+    {% endfor %}
+    <form method="post" action="/research/run">
+      <input type="hidden" name="stage" value="{{ city_confirm.stage }}" />
+      <input type="hidden" name="level" value="{{ city_confirm.level }}" />
+      <input type="hidden" name="country" value="{{ city_confirm.country }}" />
+      <input type="hidden" name="city" value="{{ city_confirm.typed }}" />
+      <input type="hidden" name="confirmed" value="1" />
+      <button type="submit" class="ghost">Use "{{ city_confirm.typed }}" as typed</button>
+    </form>
+    <a href="/research/" class="cancel-link">Cancel</a>
+  </div>
+</div>
+{% endif %}
+
 <form method="post" action="/research/run" class="pipeline-run">
-  <input type="text" name="city" placeholder="City" value="{{ ran_city }}" />
+  <input type="text" name="city" placeholder="City" value="{{ ran_city }}" autocomplete="off" />
   <select name="level" aria-label="Level">
     {% for lvl in levels %}<option value="{{ lvl }}">L{{ lvl }}</option>{% endfor %}
   </select>
@@ -44,6 +80,14 @@
   .run-banner { margin: 1rem 0; padding: 10px 14px; border-radius: 8px; }
   .run-banner.ok { background: #1c3a26; color: #6ee7a0; }
   .run-banner.err { background: #3a1c1c; color: #ef8a8a; }
+  .city-confirm { margin: 1rem 0; padding: 1rem; background: #2a2440; border: 1px solid #7c6fff; border-radius: 10px; }
+  .city-confirm p { margin: 0 0 10px; color: #ddd; }
+  .city-confirm-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .city-confirm-row form { margin: 0; }
+  .city-confirm button { padding: 8px 14px; border-radius: 8px; border: 1px solid #7c6fff55; background: #1a1a2e; color: #fff; cursor: pointer; }
+  .city-confirm button.primary { background: #7c6fff; border-color: #7c6fff; font-weight: 600; }
+  .city-confirm button.ghost { border-color: #ffffff20; color: #ccc; }
+  .cancel-link { color: #888; font-size: 13px; }
 </style>
 
 <div class="stats-row">
