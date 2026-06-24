@@ -78,13 +78,18 @@ export async function fetchActivity(): Promise<AgentRun[]> {
   return resp.data;
 }
 
-// --- Research ---
-export async function runResearch(
-  city: string,
-  level: number,
-  country = "DE",
+// --- Pipeline ---
+// Run a single stage (research/scout/enrichment/outreach/followup) or the whole
+// city pipeline ("all"). Followup is global and ignores city/level.
+export async function runPipelineStage(
+  stage: string,
+  opts: { city?: string; level?: number; country?: string } = {},
 ): Promise<void> {
-  await client.post("/api/research/run", { city, level, country });
+  await client.post(`/api/pipeline/${stage}/run`, {
+    city: opts.city ?? "",
+    level: opts.level ?? null,
+    country: opts.country ?? "DE",
+  });
 }
 
 // --- Card capture ---

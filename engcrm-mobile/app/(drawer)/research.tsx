@@ -6,9 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { runResearch } from "../../services/api";
+import { runPipelineStage } from "../../services/api";
 
 const LEVELS = [1, 2, 3, 4, 5];
 const COUNTRIES = [
@@ -16,34 +17,48 @@ const COUNTRIES = [
   { code: "AT", label: "Austria" },
 ];
 
-export default function ResearchScreen() {
+// Per-city stages, in pipeline order. Followup + Run-all are rendered separately.
+const STAGES = [
+  { key: "research", label: "1 · Research" },
+  { key: "scout", label: "2 · Scout" },
+  { key: "enrichment", label: "3 · Enrich" },
+  { key: "outreach", label: "4 · Outreach" },
+];
+
+export default function PipelineScreen() {
   const [city, setCity] = useState("");
   const [level, setLevel] = useState(1);
   const [country, setCountry] = useState("DE");
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  async function handleRun() {
-    if (!city.trim()) {
-      Alert.alert("City required", "Please enter a city name.");
+  async function run(stage: string, label: string, needsCity = true) {
+    if (needsCity && !city.trim()) {
+      Alert.alert("City required", "Enter a city first.");
       return;
     }
-    setLoading(true);
+    setBusy(stage);
     try {
-      await runResearch(city.trim(), level, country);
+      await runPipelineStage(stage, { city: city.trim(), level, country });
       Alert.alert(
-        "Scan queued",
-        `Level ${level} scan for ${city} has started.`,
+        "Queued",
+        `${label} started${needsCity ? ` for ${city.trim()}` : ""}. Watch the Activity screen for progress.`,
       );
-      setCity("");
-    } catch {
-      Alert.alert("Error", "Could not start scan. Try again.");
+    } catch (error: any) {
+      Alert.alert(
+        "Couldn't start",
+        error?.response
+          ? `Server error (${error.response.status}).`
+          : error?.message || "Try again.",
+      );
     } finally {
-      setLoading(false);
+      setBusy(null);
     }
   }
 
+  const disabled = busy !== null;
+
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.label}>City</Text>
       <TextInput
         style={styles.input}
@@ -62,7 +77,9 @@ export default function ResearchScreen() {
             style={[styles.levelBtn, level === levelOption && styles.levelBtnActive]}
             onPress={() => setLevel(levelOption)}
           >
-            <Text style={[styles.levelText, level === levelOption && styles.levelTextActive]}>
+            <Text
+              style={[styles.levelText, level === levelOption && styles.levelTextActive]}
+            >
               {levelOption}
             </Text>
           </TouchableOpacity>
@@ -74,11 +91,17 @@ export default function ResearchScreen() {
         {COUNTRIES.map((countryOption) => (
           <TouchableOpacity
             key={countryOption.code}
-            style={[styles.countryBtn, country === countryOption.code && styles.levelBtnActive]}
+            style={[
+              styles.countryBtn,
+              country === countryOption.code && styles.levelBtnActive,
+            ]}
             onPress={() => setCountry(countryOption.code)}
           >
             <Text
-              style={[styles.levelText, country === countryOption.code && styles.levelTextActive]}
+              style={[
+                styles.levelText,
+                country === countryOption.code && styles.levelTextActive,
+              ]}
             >
               {countryOption.label}
             </Text>
@@ -86,21 +109,58 @@ export default function ResearchScreen() {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.runBtn} onPress={handleRun} disabled={loading}>
-        {loading ? (
+      <Text style={styles.label}>Run a stage</Text>
+      {STAGES.map((stage) => (
+        <TouchableOpacity
+          key={stage.key}
+          style={[styles.stageBtn, busy === stage.key && styles.btnBusy]}
+          onPress={() => run(stage.key, stage.label)}
+          disabled={disabled}
+        >
+          {busy === stage.key ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.stageText}>{stage.label}</Text>
+          )}
+        </TouchableOpacity>
+      ))}
+
+      <TouchableOpacity
+        style={[styles.allBtn, busy === "all" && styles.btnBusy]}
+        onPress={() => run("all", "Full pipeline")}
+        disabled={disabled}
+      >
+        {busy === "all" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.runText}>Run Scan</Text>
+          <Text style={styles.allText}>▶ Run all (research → outreach)</Text>
         )}
       </TouchableOpacity>
 
-      <Text style={styles.hint}>Results appear in the Activity screen.</Text>
-    </View>
+      <TouchableOpacity
+        style={[styles.followupBtn, busy === "followup" && styles.btnBusy]}
+        onPress={() => run("followup", "Followup", false)}
+        disabled={disabled}
+      >
+        {busy === "followup" ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.followupText}>Run Followup (all cities)</Text>
+        )}
+      </TouchableOpacity>
+
+      <Text style={styles.hint}>
+        Each stage runs in the background and appears on the Activity screen.
+        Stages build on each other — research finds leads, scout scores them,
+        enrich fills in details, outreach drafts emails for approval.
+      </Text>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f0f23", padding: 24 },
+  container: { flex: 1, backgroundColor: "#0f0f23" },
+  content: { padding: 24, paddingBottom: 48 },
   label: {
     color: "#888",
     fontSize: 12,
@@ -139,13 +199,40 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  runBtn: {
-    marginTop: 36,
+  stageBtn: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#7c6fff55",
+  },
+  stageText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  btnBusy: { opacity: 0.6 },
+  allBtn: {
     backgroundColor: "#7c6fff",
     borderRadius: 12,
-    padding: 18,
+    padding: 16,
     alignItems: "center",
+    marginTop: 8,
   },
-  runText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  hint: { color: "#555", fontSize: 12, textAlign: "center", marginTop: 16 },
+  allText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  followupBtn: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#ffffff20",
+  },
+  followupText: { color: "#ccc", fontSize: 15, fontWeight: "600" },
+  hint: {
+    color: "#555",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 24,
+    lineHeight: 18,
+  },
 });
