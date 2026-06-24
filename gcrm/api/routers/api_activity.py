@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 from gcrm.api.jwt_auth import require_jwt
 from gcrm.db.connection import db
+from gcrm.tools.db import serialize_row
 
 router = APIRouter(prefix="/api/activity", tags=["mobile-activity"])
 
@@ -19,10 +20,4 @@ def list_activity(_role: str = Depends(require_jwt)) -> list[dict]:
             LIMIT 50
             """
         )
-        rows = []
-        for row in cur.fetchall():
-            r = dict(row)
-            r["started_at"] = r["started_at"].isoformat() if r["started_at"] else None
-            r["finished_at"] = r["finished_at"].isoformat() if r["finished_at"] else None
-            rows.append(r)
-        return rows
+        return [serialize_row(dict(row)) for row in cur.fetchall()]

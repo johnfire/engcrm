@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt
 from gcrm.db.connection import db
+from gcrm.tools.db import serialize_row
 
 router = APIRouter(prefix="/api/inbox", tags=["mobile-inbox"])
 
@@ -31,12 +32,7 @@ def list_inbox(_role: str = Depends(require_jwt)) -> list[dict]:
             LIMIT 200
             """
         )
-        rows = []
-        for row in cur.fetchall():
-            r = dict(row)
-            r["received_at"] = r["received_at"].isoformat() if r["received_at"] else None
-            rows.append(r)
-        return rows
+        return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 class ClassifyBody(BaseModel):

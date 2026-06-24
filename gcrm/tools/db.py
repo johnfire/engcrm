@@ -14,11 +14,11 @@ from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 logger = logging.getLogger(__name__)
 
 
-def _serialize_row(row: dict) -> dict:
+def serialize_row(row: dict) -> dict:
     """Convert datetime/date objects to ISO strings so rows are JSON-safe."""
     return {
-        k: v.isoformat() if isinstance(v, (datetime, date)) else v
-        for k, v in row.items()
+        key: value.isoformat() if isinstance(value, (datetime, date)) else value
+        for key, value in row.items()
     }
 
 
@@ -128,7 +128,7 @@ def get_candidates(limit: int = 50) -> list[dict]:
             "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
             (limit,),
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def get_cold_contacts(
@@ -169,7 +169,7 @@ def get_cold_contacts(
             f"ORDER BY fit_score DESC NULLS LAST, created_at ASC LIMIT %s",
             params,
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
@@ -214,7 +214,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
             f"ORDER BY enriched_at ASC NULLS FIRST, created_at ASC LIMIT %s",
             params,
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
@@ -255,7 +255,7 @@ def match_contact_by_email(from_email: str) -> dict | None:
         )
         row = cur.fetchone()
         if row:
-            contact = _serialize_row(dict(row))
+            contact = serialize_row(dict(row))
             contact["_match_type"] = "exact"
             return contact
         # Fallback: match any contact at the same corporate domain (not freemail)
@@ -267,7 +267,7 @@ def match_contact_by_email(from_email: str) -> dict | None:
             )
             row = cur.fetchone()
             if row:
-                contact = _serialize_row(dict(row))
+                contact = serialize_row(dict(row))
                 contact["_match_type"] = "domain"
                 return contact
         return None
@@ -279,7 +279,7 @@ def get_contact(contact_id: int) -> dict | None:
         cur = conn.cursor()
         cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
         row = cur.fetchone()
-        return _serialize_row(dict(row)) if row else None
+        return serialize_row(dict(row)) if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +490,7 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
             """,
             (days,),
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -844,7 +844,7 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
             """,
             (contact_id,),
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -913,7 +913,7 @@ def get_run_costs(limit: int = 20) -> list[dict]:
             """,
             (limit,),
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -1003,7 +1003,7 @@ def get_outreach_outcomes(days: int = 90) -> list[dict]:
             """,
             (days,),
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -1079,7 +1079,7 @@ def list_users() -> list[dict]:
             "SELECT id, email, name, role, is_active, created_at, last_login_at "
             "FROM users ORDER BY created_at DESC"
         )
-        return [_serialize_row(dict(r)) for r in cur.fetchall()]
+        return [serialize_row(dict(r)) for r in cur.fetchall()]
 
 
 def touch_user_login(user_id: int) -> None:

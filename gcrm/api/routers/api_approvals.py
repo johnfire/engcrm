@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt
 from gcrm.db.connection import db
+from gcrm.tools.db import serialize_row
 
 router = APIRouter(prefix="/api/approvals", tags=["mobile-approvals"])
 
@@ -20,12 +21,7 @@ def _fetch_pending(conn) -> list[dict]:
         ORDER BY aq.created_at ASC
         """
     )
-    rows = []
-    for row in cur.fetchall():
-        r = dict(row)
-        r["created_at"] = r["created_at"].isoformat() if r["created_at"] else None
-        rows.append(r)
-    return rows
+    return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
 @router.get("")

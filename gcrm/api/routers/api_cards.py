@@ -17,6 +17,7 @@ from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards
+from gcrm.tools.db import serialize_row
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cards", tags=["mobile-cards"])
@@ -99,13 +100,7 @@ def list_captures(status: str = "pending_review", _role: str = Depends(require_j
             (status,),
         )
         rows = cur.fetchall()
-    out = []
-    for r in rows:
-        d = dict(r)
-        if d.get("captured_at"):
-            d["captured_at"] = d["captured_at"].isoformat()
-        out.append(d)
-    return out
+    return [serialize_row(dict(r)) for r in rows]
 
 
 @router.get("/{capture_id}/image")
