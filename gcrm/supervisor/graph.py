@@ -137,7 +137,7 @@ def create_supervisor(checkpointer=None):
 
     def init(state: SupervisorState) -> dict:
         jobs = state.get("research_jobs", [])
-        cities = sorted({j["city"] for j in jobs})
+        cities = sorted({job["city"] for job in jobs})
         run_id = start_run("supervisor", {"jobs": len(jobs), "cities": cities})
         logger.info("supervisor: starting run_id=%d — researching: %s", run_id, ", ".join(cities) or "none")
         return {
@@ -175,8 +175,8 @@ def create_supervisor(checkpointer=None):
                 summaries.append(summary)
                 logger.info("research: %s", summary)
                 record_scan_result(city, country, level, contacts_found)
-            except Exception as e:
-                msg = f"research failed for {city} level {level}: {e}"
+            except Exception as error:
+                msg = f"research failed for {city} level {level}: {error}"
                 logger.error(msg)
                 summaries.append(msg)
         return {"research_summaries": summaries}
@@ -186,8 +186,8 @@ def create_supervisor(checkpointer=None):
             result = enrichment_agent.invoke({"limit": 50})
             logger.info("enrichment: %s", result.get("summary", ""))
             return {"enrichment_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"enrichment failed: {e}"
+        except Exception as error:
+            msg = f"enrichment failed: {error}"
             logger.error(msg)
             return {"enrichment_summary": msg, "errors": state["errors"] + [msg]}
 
@@ -196,8 +196,8 @@ def create_supervisor(checkpointer=None):
             result = scout_agent.invoke({"limit": 100})
             logger.info("scout: %s", result.get("summary", ""))
             return {"scout_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"scout failed: {e}"
+        except Exception as error:
+            msg = f"scout failed: {error}"
             logger.error(msg)
             return {"scout_summary": msg, "errors": state["errors"] + [msg]}
 
@@ -209,8 +209,8 @@ def create_supervisor(checkpointer=None):
             result = outreach_agent.invoke({"limit": 50, "learnings": learnings})
             logger.info("outreach: %s", result.get("summary", ""))
             return {"outreach_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"outreach failed: {e}"
+        except Exception as error:
+            msg = f"outreach failed: {error}"
             logger.error(msg)
             return {"outreach_summary": msg, "errors": state["errors"] + [msg]}
 
@@ -219,21 +219,21 @@ def create_supervisor(checkpointer=None):
             result = followup_agent.invoke({})
             logger.info("followup: %s", result.get("summary", ""))
             return {"followup_summary": result.get("summary", "")}
-        except Exception as e:
-            msg = f"followup failed: {e}"
+        except Exception as error:
+            msg = f"followup failed: {error}"
             logger.error(msg)
             return {"followup_summary": msg, "errors": state["errors"] + [msg]}
 
     def generate_report(state: SupervisorState) -> dict:
-        cities = sorted({j["city"] for j in state.get("research_jobs", [])})
+        cities = sorted({job["city"] for job in state.get("research_jobs", [])})
         lines = [
             f"Supervisor run completed — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
             f"Cities researched: {', '.join(cities) if cities else '—'}",
             "",
             "Research:",
         ]
-        for s in state.get("research_summaries", []):
-            lines.append(f"  {s}")
+        for summary_line in state.get("research_summaries", []):
+            lines.append(f"  {summary_line}")
         lines += [
             "",
             f"Enrich:   {state.get('enrichment_summary', '—')}",
@@ -244,8 +244,8 @@ def create_supervisor(checkpointer=None):
         errs = state.get("errors", [])
         if errs:
             lines.append(f"\nErrors ({len(errs)}):")
-            for e in errs:
-                lines.append(f"  {e}")
+            for error_msg in errs:
+                lines.append(f"  {error_msg}")
 
         summary = "\n".join(lines)
         status = "failed" if errs and not state.get("scout_summary") else "completed"
