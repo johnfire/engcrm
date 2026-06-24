@@ -62,8 +62,8 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
             smtp.sendmail(PROTON_EMAIL, [to_email], msg.as_string())
         logger.info("send_email: sent to %s — %s", to_email, subject)
         return True
-    except Exception as e:
-        logger.error("send_email failed to %s: %s", to_email, e)
+    except Exception as error:
+        logger.error("send_email failed to %s: %s", to_email, error)
         return False
 
 
@@ -134,8 +134,8 @@ def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
                         "received_at": received_at,
                     })
 
-    except Exception as e:
-        logger.error("read_inbox failed: %s", e)
+    except Exception as error:
+        logger.error("read_inbox failed: %s", error)
 
     logger.info("read_inbox: fetched %d new messages", len(messages))
     return messages

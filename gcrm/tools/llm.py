@@ -46,8 +46,8 @@ def _get_cost_callback():
                 if usage:
                     model = (response.llm_output or {}).get("model_name", "deepseek-chat")
                     record_llm(model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
-            except Exception as e:
-                logger.debug("cost callback error: %s", e)
+            except Exception as error:
+                logger.debug("cost callback error: %s", error)
 
     _cost_cb = _CostCallback()
     return _cost_cb

@@ -29,7 +29,7 @@ def _content_to_text(content) -> str:
         return content
     if isinstance(content, list):
         return "".join(
-            b.get("text", "") if isinstance(b, dict) else str(b) for b in content
+            block.get("text", "") if isinstance(block, dict) else str(block) for block in content
         )
     return str(content)
 
@@ -60,9 +60,9 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
         fields = parse_llm_json(_content_to_text(resp.content))
         usage = getattr(resp, "usage_metadata", None) or {}
         cost = _usage_cost(_EXTRACT_MODEL_NAME, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-    except Exception as e:
+    except Exception as error:
         logger.exception("card extraction failed")
-        return {"fields": {"is_card": False, "error": str(e)}, "model": _EXTRACT_MODEL_NAME, "cost_usd": 0.0}
+        return {"fields": {"is_card": False, "error": str(error)}, "model": _EXTRACT_MODEL_NAME, "cost_usd": 0.0}
 
     fields.setdefault("is_card", True)
     return {"fields": fields, "model": _EXTRACT_MODEL_NAME, "cost_usd": cost}
@@ -197,7 +197,7 @@ def promote_to_contact(fields: dict) -> int:
     if cid == 0:
         return 0
 
-    decision_maker = (", ".join(p for p in (person, title) if p)[:200]) or None
+    decision_maker = (", ".join(part for part in (person, title) if part)[:200]) or None
     address = (fields.get("address") or "").strip() or None
     with db() as conn:
         cur = conn.cursor()

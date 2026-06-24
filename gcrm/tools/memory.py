@@ -53,7 +53,7 @@ def _run_tool(tool_name: str, arguments: dict) -> str:
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 result = await session.call_tool(tool_name, arguments)
-                texts = [c.text for c in result.content if hasattr(c, "text")]
+                texts = [block.text for block in result.content if hasattr(block, "text")]
                 return "\n".join(texts)
 
     try:
@@ -69,8 +69,8 @@ def _run_tool(tool_name: str, arguments: dict) -> str:
                 return future.result(timeout=10)
         else:
             return asyncio.run(_inner())
-    except Exception as e:
-        logger.warning("memory: %s failed: %s", tool_name, e)
+    except Exception as error:
+        logger.warning("memory: %s failed: %s", tool_name, error)
         return ""
 
 
@@ -92,9 +92,9 @@ def search_gcrm_thoughts(query: str, limit: int = 5) -> list[str]:
     results = []
     for block in re.split(r"--- Result \d+.*---", raw):
         lines = [
-            l.strip() for l in block.splitlines()
-            if l.strip() and not _METADATA_RE.match(l.strip())
-            and not l.strip().startswith("Found ")
+            line.strip() for line in block.splitlines()
+            if line.strip() and not _METADATA_RE.match(line.strip())
+            and not line.strip().startswith("Found ")
         ]
         content = " ".join(lines).strip()
         if content:

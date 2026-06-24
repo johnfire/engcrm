@@ -56,7 +56,7 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
     """
     # Match query to tag set — fall back to generic text search tags
     industry_key = next(
-        (k for k in INDUSTRY_OSM_TAGS if k in query.lower()),
+        (industry for industry in INDUSTRY_OSM_TAGS if industry in query.lower()),
         None,
     )
     tags = INDUSTRY_OSM_TAGS.get(industry_key, [("name", "*")])
@@ -71,8 +71,8 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
         )
         resp.raise_for_status()
         elements = resp.json().get("elements", [])
-    except Exception as e:
-        logger.warning("geo_search failed for %s/%s: %s", city, query, e)
+    except Exception as error:
+        logger.warning("geo_search failed for %s/%s: %s", city, query, error)
         return []
 
     results = []
@@ -138,27 +138,27 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
             data = resp.json()
             places = data.get("places", [])
             page_token = data.get("nextPageToken")
-        except Exception as e:
-            logger.warning("google_maps_search failed for '%s' in %s (page %d): %s", query, city, page + 1, e)
+        except Exception as error:
+            logger.warning("google_maps_search failed for '%s' in %s (page %d): %s", query, city, page + 1, error)
             break
 
-        for p in places:
-            name = p.get("displayName", {}).get("text", "")
+        for place in places:
+            name = place.get("displayName", {}).get("text", "")
             if not name:
                 continue
             neighborhood = ""
-            for comp in p.get("addressComponents", []):
-                types = comp.get("types", [])
+            for component in place.get("addressComponents", []):
+                types = component.get("types", [])
                 if "sublocality_level_1" in types or "neighborhood" in types:
-                    neighborhood = comp.get("longText", "")
+                    neighborhood = component.get("longText", "")
                     break
             results.append({
                 "name": name,
-                "address": p.get("formattedAddress", ""),
+                "address": place.get("formattedAddress", ""),
                 "city": city,
                 "country": country,
-                "website": p.get("websiteUri", ""),
-                "phone": p.get("nationalPhoneNumber", "") or p.get("internationalPhoneNumber", ""),
+                "website": place.get("websiteUri", ""),
+                "phone": place.get("nationalPhoneNumber", "") or place.get("internationalPhoneNumber", ""),
                 "email": "",
                 "neighborhood": neighborhood,
             })
@@ -226,8 +226,8 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
             resp.raise_for_status()
             logger.debug("fetch_page (brightdata): %s — %d chars", url, len(resp.text))
             return resp.text[:max_chars]
-        except Exception as e:
-            logger.debug("brightdata fetch_page failed for %s: %s — falling back", url, e)
+        except Exception as error:
+            logger.debug("brightdata fetch_page failed for %s: %s — falling back", url, error)
 
     # Fallback: plain httpx with HTML stripping
     import re
@@ -241,8 +241,8 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
         text = re.sub(r'<[^>]+>', ' ', html)
         text = re.sub(r'\s+', ' ', text).strip()
         return text[:max_chars]
-    except Exception as e:
-        logger.debug("fetch_page failed for %s: %s", url, e)
+    except Exception as error:
+        logger.debug("fetch_page failed for %s: %s", url, error)
         return ""
 
 
@@ -257,7 +257,7 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=max_results))
         logger.info("web_search: %d results for '%s'", len(results), query)
-        return [{"title": r.get("title", ""), "url": r.get("href", ""), "snippet": r.get("body", "")} for r in results]
-    except Exception as e:
-        logger.warning("web_search failed for '%s': %s", query, e)
+        return [{"title": entry.get("title", ""), "url": entry.get("href", ""), "snippet": entry.get("body", "")} for entry in results]
+    except Exception as error:
+        logger.warning("web_search failed for '%s': %s", query, error)
         return []
