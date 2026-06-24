@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { runPipelineStage } from "../../services/api";
 
-const LEVELS = [1, 2, 3, 4, 5];
+const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const COUNTRIES = [
   { code: "DE", label: "Germany" },
   { code: "AT", label: "Austria" },
@@ -22,7 +22,6 @@ const STAGES = [
   { key: "research", label: "1 · Research" },
   { key: "scout", label: "2 · Scout" },
   { key: "enrichment", label: "3 · Enrich" },
-  { key: "outreach", label: "4 · Outreach" },
 ];
 
 export default function PipelineScreen() {
@@ -133,7 +132,19 @@ export default function PipelineScreen() {
         {busy === "all" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.allText}>▶ Run all (research → outreach)</Text>
+          <Text style={styles.allText}>▶ Run all (research → enrich)</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.stageBtn, busy === "outreach" && styles.btnBusy]}
+        onPress={() => run("outreach", "Outreach")}
+        disabled={disabled}
+      >
+        {busy === "outreach" ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.stageText}>Outreach (draft emails)</Text>
         )}
       </TouchableOpacity>
 

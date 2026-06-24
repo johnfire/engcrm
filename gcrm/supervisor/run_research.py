@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser(description="Run research agent for a city + level")
     parser.add_argument("--city", required=True)
-    parser.add_argument("--level", type=int, required=True, choices=[1, 2, 3, 4, 5])
+    parser.add_argument("--level", type=int, required=True, choices=range(1, 11))
     parser.add_argument("--country", default="DE")
     args = parser.parse_args()
 
