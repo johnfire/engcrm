@@ -1008,11 +1008,24 @@ def get_user_by_email(email: str) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, email, name, password_hash, role, is_active "
+            "SELECT id, email, name, password_hash, role, is_active, token_version "
             "FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,),
         )
         return cur.fetchone()
+
+
+def get_user_token_version(user_id: int) -> int | None:
+    """Current token version for an ACTIVE user, or None if the user is missing
+    or disabled. A None or mismatch revokes the caller's bearer token."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT token_version FROM users WHERE id = %s AND is_active = TRUE",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        return row["token_version"] if row else None
 
 
 def create_user(email: str, password_hash: str, role: str = "admin", name: str = "") -> int:
@@ -1032,7 +1045,8 @@ def set_user_password(email: str, password_hash: str) -> bool:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE users SET password_hash = %s WHERE LOWER(email) = LOWER(%s)",
+            "UPDATE users SET password_hash = %s, token_version = token_version + 1 "
+            "WHERE LOWER(email) = LOWER(%s)",
             (password_hash, email),
         )
         return cur.rowcount > 0
@@ -1043,7 +1057,8 @@ def set_user_active(email: str, is_active: bool) -> bool:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE users SET is_active = %s WHERE LOWER(email) = LOWER(%s)",
+            "UPDATE users SET is_active = %s, token_version = token_version + 1 "
+            "WHERE LOWER(email) = LOWER(%s)",
             (is_active, email),
         )
         return cur.rowcount > 0

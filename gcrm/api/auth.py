@@ -46,7 +46,10 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
     Returns a session payload on success, otherwise None.
     """
     if user and user.get("is_active") and verify_password(password, user["password_hash"]):
-        return {"role": user["role"], "user_id": user["id"], "email": user["email"]}
+        return {
+            "role": user["role"], "user_id": user["id"], "email": user["email"],
+            "token_version": user.get("token_version", 0),
+        }
     # Break-glass: shared env admin password (transitional; email ignored).
     # Constant-time compare so a wrong password can't be inferred from timing.
     if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):

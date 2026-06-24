@@ -34,5 +34,12 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             logger.warning("mobile auth user lookup failed: %s", e)
     payload = authenticate(body.email, body.password, user)
     if payload:
-        return TokenResponse(token=create_token(payload["role"]), role=payload["role"])
+        return TokenResponse(
+            token=create_token(
+                payload["role"],
+                user_id=payload.get("user_id"),
+                token_version=payload.get("token_version", 0),
+            ),
+            role=payload["role"],
+        )
     raise HTTPException(status_code=401, detail="Invalid email or password")
