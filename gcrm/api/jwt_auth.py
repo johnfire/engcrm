@@ -14,13 +14,12 @@ import jwt
 from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from gcrm.config import JWT_SECRET
+from gcrm.config import JWT_SECRET, TOKEN_EXPIRY_HOURS
 from gcrm.tools.db import get_user_token_version
 
 logger = logging.getLogger(__name__)
 
 ALGORITHM = "HS256"
-TOKEN_EXPIRY_HOURS = 24
 
 _bearer = HTTPBearer()
 

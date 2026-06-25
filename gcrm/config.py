@@ -77,6 +77,10 @@ def resolve_secret(name: str, value: str | None, app_env: str) -> str:
 # Mobile JSON API: secret for signing bearer JWTs.
 JWT_SECRET: str = resolve_secret("JWT_SECRET", os.getenv("JWT_SECRET"), APP_ENV)
 
+# Mobile bearer-JWT lifetime — 30 days by default. Re-logging in within the
+# window mints a fresh token; tokens stay revocable via per-user token_version.
+TOKEN_EXPIRY_HOURS: int = int(os.getenv("TOKEN_EXPIRY_HOURS", "720"))
+
 # Web UI: secret for signing the Starlette session cookie.
 SESSION_SECRET: str = resolve_secret("SESSION_SECRET", os.getenv("SESSION_SECRET"), APP_ENV)
 
