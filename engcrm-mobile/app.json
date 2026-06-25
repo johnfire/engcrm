@@ -21,7 +21,13 @@
           "color": "#7c6fff"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "EngCRM uses your location to show nearby business leads for on-foot visits."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

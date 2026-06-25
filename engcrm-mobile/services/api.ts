@@ -308,3 +308,34 @@ export interface Person {
   source: string | null;
   created_at: string;
 }
+
+// --- Recon (nearby contacts for on-foot field visits) ---
+export async function fetchRecon(
+  lat: number,
+  lng: number,
+  notContacted = false,
+  limit = 50,
+): Promise<ReconContact[]> {
+  const resp = await client.get("/api/recon", {
+    params: { lat, lng, not_contacted: notContacted, limit },
+  });
+  return resp.data;
+}
+
+export interface ReconContact {
+  id: number;
+  name: string;
+  type: string | null;
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  rating: number | null;
+  user_ratings: number | null;
+  business_status: string | null;
+  status: string | null;
+  fit_score: number | null;
+  phone: string | null;
+  website: string | null;
+  maps_uri: string | null;
+  distance_m: number;
+}

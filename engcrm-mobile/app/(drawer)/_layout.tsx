@@ -58,6 +58,10 @@ export default function DrawerLayout() {
         options={{ title: "People", drawerLabel: "👤 People" }}
       />
       <Drawer.Screen
+        name="recon"
+        options={{ title: "Recon", drawerLabel: "🧭 Recon (near me)" }}
+      />
+      <Drawer.Screen
         name="activity"
         options={{ title: "Activity", drawerLabel: "Activity" }}
       />
