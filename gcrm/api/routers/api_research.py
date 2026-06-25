@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt
+from gcrm.tools.db import build_research_overview
 from gcrm.vertical import SCAN_LEVELS
 
 router = APIRouter(prefix="/api/research", tags=["mobile-research"])
@@ -15,6 +16,13 @@ class ResearchRequest(BaseModel):
     city: str
     level: int
     country: str = "DE"
+
+
+@router.get("/overview")
+def research_overview(_role: str = Depends(require_jwt)) -> dict:
+    """Per-city scan-status table plus headline stats — the read-side mirror of
+    the web Research page. Any authenticated user may view it."""
+    return build_research_overview()
 
 
 def _run_research(city: str, level: int, country: str) -> None:

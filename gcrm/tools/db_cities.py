@@ -1,5 +1,6 @@
 """City master-list and per-city scan-level database operations."""
 from gcrm.db.connection import db
+from gcrm.vertical import SCAN_LEVELS
 
 
 def get_cities(country: str = "") -> list[dict]:
@@ -129,6 +130,47 @@ def get_all_city_scan_status() -> list[dict]:
             """,
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def build_research_overview() -> dict:
+    """Shape the per-city scan-status table plus headline stats — the single
+    source of truth behind both the web Research page and the mobile Research
+    screen, so the two never drift. Returns a JSON-serializable dict."""
+    cities = get_all_city_scan_status()
+    for city in cities:
+        scans_by_level = {scan["level"]: scan for scan in (city.get("scans") or [])}
+        emailed = city.get("emailed_by_level") or {}
+        city["levels"] = [
+            {
+                "level": lvl,
+                "scan": scans_by_level.get(lvl),
+                "emailed": int(emailed.get(str(lvl), 0)),
+            }
+            for lvl in SCAN_LEVELS
+        ]
+        city["emailed_total"] = sum(int(value) for value in emailed.values())
+        city["total_contacts"] = city.get("total_contacts") or 0
+        city["scanned_levels"] = len(city.get("scans") or [])
+
+    total = len(cities)
+    level1_done = sum(
+        1 for city in cities
+        if any((level["scan"] or {}).get("level") == 1 for level in city["levels"])
+    )
+    unscanned = sum(1 for city in cities if not city.get("scans"))
+    totals = {
+        "contacts": sum(city["total_contacts"] for city in cities),
+        "emailed": sum(city["emailed_total"] for city in cities),
+    }
+    return {
+        "cities": cities,
+        "levels": list(SCAN_LEVELS.keys()),
+        "level_labels": {lvl: cfg["label"] for lvl, cfg in SCAN_LEVELS.items()},
+        "total": total,
+        "level1_done": level1_done,
+        "unscanned": unscanned,
+        "totals": totals,
+    }
 
 
 def record_scan_result(city: str, country: str, level: int, contacts_found: int, complete: bool = False) -> None:

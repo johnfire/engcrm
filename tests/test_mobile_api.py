@@ -65,3 +65,23 @@ class TestRoleEnforcement:
     def test_spectator_cannot_confirm_voice(self):
         r = client.post("/api/voice/confirm", headers=self.SPECTATOR, json={"summary": "x"})
         assert r.status_code == 403
+
+
+class TestResearchOverview:
+    """The read-only Research overview (mobile display parity with the web page)
+    is viewable by any authenticated user, including a spectator."""
+    SPECTATOR = {"Authorization": f"Bearer {create_token('spectator')}"}
+
+    def test_requires_auth(self):
+        assert client.get("/api/research/overview").status_code in (401, 403)
+
+    def test_spectator_can_read_overview(self):
+        fake = {
+            "cities": [], "levels": [1, 2], "level_labels": {1: "A", 2: "B"},
+            "total": 0, "level1_done": 0, "unscanned": 0,
+            "totals": {"contacts": 0, "emailed": 0},
+        }
+        with patch("gcrm.api.routers.api_research.build_research_overview", return_value=fake):
+            r = client.get("/api/research/overview", headers=self.SPECTATOR)
+        assert r.status_code == 200
+        assert r.json()["totals"] == {"contacts": 0, "emailed": 0}

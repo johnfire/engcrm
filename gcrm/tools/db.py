@@ -576,7 +576,8 @@ from gcrm.tools.db_users import (
 # --- City + scan-level operations live in db_cities.py; re-exported here ---
 from gcrm.tools.db_cities import (
     get_cities, get_city_market_context, update_city_market, add_city,
-    get_city_scan_status, get_all_city_scan_status, record_scan_result, can_run_level,
+    get_city_scan_status, get_all_city_scan_status, build_research_overview,
+    record_scan_result, can_run_level,
 )
 
 

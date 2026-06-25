@@ -117,6 +117,50 @@ export async function runPipelineStage(
   });
 }
 
+// --- Research overview (read-only city scan-status table — display parity with
+// the web Research page). Shaped server-side by build_research_overview(). ---
+export async function fetchResearchOverview(): Promise<ResearchOverview> {
+  const resp = await client.get("/api/research/overview");
+  return resp.data;
+}
+
+export interface ResearchScan {
+  level: number;
+  last_run_at: string | null;
+  contacts_found: number | null;
+  run_count: number | null;
+  due_for_rerun: boolean | null;
+  complete: boolean | null;
+}
+
+export interface ResearchLevel {
+  level: number;
+  scan: ResearchScan | null;
+  emailed: number;
+}
+
+export interface ResearchCity {
+  id: number;
+  city: string | null;
+  country: string | null;
+  region: string | null;
+  levels: ResearchLevel[];
+  emailed_total: number;
+  total_contacts: number;
+  scanned_levels: number;
+}
+
+export interface ResearchOverview {
+  cities: ResearchCity[];
+  levels: number[];
+  // JSON object keys are strings, so level_labels arrives keyed by "1".."10".
+  level_labels: Record<string, string>;
+  total: number;
+  level1_done: number;
+  unscanned: number;
+  totals: { contacts: number; emailed: number };
+}
+
 // --- Card capture ---
 // Upload a card photo (multipart). Don't set Content-Type — RN sets the
 // multipart boundary itself; overriding it drops the boundary and breaks parsing.

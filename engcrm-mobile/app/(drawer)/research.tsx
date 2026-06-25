@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -8,8 +8,15 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
-import { runPipelineStage } from "../../services/api";
+import { useFocusEffect } from "expo-router";
+import {
+  runPipelineStage,
+  fetchResearchOverview,
+  ResearchOverview,
+} from "../../services/api";
+import { ResearchCityCard } from "../../components/ResearchCityCard";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const COUNTRIES = [
@@ -24,11 +31,48 @@ const STAGES = [
   { key: "enrichment", label: "3 · Enrich" },
 ];
 
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value ?? 0}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function PipelineScreen() {
   const [city, setCity] = useState("");
   const [level, setLevel] = useState(1);
   const [country, setCountry] = useState("DE");
   const [busy, setBusy] = useState<string | null>(null);
+
+  const [overview, setOverview] = useState<ResearchOverview | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+
+  const loadOverview = useCallback(async () => {
+    setLoadingOverview(true);
+    setOverviewError(null);
+    try {
+      setOverview(await fetchResearchOverview());
+    } catch (caught: any) {
+      setOverviewError(
+        caught?.response
+          ? `Couldn't load status (server error ${caught.response.status}).`
+          : caught?.message || "Couldn't load research status.",
+      );
+    } finally {
+      setLoadingOverview(false);
+    }
+  }, []);
+
+  // Refresh the status table whenever the screen regains focus (e.g. after a
+  // scan queued elsewhere finishes) and on pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      loadOverview();
+    }, [loadOverview]),
+  );
 
   async function run(stage: string, label: string, needsCity = true) {
     if (needsCity && !city.trim()) {
@@ -57,7 +101,69 @@ export default function PipelineScreen() {
   const disabled = busy !== null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={loadingOverview}
+          onRefresh={loadOverview}
+          tintColor="#7c6fff"
+        />
+      }
+    >
+      <Text style={styles.sectionTitle}>Pipeline status</Text>
+      {loadingOverview && !overview ? (
+        <ActivityIndicator color="#7c6fff" style={{ marginVertical: 24 }} />
+      ) : overviewError ? (
+        <Text style={styles.statusError}>{overviewError}</Text>
+      ) : overview ? (
+        <>
+          <View style={styles.statsRow}>
+            <Stat value={overview.total} label="cities" />
+            <Stat value={overview.level1_done} label="L1 done" />
+            <Stat value={overview.unscanned} label="unscanned" />
+            <Stat value={overview.totals?.emailed ?? 0} label="emailed" />
+          </View>
+
+          {(overview.cities ?? []).length === 0 ? (
+            <Text style={styles.empty}>
+              No cities yet. Run a stage below to start scanning.
+            </Text>
+          ) : (
+            (overview.cities ?? []).map((city) => (
+              <ResearchCityCard
+                key={city.id ?? city.city}
+                city={city}
+                levels={overview.levels ?? []}
+                levelLabels={overview.level_labels ?? {}}
+              />
+            ))
+          )}
+
+          {(overview.cities ?? []).length > 0 && (
+            <Text style={styles.totalsLine}>
+              Total: <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text>{" "}
+              emailed · <Text style={styles.totalsNum}>{overview.totals?.contacts ?? 0}</Text>{" "}
+              contacts
+            </Text>
+          )}
+
+          <View style={styles.legend}>
+            <Text style={styles.legendLine}>
+              ● complete &nbsp; ◐ partial (more to scan) &nbsp; ○ not run
+            </Text>
+            {(overview.levels ?? []).map((level) => (
+              <Text key={level} style={styles.legendLabel}>
+                L{level}: {overview.level_labels?.[String(level)] ?? "—"}
+              </Text>
+            ))}
+          </View>
+        </>
+      ) : null}
+
+      <View style={styles.divider} />
+
       <Text style={styles.label}>City</Text>
       <TextInput
         style={styles.input}
@@ -172,6 +278,43 @@ export default function PipelineScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 24, paddingBottom: 48 },
+  sectionTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 14,
+  },
+  statusError: { color: "#ef8a8a", fontSize: 14, marginVertical: 16 },
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: "#1a1a2e",
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  statValue: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  statLabel: { color: "#888", fontSize: 11, marginTop: 2 },
+  empty: { color: "#777", textAlign: "center", marginVertical: 24, fontSize: 14 },
+  totalsLine: {
+    color: "#aaa",
+    fontSize: 13,
+    textAlign: "right",
+    marginBottom: 12,
+  },
+  totalsNum: { color: "#fff", fontWeight: "700" },
+  legend: { marginTop: 8 },
+  legendLine: { color: "#888", fontSize: 12, marginBottom: 8 },
+  legendLabel: { color: "#666", fontSize: 11, lineHeight: 17 },
+  divider: {
+    height: 1,
+    backgroundColor: "#ffffff14",
+    marginVertical: 24,
+  },
   label: {
     color: "#888",
     fontSize: 12,

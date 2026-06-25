@@ -87,7 +87,7 @@ export default function DrawerLayout() {
       />
       <Drawer.Screen
         name="research"
-        options={{ title: "Run Pipeline", drawerLabel: "🚀 Run Pipeline" }}
+        options={{ title: "Research", drawerLabel: "🔬 Research" }}
       />
       <Drawer.Screen
         name="contact-detail"
