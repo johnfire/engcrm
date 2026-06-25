@@ -1,6 +1,6 @@
 import { Drawer } from "expo-router/drawer";
 import { TouchableOpacity, Text } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
 
 function LogoutButton() {
@@ -16,9 +16,29 @@ function LogoutButton() {
   );
 }
 
+// Back arrow for drill-down detail screens. They live in the drawer, so their
+// default header shows a hamburger — wrong for a detail view, and the drawer's
+// back behaviour would otherwise jump to the first screen (Approvals). This
+// returns explicitly to the owning list (Contacts / People) regardless of how
+// the detail was reached.
+function HeaderBack({ to }: { to: Href }) {
+  const router = useRouter();
+  return (
+    <TouchableOpacity
+      onPress={() => router.navigate(to)}
+      style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+    >
+      <Text style={{ color: "#fff", fontSize: 26, lineHeight: 26 }}>‹</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function DrawerLayout() {
   return (
     <Drawer
+      backBehavior="history"
       screenOptions={{
         headerStyle: { backgroundColor: "#0f0f23" },
         headerTintColor: "#fff",
@@ -71,11 +91,19 @@ export default function DrawerLayout() {
       />
       <Drawer.Screen
         name="contact-detail"
-        options={{ drawerItemStyle: { display: "none" }, title: "Contact" }}
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: "Contact",
+          headerLeft: () => <HeaderBack to="/(drawer)/contacts" />,
+        }}
       />
       <Drawer.Screen
         name="person-detail"
-        options={{ drawerItemStyle: { display: "none" }, title: "Person" }}
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: "Person",
+          headerLeft: () => <HeaderBack to="/(drawer)/people" />,
+        }}
       />
       <Drawer.Screen
         name="card-confirm"
