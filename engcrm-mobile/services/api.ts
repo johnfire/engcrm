@@ -1,5 +1,6 @@
 import axios from "axios";
-import { getToken } from "./auth";
+import { router } from "expo-router";
+import { clearToken, getToken } from "./auth";
 
 export const API_BASE = "https://engcrm.christopherrehm.de";
 
@@ -18,6 +19,30 @@ client.interceptors.request.use(async (config) => {
   if (token) config.headers["Authorization"] = `Bearer ${token}`;
   return config;
 });
+
+// A 401 from any endpoint except the login call itself means our stored token is
+// gone — expired (now a 30-day window) or revoked server-side. Rather than let
+// every screen blank out on its own failed fetch, drop the dead token and bounce
+// to login so the user just re-authenticates. The login screen handles its own
+// 401 (wrong password). redirectingToLogin de-dupes the burst of 401s when
+// several screens fetch at once; a later success clears it for the next session.
+let redirectingToLogin = false;
+client.interceptors.response.use(
+  (response) => {
+    redirectingToLogin = false;
+    return response;
+  },
+  async (error) => {
+    const status = error?.response?.status;
+    const url: string = error?.config?.url ?? "";
+    if (status === 401 && !url.includes("/api/auth/token") && !redirectingToLogin) {
+      redirectingToLogin = true;
+      await clearToken();
+      router.replace("/login");
+    }
+    return Promise.reject(error);
+  },
+);
 
 // --- Auth ---
 // engcrm uses per-user accounts: login with email + password.
