@@ -18,7 +18,7 @@ class ResearchState(TypedDict):
     # --- incremental scan ---
     new_found: int          # businesses found that aren't yet saved for this city
     scan_complete: bool     # True when this pass covered all remaining businesses
-    coords_by_name: dict    # lowercased name -> (lat, lon) from Google
+    google_by_name: dict    # lowercased name -> full Google place dict
 
     # --- output ---
     summary: str

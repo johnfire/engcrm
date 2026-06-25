@@ -8,6 +8,8 @@ import logging
 import re
 from datetime import date, datetime, timezone
 
+from psycopg2.extras import Json
+
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 
@@ -49,6 +51,19 @@ def _is_ignored_chain(name: str, chains: list[str], threshold: float = 0.90) -> 
     return False
 
 
+def _google_columns(google: dict) -> dict:
+    """Map a google_maps_search result to the contact columns we persist."""
+    location = google.get("location") or {}
+    return {
+        "latitude": google.get("latitude") if google.get("latitude") is not None else location.get("latitude"),
+        "longitude": google.get("longitude") if google.get("longitude") is not None else location.get("longitude"),
+        "business_status": google.get("business_status") or "",
+        "rating": google.get("rating"),
+        "user_ratings": google.get("user_ratings"),
+        "google_data": google.get("google_data") or google,
+    }
+
+
 def save_contact(
     name: str,
     city: str,
@@ -64,6 +79,7 @@ def save_contact(
     neighborhood: str = "",
     latitude: float | None = None,
     longitude: float | None = None,
+    google: dict | None = None,
 ) -> int:
     """
     Insert a new contact (default status 'candidate').
@@ -72,6 +88,15 @@ def save_contact(
     on this falsy value to skip/count duplicates rather than re-process a known
     contact.
     """
+    business_status = rating = user_ratings = google_json = None
+    if google:
+        cols = _google_columns(google)
+        if cols["latitude"] is not None:
+            latitude = cols["latitude"]
+        if cols["longitude"] is not None:
+            longitude = cols["longitude"]
+        business_status, rating, user_ratings = cols["business_status"], cols["rating"], cols["user_ratings"]
+        google_json = Json(cols["google_data"])
     with db() as conn:
         cur = conn.cursor()
         # Skip names matching the ignored-chains blocklist
@@ -102,13 +127,14 @@ def save_contact(
             """
             INSERT INTO contacts
                 (name, city, country, type, website, email, phone, notes, status,
-                 scan_level, neighborhood, latitude, longitude)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 scan_level, neighborhood, latitude, longitude,
+                 business_status, rating, user_ratings, google_data)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (name, city, country, type or None, website or None, email or None,
              phone or None, notes or None, status, scan_level, neighborhood or None,
-             latitude, longitude),
+             latitude, longitude, business_status or None, rating, user_ratings, google_json),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
@@ -123,6 +149,22 @@ def get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
         cur = conn.cursor()
         cur.execute("SELECT lower(name) AS name FROM contacts WHERE lower(city) = lower(%s)", (city,))
         return {row["name"] for row in cur.fetchall()}
+
+
+def update_contact_google_data(contact_id: int, google: dict) -> None:
+    """Attach Google Places data (coords + status/rating + full payload) to an
+    existing contact — used by the backfill for contacts saved before geo capture."""
+    cols = _google_columns(google)
+    with db() as conn:
+        conn.cursor().execute(
+            """
+            UPDATE contacts SET latitude = %s, longitude = %s, business_status = %s,
+                rating = %s, user_ratings = %s, google_data = %s, updated_at = NOW()
+            WHERE id = %s
+            """,
+            (cols["latitude"], cols["longitude"], cols["business_status"] or None,
+             cols["rating"], cols["user_ratings"], Json(cols["google_data"]), contact_id),
+        )
 
 
 def get_candidates(limit: int = 50) -> list[dict]:

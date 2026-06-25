@@ -82,22 +82,19 @@ def create_research_agent(
         businesses = [b for b in state.get("raw_results", []) if b.get("name")]
         if get_existing_names is None:
             return {"raw_results": businesses, "new_found": len(businesses),
-                    "scan_complete": True, "coords_by_name": {}}
+                    "scan_complete": True, "google_by_name": {}}
         existing = get_existing_names(state["city"], state.get("country", "DE"))
         new_ones = [b for b in businesses if b["name"].strip().lower() not in existing]
         new_ones.sort(key=lambda business: business["name"].strip().lower())
         chunk = new_ones[:cutoff]
-        coords = {
-            b["name"].strip().lower(): (b.get("latitude"), b.get("longitude"))
-            for b in chunk
-        }
+        google_by_name = {b["name"].strip().lower(): b for b in chunk}
         complete = len(new_ones) <= cutoff
         logger.info(
             "research: %s L%s — %d new of %d found; scanning %d this pass (complete=%s)",
             state["city"], state.get("level"), len(new_ones), len(businesses), len(chunk), complete,
         )
         return {"raw_results": chunk, "new_found": len(new_ones),
-                "scan_complete": complete, "coords_by_name": coords}
+                "scan_complete": complete, "google_by_name": google_by_name}
 
     def run_web_search(state: ResearchState) -> dict:
         """Run up to 2 targeted web searches per level to supplement Maps data.
@@ -207,12 +204,12 @@ def create_research_agent(
 
     def save_contacts(state: ResearchState) -> dict:
         level = state.get("level", 1)
-        coords = state.get("coords_by_name", {})
+        google_by_name = state.get("google_by_name", {})
         saved_ids = []
         for contact in state.get("contacts_to_save", []):
             try:
                 status = "cannot_find_more_data" if contact.get("_no_data") else "candidate"
-                latitude, longitude = coords.get((contact.get("name") or "").strip().lower(), (None, None))
+                google = google_by_name.get((contact.get("name") or "").strip().lower())
                 contact_id = save_contact(
                     name=contact.get("name", ""),
                     city=contact.get("city", state["city"]),
@@ -225,8 +222,7 @@ def create_research_agent(
                     scan_level=level,
                     neighborhood=contact.get("neighborhood", ""),
                     status=status,
-                    latitude=latitude,
-                    longitude=longitude,
+                    google=google,
                 )
                 if contact_id:
                     saved_ids.append(contact_id)

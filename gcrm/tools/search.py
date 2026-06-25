@@ -98,7 +98,7 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
     return results
 
 
-def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]:
+def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 3) -> list[dict]:
     """
     Search for venues using Google Places API (New).
     Paginates up to 3 pages (max 60 results) via nextPageToken, and extracts the
@@ -114,16 +114,21 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        # Enterprise tier (the tier we already pay for via website + phone). Adds
+        # status/rating/types/hours at no extra tier. No Atmosphere fields
+        # (editorialSummary/reviews/photos) which would bump the SKU.
         "X-Goog-FieldMask": (
             "places.displayName,places.formattedAddress,places.addressComponents,"
             "places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,"
-            "places.location,nextPageToken"
+            "places.location,places.businessStatus,places.types,places.primaryType,"
+            "places.primaryTypeDisplayName,places.rating,places.userRatingCount,"
+            "places.regularOpeningHours,places.googleMapsUri,nextPageToken"
         ),
     }
 
     results: list[dict] = []
     page_token = None
-    for page in range(3):  # up to 3 pages × 20 = 60 results
+    for page in range(pages):  # up to pages × 20 results
         payload = {
             "textQuery": f"{query} {city}",
             "languageCode": "de",
@@ -164,6 +169,10 @@ def google_maps_search(query: str, city: str, country: str = "DE") -> list[dict]
                 "neighborhood": neighborhood,
                 "latitude": location.get("latitude"),
                 "longitude": location.get("longitude"),
+                "business_status": place.get("businessStatus", ""),
+                "rating": place.get("rating"),
+                "user_ratings": place.get("userRatingCount"),
+                "google_data": place,   # full payload — nothing lost
             })
 
         if not page_token:
