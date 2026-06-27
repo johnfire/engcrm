@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -11,28 +11,38 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { confirmVoice, VoiceResult } from "../../services/api";
+import { takeHandoff } from "../../services/handoff";
 
 export default function VoiceConfirmScreen() {
   const router = useRouter();
-  const { data } = useLocalSearchParams<{ data: string }>();
-  let result: VoiceResult;
-  try {
-    result = JSON.parse(data || "{}");
-  } catch {
-    result = {} as VoiceResult;
-  }
+  const [result, setResult] = useState<VoiceResult>({} as VoiceResult);
+  const [summary, setSummary] = useState("");
+  const [followDate, setFollowDate] = useState("");
+  const [followText, setFollowText] = useState("");
+  const [selected, setSelected] = useState<number | "new">("new");
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
   const candidates = result.candidates || [];
 
-  const [summary, setSummary] = useState(result.summary || "");
-  const [followDate, setFollowDate] = useState(result.follow_up_date || "");
-  const [followText, setFollowText] = useState(result.follow_up_text || "");
-  const [selected, setSelected] = useState<number | "new">(
-    candidates.length > 0 && !result.is_new_lead ? candidates[0].id : "new",
+  // Drawer screens stay mounted and get reused, so useState initialisers only
+  // run once — the second note would otherwise still show the first note's data
+  // (issue #18). Take the freshly processed note on each focus and re-seed.
+  useFocusEffect(
+    useCallback(() => {
+      const next = takeHandoff<VoiceResult>("voice");
+      if (!next) return;
+      const nextCandidates = next.candidates || [];
+      setResult(next);
+      setSummary(next.summary || "");
+      setFollowDate(next.follow_up_date || "");
+      setFollowText(next.follow_up_text || "");
+      setSelected(nextCandidates.length > 0 && !next.is_new_lead ? nextCandidates[0].id : "new");
+      setNewName(next.contact_query || "");
+      setSaving(false);
+    }, []),
   );
-  const [newName, setNewName] = useState(result.contact_query || "");
-  const [saving, setSaving] = useState(false);
 
   async function save() {
     if (selected === "new" && !newName.trim()) {

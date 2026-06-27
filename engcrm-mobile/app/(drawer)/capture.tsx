@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { captureCard } from "../../services/api";
 import { enqueue, flush, pendingCount } from "../../services/cardQueue";
+import { setHandoff } from "../../services/handoff";
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -69,10 +70,8 @@ export default function CaptureScreen() {
         );
         return;
       }
-      router.push({
-        pathname: "/(drawer)/card-confirm",
-        params: { data: JSON.stringify(capture) },
-      });
+      setHandoff("card", capture);
+      router.push("/(drawer)/card-confirm");
     } catch (error: any) {
       // No response object → network/connection failure: save it so it isn't lost.
       if (smallUri && !error?.response) {

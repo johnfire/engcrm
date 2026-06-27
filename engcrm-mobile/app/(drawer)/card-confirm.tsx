@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -10,24 +10,33 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { confirmCard, discardCard, CaptureResult, CardFields } from "../../services/api";
+import { takeHandoff } from "../../services/handoff";
 import { CardField } from "../../components/CardField";
 
 export default function CardConfirmScreen() {
   const router = useRouter();
-  const { data } = useLocalSearchParams<{ data: string }>();
-  let capture: CaptureResult;
-  try {
-    capture = JSON.parse(data || "{}");
-  } catch {
-    capture = {} as CaptureResult;
-  }
-  const dup = capture.dup_suggestion;
-
-  const [fields, setFields] = useState<CardFields>(capture.fields || {});
+  const [capture, setCapture] = useState<CaptureResult>({} as CaptureResult);
+  const [fields, setFields] = useState<CardFields>({});
   const [linkDup, setLinkDup] = useState(false);
   const [saving, setSaving] = useState(false);
+  const dup = capture.dup_suggestion;
+
+  // This screen is a drawer screen, so its instance is kept mounted and reused
+  // for every scan — a useState initialiser would only ever run for the first
+  // card (issue #18). Take the freshly captured card on each focus instead, so
+  // every scan re-seeds the form regardless of the reused instance.
+  useFocusEffect(
+    useCallback(() => {
+      const next = takeHandoff<CaptureResult>("card");
+      if (!next) return;
+      setCapture(next);
+      setFields(next.fields || {});
+      setLinkDup(false);
+      setSaving(false);
+    }, []),
+  );
 
   const set =
     (fieldKey: keyof CardFields) =>

@@ -15,6 +15,7 @@ import {
   setAudioModeAsync,
 } from "expo-audio";
 import { processVoice } from "../../services/api";
+import { setHandoff } from "../../services/handoff";
 
 export default function VoiceScreen() {
   const router = useRouter();
@@ -32,10 +33,8 @@ export default function VoiceScreen() {
         const uri = recorder.uri;
         if (!uri) throw new Error("No recording captured");
         const result = await processVoice(uri);
-        router.push({
-          pathname: "/(drawer)/voice-confirm",
-          params: { data: JSON.stringify(result) },
-        });
+        setHandoff("voice", result);
+        router.push("/(drawer)/voice-confirm");
       } catch (error: any) {
         Alert.alert(
           "Couldn't process",
