@@ -232,6 +232,33 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
     })
 
 
+def _persist_contact_edit(contact_id, text_fields, fit_score):
+    """Normalize blank strings to NULL, parse the numeric fit_score, and write the
+    contact row. text_fields maps column name -> submitted string."""
+    def empty_none(value):
+        return value if value and value.strip() else None
+
+    score = None
+    if fit_score and fit_score.strip():
+        try:
+            score = int(fit_score)
+        except ValueError:
+            pass
+
+    updates = {column: empty_none(value) for column, value in text_fields.items()}
+    updates["fit_score"] = score
+
+    assignments = ", ".join(f"{column} = %s" for column in updates)
+    values = list(updates.values()) + [contact_id]
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE contacts SET {assignments}, updated_at = NOW() "
+            f"WHERE id = %s AND deleted_at IS NULL",
+            values,
+        )
+
+
 @router.post("/{contact_id}/edit")
 def contact_edit(
     contact_id: int,
@@ -260,43 +287,17 @@ def contact_edit(
     notes: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    def empty_none(v):
-        return v if v and v.strip() else None
-
-    score = None
-    if fit_score and fit_score.strip():
-        try:
-            score = int(fit_score)
-        except ValueError:
-            pass
-
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE contacts SET
-                name = %s, city = %s, country = %s, type = %s, status = %s,
-                fit_score = %s, email = %s, phone = %s, website = %s,
-                preferred_contact_method = %s, decision_maker = %s,
-                last_visited_at = %s, best_visit_time = %s, visit_duration = %s,
-                first_impression = %s, last_impression = %s,
-                materials_left = %s, followup_promised = %s,
-                access_notes = %s, space_notes = %s, price_sensitivity = %s,
-                notes = %s, updated_at = NOW()
-            WHERE id = %s AND deleted_at IS NULL
-            """,
-            (
-                empty_none(name), empty_none(city), empty_none(country), empty_none(type),
-                empty_none(status), score,
-                empty_none(email), empty_none(phone), empty_none(website),
-                empty_none(preferred_contact_method), empty_none(decision_maker),
-                empty_none(last_visited_at), empty_none(best_visit_time), empty_none(visit_duration),
-                empty_none(first_impression), empty_none(last_impression),
-                empty_none(materials_left), empty_none(followup_promised),
-                empty_none(access_notes), empty_none(space_notes), empty_none(price_sensitivity),
-                empty_none(notes), contact_id,
-            ),
-        )
+    text_fields = {
+        "name": name, "city": city, "country": country, "type": type, "status": status,
+        "email": email, "phone": phone, "website": website,
+        "preferred_contact_method": preferred_contact_method, "decision_maker": decision_maker,
+        "last_visited_at": last_visited_at, "best_visit_time": best_visit_time,
+        "visit_duration": visit_duration, "first_impression": first_impression,
+        "last_impression": last_impression, "materials_left": materials_left,
+        "followup_promised": followup_promised, "access_notes": access_notes,
+        "space_notes": space_notes, "price_sensitivity": price_sensitivity, "notes": notes,
+    }
+    _persist_contact_edit(contact_id, text_fields, fit_score)
     return RedirectResponse(url=f"/contacts/{contact_id}?saved=1", status_code=303)
 
 
