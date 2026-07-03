@@ -67,6 +67,52 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
         return False
 
 
+def _parse_message(parsed) -> dict:
+    """Extract sender, subject, body, and received timestamp from a parsed email.
+    Prefers text/plain; falls back to HTML with tags stripped. Returns a dict of
+    {message_id, from_email, subject, body, received_at}."""
+    msg_id = parsed.get("Message-ID", "").strip()
+    from_email = email_lib.utils.parseaddr(parsed.get("From", ""))[1]
+    subject = parsed.get("Subject", "")
+    received_str = parsed.get("Date", "")
+
+    body = ""
+    html_body = ""
+    if parsed.is_multipart():
+        for part in parsed.walk():
+            content_type = part.get_content_type()
+            if content_type == "text/plain" and not body:
+                payload = part.get_payload(decode=True)
+                if payload is not None:
+                    body = payload.decode("utf-8", errors="replace")
+            elif content_type == "text/html" and not html_body:
+                payload = part.get_payload(decode=True)
+                if payload is not None:
+                    html_body = payload.decode("utf-8", errors="replace")
+    else:
+        payload = parsed.get_payload(decode=True)
+        body = payload.decode("utf-8", errors="replace") if payload is not None else ""
+
+    if not body.strip() and html_body:
+        import html as html_mod
+        import re
+        text = re.sub(r"<[^>]+>", " ", html_body)
+        body = re.sub(r" {2,}", " ", html_mod.unescape(text)).strip()
+
+    try:
+        received_at = email_lib.utils.parsedate_to_datetime(received_str).astimezone(timezone.utc)
+    except Exception:
+        received_at = datetime.now(timezone.utc)
+
+    return {
+        "message_id": msg_id,
+        "from_email": from_email,
+        "subject": subject,
+        "body": body,
+        "received_at": received_at,
+    }
+
+
 def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
     """
     Read emails from the INBOX via Proton Bridge IMAP (last since_days days).
@@ -89,50 +135,14 @@ def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
                 _, msg_data = imap.fetch(uid, "(RFC822)")
                 raw = msg_data[0][1]
                 parsed = email_lib.message_from_bytes(raw)
+                fields = _parse_message(parsed)
 
-                msg_id = parsed.get("Message-ID", "").strip()
-                from_email = email_lib.utils.parseaddr(parsed.get("From", ""))[1]
-                subject = parsed.get("Subject", "")
-                received_str = parsed.get("Date", "")
-
-                body = ""
-                html_body = ""
-                if parsed.is_multipart():
-                    for part in parsed.walk():
-                        content_type = part.get_content_type()
-                        if content_type == "text/plain" and not body:
-                            payload = part.get_payload(decode=True)
-                            if payload is not None:
-                                body = payload.decode("utf-8", errors="replace")
-                        elif content_type == "text/html" and not html_body:
-                            payload = part.get_payload(decode=True)
-                            if payload is not None:
-                                html_body = payload.decode("utf-8", errors="replace")
-                else:
-                    payload = parsed.get_payload(decode=True)
-                    body = payload.decode("utf-8", errors="replace") if payload is not None else ""
-
-                if not body.strip() and html_body:
-                    import html as html_mod
-                    import re
-                    text = re.sub(r"<[^>]+>", " ", html_body)
-                    body = re.sub(r" {2,}", " ", html_mod.unescape(text)).strip()
-
-                try:
-                    received_at = email_lib.utils.parsedate_to_datetime(received_str).astimezone(timezone.utc)
-                except Exception:
-                    received_at = datetime.now(timezone.utc)
-
-                db_id = save_inbox_message(msg_id, from_email, subject, body, received_at)
+                db_id = save_inbox_message(
+                    fields["message_id"], fields["from_email"], fields["subject"],
+                    fields["body"], fields["received_at"],
+                )
                 if db_id:
-                    messages.append({
-                        "id": db_id,
-                        "message_id": msg_id,
-                        "from_email": from_email,
-                        "subject": subject,
-                        "body": body,
-                        "received_at": received_at,
-                    })
+                    messages.append({"id": db_id, **fields})
 
     except Exception as error:
         logger.error("read_inbox failed: %s", error)
