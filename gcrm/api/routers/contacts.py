@@ -26,41 +26,35 @@ SORT_COLUMNS = {
 }
 
 
-@router.get("/", response_class=HTMLResponse)
-def contact_list(
-    request: Request,
-    status: str = Query(default=""),
-    type: str = Query(default=""),
-    q: str = Query(default=""),
-    has_contact: str = Query(default=""),
-    page: int = Query(default=1, ge=1),
-    sort: str = Query(default="id"),
-    dir: str = Query(default="asc"),
-):
-    offset = (page - 1) * PAGE_SIZE
-    sort_col = SORT_COLUMNS.get(sort, "c.id")
-    sort_dir = "DESC" if dir == "desc" else "ASC"
+def _build_contact_filters(status, type, q, has_contact):
+    """Build the WHERE clause + bound params for the contact list from the query
+    filters. The name/city search is a parenthesized OR so it can't leak past an
+    AND — don't regress that."""
+    conditions = ["c.deleted_at IS NULL"]
+    params = []
+    if status:
+        conditions.append("c.status = %s")
+        params.append(status)
+    if type:
+        conditions.append("lower(c.type) = lower(%s)")
+        params.append(type)
+    if q:
+        conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
+        params += [f"%{q.lower()}%", f"%{q.lower()}%"]
+    if has_contact == "1":
+        conditions.append("c.id IN (SELECT DISTINCT contact_id FROM interactions)")
+    elif has_contact == "0":
+        conditions.append("c.id NOT IN (SELECT DISTINCT contact_id FROM interactions)")
 
+    where = "WHERE " + " AND ".join(conditions)
+    return where, params
+
+
+def _fetch_contacts_page(where, params, sort_col, sort_dir, offset):
+    """Run the count + page queries for the given filters and gather the distinct
+    status/type option lists. Returns (contacts, statuses, types, total)."""
     with db() as conn:
         cur = conn.cursor()
-
-        conditions = ["c.deleted_at IS NULL"]
-        params = []
-        if status:
-            conditions.append("c.status = %s")
-            params.append(status)
-        if type:
-            conditions.append("lower(c.type) = lower(%s)")
-            params.append(type)
-        if q:
-            conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
-            params += [f"%{q.lower()}%", f"%{q.lower()}%"]
-        if has_contact == "1":
-            conditions.append("c.id IN (SELECT DISTINCT contact_id FROM interactions)")
-        elif has_contact == "0":
-            conditions.append("c.id NOT IN (SELECT DISTINCT contact_id FROM interactions)")
-
-        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
         cur.execute(
             f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {where}",
@@ -90,6 +84,27 @@ def contact_list(
 
         cur.execute("SELECT DISTINCT type FROM contacts WHERE type IS NOT NULL AND type != '' ORDER BY type")
         types = [row["type"] for row in cur.fetchall()]
+
+    return contacts, statuses, types, total
+
+
+@router.get("/", response_class=HTMLResponse)
+def contact_list(
+    request: Request,
+    status: str = Query(default=""),
+    type: str = Query(default=""),
+    q: str = Query(default=""),
+    has_contact: str = Query(default=""),
+    page: int = Query(default=1, ge=1),
+    sort: str = Query(default="id"),
+    dir: str = Query(default="asc"),
+):
+    offset = (page - 1) * PAGE_SIZE
+    sort_col = SORT_COLUMNS.get(sort, "c.id")
+    sort_dir = "DESC" if dir == "desc" else "ASC"
+
+    where, params = _build_contact_filters(status, type, q, has_contact)
+    contacts, statuses, types, total = _fetch_contacts_page(where, params, sort_col, sort_dir, offset)
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
