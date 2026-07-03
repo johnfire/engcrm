@@ -14,6 +14,7 @@ always runs to completion even when there is no work.
 """
 import logging
 from datetime import datetime, timezone
+from functools import partial
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
@@ -130,139 +131,147 @@ def _build_agents():
     return research, enrichment, scout, outreach, followup
 
 
+def _init_node(state: SupervisorState) -> dict:
+    jobs = state.get("research_jobs", [])
+    cities = sorted({job["city"] for job in jobs})
+    run_id = start_run("supervisor", {"jobs": len(jobs), "cities": cities})
+    logger.info("supervisor: starting run_id=%d — researching: %s", run_id, ", ".join(cities) or "none")
+    return {
+        "run_id": run_id,
+        "research_jobs": jobs,
+        "research_summaries": [],
+        "enrichment_summary": "",
+        "scout_summary": "",
+        "outreach_summary": "",
+        "followup_summary": "",
+        "errors": [],
+        "summary": "",
+    }
+
+
+def _run_research_node(state: SupervisorState, research_agent) -> dict:
+    summaries = []
+    for job in state.get("research_jobs", []):
+        city = job["city"]
+        country = job.get("country", "DE")
+        level = job.get("level", 1)
+        allowed, reason = can_run_level(city, country, level)
+        if not allowed:
+            msg = f"skipped {city} level {level}: {reason}"
+            logger.warning(msg)
+            summaries.append(msg)
+            continue
+        try:
+            result = research_agent.invoke({
+                "city": city,
+                "country": country,
+                "level": level,
+            })
+            summary = result.get("summary", "")
+            contacts_found = len(result.get("saved_ids", []))
+            complete = bool(result.get("scan_complete", False))
+            summaries.append(summary)
+            logger.info("research: %s", summary)
+            record_scan_result(city, country, level, contacts_found, complete=complete)
+        except Exception as error:
+            msg = f"research failed for {city} level {level}: {error}"
+            logger.error(msg)
+            summaries.append(msg)
+    return {"research_summaries": summaries}
+
+
+def _run_enrich_node(state: SupervisorState, enrichment_agent) -> dict:
+    try:
+        result = enrichment_agent.invoke({"limit": 50})
+        logger.info("enrichment: %s", result.get("summary", ""))
+        return {"enrichment_summary": result.get("summary", "")}
+    except Exception as error:
+        msg = f"enrichment failed: {error}"
+        logger.error(msg)
+        return {"enrichment_summary": msg, "errors": state["errors"] + [msg]}
+
+
+def _run_scout_node(state: SupervisorState, scout_agent) -> dict:
+    try:
+        result = scout_agent.invoke({"limit": 100})
+        logger.info("scout: %s", result.get("summary", ""))
+        return {"scout_summary": result.get("summary", "")}
+    except Exception as error:
+        msg = f"scout failed: {error}"
+        logger.error(msg)
+        return {"scout_summary": msg, "errors": state["errors"] + [msg]}
+
+
+def _run_outreach_node(state: SupervisorState, outreach_agent) -> dict:
+    try:
+        learnings = search_gcrm_thoughts("outreach email tone style", limit=5)
+        if learnings:
+            logger.info("outreach: injecting %d learnings from Open Brain", len(learnings))
+        result = outreach_agent.invoke({"limit": 50, "learnings": learnings})
+        logger.info("outreach: %s", result.get("summary", ""))
+        return {"outreach_summary": result.get("summary", "")}
+    except Exception as error:
+        msg = f"outreach failed: {error}"
+        logger.error(msg)
+        return {"outreach_summary": msg, "errors": state["errors"] + [msg]}
+
+
+def _run_followup_node(state: SupervisorState, followup_agent) -> dict:
+    try:
+        result = followup_agent.invoke({})
+        logger.info("followup: %s", result.get("summary", ""))
+        return {"followup_summary": result.get("summary", "")}
+    except Exception as error:
+        msg = f"followup failed: {error}"
+        logger.error(msg)
+        return {"followup_summary": msg, "errors": state["errors"] + [msg]}
+
+
+def _generate_report_node(state: SupervisorState) -> dict:
+    cities = sorted({job["city"] for job in state.get("research_jobs", [])})
+    lines = [
+        f"Supervisor run completed — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Cities researched: {', '.join(cities) if cities else '—'}",
+        "",
+        "Research:",
+    ]
+    for summary_line in state.get("research_summaries", []):
+        lines.append(f"  {summary_line}")
+    lines += [
+        "",
+        f"Enrich:   {state.get('enrichment_summary', '—')}",
+        f"Scout:    {state.get('scout_summary', '—')}",
+        f"Outreach: {state.get('outreach_summary', '—')}",
+        f"Followup: {state.get('followup_summary', '—')}",
+    ]
+    errs = state.get("errors", [])
+    if errs:
+        lines.append(f"\nErrors ({len(errs)}):")
+        for error_msg in errs:
+            lines.append(f"  {error_msg}")
+
+    summary = "\n".join(lines)
+    status = "failed" if errs and not state.get("scout_summary") else "completed"
+    finish_run(state.get("run_id", 0), status, summary[:500], {})
+    return {"summary": summary}
+
+
 def create_supervisor(checkpointer=None):
     """
     Build and compile the supervisor graph with a PostgreSQL checkpointer.
-    Returns the compiled graph.
+    Node bodies live at module level; the per-agent nodes are bound to their
+    concrete agent here. Returns the compiled graph.
     """
     research_agent, enrichment_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
 
-    def init(state: SupervisorState) -> dict:
-        jobs = state.get("research_jobs", [])
-        cities = sorted({job["city"] for job in jobs})
-        run_id = start_run("supervisor", {"jobs": len(jobs), "cities": cities})
-        logger.info("supervisor: starting run_id=%d — researching: %s", run_id, ", ".join(cities) or "none")
-        return {
-            "run_id": run_id,
-            "research_jobs": jobs,
-            "research_summaries": [],
-            "enrichment_summary": "",
-            "scout_summary": "",
-            "outreach_summary": "",
-            "followup_summary": "",
-            "errors": [],
-            "summary": "",
-        }
-
-    def run_research(state: SupervisorState) -> dict:
-        summaries = []
-        for job in state.get("research_jobs", []):
-            city = job["city"]
-            country = job.get("country", "DE")
-            level = job.get("level", 1)
-            allowed, reason = can_run_level(city, country, level)
-            if not allowed:
-                msg = f"skipped {city} level {level}: {reason}"
-                logger.warning(msg)
-                summaries.append(msg)
-                continue
-            try:
-                result = research_agent.invoke({
-                    "city": city,
-                    "country": country,
-                    "level": level,
-                })
-                summary = result.get("summary", "")
-                contacts_found = len(result.get("saved_ids", []))
-                complete = bool(result.get("scan_complete", False))
-                summaries.append(summary)
-                logger.info("research: %s", summary)
-                record_scan_result(city, country, level, contacts_found, complete=complete)
-            except Exception as error:
-                msg = f"research failed for {city} level {level}: {error}"
-                logger.error(msg)
-                summaries.append(msg)
-        return {"research_summaries": summaries}
-
-    def run_enrich(state: SupervisorState) -> dict:
-        try:
-            result = enrichment_agent.invoke({"limit": 50})
-            logger.info("enrichment: %s", result.get("summary", ""))
-            return {"enrichment_summary": result.get("summary", "")}
-        except Exception as error:
-            msg = f"enrichment failed: {error}"
-            logger.error(msg)
-            return {"enrichment_summary": msg, "errors": state["errors"] + [msg]}
-
-    def run_scout(state: SupervisorState) -> dict:
-        try:
-            result = scout_agent.invoke({"limit": 100})
-            logger.info("scout: %s", result.get("summary", ""))
-            return {"scout_summary": result.get("summary", "")}
-        except Exception as error:
-            msg = f"scout failed: {error}"
-            logger.error(msg)
-            return {"scout_summary": msg, "errors": state["errors"] + [msg]}
-
-    def run_outreach(state: SupervisorState) -> dict:
-        try:
-            learnings = search_gcrm_thoughts("outreach email tone style", limit=5)
-            if learnings:
-                logger.info("outreach: injecting %d learnings from Open Brain", len(learnings))
-            result = outreach_agent.invoke({"limit": 50, "learnings": learnings})
-            logger.info("outreach: %s", result.get("summary", ""))
-            return {"outreach_summary": result.get("summary", "")}
-        except Exception as error:
-            msg = f"outreach failed: {error}"
-            logger.error(msg)
-            return {"outreach_summary": msg, "errors": state["errors"] + [msg]}
-
-    def run_followup(state: SupervisorState) -> dict:
-        try:
-            result = followup_agent.invoke({})
-            logger.info("followup: %s", result.get("summary", ""))
-            return {"followup_summary": result.get("summary", "")}
-        except Exception as error:
-            msg = f"followup failed: {error}"
-            logger.error(msg)
-            return {"followup_summary": msg, "errors": state["errors"] + [msg]}
-
-    def generate_report(state: SupervisorState) -> dict:
-        cities = sorted({job["city"] for job in state.get("research_jobs", [])})
-        lines = [
-            f"Supervisor run completed — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
-            f"Cities researched: {', '.join(cities) if cities else '—'}",
-            "",
-            "Research:",
-        ]
-        for summary_line in state.get("research_summaries", []):
-            lines.append(f"  {summary_line}")
-        lines += [
-            "",
-            f"Enrich:   {state.get('enrichment_summary', '—')}",
-            f"Scout:    {state.get('scout_summary', '—')}",
-            f"Outreach: {state.get('outreach_summary', '—')}",
-            f"Followup: {state.get('followup_summary', '—')}",
-        ]
-        errs = state.get("errors", [])
-        if errs:
-            lines.append(f"\nErrors ({len(errs)}):")
-            for error_msg in errs:
-                lines.append(f"  {error_msg}")
-
-        summary = "\n".join(lines)
-        status = "failed" if errs and not state.get("scout_summary") else "completed"
-        finish_run(state.get("run_id", 0), status, summary[:500], {})
-        return {"summary": summary}
-
     graph = StateGraph(SupervisorState)
-    graph.add_node("init", init)
-    graph.add_node("run_research", run_research)
-    graph.add_node("run_enrich", run_enrich)
-    graph.add_node("run_scout", run_scout)
-    graph.add_node("run_outreach", run_outreach)
-    graph.add_node("run_followup", run_followup)
-    graph.add_node("generate_report", generate_report)
+    graph.add_node("init", _init_node)
+    graph.add_node("run_research", partial(_run_research_node, research_agent=research_agent))
+    graph.add_node("run_enrich", partial(_run_enrich_node, enrichment_agent=enrichment_agent))
+    graph.add_node("run_scout", partial(_run_scout_node, scout_agent=scout_agent))
+    graph.add_node("run_outreach", partial(_run_outreach_node, outreach_agent=outreach_agent))
+    graph.add_node("run_followup", partial(_run_followup_node, followup_agent=followup_agent))
+    graph.add_node("generate_report", _generate_report_node)
 
     graph.set_entry_point("init")
     graph.add_edge("init", "run_research")
