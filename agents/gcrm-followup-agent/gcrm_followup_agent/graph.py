@@ -71,6 +71,18 @@ def _is_exact_match(contact: dict) -> bool:
     return contact.get("_match_type") != "domain"
 
 
+def _reply_entry(msg: dict, contact: dict, classification: str, reasoning: str) -> dict:
+    """The audit/result record for one classified reply. Per-action helpers
+    annotate it further (flags, queued state, error notes)."""
+    return {
+        "inbox_message_id": msg["id"],
+        "contact_id": contact["id"],
+        "from_email": msg["from_email"],
+        "classification": classification,
+        "reasoning": reasoning,
+    }
+
+
 def create_followup_agent(
     llm: LanguageModel,
     fetch_inbox: InboxFetcher,
@@ -168,18 +180,126 @@ def create_followup_agent(
             pass
         return 0
 
+    def _match_post_outreach_contact(msg: dict):
+        """Match a reply to a known post-outreach contact. Records a 'skipped'
+        classification and returns None for unmatched or pre-outreach senders —
+        replies from those are noise and not worth an LLM classification."""
+        contact = None
+        try:
+            contact = match_contact(msg["from_email"])
+        except Exception:
+            pass
+
+        if contact is None:
+            try:
+                save_classification(msg["id"], None, "skipped", "no matching contact")
+            except Exception:
+                pass
+            return None
+
+        if contact.get("status") not in POST_OUTREACH_STATUSES:
+            try:
+                save_classification(
+                    msg["id"], contact["id"], "skipped",
+                    f"contact status '{contact.get('status')}' is pre-outreach",
+                )
+            except Exception:
+                pass
+            return None
+
+        return contact
+
+    def _classify_reply(msg: dict) -> tuple[str, str]:
+        """Run the LLM reply classifier. Returns (classification, reasoning);
+        falls back to ('other', error message) on any failure."""
+        system, user = classify_reply_prompt(mission, msg)
+        try:
+            response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+            result = parse_json_response(response.content)
+            return result.get("classification", "other"), result.get("reasoning", "")
+        except Exception as error:
+            return "other", f"classification error: {error}"
+
+    def _apply_auto_actions(contact: dict, classification: str, entry: dict) -> tuple[int, int]:
+        """Apply immediate opt-out / visit-when-nearby flags — exact-email matches
+        only; a domain-only match may be a colleague and is left for human review.
+        Returns (opt_out_delta, warm_delta) and annotates entry."""
+        opt_out_delta = 0
+        warm_delta = 0
+
+        if classification == "opt_out":
+            if _is_exact_match(contact):
+                try:
+                    set_opt_out(contact["id"])
+                    opt_out_delta = 1
+                except Exception as error:
+                    entry["error"] = f"set_opt_out: {error}"
+            else:
+                entry["auto_action_skipped"] = "opt_out: domain-only match, needs human review"
+
+        if classification == "warm":
+            if _is_exact_match(contact):
+                try:
+                    set_visit_when_nearby(contact["id"])
+                    warm_delta = 1
+                    entry["visit_flagged"] = True
+                except Exception as error:
+                    entry["error"] = f"set_visit_when_nearby: {error}"
+            else:
+                entry["auto_action_skipped"] = "visit_flag: domain-only match, needs human review"
+
+        return opt_out_delta, warm_delta
+
+    def _log_reply_and_signal(contact: dict, classification: str, msg: dict) -> None:
+        """Log the inbound interaction; then, only if that committed and the reply
+        is warm/interested, record the warm signal for the outreach quality loop."""
+        try:
+            log_interaction(
+                contact_id=contact["id"],
+                method="email",
+                direction="inbound",
+                summary=f"{classification}: {msg.get('subject', '')}",
+                outcome=_OUTCOME_MAP.get(classification, "no_reply"),
+            )
+        except Exception as error:
+            logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), error)
+            return
+
+        if classification in ("interested", "warm"):
+            try:
+                record_warm_outcome(contact["id"])
+            except Exception as error:
+                logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), error)
+
+    def _queue_reply_draft(contact: dict, classification: str, msg: dict, run_id: int, entry: dict) -> int:
+        """Draft and queue an approval reply for an interested/warm contact —
+        interested gets an enthusiastic reply, warm a gentle one. Nothing is sent
+        autonomously. Returns 1 if queued, else 0; annotates entry."""
+        if not contact.get("email"):
+            return 0
+        language = contact.get("preferred_language") or mission.language_default
+        if classification == "interested":
+            sys_p, usr_p = draft_reply_prompt(mission, contact, msg, language)
+        else:
+            sys_p, usr_p = draft_warm_reply_prompt(mission, contact, msg, language)
+        try:
+            draft_resp = llm.invoke([SystemMessage(content=sys_p), HumanMessage(content=usr_p)])
+            draft = parse_json_response(draft_resp.content)
+            queue_for_approval(
+                contact_id=contact["id"],
+                run_id=run_id,
+                subject=draft.get("subject", ""),
+                body=draft.get("body", ""),
+            )
+            entry["reply_queued"] = True
+            return 1
+        except Exception as error:
+            entry["draft_error"] = str(error)
+            return 0
+
     def classify_replies(state: FollowupState) -> dict:
-        """
-        For each inbox message:
-        - If it's a delivery-failure bounce: mark the failed contact bad_email and skip.
-        - Match to a contact by sender email; skip (record) if no match.
-        - Skip (record) if the contact is pre-outreach — replies only matter once
-          we've actually reached out.
-        - Classify the reply with the LLM.
-        - opt_out: flag immediately. warm: flag visit_when_nearby.
-        - interested / warm: draft a reply and queue it for human approval.
-        - Log the interaction and persist the classification audit trail.
-        """
+        """Thin orchestrator over the inbox: bounce, match, classify, act, log,
+        queue, persist — one step per _-prefixed helper. No behaviour of its own."""
         run_id = state.get("run_id", 0)
         classified = []
         queued = 0
@@ -193,122 +313,21 @@ def create_followup_agent(
                 bounce_count += _handle_bounce_message(msg)
                 continue
 
-            contact = None
-            try:
-                contact = match_contact(msg["from_email"])
-            except Exception:
-                pass
-
-            # Not one of our contacts — record and skip. Don't waste LLM tokens
-            # classifying newsletters or personal email.
+            contact = _match_post_outreach_contact(msg)
             if contact is None:
-                try:
-                    save_classification(msg["id"], None, "skipped", "no matching contact")
-                except Exception:
-                    pass
                 continue
 
-            # Pre-outreach contact — a reply here is noise; record and skip.
-            if contact.get("status") not in POST_OUTREACH_STATUSES:
-                try:
-                    save_classification(
-                        msg["id"], contact["id"], "skipped",
-                        f"contact status '{contact.get('status')}' is pre-outreach",
-                    )
-                except Exception:
-                    pass
-                continue
+            classification, reasoning = _classify_reply(msg)
+            entry = _reply_entry(msg, contact, classification, reasoning)
 
-            # Classify the reply.
-            system, user = classify_reply_prompt(mission, msg)
-            classification = "other"
-            reasoning = ""
-            try:
-                response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
-                result = parse_json_response(response.content)
-                classification = result.get("classification", "other")
-                reasoning = result.get("reasoning", "")
-            except Exception as error:
-                classification = "other"
-                reasoning = f"classification error: {error}"
+            opt_out_delta, warm_delta = _apply_auto_actions(contact, classification, entry)
+            opt_out_count += opt_out_delta
+            warm_count += warm_delta
 
-            entry = {
-                "inbox_message_id": msg["id"],
-                "contact_id": contact["id"],
-                "from_email": msg["from_email"],
-                "classification": classification,
-                "reasoning": reasoning,
-            }
+            _log_reply_and_signal(contact, classification, msg)
 
-            # Handle opt-out immediately — but only for an exact-email match. A
-            # domain-only match may be a colleague, so it's classified + logged
-            # for human review rather than auto-opted-out.
-            if classification == "opt_out":
-                if _is_exact_match(contact):
-                    try:
-                        set_opt_out(contact["id"])
-                        opt_out_count += 1
-                    except Exception as error:
-                        entry["error"] = f"set_opt_out: {error}"
-                else:
-                    entry["auto_action_skipped"] = "opt_out: domain-only match, needs human review"
-
-            # Warm reply: flag the contact for an in-person visit when nearby
-            # (exact-email match only; a domain-only match needs human review).
-            if classification == "warm":
-                if _is_exact_match(contact):
-                    try:
-                        set_visit_when_nearby(contact["id"])
-                        warm_count += 1
-                        entry["visit_flagged"] = True
-                    except Exception as error:
-                        entry["error"] = f"set_visit_when_nearby: {error}"
-                else:
-                    entry["auto_action_skipped"] = "visit_flag: domain-only match, needs human review"
-
-            # Log the interaction.
-            interaction_logged = False
-            try:
-                log_interaction(
-                    contact_id=contact["id"],
-                    method="email",
-                    direction="inbound",
-                    summary=f"{classification}: {msg.get('subject', '')}",
-                    outcome=_OUTCOME_MAP.get(classification, "no_reply"),
-                )
-                interaction_logged = True
-            except Exception as error:
-                logger.warning("log_interaction failed: contact_id=%s error=%s", contact.get("id"), error)
-
-            # Record warm signal for outreach quality loop — only if interaction committed.
-            if interaction_logged and classification in ("interested", "warm"):
-                try:
-                    record_warm_outcome(contact["id"])
-                except Exception as error:
-                    logger.warning("record_warm_outcome failed: contact_id=%s error=%s", contact.get("id"), error)
-
-            # Draft a reply for interested and warm contacts and queue it for
-            # human approval — interested gets an enthusiastic reply, warm a
-            # gentle, low-pressure one. Nothing is sent autonomously.
-            if classification in ("interested", "warm") and contact.get("email"):
-                language = contact.get("preferred_language") or mission.language_default
-                if classification == "interested":
-                    sys_p, usr_p = draft_reply_prompt(mission, contact, msg, language)
-                else:
-                    sys_p, usr_p = draft_warm_reply_prompt(mission, contact, msg, language)
-                try:
-                    draft_resp = llm.invoke([SystemMessage(content=sys_p), HumanMessage(content=usr_p)])
-                    draft = parse_json_response(draft_resp.content)
-                    queue_for_approval(
-                        contact_id=contact["id"],
-                        run_id=run_id,
-                        subject=draft.get("subject", ""),
-                        body=draft.get("body", ""),
-                    )
-                    queued += 1
-                    entry["reply_queued"] = True
-                except Exception as error:
-                    entry["draft_error"] = str(error)
+            if classification in ("interested", "warm"):
+                queued += _queue_reply_draft(contact, classification, msg, run_id, entry)
 
             # Persist the classification + reasoning to the inbox audit trail.
             try:
