@@ -57,16 +57,9 @@ class SupervisorState(TypedDict):
     summary: str
 
 
-def _build_agents():
-    """Instantiate all agents with concrete tools and the active mission."""
-    research_llm = get_llm(CHEAP_LLM)
-    enrichment_llm = get_llm(CHEAP_LLM)
-    scout_llm = get_llm(CHEAP_LLM)
-    outreach_llm = get_llm(SMART_LLM)
-    followup_llm = get_llm(SMART_LLM)
-
-    research = create_research_agent(
-        llm=research_llm,
+def _build_research_agent(llm):
+    return create_research_agent(
+        llm=llm,
         web_search=web_search,
         geo_search=google_maps_search,
         fetch_page=fetch_page,
@@ -78,8 +71,10 @@ def _build_agents():
         cutoff=SCAN_CUTOFF,
     )
 
-    enrichment = create_enrichment_agent(
-        llm=enrichment_llm,
+
+def _build_enrichment_agent(llm):
+    return create_enrichment_agent(
+        llm=llm,
         web_search=web_search,
         fetch_page=fetch_page,
         fetch_contacts=get_contacts_needing_enrichment,
@@ -88,8 +83,10 @@ def _build_agents():
         finish_run=finish_run,
     )
 
-    scout = create_scout_agent(
-        llm=scout_llm,
+
+def _build_scout_agent(llm):
+    return create_scout_agent(
+        llm=llm,
         fetch_candidates=get_candidates,
         update_contact=update_contact,
         fetch_page=fetch_page,
@@ -99,8 +96,10 @@ def _build_agents():
         mission=ACTIVE_MISSION,
     )
 
-    outreach = create_outreach_agent(
-        llm=outreach_llm,
+
+def _build_outreach_agent(llm):
+    return create_outreach_agent(
+        llm=llm,
         fetch_ready_contacts=get_cold_contacts,
         fetch_interactions=get_contact_interactions,
         fetch_page=fetch_page,
@@ -111,8 +110,10 @@ def _build_agents():
         mission=ACTIVE_MISSION,
     )
 
-    followup = create_followup_agent(
-        llm=followup_llm,
+
+def _build_followup_agent(llm):
+    return create_followup_agent(
+        llm=llm,
         fetch_inbox=read_inbox,
         match_contact=match_contact_by_email,
         log_interaction=log_interaction,
@@ -128,7 +129,17 @@ def _build_agents():
         mission=ACTIVE_MISSION,
     )
 
-    return research, enrichment, scout, outreach, followup
+
+def _build_agents():
+    """Instantiate all agents with concrete tools and the active mission. Each
+    agent gets its own LLM instance at the tier it needs (cheap vs smart)."""
+    return (
+        _build_research_agent(get_llm(CHEAP_LLM)),
+        _build_enrichment_agent(get_llm(CHEAP_LLM)),
+        _build_scout_agent(get_llm(CHEAP_LLM)),
+        _build_outreach_agent(get_llm(SMART_LLM)),
+        _build_followup_agent(get_llm(SMART_LLM)),
+    )
 
 
 def _init_node(state: SupervisorState) -> dict:
