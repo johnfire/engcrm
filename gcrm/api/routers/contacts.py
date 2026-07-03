@@ -137,23 +137,11 @@ def contact_print(
     sort_col = SORT_COLUMNS.get(sort, "c.id")
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
+    # Same filters as the list view (no has_contact toggle on the print page).
+    where, params = _build_contact_filters(status, type, q, "")
+
     with db() as conn:
         cur = conn.cursor()
-
-        conditions = ["c.deleted_at IS NULL"]
-        params = []
-        if status:
-            conditions.append("c.status = %s")
-            params.append(status)
-        if type:
-            conditions.append("lower(c.type) = lower(%s)")
-            params.append(type)
-        if q:
-            conditions.append("(lower(c.name) LIKE %s OR lower(c.city) LIKE %s)")
-            params += [f"%{q.lower()}%", f"%{q.lower()}%"]
-
-        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-
         cur.execute(
             f"""
             SELECT
