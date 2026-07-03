@@ -146,16 +146,33 @@ def append_notes(contact_id: int, new_text: str):
 
 # ── interview ─────────────────────────────────────────────────────────────────
 
-def interview_contact(contact: dict) -> None:
-    hr()
-    loc = f"{contact['city']}" if contact.get("city") else ""
-    print(f"\n  Business: {contact['name']}  {loc}  [{contact['status']}]")
+def _resolve_impression(contact: dict) -> dict:
+    """Ask how the visit went. Always records last_impression; sets first_impression
+    only if the contact doesn't already have one. Returns fields to update."""
+    impression = menu(
+        "How did it go? (impression)",
+        ["warm", "neutral", "cold", "skeptical"],
+    )
+    if not impression:
+        return {}
 
+    fields = {"last_impression": impression}
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (contact["id"],))
+        row = cur.fetchone()
+        if not row["first_impression"]:
+            fields["first_impression"] = impression
+    return fields
+
+
+def _prompt_visit_outcome(contact: dict) -> dict:
+    """Ask what happened on the visit — date, status, who was seen, impression,
+    materials, and any promise. Returns fields to update."""
     updates = {}
-    today_str = date.today().isoformat()
 
     # Always mark last visited as today (can override)
-    visited = ask("Date of visit", default=today_str)
+    visited = ask("Date of visit", default=date.today().isoformat())
     if visited:
         updates["last_visited_at"] = visited
 
@@ -173,21 +190,8 @@ def interview_contact(contact: dict) -> None:
     if dm:
         updates["decision_maker"] = dm
 
-    # Impressions
-    impression = menu(
-        "How did it go? (impression)",
-        ["warm", "neutral", "cold", "skeptical"],
-    )
-    if impression:
-        # First visit sets first_impression; always updates last_impression
-        updates["last_impression"] = impression
-        # Only set first_impression if not already set
-        with db() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (contact["id"],))
-            row = cur.fetchone()
-            if not row["first_impression"]:
-                updates["first_impression"] = impression
+    # Impressions (first_impression only set once)
+    updates.update(_resolve_impression(contact))
 
     # Materials left
     materials = multi_menu(
@@ -201,6 +205,14 @@ def interview_contact(contact: dict) -> None:
     followup = ask("Did you promise anything? (e.g. 'send proposal', 'visit in May')")
     if followup:
         updates["followup_promised"] = followup
+
+    return updates
+
+
+def _prompt_site_notes() -> dict:
+    """Ask how best to reach the contact and about site/commercial logistics.
+    Returns fields to update."""
+    updates = {}
 
     # Preferred contact method
     pref = menu(
@@ -225,10 +237,28 @@ def interview_contact(contact: dict) -> None:
     if price:
         updates["price_sensitivity"] = price
 
+    return updates
+
+
+def _prompt_visit_updates(contact: dict) -> tuple[dict, str | None]:
+    """Run the full debrief Q&A for one contact. Returns (field updates, notes)."""
+    updates = {}
+    updates.update(_prompt_visit_outcome(contact))
+    updates.update(_prompt_site_notes())
+
     # Free notes — appended, not overwritten
     free_notes = ask("Anything else to note?")
 
-    # Save
+    return updates, free_notes
+
+
+def interview_contact(contact: dict) -> None:
+    hr()
+    loc = f"{contact['city']}" if contact.get("city") else ""
+    print(f"\n  Business: {contact['name']}  {loc}  [{contact['status']}]")
+
+    updates, free_notes = _prompt_visit_updates(contact)
+
     save_updates(contact["id"], updates)
     if free_notes:
         append_notes(contact["id"], free_notes)
