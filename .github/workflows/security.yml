@@ -1,0 +1,23 @@
+name: security
+
+# Always-on secret scan, independent of the path-filtered android/backend
+# pipelines — a leaked secret can land in any path, not just the ones those
+# workflows watch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gitleaks:
+    name: Gitleaks — secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks — detect secrets in commits
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

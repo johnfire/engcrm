@@ -1,0 +1,15 @@
+# Known historical finding, baselined by exact fingerprint (not a broad
+# allowlist rule, so it can't mask a future real leak in the same file).
+#
+# A real Open Brain API token (x-brain-key / OPEN_BRAIN_TOKEN) was briefly
+# committed to docs/open-brain-guide.md and docs/agent-memory-integration.md,
+# then scrubbed to placeholders in a later commit ("docs: scrub committed
+# Open Brain key"). The credential should be rotated regardless — this file
+# only stops gitleaks from re-flagging the already-known historical commits.
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:generic-api-key:19
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:generic-api-key:36
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:generic-api-key:253
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:jwt:18
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:jwt:35
+03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:jwt:63
+b4106be6c94b036c0728fc08d0eef4fd05001983:docs/agent-memory-integration.md:jwt:34
