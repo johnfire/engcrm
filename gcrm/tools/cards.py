@@ -10,9 +10,9 @@ import logging
 import os
 
 from gcrm.config import CARD_IMAGE_DIR
+from gcrm.json_parsing import parse_llm_json
 from gcrm.prompts.cards import CARD_SYSTEM_PROMPT
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
-from gcrm.json_parsing import parse_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
     has an `is_card` key; on any failure it's {"is_card": False, "error": ...}.
     """
     from langchain_core.messages import HumanMessage, SystemMessage
+
     from gcrm.tools.llm import get_llm
 
     b64 = base64.b64encode(image_bytes).decode("ascii")
@@ -175,8 +176,8 @@ def promote_to_contact(fields: dict) -> int:
     company → name, person+title → decision_maker. Returns the new contact id, or
     0 if save_contact deduped it (email or name+city already exists).
     """
-    from gcrm.tools.db import save_contact
     from gcrm.db.connection import db
+    from gcrm.tools.db import save_contact
 
     company = (fields.get("company") or "").strip()
     person = (fields.get("name") or "").strip()
@@ -239,13 +240,18 @@ def promote_to_person(fields: dict, contact_id: int | None) -> int:
 def enrich_one(contact_id: int) -> None:
     """Run the enrichment agent for one contact, then push when done. Best-effort."""
     try:
+        from gcrm_enrichment_agent import create_enrichment_agent
+
         from gcrm.config import CHEAP_LLM
         from gcrm.tools import (
-            web_search, fetch_page, update_contact_details,
-            start_run, finish_run, get_llm,
+            fetch_page,
+            finish_run,
+            get_llm,
+            start_run,
+            update_contact_details,
+            web_search,
         )
         from gcrm.tools.db import get_contact
-        from gcrm_enrichment_agent import create_enrichment_agent
 
         def fetch_one(limit: int = 1, city: str | None = None) -> list[dict]:
             c = get_contact(contact_id)

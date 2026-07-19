@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 
 def structure_transcript(transcript: str, today: str) -> dict:
     """LLM-structure a memo transcript. Falls back to a summary-only dict on parse failure."""
-    from gcrm.config import CHEAP_LLM
-    from gcrm.tools.llm import get_llm
-    from gcrm.prompts.voice import VOICE_SYSTEM_PROMPT
     from langchain_core.messages import HumanMessage, SystemMessage
+
+    from gcrm.config import CHEAP_LLM
+    from gcrm.prompts.voice import VOICE_SYSTEM_PROMPT
+    from gcrm.tools.llm import get_llm
 
     user = f"Today's date: {today}\n\nMemo transcript:\n{transcript}"
     try:

@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
 from gcrm.db.connection import db
 from gcrm.tools.db import serialize_row
 
@@ -35,8 +35,8 @@ class RejectBody(BaseModel):
 
 
 @router.post("/{approval_id}/approve", status_code=204)
-def approve(approval_id: int, role: str = Depends(require_jwt)) -> None:
-    if role != "admin":
+def approve(approval_id: int, payload: dict = Depends(require_jwt_payload)) -> None:
+    if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     with db() as conn:
         cur = conn.cursor()
@@ -46,11 +46,13 @@ def approve(approval_id: int, role: str = Depends(require_jwt)) -> None:
         )
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Approval not found or already reviewed")
+    from gcrm.tools.db_audit import log_audit
+    log_audit(str(payload.get("uid", "shared-admin")), "user", "approval.approve", f"approval:{approval_id}", "approved")
 
 
 @router.post("/{approval_id}/reject", status_code=204)
-def reject(approval_id: int, body: RejectBody, role: str = Depends(require_jwt)) -> None:
-    if role != "admin":
+def reject(approval_id: int, body: RejectBody, payload: dict = Depends(require_jwt_payload)) -> None:
+    if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     with db() as conn:
         cur = conn.cursor()
@@ -64,3 +66,8 @@ def reject(approval_id: int, body: RejectBody, role: str = Depends(require_jwt))
         )
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Approval not found or already reviewed")
+    from gcrm.tools.db_audit import log_audit
+    log_audit(
+        str(payload.get("uid", "shared-admin")), "user", "approval.reject",
+        f"approval:{approval_id}", "rejected",
+    )

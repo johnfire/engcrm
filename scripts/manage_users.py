@@ -16,13 +16,13 @@ import secrets
 import string
 import sys
 
+from gcrm.api.security import hash_password
 from gcrm.tools.db import (
     create_user,
-    set_user_password,
-    set_user_active,
     list_users,
+    set_user_active,
+    set_user_password,
 )
-from gcrm.api.security import hash_password
 
 
 def _generate_password(length: int = 18) -> str:

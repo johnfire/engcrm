@@ -11,16 +11,19 @@ class WebSearcher(Protocol):
 
 class PageFetcher(Protocol):
     """Fetch a URL and return its plain text content. Returns empty string on failure."""
+
     def __call__(self, url: str) -> str: ...
 
 
 class ContactFetcher(Protocol):
     """Fetch contacts that need enrichment (missing website or email)."""
+
     def __call__(self, limit: int) -> list[dict]: ...
 
 
 class ContactUpdater(Protocol):
     """Update a contact's website, email, and/or phone."""
+
     def __call__(self, contact_id: int, **kwargs) -> None: ...
 
 

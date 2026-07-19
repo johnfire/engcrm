@@ -27,11 +27,12 @@ def main():
     parser.add_argument("--days", type=int, default=90)
     args = parser.parse_args()
 
-    from gcrm.tools.db import get_outreach_outcomes
-    from gcrm.tools.memory import capture_thought
-    from gcrm.tools.llm import get_llm
+    from langchain_core.messages import HumanMessage, SystemMessage
+
     from gcrm.config import SMART_LLM
-    from langchain_core.messages import SystemMessage, HumanMessage
+    from gcrm.tools.db import get_outreach_outcomes
+    from gcrm.tools.llm import get_llm
+    from gcrm.tools.memory import capture_thought
 
     outcomes = get_outreach_outcomes(days=args.days)
     warm = [outcome for outcome in outcomes if outcome["warm"]]

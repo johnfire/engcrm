@@ -71,12 +71,18 @@ def main():
     cities = get_cities_with_unsent()
     logger.info("Cities with approved_unsent drafts: %s", cities)
 
+    from gcrm_enrichment_agent import create_enrichment_agent
+
     from gcrm.config import CHEAP_LLM
     from gcrm.tools import (
-        get_contacts_needing_enrichment, update_contact_details,
-        web_search, fetch_page, start_run, finish_run, get_llm,
+        fetch_page,
+        finish_run,
+        get_contacts_needing_enrichment,
+        get_llm,
+        start_run,
+        update_contact_details,
+        web_search,
     )
-    from gcrm_enrichment_agent import create_enrichment_agent
 
     for city in cities:
         fetch_fn = functools.partial(get_contacts_needing_enrichment, city=city)

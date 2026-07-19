@@ -14,9 +14,10 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.config import MAX_UPLOAD_BYTES
+from gcrm.tools.db import log_voice_interaction, save_contact, search_contacts_by_name
+from gcrm.tools.db_audit import log_audit
 from gcrm.tools.transcribe import transcribe
 from gcrm.tools.voice import structure_transcript
-from gcrm.tools.db import search_contacts_by_name, log_voice_interaction, save_contact
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/voice", tags=["mobile-voice"])
@@ -96,4 +97,5 @@ def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt_admin)) -
         next_action=(body.follow_up_text or "").strip() or None,
         next_action_date=fu_date,
     )
+    log_audit(None, None, "voice.confirmed", f"contact:{contact_id}", "interaction_logged")
     return {"contact_id": contact_id}

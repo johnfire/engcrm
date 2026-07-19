@@ -7,17 +7,24 @@ promotes it to a contact and kicks enrichment in the background.
 import logging
 
 from fastapi import (
-    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile,
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
 )
 from fastapi.responses import Response
-from pydantic import BaseModel
 from psycopg2.extras import Json
+from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards
 from gcrm.tools.db import serialize_row
+from gcrm.tools.db_audit import log_audit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cards", tags=["mobile-cards"])
@@ -76,6 +83,7 @@ def capture_card(
                 capture_id,
             ),
         )
+    log_audit(None, None, "card.captured", f"card_capture:{capture_id}", "extracted")
 
     return {
         "capture_id": capture_id,
@@ -168,6 +176,7 @@ def confirm_capture(
         cards.delete_card_image(cap["image_path"])
 
     background.add_task(cards.enrich_one, contact_id)
+    log_audit(None, None, "card.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
     return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
 
 
@@ -181,4 +190,5 @@ def discard_capture(capture_id: int, _role: str = Depends(require_jwt_admin)) ->
             raise HTTPException(status_code=404, detail="Capture not found")
         cur.execute("UPDATE card_captures SET status='discarded', updated_at=NOW() WHERE id=%s", (capture_id,))
     cards.delete_card_image(row["image_path"])
+    log_audit(None, None, "card.discarded", f"card_capture:{capture_id}", "discarded")
     return {"ok": True}

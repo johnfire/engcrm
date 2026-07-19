@@ -1,7 +1,8 @@
 import os
+from contextlib import contextmanager
+
 import psycopg2
 import psycopg2.extras
-from contextlib import contextmanager
 from dotenv import load_dotenv
 
 load_dotenv()

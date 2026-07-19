@@ -21,14 +21,22 @@ def main():
     parser.add_argument("--country", default="DE")
     args = parser.parse_args()
 
+    from gcrm_research_agent import create_research_agent
+
     from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, SCAN_CUTOFF
     from gcrm.tools import (
-        save_contact, get_existing_contact_names, start_run, finish_run,
-        record_scan_result, can_run_level,
-        web_search, google_maps_search, fetch_page, get_llm,
+        can_run_level,
+        fetch_page,
+        finish_run,
+        get_existing_contact_names,
+        get_llm,
+        google_maps_search,
+        record_scan_result,
+        save_contact,
+        start_run,
+        web_search,
     )
     from gcrm.vertical import SCAN_LEVELS
-    from gcrm_research_agent import create_research_agent
 
     allowed, reason = can_run_level(args.city, args.country, args.level)
     if not allowed:

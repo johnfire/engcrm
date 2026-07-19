@@ -11,9 +11,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, HTTPException, Security
+from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from gcrm.audit_context import set_audit_context
 from gcrm.config import JWT_SECRET, TOKEN_EXPIRY_HOURS
 from gcrm.tools.db import get_user_token_version
 
@@ -66,8 +67,8 @@ def _token_version_ok(user_id: int, token_version) -> bool:
     return current is not None and current == token_version
 
 
-def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
-    """FastAPI dependency: returns the caller's role, or 401."""
+def _validated_payload(credentials: HTTPAuthorizationCredentials) -> dict:
+    """Decode and revoke-check a bearer credential without request concerns."""
     try:
         payload = decode_token_payload(credentials.credentials)
     except jwt.ExpiredSignatureError:
@@ -77,11 +78,28 @@ def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -
     user_id = payload.get("uid")
     if user_id is not None and not _token_version_ok(user_id, payload.get("ver")):
         raise HTTPException(status_code=401, detail="Token revoked")
-    return payload["sub"]
+    return payload
 
 
-def require_jwt_admin(role: str = Depends(require_jwt)) -> str:
+def require_jwt_payload(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+) -> dict:
+    """FastAPI dependency: returns the validated token payload, or 401."""
+    payload = _validated_payload(credentials)
+    user_id = payload.get("uid")
+    actor = f"user:{user_id}" if user_id is not None else "shared-admin"
+    set_audit_context(actor, "user", request.state.correlation_id)
+    return payload
+
+
+def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
+    """FastAPI dependency: returns the caller's role, or 401."""
+    return _validated_payload(credentials)["sub"]
+
+
+def require_jwt_admin(payload: dict = Depends(require_jwt_payload)) -> str:
     """FastAPI dependency: like require_jwt but requires the admin role (403 otherwise)."""
-    if role != "admin":
+    if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
-    return role
+    return payload["sub"]

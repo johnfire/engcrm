@@ -25,14 +25,20 @@ def main():
     parser.add_argument("--min-tier", default=None, choices=["normal", "wealthy"], help="Exclude poor-tier neighborhoods (normal=exclude poor, wealthy=only wealthy)")
     args = parser.parse_args()
 
+    from gcrm_outreach_agent import create_outreach_agent
+
     from gcrm.config import ACTIVE_MISSION, SMART_LLM
     from gcrm.tools import (
-        get_cold_contacts, get_contact_interactions,
-        fetch_page, check_compliance, queue_for_approval,
-        start_run, finish_run, get_llm,
+        check_compliance,
+        fetch_page,
+        finish_run,
+        get_cold_contacts,
+        get_contact_interactions,
+        get_llm,
+        queue_for_approval,
+        start_run,
     )
     from gcrm.tools.memory import search_gcrm_thoughts
-    from gcrm_outreach_agent import create_outreach_agent
 
     fetch_kwargs: dict = {}
     if args.city:

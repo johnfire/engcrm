@@ -35,6 +35,7 @@
     <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
       Drafts
     </a>
+    <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active"{% endif %}>Settings</a>
     <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
       Dropped
     </a>

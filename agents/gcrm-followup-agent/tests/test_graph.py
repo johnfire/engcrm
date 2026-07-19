@@ -5,8 +5,9 @@ The follow-up agent never sends email: interested/warm replies and overdue
 nudges are all drafted and put in the approval queue for a human to send.
 """
 from dataclasses import dataclass
-from langchain_core.messages import AIMessage
+
 from gcrm_followup_agent import create_followup_agent
+from langchain_core.messages import AIMessage
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ SAMPLE_MESSAGE = {
     "subject": "Re: Ausstellungsanfrage",
     "body": "Vielen Dank für Ihre Anfrage. Wir würden uns sehr freuen...",
     "received_at": "2026-03-01T10:00:00",
+    "authenticated": True,
 }
 
 # A delivery-failure bounce: mailer-daemon sender + German "unzustellbar" subject,
@@ -54,6 +56,7 @@ BOUNCE_MESSAGE = {
         "gallery@example.com\n"
     ),
     "received_at": "2026-03-01T10:05:00",
+    "content_type": "multipart/report; report-type=delivery-status",
 }
 
 # Post-outreach contact: status must be in POST_OUTREACH_STATUSES, otherwise the
@@ -242,6 +245,22 @@ def test_opt_out_reply_sets_flag_and_does_not_queue():
     assert result["queued_count"] == 0
     assert t["queued"] == []
     assert t["visit_flagged"] == []
+
+
+def test_unauthenticated_opt_out_needs_human_review():
+    llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
+    agent, t = make_agent(
+        llm=llm,
+        inbox=[{**SAMPLE_MESSAGE, "authenticated": False}],
+        contact_for_email=SAMPLE_CONTACT,
+    )
+
+    result = agent.invoke({})
+
+    assert t["opt_outs"] == []
+    assert result["classified_replies"][0]["auto_action_skipped"] == (
+        "opt_out: needs human review (unauthenticated sender)"
+    )
 
 
 def test_domain_only_match_does_not_auto_opt_out():

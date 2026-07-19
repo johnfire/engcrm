@@ -5,8 +5,9 @@ import sys
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
 from gcrm.tools.db import build_research_overview
+from gcrm.tools.db_audit import log_audit
 from gcrm.vertical import SCAN_LEVELS
 
 router = APIRouter(prefix="/api/research", tags=["mobile-research"])
@@ -38,11 +39,12 @@ def _run_research(city: str, level: int, country: str) -> None:
 def run_research(
     body: ResearchRequest,
     background_tasks: BackgroundTasks,
-    role: str = Depends(require_jwt),
+    payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    if role != "admin":
+    if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     if body.level not in SCAN_LEVELS:
         raise HTTPException(status_code=422, detail=f"Level must be one of {sorted(SCAN_LEVELS)}")
     background_tasks.add_task(_run_research, body.city, body.level, body.country)
+    log_audit(None, None, "pipeline.research_queued", f"city:{body.country}:{body.city}", f"level:{body.level}")
     return {"status": "queued", "city": body.city, "level": body.level}

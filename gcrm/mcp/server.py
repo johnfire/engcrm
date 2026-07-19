@@ -7,19 +7,32 @@ research triggers, and manual contact management.
 import json
 import logging
 import subprocess
-import sys
+from functools import wraps
 from pathlib import Path
+from uuid import uuid4
 
 from mcp.server.fastmcp import FastMCP
 
+from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
 from gcrm.tools.db import log_interaction, update_city_market
+from gcrm.tools.db_audit import log_audit
 from gcrm.tools.email import send_email
 from gcrm.vertical import SCAN_LEVELS
 
 logger = logging.getLogger(__name__)
 
 server = FastMCP("general-crm", "1.0.0")
+
+
+def mcp_mutation(function):
+    """Attribute a state-changing local MCP tool invocation to its client."""
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        correlation_id = f"mcp:{uuid4().hex[:16]}"
+        with audit_scope("mcp-client", "mcp", correlation_id):
+            return function(*args, **kwargs)
+    return wrapped
 
 
 # =============================================================================
@@ -50,7 +63,7 @@ def pipeline_status() -> str:
         }, indent=2)
     except Exception as error:
         logger.error("pipeline_status failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
@@ -98,7 +111,7 @@ def contacts_list(status: str = "", limit: int = 200) -> str:
         return json.dumps(rows, indent=2)
     except Exception as error:
         logger.error("contacts_list failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
@@ -129,10 +142,11 @@ def approval_list() -> str:
         return json.dumps(items, indent=2)
     except Exception as error:
         logger.error("approval_list failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 @server.tool()
+@mcp_mutation
 def approval_approve(item_id: int, note: str = "") -> str:
     """
     Approve a queued email draft. Sends the email via Proton Bridge SMTP,
@@ -179,6 +193,7 @@ def approval_approve(item_id: int, note: str = "") -> str:
                 UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
                 WHERE id = %s AND status IN ('cold', 'on_hold')
             """, (row["contact_id"],))
+        log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 
         return json.dumps({
             "approved": True,
@@ -189,10 +204,11 @@ def approval_approve(item_id: int, note: str = "") -> str:
         })
     except Exception as error:
         logger.error("approval_approve failed: item_id=%d error=%s", item_id, error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 @server.tool()
+@mcp_mutation
 def approval_reject(item_id: int, note: str = "") -> str:
     """Reject a queued email draft. The contact stays at status=cold for the next run."""
     try:
@@ -211,11 +227,12 @@ def approval_reject(item_id: int, note: str = "") -> str:
                 "UPDATE contacts SET status = 'dropped', updated_at = NOW() WHERE id = %s",
                 (row["contact_id"],),
             )
+        log_audit(None, None, "approval.reject", f"approval:{item_id}", "rejected")
 
         return json.dumps({"rejected": True, "item_id": item_id})
     except Exception as error:
         logger.error("approval_reject failed: item_id=%d error=%s", item_id, error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
@@ -244,7 +261,7 @@ def agent_runs(limit: int = 20) -> str:
         return json.dumps(runs, indent=2)
     except Exception as error:
         logger.error("agent_runs failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
@@ -252,6 +269,7 @@ def agent_runs(limit: int = 20) -> str:
 # =============================================================================
 
 @server.tool()
+@mcp_mutation
 def manual_drop(contact_id: int, reason: str = "") -> str:
     """
     Manually drop a contact — mark as status=dropped with your reason.
@@ -273,6 +291,7 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
                 return json.dumps({"error": f"Contact {contact_id} not found"})
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
+        log_audit(None, None, "contact.manual_drop", f"contact:{contact_id}", "dropped")
         return json.dumps({"dropped": True, "contact": row["name"], "city": row["city"], "reason": reason})
     except Exception as error:
         logger.warning("manual_drop failed for contact %s: %s", contact_id, error)
@@ -280,6 +299,7 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
 
 
 @server.tool()
+@mcp_mutation
 def manual_promote(contact_id: int, note: str = "") -> str:
     """
     Manually promote a contact to cold — bypasses scout scoring.
@@ -301,6 +321,7 @@ def manual_promote(contact_id: int, note: str = "") -> str:
                 return json.dumps({"error": f"Contact {contact_id} not found"})
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
+        log_audit(None, None, "contact.manual_promote", f"contact:{contact_id}", "cold")
         return json.dumps({"promoted": True, "contact": row["name"], "city": row["city"]})
     except Exception as error:
         logger.warning("manual_promote failed for contact %s: %s", contact_id, error)
@@ -308,6 +329,7 @@ def manual_promote(contact_id: int, note: str = "") -> str:
 
 
 @server.tool()
+@mcp_mutation
 def set_city_notes(city: str, notes: str, character: str = "", country: str = "DE") -> str:
     """
     Add or update market context for a city.
@@ -319,6 +341,7 @@ def set_city_notes(city: str, notes: str, character: str = "", country: str = "D
         found = update_city_market(city, country, character=character, notes=notes)
         if not found:
             return json.dumps({"error": f"City '{city}' not found in registry"})
+        log_audit(None, None, "city.market_context_updated", f"city:{country.upper()}:{city}", "updated")
         return json.dumps({"updated": True, "city": city, "country": country.upper(),
                            "character": character or "unchanged", "notes": notes})
     except Exception as error:
@@ -393,10 +416,11 @@ def research_status(country: str = "", region: str = "") -> str:
         return "\n".join(lines)
     except Exception as error:
         logger.error("research_status failed: %s", error)
-        return f"Error: {e}"
+        return f"Error: {error}"
 
 
 @server.tool()
+@mcp_mutation
 def run_research(city: str, level: int, country: str = "DE") -> str:
     """
     Trigger a research scan for a specific city and level.
@@ -416,6 +440,7 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
             start_new_session=True,
         )
         level_label = LEVEL_LABELS.get(level, f"Level {level}")
+        log_audit(None, None, "pipeline.research_queued", f"city:{country.upper()}:{city}", f"level:{level}")
         return json.dumps({
             "triggered": True,
             "city": city,
@@ -427,7 +452,7 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
         })
     except Exception as error:
         logger.error("run_research failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================
@@ -435,6 +460,7 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
 # =============================================================================
 
 @server.tool()
+@mcp_mutation
 def trigger_run() -> str:
     """
     Kick off a full supervisor pipeline run (research → scout → outreach → followup).
@@ -453,6 +479,7 @@ def trigger_run() -> str:
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
+        log_audit(None, None, "pipeline.full_run_queued", "supervisor", "queued")
         return json.dumps({
             "triggered": True,
             "pid": proc.pid,
@@ -460,7 +487,7 @@ def trigger_run() -> str:
         })
     except Exception as error:
         logger.error("trigger_run failed: %s", error)
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": str(error)})
 
 
 # =============================================================================

@@ -21,7 +21,7 @@ _METADATA_RE = re.compile(
 
 
 def _get_config() -> tuple[str, str]:
-    from gcrm.config import OPEN_BRAIN_URL, OPEN_BRAIN_TOKEN
+    from gcrm.config import OPEN_BRAIN_TOKEN, OPEN_BRAIN_URL
     return OPEN_BRAIN_URL, OPEN_BRAIN_TOKEN
 
 
@@ -46,8 +46,8 @@ def _run_tool(tool_name: str, arguments: dict) -> str:
         return ""
 
     async def _inner() -> str:
-        from mcp.client.streamable_http import streamablehttp_client
         from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
         headers = {"x-brain-key": OPEN_BRAIN_TOKEN}
         async with streamablehttp_client(OPEN_BRAIN_URL, headers=headers) as (read, write, _):
             async with ClientSession(read, write) as session:

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Account settings{% endblock %}
+{% block content %}<h1>Account settings</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if message %}<p>{{ message }}</p>{% endif %}
+<section class="card"><h2>Change password</h2><form method="post" action="/settings/password">
+<label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
+<label>New password <input type="password" name="new_password" required minlength="12" autocomplete="new-password"></label>
+<button type="submit">Change password</button></form></section>{% endblock %}

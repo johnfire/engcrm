@@ -20,14 +20,25 @@ def main():
                         help="Days without reply before a contact is considered overdue (default: 90)")
     args = parser.parse_args()
 
+    from gcrm_followup_agent import create_followup_agent
+
     from gcrm.config import ACTIVE_MISSION, SMART_LLM
     from gcrm.tools import (
-        read_inbox, match_contact_by_email, log_interaction, set_opt_out,
-        mark_bad_email, record_warm_outcome, set_visit_when_nearby, save_inbox_classification,
-        get_overdue_contacts, get_unprocessed_inbox, queue_for_approval,
-        start_run, finish_run, get_llm,
+        finish_run,
+        get_llm,
+        get_overdue_contacts,
+        get_unprocessed_inbox,
+        log_interaction,
+        mark_bad_email,
+        match_contact_by_email,
+        queue_for_approval,
+        read_inbox,
+        record_warm_outcome,
+        save_inbox_classification,
+        set_opt_out,
+        set_visit_when_nearby,
+        start_run,
     )
-    from gcrm_followup_agent import create_followup_agent
 
     def fetch_inbox_with_backlog(limit: int = 50) -> list[dict]:
         """Fetch new messages from IMAP, then merge any previously unprocessed DB messages."""

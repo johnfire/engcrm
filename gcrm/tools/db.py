@@ -2,15 +2,47 @@
 All database operations used as injected tools in the agents.
 Every function uses parameterised queries — no string interpolation on user data.
 """
+
 import difflib
-import json
 import logging
 import re
-from datetime import date, datetime, timezone
 
 from psycopg2.extras import Json
 
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools import db_approvals, db_contacts, db_interactions
+from gcrm.tools.db_agent_runs import finish_run, get_run_costs, start_run
+from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_cities import (
+    add_city,
+    build_research_overview,
+    can_run_level,
+    get_all_city_scan_status,
+    get_cities,
+    get_city_market_context,
+    get_city_scan_status,
+    record_scan_result,
+    update_city_market,
+)
+from gcrm.tools.db_inbox import (
+    get_unprocessed_inbox,
+    mark_bad_email,
+    mark_message_processed,
+    save_inbox_classification,
+    save_inbox_message,
+    set_visit_when_nearby,
+)
+from gcrm.tools.db_outreach import get_outreach_outcomes, record_warm_outcome
+from gcrm.tools.db_people import get_people, get_person, save_person
+from gcrm.tools.db_users import (
+    create_user,
+    get_user_by_email,
+    get_user_token_version,
+    list_users,
+    set_user_active,
+    set_user_password,
+    touch_user_login,
+)
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 
 logger = logging.getLogger(__name__)
@@ -20,12 +52,13 @@ logger = logging.getLogger(__name__)
 # Contacts
 # ---------------------------------------------------------------------------
 
+
 def _load_ignored_chains(cur) -> list[str]:
     cur.execute("SELECT name FROM ignored_chains")
     return [row["name"] for row in cur.fetchall()]
 
 
-def get_ignored_chains() -> list[str]:
+def _legacy_get_ignored_chains() -> list[str]:
     """Return all chain names from the ignored_chains blocklist."""
     with db() as conn:
         cur = conn.cursor()
@@ -55,8 +88,12 @@ def _google_columns(google: dict) -> dict:
     """Map a google_maps_search result to the contact columns we persist."""
     location = google.get("location") or {}
     return {
-        "latitude": google.get("latitude") if google.get("latitude") is not None else location.get("latitude"),
-        "longitude": google.get("longitude") if google.get("longitude") is not None else location.get("longitude"),
+        "latitude": google.get("latitude")
+        if google.get("latitude") is not None
+        else location.get("latitude"),
+        "longitude": google.get("longitude")
+        if google.get("longitude") is not None
+        else location.get("longitude"),
         "business_status": google.get("business_status") or "",
         "rating": google.get("rating"),
         "user_ratings": google.get("user_ratings"),
@@ -64,7 +101,7 @@ def _google_columns(google: dict) -> dict:
     }
 
 
-def save_contact(
+def _legacy_save_contact(
     name: str,
     city: str,
     *,
@@ -95,7 +132,11 @@ def save_contact(
             latitude = cols["latitude"]
         if cols["longitude"] is not None:
             longitude = cols["longitude"]
-        business_status, rating, user_ratings = cols["business_status"], cols["rating"], cols["user_ratings"]
+        business_status, rating, user_ratings = (
+            cols["business_status"],
+            cols["rating"],
+            cols["user_ratings"],
+        )
         google_json = Json(cols["google_data"])
     with db() as conn:
         cur = conn.cursor()
@@ -132,26 +173,45 @@ def save_contact(
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (name, city, country, type or None, website or None, email or None,
-             phone or None, notes or None, status, scan_level, neighborhood or None,
-             latitude, longitude, business_status or None, rating, user_ratings, google_json),
+            (
+                name,
+                city,
+                country,
+                type or None,
+                website or None,
+                email or None,
+                phone or None,
+                notes or None,
+                status,
+                scan_level,
+                neighborhood or None,
+                latitude,
+                longitude,
+                business_status or None,
+                rating,
+                user_ratings,
+                google_json,
+            ),
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
         logger.info("save_contact: created id=%d  %s / %s", contact_id, name, city)
-        return contact_id
+    log_audit(None, None, "contact.created", f"contact:{contact_id}", "created")
+    return contact_id
 
 
-def get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
+def _legacy_get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
     """Lowercased names of contacts already saved for a city — the research
     agent's 'already scanned' set, so each scan only processes new businesses."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT lower(name) AS name FROM contacts WHERE lower(city) = lower(%s)", (city,))
+        cur.execute(
+            "SELECT lower(name) AS name FROM contacts WHERE lower(city) = lower(%s)", (city,)
+        )
         return {row["name"] for row in cur.fetchall()}
 
 
-def update_contact_google_data(contact_id: int, google: dict) -> None:
+def _legacy_update_contact_google_data(contact_id: int, google: dict) -> None:
     """Attach Google Places data (coords + status/rating + full payload) to an
     existing contact — used by the backfill for contacts saved before geo capture."""
     cols = _google_columns(google)
@@ -162,12 +222,19 @@ def update_contact_google_data(contact_id: int, google: dict) -> None:
                 rating = %s, user_ratings = %s, google_data = %s, updated_at = NOW()
             WHERE id = %s
             """,
-            (cols["latitude"], cols["longitude"], cols["business_status"] or None,
-             cols["rating"], cols["user_ratings"], Json(cols["google_data"]), contact_id),
+            (
+                cols["latitude"],
+                cols["longitude"],
+                cols["business_status"] or None,
+                cols["rating"],
+                cols["user_ratings"],
+                Json(cols["google_data"]),
+                contact_id,
+            ),
         )
 
 
-def get_candidates(limit: int = 50) -> list[dict]:
+def _legacy_get_candidates(limit: int = 50) -> list[dict]:
     """Return contacts with status='candidate'."""
     with db() as conn:
         cur = conn.cursor()
@@ -178,7 +245,7 @@ def get_candidates(limit: int = 50) -> list[dict]:
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def get_cold_contacts(
+def _legacy_get_cold_contacts(
     limit: int = 20,
     city: str | None = None,
     scan_level: int | None = None,
@@ -194,7 +261,11 @@ def get_cold_contacts(
     """
     with db() as conn:
         cur = conn.cursor()
-        conditions = ["status = 'cold'", "id NOT IN (SELECT contact_id FROM approval_queue)"]
+        conditions = [
+            "status = 'cold'",
+            "deleted_at IS NULL",
+            "id NOT IN (SELECT contact_id FROM approval_queue)",
+        ]
         params: list = []
         if city:
             conditions.append("lower(city) = lower(%s)")
@@ -219,7 +290,7 @@ def get_cold_contacts(
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
+def _legacy_update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
     """Update a contact's status and fit_score. Appends notes if provided."""
     with db() as conn:
         cur = conn.cursor()
@@ -239,9 +310,10 @@ def update_contact(contact_id: int, status: str, fit_score: int, notes: str = ""
                 "UPDATE contacts SET status = %s, fit_score = %s, updated_at = NOW() WHERE id = %s",
                 (status, fit_score, contact_id),
             )
+    log_audit(None, None, "contact.scored", f"contact:{contact_id}", status)
 
 
-def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
+def _legacy_get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
     """Return contacts missing an email, never-enriched first, skipping dead-ends."""
     with db() as conn:
         cur = conn.cursor()
@@ -264,7 +336,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def update_contact_details(contact_id: int, **kwargs) -> None:
+def _legacy_update_contact_details(contact_id: int, **kwargs) -> None:
     """
     Update contact fields (website, email, phone, status). Ignores unknown keys.
     Always stamps enriched_at so the contact counts as processed by enrichment,
@@ -284,9 +356,10 @@ def update_contact_details(contact_id: int, **kwargs) -> None:
             f"UPDATE contacts SET {set_clause} WHERE id = %s",
             values,
         )
+    log_audit(None, None, "contact.enriched", f"contact:{contact_id}", "updated")
 
 
-def match_contact_by_email(from_email: str) -> dict | None:
+def _legacy_match_contact_by_email(from_email: str) -> dict | None:
     """Find a contact by email, with a corporate-domain fallback. None if not found.
 
     The result carries `_match_type`: "exact" when the address matches a contact
@@ -320,7 +393,7 @@ def match_contact_by_email(from_email: str) -> dict | None:
         return None
 
 
-def get_contact(contact_id: int) -> dict | None:
+def _legacy_get_contact(contact_id: int) -> dict | None:
     """Return a single contact by id (serialized), or None if not found."""
     with db() as conn:
         cur = conn.cursor()
@@ -333,11 +406,13 @@ def get_contact(contact_id: int) -> dict | None:
 # GDPR / Compliance
 # ---------------------------------------------------------------------------
 
-def ensure_consent_log(contact_id: int, *, conn=None) -> None:
+
+def _legacy_ensure_consent_log(contact_id: int, *, conn=None) -> None:
     """
     Create a consent_log entry for a contact if one doesn't exist.
     Can receive an existing connection (when called within save_contact's transaction).
     """
+
     def _insert(c):
         cur = c.cursor()
         cur.execute(
@@ -360,7 +435,7 @@ def ensure_consent_log(contact_id: int, *, conn=None) -> None:
             _insert(conn)
 
 
-def check_compliance(contact_id: int) -> bool:
+def _legacy_check_compliance(contact_id: int) -> bool:
     """
     Returns True if outreach to this contact is permitted.
     Blocked if: opt_out is set, erasure_requested is set, or contact has been erased.
@@ -389,7 +464,7 @@ def check_compliance(contact_id: int) -> bool:
         return True
 
 
-def set_opt_out(contact_id: int) -> None:
+def _legacy_set_opt_out(contact_id: int) -> None:
     """Record opt-out in consent_log and update contact status to 'do_not_contact'."""
     with db() as conn:
         cur = conn.cursor()
@@ -405,13 +480,15 @@ def set_opt_out(contact_id: int) -> None:
             (contact_id,),
         )
         logger.info("set_opt_out: contact_id=%d opted out", contact_id)
+    log_audit(None, None, "contact.opted_out", f"contact:{contact_id}", "do_not_contact")
 
 
 # ---------------------------------------------------------------------------
 # Approval queue
 # ---------------------------------------------------------------------------
 
-def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) -> int:
+
+def _legacy_queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) -> int:
     """
     Insert an email draft into the approval queue. Returns queue item id.
     Best-effort: pings registered mobile devices that a new draft is waiting.
@@ -433,6 +510,7 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
     # Notify mobile devices after the row is committed. Never blocks queueing.
     try:
         from gcrm.api.push import send_push_to_all
+
         send_push_to_all(
             title="New approval waiting",
             body=f"{contact_name} — {subject}",
@@ -440,6 +518,7 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
         )
     except Exception as error:
         logger.debug("approval push notification failed (non-blocking): %s", error)
+    log_audit(None, None, "approval.queued", f"approval:{queue_id}", "pending")
     return queue_id
 
 
@@ -447,7 +526,8 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
 # Interactions
 # ---------------------------------------------------------------------------
 
-def log_interaction(
+
+def _legacy_log_interaction(
     contact_id: int,
     method: str,
     direction: str,
@@ -469,6 +549,7 @@ def log_interaction(
             "UPDATE contacts SET updated_at = NOW() WHERE id = %s",
             (contact_id,),
         )
+    log_audit(None, None, "interaction.logged", f"contact:{contact_id}", outcome)
 
 
 def search_contacts_by_name(query: str, limit: int = 5) -> list[dict]:
@@ -544,7 +625,8 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
 # Interactions
 # ---------------------------------------------------------------------------
 
-def get_contact_interactions(contact_id: int) -> list[dict]:
+
+def _legacy_get_contact_interactions(contact_id: int) -> list[dict]:
     """Return all logged interactions for a contact, newest first."""
     with db() as conn:
         cur = conn.cursor()
@@ -560,41 +642,132 @@ def get_contact_interactions(contact_id: int) -> list[dict]:
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-# --- User-account operations live in db_users.py; re-exported here so callers
-#     can keep importing them from gcrm.tools.db ---
-from gcrm.tools.db_users import (
-    get_user_by_email,
-    get_user_token_version,
-    create_user,
-    set_user_password,
-    set_user_active,
-    list_users,
-    touch_user_login,
-)
+# Compatibility exports: callers may retain ``gcrm.tools.db`` while focused
+# modules own the implementation.
+def _contact_tool(name, *args, **kwargs):
+    db_contacts.db = db
+    return getattr(db_contacts, name)(*args, **kwargs)
 
 
-# --- City + scan-level operations live in db_cities.py; re-exported here ---
-from gcrm.tools.db_cities import (
-    get_cities, get_city_market_context, update_city_market, add_city,
-    get_city_scan_status, get_all_city_scan_status, build_research_overview,
-    record_scan_result, can_run_level,
-)
+def get_ignored_chains(*args, **kwargs):
+    return _contact_tool("get_ignored_chains", *args, **kwargs)
 
 
-# --- Outreach quality-loop operations live in db_outreach.py; re-exported here ---
-from gcrm.tools.db_outreach import record_warm_outcome, get_outreach_outcomes
+def save_contact(*args, **kwargs):
+    return _contact_tool("save_contact", *args, **kwargs)
 
 
-# --- Agent-run logging operations live in db_agent_runs.py; re-exported here ---
-from gcrm.tools.db_agent_runs import start_run, finish_run, get_run_costs
+def get_existing_contact_names(*args, **kwargs):
+    return _contact_tool("get_existing_contact_names", *args, **kwargs)
 
 
-# --- People operations live in db_people.py; re-exported here ---
-from gcrm.tools.db_people import save_person, get_people, get_person
+def update_contact_google_data(*args, **kwargs):
+    return _contact_tool("update_contact_google_data", *args, **kwargs)
 
 
-# --- Inbox-message operations live in db_inbox.py; re-exported here ---
-from gcrm.tools.db_inbox import (
-    save_inbox_message, get_unprocessed_inbox, mark_message_processed,
-    save_inbox_classification, mark_bad_email, set_visit_when_nearby,
-)
+def get_candidates(*args, **kwargs):
+    return _contact_tool("get_candidates", *args, **kwargs)
+
+
+def get_cold_contacts(*args, **kwargs):
+    return _contact_tool("get_cold_contacts", *args, **kwargs)
+
+
+def update_contact(*args, **kwargs):
+    return _contact_tool("update_contact", *args, **kwargs)
+
+
+def get_contacts_needing_enrichment(*args, **kwargs):
+    return _contact_tool("get_contacts_needing_enrichment", *args, **kwargs)
+
+
+def update_contact_details(*args, **kwargs):
+    return _contact_tool("update_contact_details", *args, **kwargs)
+
+
+def match_contact_by_email(*args, **kwargs):
+    return _contact_tool("match_contact_by_email", *args, **kwargs)
+
+
+def get_contact(*args, **kwargs):
+    return _contact_tool("get_contact", *args, **kwargs)
+
+
+def ensure_consent_log(*args, **kwargs):
+    db_approvals.db = db
+    return db_approvals.ensure_consent_log(*args, **kwargs)
+
+
+def check_compliance(*args, **kwargs):
+    db_approvals.db = db
+    return db_approvals.check_compliance(*args, **kwargs)
+
+
+def set_opt_out(*args, **kwargs):
+    db_approvals.db = db
+    return db_approvals.set_opt_out(*args, **kwargs)
+
+
+def queue_for_approval(*args, **kwargs):
+    db_approvals.db = db
+    return db_approvals.queue_for_approval(*args, **kwargs)
+
+
+def log_interaction(*args, **kwargs):
+    db_interactions.db = db
+    return db_interactions.log_interaction(*args, **kwargs)
+
+
+def get_contact_interactions(*args, **kwargs):
+    db_interactions.db = db
+    return db_interactions.get_contact_interactions(*args, **kwargs)
+
+
+__all__ = [
+    "add_city",
+    "build_research_overview",
+    "can_run_level",
+    "check_compliance",
+    "create_user",
+    "ensure_consent_log",
+    "finish_run",
+    "get_all_city_scan_status",
+    "get_candidates",
+    "get_cities",
+    "get_city_market_context",
+    "get_city_scan_status",
+    "get_cold_contacts",
+    "get_contact_interactions",
+    "get_contacts_needing_enrichment",
+    "get_existing_contact_names",
+    "get_ignored_chains",
+    "get_outreach_outcomes",
+    "get_overdue_contacts",
+    "get_people",
+    "get_person",
+    "get_run_costs",
+    "get_unprocessed_inbox",
+    "get_user_by_email",
+    "get_user_token_version",
+    "list_users",
+    "log_interaction",
+    "mark_bad_email",
+    "mark_message_processed",
+    "match_contact_by_email",
+    "queue_for_approval",
+    "record_scan_result",
+    "record_warm_outcome",
+    "save_contact",
+    "save_inbox_classification",
+    "save_inbox_message",
+    "save_person",
+    "set_opt_out",
+    "set_user_active",
+    "set_user_password",
+    "set_visit_when_nearby",
+    "start_run",
+    "touch_user_login",
+    "update_city_market",
+    "update_contact",
+    "update_contact_details",
+]

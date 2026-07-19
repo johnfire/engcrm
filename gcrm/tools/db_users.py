@@ -1,5 +1,6 @@
 """User-account database operations (web-UI authentication)."""
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools.db_audit import log_audit
 
 
 def get_user_by_email(email: str) -> dict | None:
@@ -7,7 +8,7 @@ def get_user_by_email(email: str) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, email, name, password_hash, role, is_active, token_version "
+            "SELECT id, email, name, password_hash, role, is_active, token_version, workspace_id "
             "FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,),
         )
@@ -32,11 +33,14 @@ def create_user(email: str, password_hash: str, role: str = "admin", name: str =
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO users (email, name, password_hash, role) "
-            "VALUES (LOWER(%s), %s, %s, %s) RETURNING id",
+            "INSERT INTO users (email, name, password_hash, role, workspace_id) "
+            "VALUES (LOWER(%s), %s, %s, %s, "
+            "(SELECT id FROM workspaces WHERE slug = 'default')) RETURNING id",
             (email, name, password_hash, role),
         )
-        return cur.fetchone()["id"]
+        user_id = cur.fetchone()["id"]
+    log_audit(None, None, "user.created", f"user:{user_id}", "created")
+    return user_id
 
 
 def set_user_password(email: str, password_hash: str) -> bool:
@@ -48,7 +52,10 @@ def set_user_password(email: str, password_hash: str) -> bool:
             "WHERE LOWER(email) = LOWER(%s)",
             (password_hash, email),
         )
-        return cur.rowcount > 0
+        updated = cur.rowcount > 0
+    if updated:
+        log_audit(None, None, "user.password_reset", f"user:{email}", "success")
+    return updated
 
 
 def set_user_active(email: str, is_active: bool) -> bool:
@@ -60,7 +67,11 @@ def set_user_active(email: str, is_active: bool) -> bool:
             "WHERE LOWER(email) = LOWER(%s)",
             (is_active, email),
         )
-        return cur.rowcount > 0
+        updated = cur.rowcount > 0
+    if updated:
+        outcome = "activated" if is_active else "deactivated"
+        log_audit(None, None, "user.status_changed", f"user:{email}", outcome)
+    return updated
 
 
 def list_users() -> list[dict]:
@@ -68,7 +79,7 @@ def list_users() -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, email, name, role, is_active, created_at, last_login_at "
+            "SELECT id, email, name, role, is_active, workspace_id, created_at, last_login_at "
             "FROM users ORDER BY created_at DESC"
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]

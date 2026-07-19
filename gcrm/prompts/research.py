@@ -1,4 +1,5 @@
 import json
+
 from gcrm.vertical import SCAN_LEVELS
 
 

@@ -1,12 +1,14 @@
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request, Form
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
-from gcrm.tools.db import add_city, build_research_overview
-from gcrm.tools.search import normalize_city
-from gcrm.api.auth import require_login, require_admin
 from gcrm.supervisor.pipeline import spawn_stage
+from gcrm.tools.db import add_city, build_research_overview
+from gcrm.tools.db_audit import log_audit
+from gcrm.tools.search import normalize_city
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
@@ -63,6 +65,7 @@ def research_run(
         return RedirectResponse(
             url=f"/research/?error={quote(str(error))}&city={quote(city)}", status_code=303,
         )
+    log_audit(None, None, "pipeline.stage_queued", f"pipeline:{stage}", city or "global")
     return RedirectResponse(
         url=f"/research/?queued={quote(stage)}&city={quote(city)}", status_code=303,
     )

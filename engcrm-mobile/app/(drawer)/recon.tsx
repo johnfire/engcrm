@@ -13,10 +13,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
 import { fetchRecon, ReconContact } from "../../services/api";
-
-function formatDistance(meters: number): string {
-  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
-}
+import { ReconContactCard } from "../../components/ReconContactCard";
 
 export default function ReconScreen() {
   const router = useRouter();
@@ -90,37 +87,7 @@ export default function ReconScreen() {
       <FlatList
         data={items}
         keyExtractor={(contact) => String(contact.id)}
-        renderItem={({ item }) => {
-          const meta = [item.type, item.city].filter(Boolean).join(" · ");
-          return (
-            <View style={styles.row}>
-              <View style={styles.rowHead}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.distance}>{formatDistance(item.distance_m)}</Text>
-              </View>
-              <View style={styles.metaRow}>
-                {!!meta && <Text style={styles.meta}>{meta}</Text>}
-                {item.rating != null && <Text style={styles.rating}>★ {item.rating}</Text>}
-                {item.fit_score != null && <Text style={styles.fit}>fit {item.fit_score}</Text>}
-                {!!item.status && <Text style={styles.status}>{item.status}</Text>}
-              </View>
-              <View style={styles.actions}>
-                <TouchableOpacity style={styles.action} onPress={() => call(item)}>
-                  <Text style={styles.actionText}>Call</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={() => navigate(item)}>
-                  <Text style={styles.actionText}>Navigate</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.action}
-                  onPress={() => router.push("/(drawer)/capture")}
-                >
-                  <Text style={styles.actionText}>Scan card</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        }}
+        renderItem={({ item }) => <ReconContactCard contact={item} onCall={() => call(item)} onNavigate={() => navigate(item)} onScan={() => router.push("/(drawer)/capture")} />}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={locate} tintColor="#7c6fff" />
         }
@@ -166,43 +133,5 @@ const styles = StyleSheet.create({
   relocate: { paddingHorizontal: 10, paddingVertical: 7 },
   relocateText: { color: "#7c6fff", fontSize: 13, fontWeight: "600" },
   list: { padding: 16, paddingTop: 4 },
-  row: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#ffffff12",
-  },
-  rowHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  name: { color: "#fff", fontSize: 16, fontWeight: "600", flex: 1 },
-  distance: { color: "#b9adff", fontSize: 13, fontWeight: "600" },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 5,
-    flexWrap: "wrap",
-  },
-  meta: { color: "#888", fontSize: 12 },
-  rating: { color: "#f0c040", fontSize: 12 },
-  fit: {
-    color: "#aaa",
-    fontSize: 12,
-    backgroundColor: "#ffffff10",
-    paddingHorizontal: 7,
-    borderRadius: 10,
-  },
-  status: { color: "#777", fontSize: 12 },
-  actions: { flexDirection: "row", gap: 8, marginTop: 12 },
-  action: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#7c6fff55",
-  },
-  actionText: { color: "#fff", fontSize: 13, fontWeight: "600" },
   empty: { color: "#777", textAlign: "center", marginTop: 60, fontSize: 14, lineHeight: 22 },
 });

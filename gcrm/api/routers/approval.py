@@ -1,9 +1,11 @@
 import logging
-from fastapi import APIRouter, Depends, Request, Form, HTTPException
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
+
+from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login, require_admin
 
 router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -54,8 +56,8 @@ def _fetch_rejected(conn) -> list[dict]:
 def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, body: str) -> tuple[bool, str]:
     """Attempt to send an approved email via SMTP. Returns (success, message)."""
     try:
-        from gcrm.tools.email import send_email
         from gcrm.tools.db import log_interaction
+        from gcrm.tools.email import send_email
         success = send_email(to_email=to_email, subject=subject, body=body)
         log_interaction(
             contact_id=contact_id,
@@ -119,6 +121,11 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
                 "UPDATE approval_queue SET status = 'approved_unsent', reviewer_note = %s WHERE id = %s",
                 ((note or send_msg) or None, item_id),
             )
+    from gcrm.tools.db_audit import log_audit
+    log_audit(
+        request.session.get("email") or "shared-admin", "user", "approval.approve",
+        f"approval:{item_id}", send_msg, request.state.correlation_id,
+    )
 
     with db() as conn:
         items = _fetch_pending(conn)
@@ -146,6 +153,11 @@ def reject(request: Request, item_id: int, note: str = Form(default=""), _admin:
         )
         items = _fetch_pending(conn)
         on_hold = _fetch_on_hold(conn)
+    from gcrm.tools.db_audit import log_audit
+    log_audit(
+        request.session.get("email") or "shared-admin", "user", "approval.reject",
+        f"approval:{item_id}", "rejected", request.state.correlation_id,
+    )
     return templates.TemplateResponse("partials/approval_list.html", {"request": request, "items": items, "on_hold": on_hold})
 
 

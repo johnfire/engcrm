@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
-from gcrm.api.templates import templates
 import hmac
 import logging
 import os
 
-from gcrm.tools.db import get_user_by_email, touch_user_login
-from gcrm.api.security import verify_password
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+
 from gcrm.api.rate_limit import rate_limit_auth
+from gcrm.api.security import verify_password
+from gcrm.api.templates import templates
+from gcrm.audit_context import set_audit_context
+from gcrm.tools.db import get_user_by_email, touch_user_login
+from gcrm.tools.db_audit import log_audit
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -26,6 +29,8 @@ def require_login(request: Request) -> str:
     role = get_role(request)
     if not role:
         raise HTTPException(status_code=307, headers={"Location": "/login"})
+    actor = request.session.get("email") or "shared-admin"
+    set_audit_context(actor, "user", request.state.correlation_id)
     return role
 
 
@@ -45,11 +50,12 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
         return {
             "role": user["role"], "user_id": user["id"], "email": user["email"],
             "token_version": user.get("token_version", 0),
+            "workspace_id": user.get("workspace_id"),
         }
     # Break-glass: shared env admin password (transitional; email ignored).
     # Constant-time compare so a wrong password can't be inferred from timing.
     if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):
-        return {"role": "admin", "user_id": None, "email": "shared-admin"}
+        return {"role": "admin", "user_id": None, "email": "shared-admin", "workspace_id": None}
     return None
 
 
@@ -81,6 +87,7 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form(.
                 touch_user_login(payload["user_id"])
             except Exception as error:  # a failed timestamp update must not block login
                 logger.warning("touch_user_login failed: %s", error)
+        log_audit(payload["email"], "user", "auth.login", f"user:{payload['email']}", "success", request.state.correlation_id)
         return RedirectResponse(url="/approvals/", status_code=303)
     return templates.TemplateResponse(
         "login.html",

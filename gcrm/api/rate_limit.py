@@ -46,12 +46,14 @@ _auth_limiter = FixedWindowRateLimiter(max_attempts=10, window_seconds=60.0)
 
 
 def client_key(request: Request) -> str:
-    """Best-effort client identity. Behind the Apache reverse proxy the real
-    client is the first X-Forwarded-For hop; fall back to the socket peer."""
+    """Return the forwarded client only when a trusted proxy supplied it."""
+    from gcrm.config import TRUSTED_PROXY_IPS
+
+    peer = request.client.host if request.client else "unknown"
     forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
+    if forwarded and peer in TRUSTED_PROXY_IPS:
         return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return peer
 
 
 def rate_limit_auth(request: Request) -> None:

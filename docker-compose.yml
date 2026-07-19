@@ -11,7 +11,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/gcrm
     ports:
-      - "8085:8000"
+      # Apache is the sole public entry point; direct access would permit XFF spoofing.
+      - "127.0.0.1:8085:8000"
     volumes:
       # Business-card images (personal data) — persisted on the VPS, not in the image.
       - card-images:/data/card-images

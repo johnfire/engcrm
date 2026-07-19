@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, Request, Query, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
-from gcrm.api.templates import templates
 from typing import Optional
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+
+from gcrm.api.auth import require_admin, require_login
+from gcrm.api.templates import templates
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login, require_admin
+from gcrm.tools.db_audit import log_audit
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 
@@ -286,6 +289,7 @@ def contact_edit(
         "space_notes": space_notes, "price_sensitivity": price_sensitivity, "notes": notes,
     }
     _persist_contact_edit(contact_id, text_fields, fit_score)
+    log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return RedirectResponse(url=f"/contacts/{contact_id}?saved=1", status_code=303)
 
 
@@ -299,6 +303,7 @@ def delete_contact(contact_id: int, request: Request, _admin: str = Depends(requ
             "UPDATE contacts SET deleted_at = NOW(), updated_at = NOW() WHERE id = %s AND deleted_at IS NULL",
             (contact_id,),
         )
+    log_audit(None, None, "contact.deleted", f"contact:{contact_id}", "soft_deleted")
     ref = request.headers.get("referer", "/contacts/")
     return RedirectResponse(url=ref, status_code=303)
 
@@ -308,6 +313,7 @@ def unflag_contact(contact_id: int, request: Request, _admin: str = Depends(requ
     with db() as conn:
         cur = conn.cursor()
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
+    log_audit(None, None, "contact.unflagged", f"contact:{contact_id}", "updated")
     ref = request.headers.get("referer", "/contacts/")
     return RedirectResponse(url=ref, status_code=303)
 
@@ -323,6 +329,7 @@ def toggle_star(contact_id: int, request: Request, _admin: str = Depends(require
         )
         row = cur.fetchone()
     starred = bool(row["starred"]) if row else False
+    log_audit(None, None, "contact.star_changed", f"contact:{contact_id}", str(starred).lower())
     return templates.TemplateResponse(
         "partials/star_button.html",
         {"request": request, "c": {"id": contact_id, "starred": starred}},

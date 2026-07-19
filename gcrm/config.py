@@ -2,9 +2,11 @@ import logging
 import os
 import secrets
 from pathlib import Path
+
 from dotenv import load_dotenv
-from gcrm.mission import Mission
+
 from gcrm import vertical
+from gcrm.mission import Mission
 
 load_dotenv()
 
@@ -87,6 +89,17 @@ SESSION_SECRET: str = resolve_secret("SESSION_SECRET", os.getenv("SESSION_SECRET
 # Secure-flag the session cookie when served over HTTPS (production). Leave false
 # for local HTTP dev, or the browser won't send the cookie back.
 SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
+
+# Encrypt TOTP seeds at rest. Defaults to the already-required session secret
+# so adding account features cannot lock an existing production out at startup.
+ACCOUNT_ENCRYPTION_KEY: str = os.getenv("ACCOUNT_ENCRYPTION_KEY", SESSION_SECRET)
+APP_PUBLIC_URL: str = os.getenv("APP_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+
+# Only these direct peers may supply X-Forwarded-For. Apache runs locally in
+# production; requests that reach Uvicorn directly must use their socket IP.
+TRUSTED_PROXY_IPS: frozenset[str] = frozenset(
+    ip.strip() for ip in os.getenv("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",") if ip.strip()
+)
 
 # --- Business-card capture ---
 # Where photographed business-card images are stored (a Docker volume in prod).

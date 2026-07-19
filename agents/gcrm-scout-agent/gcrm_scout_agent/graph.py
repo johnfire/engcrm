@@ -1,23 +1,169 @@
 import logging
+from functools import partial
 
-from langchain_core.messages import SystemMessage, HumanMessage
-from langgraph.graph import StateGraph, END
-
-from .protocols import AgentMission, LanguageModel, CandidateFetcher, ContactUpdater, PageFetcher, CityContextFetcher, RunStarter, RunFinisher
-from .state import ScoutState
-from .prompts import score_contact_prompt
-from ._utils import parse_json_response
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import END, StateGraph
 
 from gcrm.vertical import SCORED_TYPES
 
-logger = logging.getLogger(__name__)
+from ._utils import parse_json_response
+from .prompts import score_contact_prompt
+from .protocols import (
+    AgentMission,
+    CandidateFetcher,
+    CityContextFetcher,
+    ContactUpdater,
+    LanguageModel,
+    PageFetcher,
+    RunFinisher,
+    RunStarter,
+)
+from .state import ScoutState
 
-# Match contact types case-insensitively. vertical.py is user-edited (the README
-# example uses lowercase, e.g. {"cafe"}) and split_and_promote lowercases each
-# contact's type before comparing — so normalise the configured set too. Without
-# this, capitalised entries like "Unternehmensberatung" never match and every
-# candidate is auto-promoted, silently disabling LLM scoring.
+logger = logging.getLogger(__name__)
 SCORED_TYPES_LC = {contact_type.lower() for contact_type in SCORED_TYPES}
+
+
+def initialize(state: ScoutState, start_run: RunStarter) -> dict:
+    limit = state.get("limit", 50)
+    return {
+        "run_id": start_run("scout_agent", {"limit": limit}),
+        "limit": limit,
+        "candidates": [],
+        "scored_candidates": [],
+        "scores": [],
+        "errors": [],
+        "promoted_count": 0,
+        "maybe_count": 0,
+        "dropped_count": 0,
+        "summary": "",
+    }
+
+
+def fetch(state: ScoutState, fetch_candidates: CandidateFetcher) -> dict:
+    try:
+        return {"candidates": fetch_candidates(limit=state["limit"])}
+    except Exception as error:
+        return {"errors": state["errors"] + [f"fetch_candidates: {error}"], "candidates": []}
+
+
+def split_and_promote(state: ScoutState, update_contact: ContactUpdater) -> dict:
+    promoted, to_score = 0, []
+    for contact in state.get("candidates", []):
+        if (contact.get("type") or "").lower() in SCORED_TYPES_LC:
+            to_score.append(contact)
+            continue
+        try:
+            update_contact(
+                contact_id=contact["id"],
+                status="cold",
+                fit_score=50,
+                notes="Auto-promoted: type does not require scoring.",
+            )
+            promoted += 1
+        except Exception as error:
+            logger.warning("auto-promote failed for contact %s: %s", contact.get("id"), error)
+    return {"scored_candidates": to_score, "promoted_count": promoted}
+
+
+def fetch_scored_websites(state: ScoutState, fetch_page: PageFetcher) -> dict:
+    enriched = []
+    for candidate in state.get("scored_candidates", []):
+        contact, content = dict(candidate), ""
+        if contact.get("website"):
+            try:
+                content = fetch_page(contact["website"])[:4000]
+            except Exception:
+                pass
+        contact["website_content"] = content
+        enriched.append(contact)
+    return {"scored_candidates": enriched}
+
+
+def score_candidates(
+    state: ScoutState,
+    llm: LanguageModel,
+    fetch_city_context: CityContextFetcher,
+    mission: AgentMission,
+) -> dict:
+    contexts, scores = {}, []
+    for contact in state.get("scored_candidates", []):
+        scores.append(_score_contact(contact, contexts, llm, fetch_city_context, mission))
+    return {"scores": scores}
+
+
+def _score_contact(contact, contexts, llm, fetch_city_context, mission) -> dict:
+    city, country = contact.get("city", ""), contact.get("country", "DE")
+    key = f"{city}:{country}"
+    if key not in contexts:
+        try:
+            contexts[key] = fetch_city_context(city, country)
+        except Exception:
+            contexts[key] = {}
+    try:
+        system, user = score_contact_prompt(mission, contact, contexts[key])
+        result = parse_json_response(
+            llm.invoke(
+                [
+                    SystemMessage(content=system),
+                    HumanMessage(content=user),
+                ]
+            ).content
+        )
+        outcome = result.get("outcome", "maybe")
+        return {
+            "contact_id": contact["id"],
+            "outcome": outcome if outcome in {"cold", "maybe", "dropped"} else "maybe",
+            "reasoning": result.get("reasoning", ""),
+        }
+    except Exception as error:
+        return {
+            "contact_id": contact["id"],
+            "outcome": "maybe",
+            "reasoning": f"Scoring error — flagged for manual review: {error}",
+        }
+
+
+def apply_scores(state: ScoutState, update_contact: ContactUpdater) -> dict:
+    counts = {"cold": state.get("promoted_count", 0), "maybe": 0, "dropped": 0}
+    scores = {"cold": 75, "maybe": 50, "dropped": 20}
+    for score in state.get("scores", []):
+        try:
+            update_contact(
+                contact_id=score["contact_id"],
+                status=score["outcome"],
+                fit_score=scores.get(score["outcome"], 50),
+                notes=score["reasoning"],
+            )
+            counts[score["outcome"]] += 1
+        except Exception as error:
+            logger.warning("applying score outcome failed: %s", error)
+    return {
+        "promoted_count": counts["cold"],
+        "maybe_count": counts["maybe"],
+        "dropped_count": counts["dropped"],
+    }
+
+
+def generate_report(state: ScoutState, finish_run: RunFinisher) -> dict:
+    promoted, maybe, dropped = (
+        state.get(key, 0) for key in ("promoted_count", "maybe_count", "dropped_count")
+    )
+    total, evaluated, errors = (
+        len(state.get("candidates", [])),
+        len(state.get("scored_candidates", [])),
+        state.get("errors", []),
+    )
+    summary = f"scout_agent: {total} candidates — {promoted} promoted to cold, {maybe} flagged maybe, {dropped} dropped ({evaluated} evaluated by LLM)"
+    if errors:
+        summary += f", {len(errors)} error(s)"
+    finish_run(
+        state.get("run_id", 0),
+        "completed",
+        summary,
+        {"promoted": promoted, "maybe": maybe, "dropped": dropped, "total": total},
+    )
+    return {"summary": summary}
 
 
 def create_scout_agent(
@@ -30,183 +176,18 @@ def create_scout_agent(
     finish_run: RunFinisher,
     mission: AgentMission,
 ):
-    """
-    Build and return a compiled LangGraph scout agent.
-
-    Contacts whose type is not in SCORED_TYPES are promoted to 'cold' automatically.
-    Contacts in SCORED_TYPES are researched: the agent fetches their website,
-    reads the content, and asks the LLM to score fit. Outcome is cold / maybe / dropped.
-
-    Usage:
-        agent = create_scout_agent(llm=..., fetch_candidates=..., ...)
-        result = agent.invoke({"limit": 50})
-        print(result["summary"])
-    """
-
-    def init(state: ScoutState) -> dict:
-        run_id = start_run("scout_agent", {"limit": state.get("limit", 50)})
-        return {
-            "run_id": run_id,
-            "limit": state.get("limit", 50),
-            "candidates": [],
-            "scored_candidates": [],
-            "scores": [],
-            "errors": [],
-            "promoted_count": 0,
-            "maybe_count": 0,
-            "dropped_count": 0,
-            "summary": "",
-        }
-
-    def fetch(state: ScoutState) -> dict:
-        try:
-            candidates = fetch_candidates(limit=state["limit"])
-        except Exception as error:
-            return {"errors": state["errors"] + [f"fetch_candidates: {error}"], "candidates": []}
-        return {"candidates": candidates}
-
-    def split_and_promote(state: ScoutState) -> dict:
-        """
-        Contacts not in SCORED_TYPES go straight to cold — no evaluation needed.
-        Contacts in SCORED_TYPES are collected for website research and LLM scoring.
-        """
-        promoted = 0
-        to_score = []
-        for contact in state.get("candidates", []):
-            contact_type = (contact.get("type") or "").lower()
-            if contact_type in SCORED_TYPES_LC:
-                to_score.append(contact)
-            else:
-                try:
-                    update_contact(
-                        contact_id=contact["id"],
-                        status="cold",
-                        fit_score=50,
-                        notes="Auto-promoted: type does not require scoring.",
-                    )
-                    promoted += 1
-                except Exception as error:
-                    logger.warning("auto-promote failed for contact %s: %s", contact.get("id"), error)
-        return {"scored_candidates": to_score, "promoted_count": promoted}
-
-    def fetch_scored_websites(state: ScoutState) -> dict:
-        """
-        Fetch website content for each candidate requiring scoring.
-        Tries the main website; appends fetched text as 'website_content'.
-        Contacts with no website still proceed — LLM uses notes to judge.
-        """
-        enriched = []
-        for contact in state.get("scored_candidates", []):
-            contact = dict(contact)
-            website = contact.get("website", "")
-            website_content = ""
-            if website:
-                try:
-                    website_content = fetch_page(website)
-                    # cap at 4000 chars — enough for the LLM to read the page properly
-                    website_content = website_content[:4000]
-                except Exception:
-                    pass
-            contact["website_content"] = website_content
-            enriched.append(contact)
-        return {"scored_candidates": enriched}
-
-    def score_candidates(state: ScoutState) -> dict:
-        """LLM evaluates each candidate based on website content, notes, and city market context."""
-        if not state.get("scored_candidates"):
-            return {"scores": []}
-        scores = []
-        city_context_cache: dict[str, dict] = {}
-        for contact in state["scored_candidates"]:
-            city = contact.get("city", "")
-            country = contact.get("country", "DE")
-            cache_key = f"{city}:{country}"
-            if cache_key not in city_context_cache:
-                try:
-                    city_context_cache[cache_key] = fetch_city_context(city, country)
-                except Exception:
-                    city_context_cache[cache_key] = {}
-            city_context = city_context_cache[cache_key]
-            system, user = score_contact_prompt(mission, contact, city_context)
-            try:
-                response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
-                result = parse_json_response(response.content)
-                outcome = result.get("outcome", "maybe")
-                if outcome not in ("cold", "maybe", "dropped"):
-                    outcome = "maybe"
-                scores.append({
-                    "contact_id": contact["id"],
-                    "outcome": outcome,
-                    "reasoning": result.get("reasoning", ""),
-                })
-            except Exception as error:
-                scores.append({
-                    "contact_id": contact["id"],
-                    "outcome": "maybe",
-                    "reasoning": f"Scoring error — flagged for manual review: {error}",
-                })
-        return {"scores": scores}
-
-    def apply_scores(state: ScoutState) -> dict:
-        """Write scoring outcomes to the database."""
-        maybe = 0
-        dropped = 0
-        # promoted_count already includes auto-promoted non-galleries
-        promoted = state.get("promoted_count", 0)
-
-        outcome_score = {"cold": 75, "maybe": 50, "dropped": 20}
-
-        for score in state.get("scores", []):
-            try:
-                update_contact(
-                    contact_id=score["contact_id"],
-                    status=score["outcome"],
-                    fit_score=outcome_score.get(score["outcome"], 50),
-                    notes=score["reasoning"],
-                )
-                if score["outcome"] == "cold":
-                    promoted += 1
-                elif score["outcome"] == "maybe":
-                    maybe += 1
-                else:
-                    dropped += 1
-            except Exception as error:
-                logger.warning("applying score outcome failed: %s", error)
-        return {"promoted_count": promoted, "maybe_count": maybe, "dropped_count": dropped}
-
-    def generate_report(state: ScoutState) -> dict:
-        promoted = state.get("promoted_count", 0)
-        maybe = state.get("maybe_count", 0)
-        dropped = state.get("dropped_count", 0)
-        total = len(state.get("candidates", []))
-        scored_count = len(state.get("scored_candidates", []))
-        errs = state.get("errors", [])
-
-        summary = (
-            f"scout_agent: {total} candidates — "
-            f"{promoted} promoted to cold, {maybe} flagged maybe, {dropped} dropped "
-            f"({scored_count} evaluated by LLM)"
-        )
-        if errs:
-            summary += f", {len(errs)} error(s)"
-
-        finish_run(
-            state.get("run_id", 0),
-            "completed",
-            summary,
-            {"promoted": promoted, "maybe": maybe, "dropped": dropped, "total": total},
-        )
-        return {"summary": summary}
-
+    """Build a scout graph from small dependency-injected node functions."""
     graph = StateGraph(ScoutState)
-    graph.add_node("init", init)
-    graph.add_node("fetch", fetch)
-    graph.add_node("split_and_promote", split_and_promote)
-    graph.add_node("fetch_scored_websites", fetch_scored_websites)
-    graph.add_node("score_candidates", score_candidates)
-    graph.add_node("apply_scores", apply_scores)
-    graph.add_node("generate_report", generate_report)
-
+    graph.add_node("init", partial(initialize, start_run=start_run))
+    graph.add_node("fetch", partial(fetch, fetch_candidates=fetch_candidates))
+    graph.add_node("split_and_promote", partial(split_and_promote, update_contact=update_contact))
+    graph.add_node("fetch_scored_websites", partial(fetch_scored_websites, fetch_page=fetch_page))
+    graph.add_node(
+        "score_candidates",
+        partial(score_candidates, llm=llm, fetch_city_context=fetch_city_context, mission=mission),
+    )
+    graph.add_node("apply_scores", partial(apply_scores, update_contact=update_contact))
+    graph.add_node("generate_report", partial(generate_report, finish_run=finish_run))
     graph.set_entry_point("init")
     graph.add_edge("init", "fetch")
     graph.add_edge("fetch", "split_and_promote")
@@ -215,5 +196,4 @@ def create_scout_agent(
     graph.add_edge("score_candidates", "apply_scores")
     graph.add_edge("apply_scores", "generate_report")
     graph.add_edge("generate_report", END)
-
     return graph.compile()

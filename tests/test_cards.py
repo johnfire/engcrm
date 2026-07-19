@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token
-from gcrm.tools import cards
 from gcrm.json_parsing import parse_llm_json
+from gcrm.tools import cards
 
 client = TestClient(main.app)
 AUTH = {"Authorization": f"Bearer {create_token('admin')}"}

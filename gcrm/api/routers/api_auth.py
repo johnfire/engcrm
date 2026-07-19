@@ -5,10 +5,11 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import create_token
 from gcrm.api.auth import authenticate
+from gcrm.api.jwt_auth import create_token
 from gcrm.api.rate_limit import rate_limit_auth
 from gcrm.tools.db import get_user_by_email
+from gcrm.tools.db_audit import log_audit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["mobile-auth"])
@@ -34,6 +35,13 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             logger.warning("mobile auth user lookup failed: %s", error)
     payload = authenticate(body.email, body.password, user)
     if payload:
+        log_audit(
+            payload["email"],
+            "user",
+            "auth.mobile_token_issued",
+            f"user:{payload['email']}",
+            "success",
+        )
         return TokenResponse(
             token=create_token(
                 payload["role"],

@@ -22,12 +22,18 @@ def main():
     parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()
 
+    from gcrm_enrichment_agent import create_enrichment_agent
+
     from gcrm.config import CHEAP_LLM
     from gcrm.tools import (
-        get_contacts_needing_enrichment, update_contact_details,
-        web_search, fetch_page, start_run, finish_run, get_llm,
+        fetch_page,
+        finish_run,
+        get_contacts_needing_enrichment,
+        get_llm,
+        start_run,
+        update_contact_details,
+        web_search,
     )
-    from gcrm_enrichment_agent import create_enrichment_agent
 
     fetch_fn = (
         functools.partial(get_contacts_needing_enrichment, city=args.city)

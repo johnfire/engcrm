@@ -8,7 +8,6 @@ Usage:
     uv run python -m gcrm.supervisor.run_scout --skip-scoring   # promote all candidates to cold, no LLM scoring
 """
 import argparse
-import functools
 import logging
 
 from gcrm.supervisor.logging_setup import configure_logging
@@ -30,13 +29,19 @@ def main():
     )
     args = parser.parse_args()
 
+    import gcrm_scout_agent.graph as scout_graph
+    from gcrm_scout_agent import create_scout_agent
+
     from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
     from gcrm.tools import (
-        get_candidates, update_contact, fetch_page,
-        get_city_market_context, start_run, finish_run, get_llm,
+        fetch_page,
+        finish_run,
+        get_candidates,
+        get_city_market_context,
+        get_llm,
+        start_run,
+        update_contact,
     )
-    from gcrm_scout_agent import create_scout_agent
-    import gcrm_scout_agent.graph as scout_graph
 
     if args.skip_scoring:
         # The scout graph derives SCORED_TYPES_LC at import time; clear both so

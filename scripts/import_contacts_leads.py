@@ -24,6 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import openpyxl
+
 from gcrm.db.connection import db
 
 WORKBOOK_PATH = Path(__file__).parent.parent / "art-marketing.xlsx"
@@ -196,8 +197,6 @@ def extract_contacts(ws) -> list[dict]:
     contacts = []
     current_city = ""
     current_section = ""
-    city_from_subcol = ""  # col O sub-city overrides
-
     for i, row in enumerate(ws.iter_rows(values_only=True)):
         col_a = row[0]   # section number
         col_b = row[1]   # city or notes
@@ -367,7 +366,7 @@ def main():
         return
 
     created, skipped, nr = import_contacts(contacts, dry_run=False)
-    print(f"\nImport complete:")
+    print("\nImport complete:")
     print(f"  Created:       {created}")
     print(f"  Skipped (dup): {skipped}")
     print(f"  Needs review:  {nr}")

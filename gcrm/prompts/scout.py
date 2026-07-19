@@ -1,5 +1,6 @@
 import json
-from gcrm.vertical import FIT_SIGNALS, ANTI_SIGNALS, SCORED_TYPES
+
+from gcrm.vertical import ANTI_SIGNALS, FIT_SIGNALS
 
 
 def score_contact_prompt(mission, contact: dict, city_context: dict | None = None) -> tuple[str, str]:

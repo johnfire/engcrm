@@ -8,12 +8,16 @@ import string
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from gcrm.api.templates import templates
 
 from gcrm.api.auth import require_admin
 from gcrm.api.security import hash_password
+from gcrm.api.templates import templates
 from gcrm.tools.db import (
-    create_user, set_user_password, set_user_active, list_users, get_user_by_email,
+    create_user,
+    get_user_by_email,
+    list_users,
+    set_user_active,
+    set_user_password,
 )
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])

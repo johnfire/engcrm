@@ -17,30 +17,45 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import TypedDict
 
-from langgraph.graph import StateGraph, END
-
-from gcrm.config import ACTIVE_MISSION, SCOUT_THRESHOLD, CHEAP_LLM, SMART_LLM, SCAN_CUTOFF
-from gcrm.tools import (
-    save_contact, get_existing_contact_names, get_candidates, get_cold_contacts, update_contact,
-    get_contacts_needing_enrichment, update_contact_details,
-    check_compliance, queue_for_approval, log_interaction, get_contact_interactions, set_opt_out,
-    get_overdue_contacts, get_unprocessed_inbox, mark_message_processed,
-    match_contact_by_email, save_inbox_message,
-    start_run, finish_run,
-    record_scan_result, can_run_level,
-    get_city_market_context,
-    web_search, geo_search, google_maps_search, fetch_page,
-    read_inbox,
-    get_llm,
-    record_warm_outcome, search_gcrm_thoughts,
-    mark_bad_email, set_visit_when_nearby, save_inbox_classification,
-)
-
-from gcrm_research_agent import create_research_agent
 from gcrm_enrichment_agent import create_enrichment_agent
-from gcrm_scout_agent import create_scout_agent
-from gcrm_outreach_agent import create_outreach_agent
 from gcrm_followup_agent import create_followup_agent
+from gcrm_outreach_agent import create_outreach_agent
+from gcrm_research_agent import create_research_agent
+from gcrm_scout_agent import create_scout_agent
+from langgraph.graph import END, StateGraph
+
+from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, SCAN_CUTOFF, SMART_LLM
+from gcrm.tools import (
+    can_run_level,
+    check_compliance,
+    fetch_page,
+    finish_run,
+    get_candidates,
+    get_city_market_context,
+    get_cold_contacts,
+    get_contact_interactions,
+    get_contacts_needing_enrichment,
+    get_existing_contact_names,
+    get_llm,
+    get_overdue_contacts,
+    google_maps_search,
+    log_interaction,
+    mark_bad_email,
+    match_contact_by_email,
+    queue_for_approval,
+    read_inbox,
+    record_scan_result,
+    record_warm_outcome,
+    save_contact,
+    save_inbox_classification,
+    search_gcrm_thoughts,
+    set_opt_out,
+    set_visit_when_nearby,
+    start_run,
+    update_contact,
+    update_contact_details,
+    web_search,
+)
 
 logger = logging.getLogger(__name__)
 

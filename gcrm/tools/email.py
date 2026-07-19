@@ -8,14 +8,18 @@ import logging
 import smtplib
 import ssl
 from datetime import datetime, timezone
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from gcrm.config import (
-    PROTON_SMTP_HOST, PROTON_SMTP_PORT,
-    PROTON_IMAP_HOST, PROTON_IMAP_PORT,
-    PROTON_EMAIL, PROTON_PASSWORD, PROTON_FROM_EMAIL,
     EMAIL_ENABLED,
+    PROTON_EMAIL,
+    PROTON_FROM_EMAIL,
+    PROTON_IMAP_HOST,
+    PROTON_IMAP_PORT,
+    PROTON_PASSWORD,
+    PROTON_SMTP_HOST,
+    PROTON_SMTP_PORT,
 )
 from gcrm.tools.db import save_inbox_message
 
@@ -68,11 +72,16 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
 
 def _parse_message(parsed) -> dict:
-    """Extract sender, subject, body, and received timestamp from a parsed email.
-    Prefers text/plain; falls back to HTML with tags stripped. Returns a dict of
-    {message_id, from_email, subject, body, received_at}."""
+    """Extract inbox fields and a conservative sender-authentication signal.
+
+    Authentication-Results parsing intentionally stays simple: it accepts an
+    SPF or DKIM pass only when the From domain also appears in the header. This
+    is a safety gate for autonomous actions, not a complete DMARC evaluator.
+    """
     msg_id = parsed.get("Message-ID", "").strip()
     from_email = email_lib.utils.parseaddr(parsed.get("From", ""))[1]
+    from_domain = from_email.rpartition("@")[2].lower()
+    authentication_results = parsed.get("Authentication-Results", "").lower()
     subject = parsed.get("Subject", "")
     received_str = parsed.get("Date", "")
 
@@ -110,6 +119,12 @@ def _parse_message(parsed) -> dict:
         "subject": subject,
         "body": body,
         "received_at": received_at,
+        "content_type": parsed.get_content_type().lower(),
+        "authenticated": bool(
+            from_domain
+            and from_domain in authentication_results
+            and re.search(r"(?:spf|dkim)=pass\b", authentication_results)
+        ),
     }
 
 

@@ -6,6 +6,10 @@ on:
     paths:
       - "engcrm-mobile/**"
       - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "engcrm-mobile/**"
+      - ".github/workflows/android.yml"
   workflow_dispatch:
 
 concurrency:
@@ -30,10 +34,15 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
       - name: Unit tests
         run: npm test
 
   build:
+    if: github.event_name == 'push'
     needs: mobile-test
     # Self-hosted runner on the laptop (free, fast, has the Android toolchain).
     # Falls back to nothing if the laptop is off — the job queues until it's up.

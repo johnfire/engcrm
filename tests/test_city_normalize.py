@@ -1,5 +1,5 @@
 """City normalization via Nominatim (OSM). httpx is mocked — no network."""
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from gcrm.tools.search import normalize_city
 

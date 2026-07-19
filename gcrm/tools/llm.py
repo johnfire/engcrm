@@ -11,7 +11,8 @@ Supported model strings:
   claude              — Claude Sonnet 4.6 (high-stakes writing)
 """
 import logging
-from gcrm.config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, ANTHROPIC_API_KEY
+
+from gcrm.config import ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 
 logger = logging.getLogger(__name__)
 

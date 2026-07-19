@@ -13,6 +13,17 @@ on:
       - "Dockerfile"
       - "docker-compose.yml"
       - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "gcrm/**"
+      - "agents/**"
+      - "scripts/**"
+      - "engcrm-interview-agent/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".github/workflows/backend.yml"
   workflow_dispatch:
 
 concurrency:
@@ -22,6 +33,22 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gcrm_test
+          POSTGRES_USER: artcrm_admindude
+          POSTGRES_PASSWORD: gcrm_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U artcrm_admindude -d gcrm_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://artcrm_admindude:gcrm_test_password@localhost:5432/gcrm_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -29,14 +56,23 @@ jobs:
           enable-cache: true
       - name: Install deps
         run: uv sync --extra agents --extra dev
-      - name: Run tests
+      - name: Lint
+        run: uv run ruff check .
+      - name: Dependency audit
+        run: uv run --with pip-audit pip-audit
+      - name: Run unit tests
         run: |
-          uv run pytest tests -q
+          uv run pytest tests -q -m "not integration and not e2e"
           for a in research scout enrichment outreach followup; do
             uv run pytest "agents/gcrm-$a-agent/tests" -q
           done
+      - name: Run real-PostgreSQL integration tests
+        run: uv run pytest tests/integration -q
+      - name: Run web and mobile e2e smoke tests
+        run: uv run pytest tests/e2e -q
 
   build-deploy:
+    if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
     permissions:

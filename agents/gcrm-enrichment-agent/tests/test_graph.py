@@ -3,8 +3,8 @@ Tests use dummy implementations of every Protocol — no real LLM, DB, or networ
 Focus: the three ported behaviours — page fetching, language-aware queries, and
 the never-overwrite-existing-data guard (with cannot_find_more_data fallback).
 """
-from langchain_core.messages import AIMessage
 from gcrm_enrichment_agent import create_enrichment_agent
+from langchain_core.messages import AIMessage
 
 
 class FakeLLM:

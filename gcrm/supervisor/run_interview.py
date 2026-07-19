@@ -15,7 +15,6 @@ from datetime import date
 from gcrm.db.connection import db
 from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def hr():

@@ -21,8 +21,8 @@ from engcrm_interview_agent.db import db
 # Import vertical config for customisable options.
 # Falls back to eng-specific defaults if vertical.py is not on the path.
 try:
-    import sys as _sys
     import os as _os
+    import sys as _sys
     _sys.path.insert(0, _os.path.expanduser("~/programming/eng-crm"))
     from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 except (ImportError, AttributeError):

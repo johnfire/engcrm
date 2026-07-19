@@ -2,9 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
 from gcrm.db.connection import db
 from gcrm.tools.db import serialize_row
+from gcrm.tools.db_audit import log_audit
 
 router = APIRouter(prefix="/api/inbox", tags=["mobile-inbox"])
 
@@ -40,8 +41,8 @@ class ClassifyBody(BaseModel):
 
 
 @router.post("/{message_id}/classify", status_code=204)
-def classify(message_id: int, body: ClassifyBody, role: str = Depends(require_jwt)) -> None:
-    if role != "admin":
+def classify(message_id: int, body: ClassifyBody, payload: dict = Depends(require_jwt_payload)) -> None:
+    if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     if body.classification not in VALID_CLASSIFICATIONS:
         raise HTTPException(status_code=422, detail=f"Invalid classification. Valid: {sorted(VALID_CLASSIFICATIONS)}")
@@ -53,3 +54,4 @@ def classify(message_id: int, body: ClassifyBody, role: str = Depends(require_jw
         )
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Message not found")
+    log_audit(None, None, "inbox.classified", f"inbox_message:{message_id}", body.classification)

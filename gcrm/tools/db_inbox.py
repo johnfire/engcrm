@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 
 from gcrm.db.connection import db
+from gcrm.tools.db_audit import log_audit
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def mark_bad_email(contact_id: int) -> None:
             (contact_id,),
         )
         logger.info("mark_bad_email: contact_id=%d marked as bad_email", contact_id)
+    log_audit(None, None, "contact.bad_email", f"contact:{contact_id}", "bad_email")
 
 
 def set_visit_when_nearby(contact_id: int) -> None:
@@ -107,3 +109,4 @@ def set_visit_when_nearby(contact_id: int) -> None:
             (contact_id,),
         )
         logger.info("set_visit_when_nearby: contact_id=%d flagged", contact_id)
+    log_audit(None, None, "contact.visit_flagged", f"contact:{contact_id}", "flagged")

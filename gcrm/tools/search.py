@@ -7,7 +7,7 @@ web_search uses DuckDuckGo — no API key required.
 import ipaddress
 import logging
 import socket
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from duckduckgo_search import DDGS
@@ -241,12 +241,29 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
         except Exception as error:
             logger.debug("brightdata fetch_page failed for %s: %s — falling back", url, error)
 
-    # Fallback: plain httpx with HTML stripping
+    # Fallback: plain httpx with HTML stripping. Redirects must be followed
+    # explicitly so every destination gets the same SSRF validation as the URL
+    # supplied by the caller.
     import re
     try:
-        resp = httpx.get(url, timeout=10, follow_redirects=True, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
-        })
+        current_url = url
+        for _ in range(5):
+            resp = httpx.get(current_url, timeout=10, follow_redirects=False, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)"
+            })
+            if not resp.is_redirect:
+                break
+            location = resp.headers.get("location")
+            if not location:
+                logger.warning("fetch_page: redirect without location from %s", current_url)
+                return ""
+            current_url = urljoin(current_url, location)
+            if not _is_public_http_url(current_url):
+                logger.warning("fetch_page: refusing unsafe redirect target: %s", current_url)
+                return ""
+        else:
+            logger.warning("fetch_page: too many redirects from %s", url)
+            return ""
         resp.raise_for_status()
         html = resp.text
         html = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)

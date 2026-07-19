@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from langchain_core.messages import AIMessage
+
 from gcrm_outreach_agent import create_outreach_agent
+from langchain_core.messages import AIMessage
 
 
 @dataclass(frozen=True)

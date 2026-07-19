@@ -27,7 +27,7 @@ export default function LoginScreen() {
     try {
       const { token, role } = await login(email.trim(), password.trim());
       await saveToken(token, role);
-      router.replace("/(drawer)/approvals");
+      router.replace("/(drawer)/contacts");
     } catch {
       Alert.alert("Login failed", "Wrong email or password.");
     } finally {

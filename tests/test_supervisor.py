@@ -2,8 +2,6 @@
 Supervisor graph tests. The four sub-agents are replaced with fake runnables
 so we test the supervisor's routing and reporting logic without real AI or DB.
 """
-from typing import TypedDict
-from unittest.mock import MagicMock, patch
 
 
 class FakeAgent:
@@ -25,8 +23,9 @@ def _make_supervisor_with_fake_agents(research_summary="r ok", scout_summary="s 
     Build the supervisor graph but inject fake agents instead of real ones.
     `fail_agent` can be 'research', 'scout', 'outreach', or 'followup' to simulate failure.
     """
+    from langgraph.graph import END, StateGraph
+
     from gcrm.supervisor.graph import SupervisorState
-    from langgraph.graph import StateGraph, END
 
     fake_research = FakeAgent(research_summary, raise_on_invoke=(fail_agent == "research"))
     fake_scout = FakeAgent(scout_summary, raise_on_invoke=(fail_agent == "scout"))

@@ -14,6 +14,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from gcrm.audit_context import CorrelationIdFilter
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -27,10 +29,13 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+for handler in logging.getLogger().handlers:
+    handler.addFilter(CorrelationIdFilter())
 
 
 def main():
     from langgraph.checkpoint.postgres import PostgresSaver
+
     from gcrm.config import DATABASE_URL
     from gcrm.supervisor.graph import create_supervisor
 

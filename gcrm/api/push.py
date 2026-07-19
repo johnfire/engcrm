@@ -1,5 +1,6 @@
 """Send push notifications to all registered devices via the Expo Push service."""
 import logging
+
 import httpx
 
 from gcrm.db.connection import db

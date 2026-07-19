@@ -11,7 +11,7 @@ export default function Index() {
   const [target, setTarget] = useState<string | null>(null);
 
   useEffect(() => {
-    isLoggedIn().then((ok) => setTarget(ok ? "/(drawer)/approvals" : "/login"));
+    isLoggedIn().then((ok) => setTarget(ok ? "/(drawer)/contacts" : "/login"));
   }, []);
 
   if (!target) return null;

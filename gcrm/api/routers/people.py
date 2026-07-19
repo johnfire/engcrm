@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+
+from gcrm.api.auth import require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login
 
 router = APIRouter(dependencies=[Depends(require_login)])
 

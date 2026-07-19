@@ -2,8 +2,9 @@
 Tests use dummy implementations of every Protocol — no real LLM, DB, or network.
 """
 from dataclasses import dataclass
+
+from gcrm_research_agent import create_research_agent
 from langchain_core.messages import AIMessage
-from gcrm_research_agent import create_research_agent, ResearchState
 
 
 @dataclass(frozen=True)

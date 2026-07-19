@@ -17,9 +17,11 @@ import re
 from datetime import date
 
 from gcrm.config import (
-    PROTON_IMAP_HOST, PROTON_IMAP_PORT, PROTON_EMAIL, PROTON_PASSWORD,
+    PROTON_EMAIL,
+    PROTON_IMAP_HOST,
+    PROTON_IMAP_PORT,
+    PROTON_PASSWORD,
 )
-
 from gcrm.supervisor.logging_setup import configure_logging
 
 configure_logging()

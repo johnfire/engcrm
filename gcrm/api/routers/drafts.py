@@ -1,9 +1,12 @@
 import logging
-from fastapi import APIRouter, Depends, Request, Form, HTTPException
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
+
+from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
-from gcrm.api.auth import require_login, require_admin
+from gcrm.tools.db_audit import log_audit
 
 router = APIRouter(prefix="/drafts", tags=["drafts"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -55,8 +58,8 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
             raise HTTPException(status_code=404, detail="Draft not found or not on hold")
 
     try:
-        from gcrm.tools.email import send_email
         from gcrm.tools.db import log_interaction
+        from gcrm.tools.email import send_email
         success = send_email(to_email=row["email"] or "", subject=row["draft_subject"], body=row["draft_body"])
         log_interaction(
             contact_id=row["contact_id"],
@@ -83,6 +86,7 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
             WHERE id = %s AND status NOT IN ('contacted', 'meeting', 'accepted')
         """, (row["contact_id"],))
         drafts = _fetch_held_drafts(conn)
+    log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 
     return templates.TemplateResponse("partials/drafts_list.html", {"request": request, "drafts": drafts})
 
@@ -99,5 +103,6 @@ def reject(request: Request, item_id: int, note: str = Form(default=""), _admin:
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Draft not found or not on hold")
         drafts = _fetch_held_drafts(conn)
+    log_audit(None, None, "approval.reject", f"approval:{item_id}", "rejected")
 
     return templates.TemplateResponse("partials/drafts_list.html", {"request": request, "drafts": drafts})

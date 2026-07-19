@@ -1,7 +1,9 @@
 """Agent-run logging and per-run cost recording."""
 import json
 
+from gcrm.audit_context import set_audit_context
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools.db_audit import log_audit
 
 
 def start_run(agent_name: str, input_data: dict) -> int:
@@ -17,12 +19,16 @@ def start_run(agent_name: str, input_data: dict) -> int:
             """,
             (agent_name, json.dumps(input_data, default=str)),
         )
-        return cur.fetchone()["id"]
+        run_id = cur.fetchone()["id"]
+    correlation_id = f"run:{run_id}"
+    set_audit_context(f"agent:{agent_name}", "ai", correlation_id)
+    log_audit(None, None, "agent.run_started", f"agent_run:{run_id}", "running", correlation_id)
+    return run_id
 
 
 def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> None:
     """Update an agent_run record with completion details + record run costs."""
-    from gcrm.tools.costs import get_costs, format_costs
+    from gcrm.tools.costs import format_costs, get_costs
     costs = get_costs()
     cost_line = format_costs()
     full_summary = f"{summary} | {cost_line}" if summary else cost_line
@@ -48,6 +54,10 @@ def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> Non
                 costs["total_usd"],
             ),
         )
+        cur.execute("SELECT agent_name FROM agent_runs WHERE id = %s", (run_id,))
+        row = cur.fetchone()
+    actor = f"agent:{row['agent_name']}" if row else f"agent:run:{run_id}"
+    log_audit(actor, "ai", "agent.run_finished", f"agent_run:{run_id}", status, f"run:{run_id}")
 
 
 def get_run_costs(limit: int = 20) -> list[dict]:

@@ -2,8 +2,7 @@
 Unit tests for concrete tool implementations.
 The database is mocked so these run without a live PostgreSQL connection.
 """
-import json
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 def make_mock_conn(rows=None, rowcount=1):

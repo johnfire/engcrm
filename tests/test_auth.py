@@ -2,8 +2,8 @@
 Unit tests for user-account auth. No DB or HTTP — authenticate() is pure,
 and hashing is exercised directly.
 """
-from gcrm.api.security import hash_password, verify_password
 from gcrm.api import auth
+from gcrm.api.security import hash_password, verify_password
 
 
 def make_user(password, *, is_active=True, role="admin", user_id=1, email="a@b.com"):
@@ -32,7 +32,10 @@ class TestPasswordHashing:
 class TestAuthenticate:
     def test_valid_user(self):
         payload = auth.authenticate("a@b.com", "pw", make_user("pw"))
-        assert payload == {"role": "admin", "user_id": 1, "email": "a@b.com", "token_version": 0}
+        assert payload == {
+            "role": "admin", "user_id": 1, "email": "a@b.com", "token_version": 0,
+            "workspace_id": None,
+        }
 
     def test_wrong_password(self):
         assert auth.authenticate("a@b.com", "WRONG", make_user("pw")) is None

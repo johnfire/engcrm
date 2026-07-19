@@ -16,7 +16,7 @@ import {
   fetchResearchOverview,
   ResearchOverview,
 } from "../../services/api";
-import { ResearchCityCard } from "../../components/ResearchCityCard";
+import { ResearchOverviewPanel } from "../../components/ResearchOverviewPanel";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const COUNTRIES = [
@@ -30,15 +30,6 @@ const STAGES = [
   { key: "scout", label: "2 · Scout" },
   { key: "enrichment", label: "3 · Enrich" },
 ];
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value ?? 0}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
 
 export default function PipelineScreen() {
   const [city, setCity] = useState("");
@@ -113,54 +104,7 @@ export default function PipelineScreen() {
       }
     >
       <Text style={styles.sectionTitle}>Pipeline status</Text>
-      {loadingOverview && !overview ? (
-        <ActivityIndicator color="#7c6fff" style={{ marginVertical: 24 }} />
-      ) : overviewError ? (
-        <Text style={styles.statusError}>{overviewError}</Text>
-      ) : overview ? (
-        <>
-          <View style={styles.statsRow}>
-            <Stat value={overview.total} label="cities" />
-            <Stat value={overview.level1_done} label="L1 done" />
-            <Stat value={overview.unscanned} label="unscanned" />
-            <Stat value={overview.totals?.emailed ?? 0} label="emailed" />
-          </View>
-
-          {(overview.cities ?? []).length === 0 ? (
-            <Text style={styles.empty}>
-              No cities yet. Run a stage below to start scanning.
-            </Text>
-          ) : (
-            (overview.cities ?? []).map((city) => (
-              <ResearchCityCard
-                key={city.id ?? city.city}
-                city={city}
-                levels={overview.levels ?? []}
-                levelLabels={overview.level_labels ?? {}}
-              />
-            ))
-          )}
-
-          {(overview.cities ?? []).length > 0 && (
-            <Text style={styles.totalsLine}>
-              Total: <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text>{" "}
-              emailed · <Text style={styles.totalsNum}>{overview.totals?.contacts ?? 0}</Text>{" "}
-              contacts
-            </Text>
-          )}
-
-          <View style={styles.legend}>
-            <Text style={styles.legendLine}>
-              ● complete &nbsp; ◐ partial (more to scan) &nbsp; ○ not run
-            </Text>
-            {(overview.levels ?? []).map((level) => (
-              <Text key={level} style={styles.legendLabel}>
-                L{level}: {overview.level_labels?.[String(level)] ?? "—"}
-              </Text>
-            ))}
-          </View>
-        </>
-      ) : null}
+      <ResearchOverviewPanel error={overviewError} loading={loadingOverview} overview={overview} />
 
       <View style={styles.divider} />
 
@@ -284,32 +228,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 14,
   },
-  statusError: { color: "#ef8a8a", fontSize: 14, marginVertical: 16 },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
-  },
-  stat: {
-    flex: 1,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  statValue: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  statLabel: { color: "#888", fontSize: 11, marginTop: 2 },
-  empty: { color: "#777", textAlign: "center", marginVertical: 24, fontSize: 14 },
-  totalsLine: {
-    color: "#aaa",
-    fontSize: 13,
-    textAlign: "right",
-    marginBottom: 12,
-  },
-  totalsNum: { color: "#fff", fontWeight: "700" },
-  legend: { marginTop: 8 },
-  legendLine: { color: "#888", fontSize: 12, marginBottom: 8 },
-  legendLabel: { color: "#666", fontSize: 11, lineHeight: 17 },
   divider: {
     height: 1,
     backgroundColor: "#ffffff14",

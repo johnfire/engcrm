@@ -16,7 +16,7 @@ export default function RootLayout() {
         if (!loggedIn && inDrawer) {
           router.replace("/login");
         } else if (loggedIn && !inDrawer) {
-          router.replace("/(drawer)/approvals");
+          router.replace("/(drawer)/contacts");
         }
       })
       .catch(() => {
@@ -25,6 +25,9 @@ export default function RootLayout() {
         setChecked(true);
         if (segments[0] === "(drawer)") router.replace("/login");
       });
+    // This is an initial-session gate; running again after a route change would
+    // redirect the user away from their active screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

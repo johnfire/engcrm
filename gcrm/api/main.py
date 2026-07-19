@@ -1,20 +1,60 @@
+import logging
+from pathlib import Path
+from uuid import uuid4
+
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from pathlib import Path
 
-from gcrm.api.routers import approval, activity, contacts, people, research, inbox, marketing, drafts, users
-from gcrm.api.routers import (
-    api_auth, api_push, api_approvals, api_inbox,
-    api_contacts, api_activity, api_research, api_cards, api_voice, api_people,
-    api_pipeline, api_recon,
-)
 from gcrm.api import auth
-from gcrm.config import SESSION_SECRET, SESSION_COOKIE_SECURE
+from gcrm.api.routers import (
+    account,
+    activity,
+    api_activity,
+    api_approvals,
+    api_auth,
+    api_cards,
+    api_contacts,
+    api_inbox,
+    api_people,
+    api_pipeline,
+    api_push,
+    api_recon,
+    api_research,
+    api_voice,
+    approval,
+    contacts,
+    drafts,
+    inbox,
+    marketing,
+    people,
+    research,
+    users,
+)
+from gcrm.audit_context import CorrelationIdFilter, audit_scope
+from gcrm.config import SESSION_COOKIE_SECURE, SESSION_SECRET
+from gcrm.workspace_context import set_workspace_id
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None)
+for handler in logging.getLogger().handlers:
+    handler.addFilter(CorrelationIdFilter())
+
+
+@app.middleware("http")
+async def add_correlation_id(request: Request, call_next):
+    """Attach a request ID to every HTTP response and downstream audit event."""
+    correlation_id = request.headers.get("x-request-id") or uuid4().hex[:16]
+    request.state.correlation_id = correlation_id
+    session = request.session
+    workspace_id = session.get("workspace_id")
+    set_workspace_id(workspace_id)
+    actor = session.get("email") or "anonymous"
+    with audit_scope(actor, "user", correlation_id):
+        response = await call_next(request)
+    response.headers["X-Request-ID"] = correlation_id
+    return response
 
 # CORS for the mobile app — it authenticates with a bearer JWT (no cookies),
 # so allowing all origins is safe here.
@@ -38,6 +78,7 @@ UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
 
 app.include_router(auth.router)
+app.include_router(account.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(contacts.router)
@@ -70,6 +111,7 @@ def index(request: Request):
 
 def run():
     import uvicorn
+
     from gcrm.config import HOST, PORT
     uvicorn.run("gcrm.api.main:app", host=HOST, port=PORT, reload=True)
 
