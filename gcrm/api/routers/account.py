@@ -1,18 +1,25 @@
-"""Invite-only registration and self-service password settings."""
+"""Invite-only registration and self-service account settings (password,
+interface language)."""
 import logging
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_login
 from gcrm.api.security import hash_password, verify_password
 from gcrm.api.templates import templates
+from gcrm.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from gcrm.i18n import translate as t
 from gcrm.tools.db_account_lifecycle import accept_invitation
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_users import get_user_by_email, set_user_password
+from gcrm.tools.db_users import get_user_by_email, set_user_password, set_user_ui_language
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["account"])
+
+
+def _lang(request: Request) -> str:
+    return request.session.get("ui_language", DEFAULT_LANGUAGE)
 
 
 @router.get("/signup", response_class=HTMLResponse)
@@ -33,7 +40,7 @@ def signup_submit(
     normalized_email = email.strip().lower()
     if len(password) < 12:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "Use a password with at least 12 characters."},
+            "signup.html", {"request": request, "error": t("common.passwordTooShort", _lang(request))},
             status_code=400,
         )
     try:
@@ -43,7 +50,7 @@ def signup_submit(
         user_id = None
     if user_id is None:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": "The invitation is invalid, expired, or already used."},
+            "signup.html", {"request": request, "error": t("signup.invitationInvalid", _lang(request))},
             status_code=400,
         )
     log_audit(str(user_id), "user", "account.signup", f"user:{user_id}", "created", request.state.correlation_id)
@@ -67,15 +74,33 @@ def change_password(
     user = get_user_by_email(email)
     if not user or not verify_password(current_password, user["password_hash"]):
         return templates.TemplateResponse(
-            "settings.html", {"request": request, "message": None, "error": "Current password is incorrect."},
+            "settings.html",
+            {"request": request, "message": None, "error": t("settings.currentPasswordIncorrect", _lang(request))},
             status_code=400,
         )
     if len(new_password) < 12:
         return templates.TemplateResponse(
-            "settings.html", {"request": request, "message": None, "error": "Use a password with at least 12 characters."},
+            "settings.html",
+            {"request": request, "message": None, "error": t("common.passwordTooShort", _lang(request))},
             status_code=400,
         )
     set_user_password(email, hash_password(new_password))
     log_audit(email, "user", "account.password_changed", f"user:{user['id']}", "success", request.state.correlation_id)
     request.session.clear()
     return RedirectResponse("/login", status_code=303)
+
+
+@router.post("/settings/language", response_class=HTMLResponse, dependencies=[Depends(require_login)])
+def change_language(request: Request, ui_language: str = Form(...)):
+    """Update the signed-in user's interface language. Takes effect on the
+    very next render — no re-login needed, since it updates the live session."""
+    if ui_language not in SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Unsupported language")
+    user_id = request.session.get("user_id")
+    if user_id is not None:
+        set_user_ui_language(user_id, ui_language)
+    request.session["ui_language"] = ui_language
+    return templates.TemplateResponse(
+        "settings.html",
+        {"request": request, "message": t("settings.languageSaved", ui_language), "error": None},
+    )

@@ -34,7 +34,7 @@ class TestAuthenticate:
         payload = auth.authenticate("a@b.com", "pw", make_user("pw"))
         assert payload == {
             "role": "admin", "user_id": 1, "email": "a@b.com", "token_version": 0,
-            "workspace_id": None,
+            "workspace_id": None, "ui_language": "en",
         }
 
     def test_wrong_password(self):

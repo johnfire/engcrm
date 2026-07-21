@@ -14,15 +14,19 @@ class PushTokenRequest(BaseModel):
 
 
 @router.post("/register", status_code=204)
-def register_push_token(body: PushTokenRequest, _payload: dict = Depends(require_jwt_payload)) -> None:
+def register_push_token(body: PushTokenRequest, payload: dict = Depends(require_jwt_payload)) -> None:
+    # uid is absent for the transitional shared break-glass admin — its
+    # tokens stay untargeted (user_id NULL) and only reachable via
+    # send_push_to_all, same as before this endpoint tracked accounts.
+    user_id = payload.get("uid")
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO push_tokens (token, updated_at)
-            VALUES (%s, NOW())
-            ON CONFLICT (token) DO UPDATE SET updated_at = NOW()
+            INSERT INTO push_tokens (token, user_id, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, updated_at = NOW()
             """,
-            [body.token],
+            [body.token, user_id],
         )
     log_audit(None, None, "push_token.registered", "push_token", "registered")

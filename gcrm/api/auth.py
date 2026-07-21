@@ -11,6 +11,8 @@ from gcrm.api.security import hash_password, verify_password
 from gcrm.api.templates import templates
 from gcrm.audit_context import set_audit_context
 from gcrm.config import APP_PUBLIC_URL
+from gcrm.i18n import DEFAULT_LANGUAGE
+from gcrm.i18n import translate as t
 from gcrm.tools.db import get_user_by_email, touch_user_login
 from gcrm.tools.db_account_lifecycle import (
     consume_password_reset_token,
@@ -60,6 +62,7 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
             "role": user["role"], "user_id": user["id"], "email": user["email"],
             "token_version": user.get("token_version", 0),
             "workspace_id": user.get("workspace_id"),
+            "ui_language": user.get("ui_language") or DEFAULT_LANGUAGE,
         }
     # Break-glass: shared env admin password (transitional; email ignored).
     # Constant-time compare so a wrong password can't be inferred from timing.
@@ -137,7 +140,11 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form(.
         return RedirectResponse(url="/approvals/", status_code=303)
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "error": "Invalid email or password", "reset_success": False},
+        {
+            "request": request,
+            "error": t("login.invalidCredentials", request.session.get("ui_language", DEFAULT_LANGUAGE)),
+            "reset_success": False,
+        },
         status_code=401,
     )
 
@@ -178,7 +185,7 @@ def reset_password_submit(
         "reset_password.html",
         {
             "request": request, "token": token, "valid": True,
-            "error": "That link is invalid or has expired, or the password is too short (12+ characters).",
+            "error": t("resetPassword.errorGeneric", request.session.get("ui_language", DEFAULT_LANGUAGE)),
         },
         status_code=400,
     )

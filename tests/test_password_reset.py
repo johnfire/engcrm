@@ -118,7 +118,9 @@ class TestWebRoutes:
         with patch("gcrm.api.auth.request_password_reset") as mreq:
             r = client.post("/forgot-password", data={"email": "a@b.com"})
         assert r.status_code == 200
-        assert "we've sent a link" in r.text
+        # not "we've" — Jinja autoescapes the apostrophe to &#39; now that this
+        # string is rendered via t() instead of hardcoded directly in the HTML
+        assert "sent a link to reset your password" in r.text
         mreq.assert_called_once_with("a@b.com")
 
     def test_reset_password_page_valid_token_shows_form(self):

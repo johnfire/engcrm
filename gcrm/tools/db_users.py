@@ -8,9 +8,22 @@ def get_user_by_email(email: str) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, email, name, password_hash, role, is_active, token_version, workspace_id "
-            "FROM users WHERE LOWER(email) = LOWER(%s)",
+            "SELECT id, email, name, password_hash, role, is_active, token_version, "
+            "workspace_id, ui_language FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,),
+        )
+        return cur.fetchone()
+
+
+def get_user_by_id(user_id: int) -> dict | None:
+    """Look up a user by id. Returns None if absent. Used by the mobile
+    /api/auth/me endpoint, which only has uid (not email) from the JWT."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, email, name, role, is_active, token_version, "
+            "workspace_id, ui_language FROM users WHERE id = %s",
+            (user_id,),
         )
         return cur.fetchone()
 
@@ -70,6 +83,23 @@ def set_user_password_by_id(user_id: int, password_hash: str) -> bool:
         updated = cur.rowcount > 0
     if updated:
         log_audit(None, None, "user.password_reset", f"user:{user_id}", "success")
+    return updated
+
+
+def set_user_ui_language(user_id: int, language: str) -> bool:
+    """Update a user's interface-language preference. Returns False if no
+    such user. Caller must validate `language` against the allowed set
+    first — this issues a raw UPDATE and relies on the DB CHECK constraint
+    as a backstop, not a friendly error path."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET ui_language = %s WHERE id = %s",
+            (language, user_id),
+        )
+        updated = cur.rowcount > 0
+    if updated:
+        log_audit(None, None, "user.ui_language_changed", f"user:{user_id}", language)
     return updated
 
 

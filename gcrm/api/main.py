@@ -12,6 +12,7 @@ from gcrm.api import auth
 from gcrm.api.routers import (
     account,
     activity,
+    api_account,
     api_activity,
     api_approvals,
     api_auth,
@@ -37,6 +38,7 @@ from gcrm.api.routers import (
 )
 from gcrm.audit_context import CorrelationIdFilter, audit_scope
 from gcrm.config import SESSION_COOKIE_SECURE, SESSION_SECRET
+from gcrm.i18n import SUPPORTED_LANGUAGES
 from gcrm.workspace_context import set_workspace_id
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None)
@@ -46,10 +48,20 @@ for handler in logging.getLogger().handlers:
 
 @app.middleware("http")
 async def add_correlation_id(request: Request, call_next):
-    """Attach a request ID to every HTTP response and downstream audit event."""
+    """Attach a request ID to every HTTP response and downstream audit event.
+
+    Also handles a `?lang=de`/`?lang=en` query param as a pre-login language
+    toggle (login/forgot-password/reset-password/Impressum have no account
+    yet to read a preference from). Any page can carry this param; a signed-
+    in user's account-level preference (set on login) simply overwrites it
+    the moment they authenticate.
+    """
     correlation_id = request.headers.get("x-request-id") or uuid4().hex[:16]
     request.state.correlation_id = correlation_id
     session = request.session
+    lang = request.query_params.get("lang")
+    if lang in SUPPORTED_LANGUAGES:
+        session["ui_language"] = lang
     workspace_id = session.get("workspace_id")
     set_workspace_id(workspace_id)
     actor = session.get("email") or "anonymous"
@@ -94,6 +106,7 @@ app.include_router(users.router)
 
 # Mobile JSON API (bearer-JWT, under /api/*)
 app.include_router(api_auth.router)
+app.include_router(api_account.router)
 app.include_router(api_push.router)
 app.include_router(api_approvals.router)
 app.include_router(api_inbox.router)
