@@ -9,7 +9,7 @@
     "expo": "~56.0.8",
     "expo-audio": "~56.0.12",
     "expo-constants": "~56.0.16",
-    "expo-device": "~56.0.4",
+    "expo-device": "~57.0.1",
     "expo-file-system": "~56.0.8",
     "expo-image-manipulator": "~56.0.19",
     "expo-image-picker": "~56.0.18",
