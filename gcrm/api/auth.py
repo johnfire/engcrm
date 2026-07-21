@@ -1,16 +1,25 @@
 import hmac
 import logging
 import os
+import secrets
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.rate_limit import rate_limit_auth
-from gcrm.api.security import verify_password
+from gcrm.api.security import hash_password, verify_password
 from gcrm.api.templates import templates
 from gcrm.audit_context import set_audit_context
+from gcrm.config import APP_PUBLIC_URL
 from gcrm.tools.db import get_user_by_email, touch_user_login
+from gcrm.tools.db_account_lifecycle import (
+    consume_password_reset_token,
+    create_password_reset_token,
+    password_reset_token_valid,
+)
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_users import set_user_password_by_id
+from gcrm.tools.email import send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -70,11 +79,48 @@ def _lookup_user(email: str) -> dict | None:
         return None
 
 
+def request_password_reset(email: str) -> None:
+    """
+    Email a reset link if `email` matches an active account. Always returns
+    normally regardless of whether a match was found or the email send
+    succeeded — the caller must show the same generic message either way, so a
+    reset request can never be used to enumerate which emails have accounts.
+    """
+    user = _lookup_user((email or "").strip().lower())
+    if not user or not user.get("is_active"):
+        return
+    token = secrets.token_urlsafe(32)
+    create_password_reset_token(user["id"], token)
+    link = f"{APP_PUBLIC_URL}/reset-password?token={token}"
+    send_email(
+        user["email"],
+        "Reset your EngCRM password",
+        "Someone requested a password reset for this EngCRM account.\n\n"
+        f"Reset it here (valid for 1 hour): {link}\n\n"
+        "If you didn't request this, you can safely ignore this email — "
+        "your password will not change.",
+    )
+
+
+def complete_password_reset(token: str, new_password: str) -> bool:
+    """Consume a reset token and set the new password. False if the token is
+    missing/expired/already used, or the password fails the length policy."""
+    if len(new_password) < 12:
+        return False
+    user_id = consume_password_reset_token(token)
+    if user_id is None:
+        return False
+    return set_user_password_by_id(user_id, hash_password(new_password))
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     if get_role(request):
         return RedirectResponse(url="/approvals/")
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    reset_success = request.query_params.get("reset") == "success"
+    return templates.TemplateResponse(
+        "login.html", {"request": request, "error": None, "reset_success": reset_success},
+    )
 
 
 @router.post("/login", response_class=HTMLResponse)
@@ -91,8 +137,50 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form(.
         return RedirectResponse(url="/approvals/", status_code=303)
     return templates.TemplateResponse(
         "login.html",
-        {"request": request, "error": "Invalid email or password"},
+        {"request": request, "error": "Invalid email or password", "reset_success": False},
         status_code=401,
+    )
+
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "sent": False})
+
+
+@router.post("/forgot-password", response_class=HTMLResponse)
+def forgot_password_submit(
+    request: Request,
+    email: str = Form(""),
+    _throttle: None = Depends(rate_limit_auth),
+):
+    request_password_reset(email)
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "sent": True})
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+def reset_password_page(request: Request, token: str = ""):
+    valid = bool(token) and password_reset_token_valid(token)
+    return templates.TemplateResponse(
+        "reset_password.html", {"request": request, "token": token, "valid": valid, "error": None},
+    )
+
+
+@router.post("/reset-password", response_class=HTMLResponse)
+def reset_password_submit(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    _throttle: None = Depends(rate_limit_auth),
+):
+    if complete_password_reset(token, new_password):
+        return RedirectResponse(url="/login?reset=success", status_code=303)
+    return templates.TemplateResponse(
+        "reset_password.html",
+        {
+            "request": request, "token": token, "valid": True,
+            "error": "That link is invalid or has expired, or the password is too short (12+ characters).",
+        },
+        status_code=400,
     )
 
 

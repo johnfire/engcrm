@@ -64,6 +64,15 @@
         margin-bottom: 1rem;
         font-size: 0.9rem;
       }
+      .success {
+        color: #a6e3a1;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+      .login-box p {
+        font-size: 0.85rem;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -71,6 +80,9 @@
       <h1>EngCRM Supervisor</h1>
       {% if error %}
       <p class="error">{{ error }}</p>
+      {% endif %}
+      {% if reset_success %}
+      <p class="success">Password reset — sign in with your new password.</p>
       {% endif %}
       <form method="post" action="/login">
         <input
@@ -99,6 +111,7 @@
         </div>
         <button type="submit">Sign in</button>
       </form>
+      <p><a href="/forgot-password">Forgot password?</a></p>
       <p><a href="/signup">Create account with an invitation</a></p>
     </div>
     <script>

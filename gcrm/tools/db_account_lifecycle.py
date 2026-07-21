@@ -53,6 +53,44 @@ def accept_invitation(email: str, password_hash: str, token: str, name: str) -> 
         return cursor.fetchone()["id"]
 
 
+def create_password_reset_token(user_id: int, token: str, ttl_hours: int = 1) -> None:
+    """Store a short-lived, single-use password-reset token for a user."""
+    expiration = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+    with db() as conn:
+        conn.cursor().execute(
+            "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (%s, %s, %s)",
+            (user_id, hash_one_time_token(token), expiration),
+        )
+
+
+def consume_password_reset_token(token: str) -> int | None:
+    """Atomically mark a valid reset token used and return its user_id, or None
+    if the token is missing, already used, or expired."""
+    with db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """UPDATE password_reset_tokens SET used_at = NOW()
+            WHERE token_hash = %s AND used_at IS NULL AND expires_at > NOW()
+            RETURNING user_id""",
+            (hash_one_time_token(token),),
+        )
+        row = cursor.fetchone()
+        return row["user_id"] if row else None
+
+
+def password_reset_token_valid(token: str) -> bool:
+    """Read-only validity check (no side effects) — lets the reset-password
+    page show 'invalid or expired' immediately instead of after submission."""
+    with db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM password_reset_tokens WHERE token_hash = %s "
+            "AND used_at IS NULL AND expires_at > NOW()",
+            (hash_one_time_token(token),),
+        )
+        return cursor.fetchone() is not None
+
+
 def set_user_totp(user_id: int, encrypted_secret: str) -> None:
     """Enable TOTP after its setup code was verified."""
     with db() as conn:

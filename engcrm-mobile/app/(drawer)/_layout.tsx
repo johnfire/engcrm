@@ -94,6 +94,10 @@ export default function DrawerLayout() {
         options={{ title: "Research", drawerLabel: "🔬 Research" }}
       />
       <Drawer.Screen
+        name="settings"
+        options={{ title: "Settings", drawerLabel: "⚙️ Settings" }}
+      />
+      <Drawer.Screen
         name="contact-detail"
         options={{
           drawerItemStyle: { display: "none" },

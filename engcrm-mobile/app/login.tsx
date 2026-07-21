@@ -83,6 +83,9 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>Sign In</Text>
         )}
       </TouchableOpacity>
+      <TouchableOpacity style={styles.forgot} onPress={() => router.push("/forgot-password")}>
+        <Text style={styles.forgotText}>Forgot password?</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -125,4 +128,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  forgot: { marginTop: 20, alignItems: "center" },
+  forgotText: { color: "#7c6fff", fontSize: 14 },
 });

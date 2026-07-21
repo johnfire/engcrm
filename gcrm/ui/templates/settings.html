@@ -6,4 +6,7 @@
 <section class="card"><h2>Change password</h2><form method="post" action="/settings/password">
 <label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
 <label>New password <input type="password" name="new_password" required minlength="12" autocomplete="new-password"></label>
-<button type="submit">Change password</button></form></section>{% endblock %}
+<button type="submit">Change password</button></form></section>
+<section class="card"><h2>Session</h2>
+<form method="post" action="/logout"><button type="submit">Log out</button></form>
+</section>{% endblock %}

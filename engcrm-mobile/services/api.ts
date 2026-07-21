@@ -59,6 +59,13 @@ export async function registerPushToken(pushToken: string): Promise<void> {
   await client.post("/api/push/register", { token: pushToken });
 }
 
+// Always resolves — the backend never reveals whether the email matched an
+// account. Actual password reset happens via the emailed link, opened in the
+// phone's browser (same /reset-password page the web app uses).
+export async function requestPasswordReset(email: string): Promise<void> {
+  await client.post("/api/auth/reset-request", { email });
+}
+
 // --- Approvals ---
 export async function fetchApprovals(): Promise<Approval[]> {
   const resp = await client.get("/api/approvals");

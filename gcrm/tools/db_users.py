@@ -58,6 +58,21 @@ def set_user_password(email: str, password_hash: str) -> bool:
     return updated
 
 
+def set_user_password_by_id(user_id: int, password_hash: str) -> bool:
+    """Like set_user_password, but keyed by id — used by the token-based reset
+    flow, which only has the user_id from the consumed reset token."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET password_hash = %s, token_version = token_version + 1 WHERE id = %s",
+            (password_hash, user_id),
+        )
+        updated = cur.rowcount > 0
+    if updated:
+        log_audit(None, None, "user.password_reset", f"user:{user_id}", "success")
+    return updated
+
+
 def set_user_active(email: str, is_active: bool) -> bool:
     """Enable or disable a user. Returns False if no such user."""
     with db() as conn:

@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from gcrm.api.auth import authenticate
+from gcrm.api.auth import authenticate, request_password_reset
 from gcrm.api.jwt_auth import create_token
 from gcrm.api.rate_limit import rate_limit_auth
 from gcrm.tools.db import get_user_by_email
@@ -51,3 +51,21 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             role=payload["role"],
         )
     raise HTTPException(status_code=401, detail="Invalid email or password")
+
+
+class ResetRequest(BaseModel):
+    email: str = ""
+
+
+@router.post("/reset-request")
+def reset_request(body: ResetRequest, _throttle: None = Depends(rate_limit_auth)) -> dict:
+    """
+    Request a password-reset email. Actual reset happens on the web
+    (/reset-password) — the emailed link opens fine in the phone's browser, so
+    the app doesn't need its own token-consuming screen or deep-link handling.
+
+    Always returns {ok: true} — never reveals whether the email matched an
+    account, same as the web /forgot-password form.
+    """
+    request_password_reset(body.email)
+    return {"ok": True}
