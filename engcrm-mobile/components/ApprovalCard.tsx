@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Approval } from "../services/api";
+import { useTranslation } from "../i18n/I18nContext";
 
 interface Props {
   item: Approval;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -38,13 +40,13 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
             style={styles.approveBtn}
             onPress={() => onApprove(item.id)}
           >
-            <Text style={styles.approveTxt}>Approve</Text>
+            <Text style={styles.approveTxt}>{t("approvalCard.approve")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.rejectBtn} onPress={() => onReject(item)}>
-            <Text style={styles.rejectTxt}>Reject</Text>
+            <Text style={styles.rejectTxt}>{t("approvalCard.reject")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.editBtn} onPress={() => onEdit(item)}>
-            <Text style={styles.editTxt}>Edit</Text>
+            <Text style={styles.editTxt}>{t("approvalCard.edit")}</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -62,7 +64,7 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
             style={styles.closeBtn}
             onPress={() => setExpanded(false)}
           >
-            <Text style={styles.closeTxt}>Close</Text>
+            <Text style={styles.closeTxt}>{t("approvalCard.close")}</Text>
           </TouchableOpacity>
         </View>
       </Modal>

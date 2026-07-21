@@ -14,9 +14,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { confirmSign, discardSign, SignCaptureResult } from "../../services/api";
 import { takeHandoff } from "../../services/handoff";
 import { CardField } from "../../components/CardField";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function SignConfirmScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [capture, setCapture] = useState<SignCaptureResult>({} as SignCaptureResult);
   const [businessName, setBusinessName] = useState("");
   const [acceptPlace, setAcceptPlace] = useState(false);
@@ -42,7 +44,7 @@ export default function SignConfirmScreen() {
 
   async function save() {
     if (!businessName.trim()) {
-      Alert.alert("Business name required", "Enter or confirm a business name first.");
+      Alert.alert(t("signConfirm.businessNameRequiredTitle"), t("signConfirm.enterOrConfirmMessage"));
       return;
     }
     setSaving(true);
@@ -54,12 +56,12 @@ export default function SignConfirmScreen() {
         linkDup && dup ? dup.id : null,
       );
       Alert.alert(
-        linkDup ? "Linked" : "Business saved",
-        "Researching in the background — you’ll get a notification when it’s ready.",
+        linkDup ? t("cardConfirm.linkedTitle") : t("signConfirm.savedTitle"),
+        t("signConfirm.savedMessage"),
         [{ text: "OK", onPress: () => router.replace("/(drawer)/scan-sign") }],
       );
     } catch (error: any) {
-      Alert.alert("Couldn't save", String(error?.message || "Try again."));
+      Alert.alert(t("cardConfirm.couldntSaveTitle"), String(error?.message || t("common.tryAgain")));
     } finally {
       setSaving(false);
     }
@@ -82,7 +84,7 @@ export default function SignConfirmScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {place && (
           <View style={styles.placeBanner}>
-            <Text style={styles.placeTitle}>📍 Matched on Google Places</Text>
+            <Text style={styles.placeTitle}>{t("signConfirm.matched")}</Text>
             <Text style={styles.placeText}>
               {place.name}
               {place.address ? `\n${place.address}` : ""}
@@ -94,7 +96,7 @@ export default function SignConfirmScreen() {
                 onPress={() => setAcceptPlace(true)}
               >
                 <Text style={[styles.placeBtnText, acceptPlace && styles.placeBtnTextActive]}>
-                  Accept match
+                  {t("signConfirm.acceptMatch")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -102,7 +104,7 @@ export default function SignConfirmScreen() {
                 onPress={() => setAcceptPlace(false)}
               >
                 <Text style={[styles.placeBtnText, !acceptPlace && styles.placeBtnTextActive]}>
-                  Reject — use sign text only
+                  {t("signConfirm.rejectMatch")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -111,7 +113,7 @@ export default function SignConfirmScreen() {
 
         {dup && (
           <View style={styles.dupBanner}>
-            <Text style={styles.dupTitle}>⚠ Possible duplicate</Text>
+            <Text style={styles.dupTitle}>{t("cardConfirm.duplicateWarning")}</Text>
             <Text style={styles.dupText}>
               {dup.name}
               {dup.city ? ` — ${dup.city}` : ""}
@@ -121,37 +123,43 @@ export default function SignConfirmScreen() {
                 style={[styles.dupBtn, !linkDup && styles.dupBtnActive]}
                 onPress={() => setLinkDup(false)}
               >
-                <Text style={[styles.dupBtnText, !linkDup && styles.dupBtnTextActive]}>Create new</Text>
+                <Text style={[styles.dupBtnText, !linkDup && styles.dupBtnTextActive]}>
+                  {t("cardConfirm.createNew")}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.dupBtn, linkDup && styles.dupBtnActive]}
                 onPress={() => setLinkDup(true)}
               >
-                <Text style={[styles.dupBtnText, linkDup && styles.dupBtnTextActive]}>Link to existing</Text>
+                <Text style={[styles.dupBtnText, linkDup && styles.dupBtnTextActive]}>
+                  {t("cardConfirm.linkExisting")}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {typeof capture.confidence === "number" && (
-          <Text style={styles.confidence}>Read confidence: {capture.confidence}%</Text>
+          <Text style={styles.confidence}>{t("cardConfirm.confidence", { confidence: capture.confidence })}</Text>
         )}
 
-        <CardField label="Business name" value={businessName} onChange={setBusinessName} />
+        <CardField label={t("signConfirm.businessName")} value={businessName} onChange={setBusinessName} />
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.saveText}>{linkDup ? "Link to existing lead" : "Save business"}</Text>
+            <Text style={styles.saveText}>
+              {linkDup ? t("cardConfirm.linkToExistingLead") : t("signConfirm.saveBusiness")}
+            </Text>
           )}
         </TouchableOpacity>
         <View style={styles.row}>
           <TouchableOpacity style={styles.retake} onPress={() => router.replace("/(drawer)/scan-sign")}>
-            <Text style={styles.retakeText}>Retake</Text>
+            <Text style={styles.retakeText}>{t("cardConfirm.retake")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.discardBtn} onPress={discard}>
-            <Text style={styles.discardText}>Discard</Text>
+            <Text style={styles.discardText}>{t("cardConfirm.discard")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

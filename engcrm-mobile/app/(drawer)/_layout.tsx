@@ -2,16 +2,18 @@ import { Drawer } from "expo-router/drawer";
 import { TouchableOpacity, Text } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
+import { useTranslation } from "../../i18n/I18nContext";
 
 function LogoutButton() {
   const router = useRouter();
+  const { t } = useTranslation();
   async function handleLogout() {
     await clearToken();
     router.replace("/login");
   }
   return (
     <TouchableOpacity onPress={handleLogout} style={{ padding: 16 }}>
-      <Text style={{ color: "#ef4444", fontSize: 14 }}>Log out</Text>
+      <Text style={{ color: "#ef4444", fontSize: 14 }}>{t("settings.logout")}</Text>
     </TouchableOpacity>
   );
 }
@@ -36,6 +38,7 @@ function HeaderBack({ to }: { to: Href }) {
 }
 
 export default function DrawerLayout() {
+  const { t } = useTranslation();
   return (
     <Drawer
       backBehavior="history"
@@ -51,57 +54,57 @@ export default function DrawerLayout() {
     >
       <Drawer.Screen
         name="contacts"
-        options={{ title: "Contacts", drawerLabel: "Contacts" }}
+        options={{ title: t("drawer.contacts"), drawerLabel: t("drawer.contacts") }}
       />
       <Drawer.Screen
         name="approvals"
-        options={{ title: "Approvals", drawerLabel: "Approvals" }}
+        options={{ title: t("drawer.approvals"), drawerLabel: t("drawer.approvals") }}
       />
       <Drawer.Screen
         name="capture"
-        options={{ title: "Scan Card", drawerLabel: "📷 Scan Card" }}
+        options={{ title: t("drawer.scanCardTitle"), drawerLabel: t("drawer.scanCard") }}
       />
       <Drawer.Screen
         name="scan-sign"
-        options={{ title: "Scan Sign", drawerLabel: "🏪 Scan Sign" }}
+        options={{ title: t("drawer.scanSignTitle"), drawerLabel: t("drawer.scanSign") }}
       />
       <Drawer.Screen
         name="card-queue"
-        options={{ title: "Card Queue", drawerLabel: "🗂 Card Queue" }}
+        options={{ title: t("drawer.cardQueueTitle"), drawerLabel: t("drawer.cardQueue") }}
       />
       <Drawer.Screen
         name="voice"
-        options={{ title: "Voice Entry", drawerLabel: "🎙 Voice Entry" }}
+        options={{ title: t("drawer.voiceEntryTitle"), drawerLabel: t("drawer.voiceEntry") }}
       />
       <Drawer.Screen
         name="inbox"
-        options={{ title: "Inbox", drawerLabel: "Inbox" }}
+        options={{ title: t("drawer.inbox"), drawerLabel: t("drawer.inbox") }}
       />
       <Drawer.Screen
         name="people"
-        options={{ title: "People", drawerLabel: "👤 People" }}
+        options={{ title: t("drawer.peopleTitle"), drawerLabel: t("drawer.people") }}
       />
       <Drawer.Screen
         name="recon"
-        options={{ title: "Recon", drawerLabel: "🧭 Recon (near me)" }}
+        options={{ title: t("drawer.reconTitle"), drawerLabel: t("drawer.recon") }}
       />
       <Drawer.Screen
         name="activity"
-        options={{ title: "Activity", drawerLabel: "Activity" }}
+        options={{ title: t("drawer.activity"), drawerLabel: t("drawer.activity") }}
       />
       <Drawer.Screen
         name="research"
-        options={{ title: "Research", drawerLabel: "🔬 Research" }}
+        options={{ title: t("drawer.researchTitle"), drawerLabel: t("drawer.research") }}
       />
       <Drawer.Screen
         name="settings"
-        options={{ title: "Settings", drawerLabel: "⚙️ Settings" }}
+        options={{ title: t("drawer.settingsTitle"), drawerLabel: t("drawer.settings") }}
       />
       <Drawer.Screen
         name="contact-detail"
         options={{
           drawerItemStyle: { display: "none" },
-          title: "Contact",
+          title: t("drawer.contact"),
           headerLeft: () => <HeaderBack to="/(drawer)/contacts" />,
         }}
       />
@@ -109,23 +112,23 @@ export default function DrawerLayout() {
         name="person-detail"
         options={{
           drawerItemStyle: { display: "none" },
-          title: "Person",
+          title: t("drawer.person"),
           headerLeft: () => <HeaderBack to="/(drawer)/people" />,
         }}
       />
       <Drawer.Screen
         name="card-confirm"
-        options={{ drawerItemStyle: { display: "none" }, title: "Review Card" }}
+        options={{ drawerItemStyle: { display: "none" }, title: t("drawer.reviewCard") }}
       />
       <Drawer.Screen
         name="voice-confirm"
-        options={{ drawerItemStyle: { display: "none" }, title: "Voice Note" }}
+        options={{ drawerItemStyle: { display: "none" }, title: t("drawer.voiceNote") }}
       />
       <Drawer.Screen
         name="sign-confirm"
         options={{
           drawerItemStyle: { display: "none" },
-          title: "Review Sign",
+          title: t("drawer.reviewSign"),
           headerLeft: () => <HeaderBack to="/(drawer)/scan-sign" />,
         }}
       />

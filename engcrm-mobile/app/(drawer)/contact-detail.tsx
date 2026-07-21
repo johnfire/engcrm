@@ -10,8 +10,10 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { fetchContact, ContactDetail } from "../../services/api";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function ContactDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function ContactDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>
-          {loadError ? "Couldn't load — check your connection" : "Contact not found"}
+          {loadError ? t("contactDetail.couldntLoad") : t("contactDetail.notFound")}
         </Text>
       </View>
     );
@@ -51,7 +53,7 @@ export default function ContactDetailScreen() {
       <View style={styles.statusRow}>
         <Text style={styles.statusBadge}>{contact.status}</Text>
         {contact.fit_score !== null && (
-          <Text style={styles.score}>Score: {contact.fit_score}</Text>
+          <Text style={styles.score}>{t("contactDetail.score", { score: contact.fit_score })}</Text>
         )}
       </View>
 
@@ -70,20 +72,20 @@ export default function ContactDetailScreen() {
       {contact.phone && <Text style={styles.field}>{contact.phone}</Text>}
       {contact.notes && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes</Text>
+          <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
           <Text style={styles.fieldText}>{contact.notes}</Text>
         </View>
       )}
 
       {contact.interactions.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>History</Text>
+          <Text style={styles.sectionTitle}>{t("contactDetail.history")}</Text>
           {contact.interactions.map((interaction, index) => (
             <View key={index} style={styles.interaction}>
               <Text style={styles.interactionType}>
                 {[interaction.method, interaction.direction]
                   .filter(Boolean)
-                  .join(" · ") || "Interaction"}
+                  .join(" · ") || t("contactDetail.interaction")}
               </Text>
               <Text style={styles.interactionDate}>
                 {new Date(interaction.interaction_date).toLocaleDateString()}

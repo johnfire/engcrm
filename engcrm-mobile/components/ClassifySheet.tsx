@@ -1,13 +1,14 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useTranslation } from "../i18n/I18nContext";
 
 const CLASSIFICATIONS = [
-  { key: "interested", label: "Interested", color: "#22c55e" },
-  { key: "warm", label: "Warm / Considering", color: "#84cc16" },
-  { key: "not_interested", label: "Not Interested", color: "#ef4444" },
-  { key: "not_possible", label: "Not Possible", color: "#f97316" },
-  { key: "opt_out", label: "Opt Out", color: "#dc2626" },
-  { key: "bounce", label: "Bounce", color: "#888" },
-  { key: "other", label: "Other", color: "#888" },
+  { key: "interested", labelKey: "classifySheet.interested", color: "#22c55e" },
+  { key: "warm", labelKey: "classifySheet.warm", color: "#84cc16" },
+  { key: "not_interested", labelKey: "classifySheet.notInterested", color: "#ef4444" },
+  { key: "not_possible", labelKey: "classifySheet.notPossible", color: "#f97316" },
+  { key: "opt_out", labelKey: "classifySheet.optOut", color: "#dc2626" },
+  { key: "bounce", labelKey: "classifySheet.bounce", color: "#888" },
+  { key: "other", labelKey: "classifySheet.other", color: "#888" },
 ];
 
 interface Props {
@@ -17,11 +18,12 @@ interface Props {
 }
 
 export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
+  const { t } = useTranslation();
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          <Text style={styles.title}>Classify reply</Text>
+          <Text style={styles.title}>{t("classifySheet.title")}</Text>
           {CLASSIFICATIONS.map((classification) => (
             <TouchableOpacity
               key={classification.key}
@@ -29,12 +31,12 @@ export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
               onPress={() => onSelect(classification.key)}
             >
               <Text style={[styles.optionText, { color: classification.color }]}>
-                {classification.label}
+                {t(classification.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text style={styles.cancelText}>{t("classifySheet.cancel")}</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -12,11 +12,14 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { API_BASE, login } from "../services/api";
+import { API_BASE, fetchMe, login } from "../services/api";
 import { saveToken } from "../services/auth";
+import { useTranslation } from "../i18n/I18nContext";
+import { isSupportedLanguage } from "../i18n/translate";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t, setLanguage } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,9 +31,17 @@ export default function LoginScreen() {
     try {
       const { token, role } = await login(email.trim(), password.trim());
       await saveToken(token, role);
+      // Best-effort — apply the account's language immediately rather than
+      // waiting for the next foreground/cold-start sync cycle.
+      try {
+        const me = await fetchMe();
+        if (isSupportedLanguage(me.ui_language)) setLanguage(me.ui_language);
+      } catch {
+        // ignore — falls back to whatever's already cached/active
+      }
       router.replace("/(drawer)/contacts");
     } catch {
-      Alert.alert("Login failed", "Wrong email or password.");
+      Alert.alert(t("login.failedTitle"), t("login.failedMessage"));
     } finally {
       setLoading(false);
     }
@@ -41,11 +52,11 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.title}>EngCRM</Text>
-      <Text style={styles.subtitle}>Sign in to continue</Text>
+      <Text style={styles.title}>{t("login.title")}</Text>
+      <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t("login.emailPlaceholder")}
         placeholderTextColor="#555"
         keyboardType="email-address"
         autoCapitalize="none"
@@ -58,7 +69,7 @@ export default function LoginScreen() {
       <View style={styles.pwRow}>
         <TextInput
           style={styles.pwInput}
-          placeholder="Password"
+          placeholder={t("login.passwordPlaceholder")}
           placeholderTextColor="#555"
           secureTextEntry={!showPassword}
           autoCapitalize="none"
@@ -81,14 +92,14 @@ export default function LoginScreen() {
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Sign In</Text>
+          <Text style={styles.buttonText}>{t("login.signIn")}</Text>
         )}
       </TouchableOpacity>
       <TouchableOpacity style={styles.forgot} onPress={() => router.push("/forgot-password")}>
-        <Text style={styles.forgotText}>Forgot password?</Text>
+        <Text style={styles.forgotText}>{t("login.forgotPassword")}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.impressum} onPress={() => Linking.openURL(`${API_BASE}/impressum`)}>
-        <Text style={styles.impressumText}>Impressum</Text>
+        <Text style={styles.impressumText}>{t("login.impressum")}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

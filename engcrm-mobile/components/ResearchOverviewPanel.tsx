@@ -2,6 +2,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { ResearchCityCard } from "./ResearchCityCard";
 import { ResearchOverview } from "../services/api";
+import { useTranslation } from "../i18n/I18nContext";
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export function ResearchOverviewPanel({ error, loading, overview }: Props) {
+  const { t } = useTranslation();
   if (loading && !overview) return <ActivityIndicator color="#7c6fff" style={styles.loader} />;
   if (error) return <Text style={styles.statusError}>{error}</Text>;
   if (!overview) return null;
@@ -26,17 +28,17 @@ export function ResearchOverviewPanel({ error, loading, overview }: Props) {
   return (
     <>
       <View style={styles.statsRow}>
-        <Stat value={overview.total} label="cities" />
-        <Stat value={overview.level1_done} label="L1 done" />
-        <Stat value={overview.unscanned} label="unscanned" />
-        <Stat value={overview.totals?.emailed ?? 0} label="emailed" />
+        <Stat value={overview.total} label={t("researchOverview.cities")} />
+        <Stat value={overview.level1_done} label={t("researchOverview.l1Done")} />
+        <Stat value={overview.unscanned} label={t("researchOverview.unscanned")} />
+        <Stat value={overview.totals?.emailed ?? 0} label={t("researchOverview.emailed")} />
       </View>
-      {cities.length === 0 ? <Text style={styles.empty}>No cities yet. Run a stage below to start scanning.</Text> : cities.map((city) => (
+      {cities.length === 0 ? <Text style={styles.empty}>{t("researchOverview.empty")}</Text> : cities.map((city) => (
         <ResearchCityCard key={city.id ?? city.city} city={city} levels={overview.levels ?? []} levelLabels={overview.level_labels ?? {}} />
       ))}
-      {cities.length > 0 && <Text style={styles.totalsLine}>Total: <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text> emailed · <Text style={styles.totalsNum}>{overview.totals?.contacts ?? 0}</Text> contacts</Text>}
+      {cities.length > 0 && <Text style={styles.totalsLine}>{t("researchOverview.total")} <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text> {t("researchOverview.emailed")} · <Text style={styles.totalsNum}>{overview.totals?.contacts ?? 0}</Text> {t("researchOverview.contacts")}</Text>}
       <View style={styles.legend}>
-        <Text style={styles.legendLine}>● complete &nbsp; ◐ partial (more to scan) &nbsp; ○ not run</Text>
+        <Text style={styles.legendLine}>{t("researchOverview.legend")}</Text>
         {(overview.levels ?? []).map((level) => <Text key={level} style={styles.legendLabel}>L{level}: {overview.level_labels?.[String(level)] ?? "—"}</Text>)}
       </View>
     </>

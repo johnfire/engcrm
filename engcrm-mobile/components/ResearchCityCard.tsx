@@ -1,5 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { ResearchCity, ResearchLevel } from "../services/api";
+import { useTranslation } from "../i18n/I18nContext";
+
+type TFunction = (key: string, params?: Record<string, unknown>) => string;
 
 /**
  * One city's scan-status row on the Research screen — the mobile equivalent of a
@@ -20,18 +23,18 @@ function statusOf(scan: ResearchLevel["scan"]): "complete" | "partial" | "none" 
 
 const SYMBOL = { complete: "●", partial: "◐", none: "○" } as const;
 
-function levelDetail(entry: ResearchLevel): string {
+function levelDetail(entry: ResearchLevel, t: TFunction): string {
   const scan = entry.scan;
   const lastRun = scan?.last_run_at ? scan.last_run_at.slice(0, 10) : "—";
   const found = scan?.contacts_found ?? 0;
-  const emailedLine = entry.emailed > 0 ? `\n${entry.emailed} emailed` : "";
+  const emailedLine = entry.emailed > 0 ? t("researchCity.emailedLine", { count: entry.emailed }) : "";
   if (scan && scan.complete) {
-    return `Complete — last run ${lastRun}, ${found} found${emailedLine}`;
+    return t("researchCity.completeDetail", { date: lastRun, count: found, emailedLine });
   }
   if (scan) {
-    return `Partial — more to scan.\nLast run ${lastRun}, ${found} so far${emailedLine}`;
+    return t("researchCity.partialDetail", { date: lastRun, count: found, emailedLine });
   }
-  return "Not yet run";
+  return t("researchCity.notYetRun");
 }
 
 export function ResearchCityCard({
@@ -43,13 +46,14 @@ export function ResearchCityCard({
   levels: number[];
   levelLabels: Record<string, string>;
 }) {
+  const { t } = useTranslation();
   const byLevel = new Map<number, ResearchLevel>(
     (city.levels ?? []).map((entry) => [entry.level, entry]),
   );
 
   function showDetail(level: number, entry: ResearchLevel) {
     const label = levelLabels[String(level)] ?? "";
-    Alert.alert(`L${level}${label ? ` — ${label}` : ""}`, levelDetail(entry));
+    Alert.alert(`L${level}${label ? ` — ${label}` : ""}`, levelDetail(entry, t));
   }
 
   return (
@@ -99,10 +103,10 @@ export function ResearchCityCard({
 
       <View style={styles.footer}>
         <Text style={styles.footerItem}>
-          <Text style={styles.footerNum}>{city.emailed_total ?? 0}</Text> sent
+          <Text style={styles.footerNum}>{city.emailed_total ?? 0}</Text> {t("researchCity.sent")}
         </Text>
         <Text style={styles.footerItem}>
-          <Text style={styles.footerNum}>{city.total_contacts ?? 0}</Text> contacts
+          <Text style={styles.footerNum}>{city.total_contacts ?? 0}</Text> {t("researchCity.contacts")}
         </Text>
       </View>
     </View>

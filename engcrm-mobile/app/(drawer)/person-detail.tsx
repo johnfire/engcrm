@@ -10,8 +10,10 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { fetchPerson, Person } from "../../services/api";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function PersonDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [person, setPerson] = useState<Person | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,7 @@ export default function PersonDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>
-          {loadError
-            ? "Couldn't load — check your connection"
-            : "Person not found"}
+          {loadError ? t("personDetail.couldntLoad") : t("personDetail.notFound")}
         </Text>
       </View>
     );
@@ -73,7 +73,7 @@ export default function PersonDetailScreen() {
 
       {person.notes && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notes</Text>
+          <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
           <Text style={styles.fieldText}>{person.notes}</Text>
         </View>
       )}

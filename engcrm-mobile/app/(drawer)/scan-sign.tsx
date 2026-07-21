@@ -14,6 +14,7 @@ import * as Location from "expo-location";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { captureSign } from "../../services/api";
 import { setHandoff } from "../../services/handoff";
+import { useTranslation } from "../../i18n/I18nContext";
 
 // Unlike capture.tsx (business cards), this screen has no offline queue —
 // a sign scan needs a live GPS fix and an immediate Places lookup to be
@@ -22,6 +23,7 @@ import { setHandoff } from "../../services/handoff";
 // pattern capture.tsx uses.
 export default function ScanSignScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -43,7 +45,7 @@ export default function ScanSignScreen() {
       if (source === "camera") {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert("Camera permission needed", "Enable camera access to scan signs.");
+          Alert.alert(t("capture.cameraPermissionTitle"), t("scanSign.cameraPermissionMessage"));
           return;
         }
       }
@@ -63,10 +65,8 @@ export default function ScanSignScreen() {
       const capture = await captureSign(small.uri, gps);
       if (!capture.is_sign) {
         Alert.alert(
-          "Couldn't read that",
-          capture.fields?.note ||
-            capture.fields?.error ||
-            "That doesn't look like a business sign. Try again with the sign more centered.",
+          t("scanSign.couldntReadTitle"),
+          capture.fields?.note || capture.fields?.error || t("scanSign.notASignMessage"),
         );
         return;
       }
@@ -74,8 +74,10 @@ export default function ScanSignScreen() {
       router.push("/(drawer)/sign-confirm");
     } catch (error: any) {
       Alert.alert(
-        "Upload failed",
-        error?.response ? `Server error (${error.response.status}). Try again.` : "Could not process the sign. Try again.",
+        t("scanSign.uploadFailedTitle"),
+        error?.response
+          ? t("common.serverError", { status: error.response.status })
+          : t("scanSign.uploadFailedProcess"),
       );
     } finally {
       setBusy(false);
@@ -85,22 +87,20 @@ export default function ScanSignScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.hint}>
-        Snap a storefront sign — we'll look up the business and research it.
-      </Text>
+      <Text style={styles.hint}>{t("scanSign.hint")}</Text>
       {busy ? (
         <View style={styles.center}>
           {preview && <Image source={{ uri: preview }} style={styles.preview} resizeMode="contain" />}
           <ActivityIndicator color="#7c6fff" size="large" />
-          <Text style={styles.busyText}>Reading the sign…</Text>
+          <Text style={styles.busyText}>{t("scanSign.reading")}</Text>
         </View>
       ) : (
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primary} onPress={() => pickAndUpload("camera")}>
-            <Text style={styles.primaryText}>📷  Take photo</Text>
+            <Text style={styles.primaryText}>{t("capture.takePhoto")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondary} onPress={() => pickAndUpload("library")}>
-            <Text style={styles.secondaryText}>🖼  Choose from library</Text>
+            <Text style={styles.secondaryText}>{t("capture.chooseLibrary")}</Text>
           </TouchableOpacity>
         </View>
       )}

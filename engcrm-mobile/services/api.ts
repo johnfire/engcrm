@@ -59,6 +59,21 @@ export async function registerPushToken(pushToken: string): Promise<void> {
   await client.post("/api/push/register", { token: pushToken });
 }
 
+// Who-am-I — called at app cold start and on every foreground transition so
+// the account's ui_language (and role) stay close to the DB without a push
+// having to arrive first. See engcrm-mobile/i18n/.
+export async function fetchMe(): Promise<{ email: string; role: string; ui_language: string }> {
+  const resp = await client.get("/api/auth/me");
+  return resp.data;
+}
+
+// Updates the account's interface-language preference. Triggers a silent push
+// (server-side) so any other signed-in device for this account refreshes too.
+export async function updateLanguage(uiLanguage: string): Promise<{ ui_language: string }> {
+  const resp = await client.patch("/api/account/language", { ui_language: uiLanguage });
+  return resp.data;
+}
+
 // Always resolves — the backend never reveals whether the email matched an
 // account. Actual password reset happens via the emailed link, opened in the
 // phone's browser (same /reset-password page the web app uses).

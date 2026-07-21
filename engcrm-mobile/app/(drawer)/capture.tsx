@@ -14,9 +14,11 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { captureCard } from "../../services/api";
 import { enqueue, flush, pendingCount } from "../../services/cardQueue";
 import { setHandoff } from "../../services/handoff";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
@@ -42,7 +44,7 @@ export default function CaptureScreen() {
       if (source === "camera") {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert("Camera permission needed", "Enable camera access to scan cards.");
+          Alert.alert(t("capture.cameraPermissionTitle"), t("capture.cameraPermissionMessage"));
           return;
         }
       }
@@ -63,10 +65,8 @@ export default function CaptureScreen() {
       const capture = await captureCard(small.uri);
       if (!capture.is_card) {
         Alert.alert(
-          "Couldn't read that",
-          capture.fields?.note ||
-            capture.fields?.error ||
-            "That doesn't look like a business card. Try again with better lighting.",
+          t("capture.couldntReadTitle"),
+          capture.fields?.note || capture.fields?.error || t("capture.notACardMessage"),
         );
         return;
       }
@@ -78,17 +78,16 @@ export default function CaptureScreen() {
         try {
           await enqueue(smallUri);
           setPending(await pendingCount());
-          Alert.alert(
-            "Saved offline",
-            "No connection — the card was saved and will upload automatically next time you open this screen online.",
-          );
+          Alert.alert(t("capture.savedOfflineTitle"), t("capture.savedOfflineMessage"));
         } catch {
-          Alert.alert("Upload failed", "Couldn't reach the server or save the card. Try again.");
+          Alert.alert(t("capture.uploadFailedTitle"), t("capture.uploadFailedGeneric"));
         }
       } else {
         Alert.alert(
-          "Upload failed",
-          error?.response ? `Server error (${error.response.status}). Try again.` : "Could not process the card. Try again.",
+          t("capture.uploadFailedTitle"),
+          error?.response
+            ? t("common.serverError", { status: error.response.status })
+            : t("capture.uploadFailedProcess"),
         );
       }
     } finally {
@@ -104,27 +103,25 @@ export default function CaptureScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.hint}>Snap a business card — it gets read and turned into a lead.</Text>
+      <Text style={styles.hint}>{t("capture.hint")}</Text>
       {pending > 0 && !busy && (
         <TouchableOpacity style={styles.pendingBanner} onPress={retryNow}>
-          <Text style={styles.pendingText}>
-            {pending} card{pending > 1 ? "s" : ""} waiting to upload — tap to retry
-          </Text>
+          <Text style={styles.pendingText}>{t("capture.pending", { count: pending })}</Text>
         </TouchableOpacity>
       )}
       {busy ? (
         <View style={styles.center}>
           {preview && <Image source={{ uri: preview }} style={styles.preview} resizeMode="contain" />}
           <ActivityIndicator color="#7c6fff" size="large" />
-          <Text style={styles.busyText}>Reading the card…</Text>
+          <Text style={styles.busyText}>{t("capture.reading")}</Text>
         </View>
       ) : (
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primary} onPress={() => pickAndUpload("camera")}>
-            <Text style={styles.primaryText}>📷  Take photo</Text>
+            <Text style={styles.primaryText}>{t("capture.takePhoto")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondary} onPress={() => pickAndUpload("library")}>
-            <Text style={styles.secondaryText}>🖼  Choose from library</Text>
+            <Text style={styles.secondaryText}>{t("capture.chooseLibrary")}</Text>
           </TouchableOpacity>
         </View>
       )}

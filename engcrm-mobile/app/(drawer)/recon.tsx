@@ -14,9 +14,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import * as Location from "expo-location";
 import { fetchRecon, ReconContact } from "../../services/api";
 import { ReconContactCard } from "../../components/ReconContactCard";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function ReconScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<ReconContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,18 +30,18 @@ export default function ReconScreen() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (!permission.granted) {
-        setError("Location permission is needed to find nearby leads.");
+        setError(t("recon.locationPermission"));
         return;
       }
       const position = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = position.coords;
       setItems(await fetchRecon(latitude, longitude, notContacted));
     } catch (caught: any) {
-      setError(caught?.message || "Couldn't get your location. Try again.");
+      setError(caught?.message || t("recon.couldntGetLocation"));
     } finally {
       setLoading(false);
     }
-  }, [notContacted]);
+  }, [notContacted, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -56,14 +58,14 @@ export default function ReconScreen() {
 
   function call(contact: ReconContact) {
     if (contact.phone) Linking.openURL(`tel:${contact.phone}`);
-    else Alert.alert("No phone", "No phone number on file for this lead.");
+    else Alert.alert(t("recon.noPhoneTitle"), t("recon.noPhoneMessage"));
   }
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color="#7c6fff" size="large" />
-        <Text style={styles.locating}>Finding leads near you…</Text>
+        <Text style={styles.locating}>{t("recon.locating")}</Text>
       </View>
     );
   }
@@ -76,11 +78,11 @@ export default function ReconScreen() {
           onPress={() => setNotContacted((value) => !value)}
         >
           <Text style={[styles.toggleText, notContacted && styles.toggleTextOn]}>
-            Not contacted only
+            {t("recon.notContactedOnly")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={locate} style={styles.relocate}>
-          <Text style={styles.relocateText}>↻ Re-locate</Text>
+          <Text style={styles.relocateText}>{t("recon.relocate")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -93,11 +95,7 @@ export default function ReconScreen() {
         }
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {error
-              ? error
-              : "No leads with coordinates near you. Scan some cities first."}
-          </Text>
+          <Text style={styles.empty}>{error ? error : t("recon.empty")}</Text>
         }
       />
     </View>

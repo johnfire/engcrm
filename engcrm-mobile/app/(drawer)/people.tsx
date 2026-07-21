@@ -11,9 +11,11 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { fetchPeople, Person } from "../../services/api";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function PeopleScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -41,7 +43,7 @@ export default function PeopleScreen() {
     <View style={styles.container}>
       <TextInput
         style={styles.search}
-        placeholder="Search name, email, city..."
+        placeholder={t("people.searchPlaceholder")}
         placeholderTextColor="#555"
         value={search}
         onChangeText={setSearch}
@@ -88,9 +90,7 @@ export default function PeopleScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {loadError
-                ? "Couldn't load — pull down to refresh"
-                : "No people yet.\nScan a business card to add one."}
+              {loadError ? t("common.couldntLoadRefresh") : t("people.empty")}
             </Text>
           }
         />

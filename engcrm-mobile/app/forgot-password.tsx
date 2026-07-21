@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { requestPasswordReset } from "../services/api";
+import { useTranslation } from "../i18n/I18nContext";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -36,19 +38,15 @@ export default function ForgotPasswordScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.title}>Forgot your password?</Text>
+      <Text style={styles.title}>{t("forgotPassword.title")}</Text>
       {sent ? (
-        <Text style={styles.hint}>
-          If an account exists for that email, we've sent a link to reset your
-          password. It's valid for 1 hour — open it in your browser to set a
-          new one, then come back and sign in.
-        </Text>
+        <Text style={styles.hint}>{t("forgotPassword.sentMessage")}</Text>
       ) : (
         <>
-          <Text style={styles.hint}>Enter your account email and we'll send you a reset link.</Text>
+          <Text style={styles.hint}>{t("forgotPassword.hint")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t("login.emailPlaceholder")}
             placeholderTextColor="#555"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -60,12 +58,12 @@ export default function ForgotPasswordScreen() {
             autoFocus
           />
           <TouchableOpacity style={styles.button} onPress={handleSend} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send reset link</Text>}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t("forgotPassword.submit")}</Text>}
           </TouchableOpacity>
         </>
       )}
       <TouchableOpacity style={styles.back} onPress={() => router.replace("/login")}>
-        <Text style={styles.backText}>Back to sign in</Text>
+        <Text style={styles.backText}>{t("forgotPassword.backToSignIn")}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );

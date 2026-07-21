@@ -13,6 +13,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { fetchContacts, Contact } from "../../services/api";
 import { ContactRow } from "../../components/ContactRow";
+import { useTranslation } from "../../i18n/I18nContext";
 
 const STATUS_FILTERS = [
   "",
@@ -24,19 +25,20 @@ const STATUS_FILTERS = [
   "rejected",
   "dropped",
 ];
-const STATUS_LABELS: Record<string, string> = {
-  "": "All",
-  cold: "Cold",
-  contacted: "Contacted",
-  meeting: "Meeting",
-  proposal: "Proposal",
-  accepted: "Accepted",
-  rejected: "Rejected",
-  dropped: "Dropped",
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  "": "contacts.statusAll",
+  cold: "contacts.statusCold",
+  contacted: "contacts.statusContacted",
+  meeting: "contacts.statusMeeting",
+  proposal: "contacts.statusProposal",
+  accepted: "contacts.statusAccepted",
+  rejected: "contacts.statusRejected",
+  dropped: "contacts.statusDropped",
 };
 
 export default function ContactsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -65,7 +67,7 @@ export default function ContactsScreen() {
     <View style={styles.container}>
       <TextInput
         style={styles.search}
-        placeholder="Search city, name, type..."
+        placeholder={t("contacts.searchPlaceholder")}
         placeholderTextColor="#555"
         value={search}
         onChangeText={setSearch}
@@ -85,7 +87,7 @@ export default function ContactsScreen() {
             onPress={() => setStatus(filter)}
           >
             <Text style={[styles.chipText, status === filter && styles.chipTextActive]}>
-              {STATUS_LABELS[filter]}
+              {t(STATUS_LABEL_KEYS[filter])}
             </Text>
           </TouchableOpacity>
         ))}
@@ -119,7 +121,7 @@ export default function ContactsScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {loadError ? "Couldn't load — pull down to refresh" : "No contacts found"}
+              {loadError ? t("common.couldntLoadRefresh") : t("contacts.notFound")}
             </Text>
           }
         />

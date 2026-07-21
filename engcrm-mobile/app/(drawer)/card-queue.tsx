@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { listPendingCards, PendingCard, CaptureResult } from "../../services/api";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function CardQueueScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<PendingCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -64,7 +66,7 @@ export default function CardQueueScreen() {
           keyExtractor={(capture) => String(capture.id)}
           renderItem={({ item }) => {
             const fields = item.extracted || {};
-            const title = fields.company || fields.name || "Unread card";
+            const title = fields.company || fields.name || t("cardQueue.unreadCard");
             const sub = [fields.name, fields.email].filter(Boolean).join("  ·  ");
             return (
               <TouchableOpacity style={styles.row} onPress={() => review(item)}>
@@ -83,9 +85,7 @@ export default function CardQueueScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {loadError
-                ? "Couldn't load — pull down to refresh."
-                : "No cards waiting for review.\nScanned cards you don’t finish show up here."}
+              {loadError ? t("common.couldntLoadRefresh") : t("cardQueue.emptyTitle")}
             </Text>
           }
         />

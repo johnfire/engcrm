@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { fetchActivity, AgentRun } from "../../services/api";
+import { useTranslation } from "../../i18n/I18nContext";
 
 const STATUS_COLOR: Record<string, string> = {
   running: "#eab308",
@@ -17,6 +18,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function ActivityScreen() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -74,7 +76,7 @@ export default function ActivityScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {loadError ? "Couldn't load — pull down to refresh" : "No activity yet"}
+            {loadError ? t("common.couldntLoadRefresh") : t("activity.empty")}
           </Text>
         }
       />

@@ -16,9 +16,11 @@ import {
 } from "expo-audio";
 import { processVoice } from "../../services/api";
 import { setHandoff } from "../../services/handoff";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function VoiceScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -37,8 +39,8 @@ export default function VoiceScreen() {
         router.push("/(drawer)/voice-confirm");
       } catch (error: any) {
         Alert.alert(
-          "Couldn't process",
-          error?.response ? `Server error (${error.response.status}). Try again.` : error?.message || "Try again.",
+          t("voice.couldntProcessTitle"),
+          error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
         );
       } finally {
         setBusy(false);
@@ -47,7 +49,7 @@ export default function VoiceScreen() {
       try {
         const perm = await requestRecordingPermissionsAsync();
         if (!perm.granted) {
-          Alert.alert("Microphone needed", "Enable mic access to record voice notes.");
+          Alert.alert(t("voice.micNeededTitle"), t("voice.micNeededMessage"));
           return;
         }
         await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
@@ -55,21 +57,18 @@ export default function VoiceScreen() {
         recorder.record();
         setRecording(true);
       } catch (error: any) {
-        Alert.alert("Couldn't start recording", error?.message || "Try again.");
+        Alert.alert(t("voice.couldntStartTitle"), error?.message || t("common.tryAgain"));
       }
     }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.hint}>
-        Tap to record a note about a visit or call. It’s transcribed, matched to a contact, and logged
-        as an interaction with a follow-up.
-      </Text>
+      <Text style={styles.hint}>{t("voice.hint")}</Text>
       {busy ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" size="large" />
-          <Text style={styles.busyText}>Transcribing…</Text>
+          <Text style={styles.busyText}>{t("voice.transcribing")}</Text>
         </View>
       ) : (
         <TouchableOpacity
@@ -78,7 +77,9 @@ export default function VoiceScreen() {
           activeOpacity={0.85}
         >
           <Text style={styles.micIcon}>{recording ? "⏹" : "🎙"}</Text>
-          <Text style={styles.micLabel}>{recording ? "Recording… tap to stop" : "Tap to record"}</Text>
+          <Text style={styles.micLabel}>
+            {recording ? t("voice.recordingTapStop") : t("voice.tapToRecord")}
+          </Text>
         </TouchableOpacity>
       )}
     </View>

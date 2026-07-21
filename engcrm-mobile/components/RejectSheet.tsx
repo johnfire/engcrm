@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { useTranslation } from "../i18n/I18nContext";
 
 interface Props {
   visible: boolean;
@@ -23,6 +24,7 @@ export function RejectSheet({
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useTranslation();
   const [reason, setReason] = useState("");
 
   function handleConfirm() {
@@ -37,12 +39,12 @@ export function RejectSheet({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.sheet}>
-          <Text style={styles.title}>Reject draft</Text>
+          <Text style={styles.title}>{t("rejectSheet.title")}</Text>
           <Text style={styles.subtitle}>{venueName}</Text>
-          <Text style={styles.label}>Reason (optional)</Text>
+          <Text style={styles.label}>{t("rejectSheet.reasonLabel")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Too formal, needs warmer tone"
+            placeholder={t("rejectSheet.reasonPlaceholder")}
             placeholderTextColor="#555"
             value={reason}
             onChangeText={setReason}
@@ -51,10 +53,10 @@ export function RejectSheet({
           />
           <View style={styles.row}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{t("rejectSheet.cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-              <Text style={styles.confirmText}>Confirm Reject</Text>
+              <Text style={styles.confirmText}>{t("rejectSheet.confirmReject")}</Text>
             </TouchableOpacity>
           </View>
         </View>

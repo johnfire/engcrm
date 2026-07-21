@@ -17,21 +17,23 @@ import {
   ResearchOverview,
 } from "../../services/api";
 import { ResearchOverviewPanel } from "../../components/ResearchOverviewPanel";
+import { useTranslation } from "../../i18n/I18nContext";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const COUNTRIES = [
-  { code: "DE", label: "Germany" },
-  { code: "AT", label: "Austria" },
-];
 
 // Per-city stages, in pipeline order. Followup + Run-all are rendered separately.
-const STAGES = [
-  { key: "research", label: "1 · Research" },
-  { key: "scout", label: "2 · Scout" },
-  { key: "enrichment", label: "3 · Enrich" },
+const STAGE_KEYS = [
+  { key: "research", labelKey: "research.stageResearch" },
+  { key: "scout", labelKey: "research.stageScout" },
+  { key: "enrichment", labelKey: "research.stageEnrich" },
 ];
 
 export default function PipelineScreen() {
+  const { t } = useTranslation();
+  const COUNTRIES = [
+    { code: "DE", label: t("research.countryGermany") },
+    { code: "AT", label: t("research.countryAustria") },
+  ];
   const [city, setCity] = useState("");
   const [level, setLevel] = useState(1);
   const [country, setCountry] = useState("DE");
@@ -49,13 +51,13 @@ export default function PipelineScreen() {
     } catch (caught: any) {
       setOverviewError(
         caught?.response
-          ? `Couldn't load status (server error ${caught.response.status}).`
-          : caught?.message || "Couldn't load research status.",
+          ? t("research.couldntLoadStatusServer", { status: caught.response.status })
+          : caught?.message || t("research.couldntLoadStatus"),
       );
     } finally {
       setLoadingOverview(false);
     }
-  }, []);
+  }, [t]);
 
   // Refresh the status table whenever the screen regains focus (e.g. after a
   // scan queued elsewhere finishes) and on pull-to-refresh.
@@ -67,22 +69,20 @@ export default function PipelineScreen() {
 
   async function run(stage: string, label: string, needsCity = true) {
     if (needsCity && !city.trim()) {
-      Alert.alert("City required", "Enter a city first.");
+      Alert.alert(t("research.cityRequiredTitle"), t("research.cityRequiredMessage"));
       return;
     }
     setBusy(stage);
     try {
       await runPipelineStage(stage, { city: city.trim(), level, country });
       Alert.alert(
-        "Queued",
-        `${label} started${needsCity ? ` for ${city.trim()}` : ""}. Watch the Activity screen for progress.`,
+        t("research.queuedTitle"),
+        t("research.queuedMessage", { label, forCity: needsCity ? ` for ${city.trim()}` : "" }),
       );
     } catch (error: any) {
       Alert.alert(
-        "Couldn't start",
-        error?.response
-          ? `Server error (${error.response.status}).`
-          : error?.message || "Try again.",
+        t("research.couldntStartTitle"),
+        error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
       );
     } finally {
       setBusy(null);
@@ -103,22 +103,22 @@ export default function PipelineScreen() {
         />
       }
     >
-      <Text style={styles.sectionTitle}>Pipeline status</Text>
+      <Text style={styles.sectionTitle}>{t("research.pipelineStatus")}</Text>
       <ResearchOverviewPanel error={overviewError} loading={loadingOverview} overview={overview} />
 
       <View style={styles.divider} />
 
-      <Text style={styles.label}>City</Text>
+      <Text style={styles.label}>{t("research.city")}</Text>
       <TextInput
         style={styles.input}
-        placeholder="e.g. München"
+        placeholder={t("research.cityPlaceholder")}
         placeholderTextColor="#555"
         value={city}
         onChangeText={setCity}
         autoCapitalize="words"
       />
 
-      <Text style={styles.label}>Level</Text>
+      <Text style={styles.label}>{t("research.level")}</Text>
       <View style={styles.row}>
         {LEVELS.map((levelOption) => (
           <TouchableOpacity
@@ -135,7 +135,7 @@ export default function PipelineScreen() {
         ))}
       </View>
 
-      <Text style={styles.label}>Country</Text>
+      <Text style={styles.label}>{t("research.country")}</Text>
       <View style={styles.row}>
         {COUNTRIES.map((countryOption) => (
           <TouchableOpacity
@@ -158,63 +158,59 @@ export default function PipelineScreen() {
         ))}
       </View>
 
-      <Text style={styles.label}>Run a stage</Text>
-      {STAGES.map((stage) => (
+      <Text style={styles.label}>{t("research.runAStage")}</Text>
+      {STAGE_KEYS.map((stage) => (
         <TouchableOpacity
           key={stage.key}
           style={[styles.stageBtn, busy === stage.key && styles.btnBusy]}
-          onPress={() => run(stage.key, stage.label)}
+          onPress={() => run(stage.key, t(stage.labelKey))}
           disabled={disabled}
         >
           {busy === stage.key ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.stageText}>{stage.label}</Text>
+            <Text style={styles.stageText}>{t(stage.labelKey)}</Text>
           )}
         </TouchableOpacity>
       ))}
 
       <TouchableOpacity
         style={[styles.allBtn, busy === "all" && styles.btnBusy]}
-        onPress={() => run("all", "Full pipeline")}
+        onPress={() => run("all", t("research.fullPipeline"))}
         disabled={disabled}
       >
         {busy === "all" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.allText}>▶ Run all (research → enrich)</Text>
+          <Text style={styles.allText}>{t("research.runAll")}</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.stageBtn, busy === "outreach" && styles.btnBusy]}
-        onPress={() => run("outreach", "Outreach")}
+        onPress={() => run("outreach", t("research.outreach"))}
         disabled={disabled}
       >
         {busy === "outreach" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.stageText}>Outreach (draft emails)</Text>
+          <Text style={styles.stageText}>{t("research.outreachDraft")}</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.followupBtn, busy === "followup" && styles.btnBusy]}
-        onPress={() => run("followup", "Followup", false)}
+        onPress={() => run("followup", t("research.followup"), false)}
         disabled={disabled}
       >
         {busy === "followup" ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.followupText}>Run Followup (all cities)</Text>
+          <Text style={styles.followupText}>{t("research.runFollowupAllCities")}</Text>
         )}
       </TouchableOpacity>
 
-      <Text style={styles.hint}>
-        Each stage runs in the background and appears on the Activity screen.
-        Stages build on each other — research finds leads, scout scores them,
-        enrich fills in details, outreach drafts emails for approval.
-      </Text>
+      <Text style={styles.hint}>{t("research.hint")}</Text>
     </ScrollView>
   );
 }

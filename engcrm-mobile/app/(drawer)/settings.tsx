@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { API_BASE } from "../../services/api";
+import { API_BASE, updateLanguage } from "../../services/api";
 import { clearToken, getRole } from "../../services/auth";
+import { useTranslation } from "../../i18n/I18nContext";
+import { Language, SUPPORTED_LANGUAGES } from "../../i18n/translate";
+
+// Language names are shown in their own language regardless of the current
+// UI language — the whole point of a language picker is to stay legible to
+// someone who doesn't yet read the active one.
+const LANGUAGE_NAMES: Record<Language, string> = { en: "English", de: "Deutsch" };
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { t, language, setLanguage } = useTranslation();
   const [role, setRole] = useState<string | null>(null);
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
   useEffect(() => {
     getRole().then(setRole);
@@ -17,20 +26,52 @@ export default function SettingsScreen() {
     router.replace("/login");
   }
 
+  async function handleLanguageChange(next: Language) {
+    if (next === language || savingLanguage) return;
+    const previous = language;
+    setLanguage(next); // apply immediately, revert on failure
+    setSavingLanguage(true);
+    try {
+      await updateLanguage(next);
+    } catch {
+      setLanguage(previous);
+      Alert.alert(t("settings.languageUpdateFailedTitle"), t("settings.languageUpdateFailedMessage"));
+    } finally {
+      setSavingLanguage(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.label}>Signed in as</Text>
+        <Text style={styles.label}>{t("settings.signedInAs")}</Text>
         <Text style={styles.value}>{role || "—"}</Text>
       </View>
+      <View style={styles.card}>
+        <Text style={styles.label}>{t("settings.language")}</Text>
+        <View style={styles.languageRow}>
+          {SUPPORTED_LANGUAGES.map((code) => (
+            <TouchableOpacity
+              key={code}
+              style={[styles.languageBtn, language === code && styles.languageBtnActive]}
+              onPress={() => handleLanguageChange(code)}
+              disabled={savingLanguage}
+            >
+              <Text style={[styles.languageText, language === code && styles.languageTextActive]}>
+                {LANGUAGE_NAMES[code]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
       <TouchableOpacity style={styles.logout} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Log out</Text>
+        <Text style={styles.logoutText}>{t("settings.logout")}</Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.impressum}
         onPress={() => Linking.openURL(`${API_BASE}/impressum`)}
       >
-        <Text style={styles.impressumText}>Impressum</Text>
+        <Text style={styles.impressumText}>{t("settings.impressum")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -48,6 +89,17 @@ const styles = StyleSheet.create({
   },
   label: { color: "#888", fontSize: 12, marginBottom: 4 },
   value: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  languageRow: { flexDirection: "row", gap: 10, marginTop: 8 },
+  languageBtn: {
+    flex: 1,
+    backgroundColor: "#ffffff10",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  languageBtnActive: { backgroundColor: "#7c6fff" },
+  languageText: { color: "#888", fontSize: 14, fontWeight: "600" },
+  languageTextActive: { color: "#fff" },
   logout: {
     backgroundColor: "#1a1a2e",
     borderRadius: 12,

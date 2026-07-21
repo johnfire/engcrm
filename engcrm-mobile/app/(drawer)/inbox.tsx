@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import { fetchInbox, classifyMessage, InboxMessage } from "../../services/api";
 import { ClassifySheet } from "../../components/ClassifySheet";
+import { useTranslation } from "../../i18n/I18nContext";
 
 const CLASSIFICATION_COLOR: Record<string, string> = {
   interested: "#22c55e",
@@ -24,6 +25,7 @@ const CLASSIFICATION_COLOR: Record<string, string> = {
 };
 
 export default function InboxScreen() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<InboxMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -63,8 +65,8 @@ export default function InboxScreen() {
       setClassifyTarget(null);
     } catch (error: any) {
       Alert.alert(
-        "Couldn't classify",
-        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+        t("inbox.couldntClassifyTitle"),
+        error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
       );
     }
   }
@@ -97,7 +99,7 @@ export default function InboxScreen() {
                 onPress={() => setClassifyTarget(item)}
               >
                 <Text style={[styles.badgeText, { color }]}>
-                  {item.classification ?? "Classify"}
+                  {item.classification ?? t("inbox.classify")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -113,7 +115,7 @@ export default function InboxScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {loadError ? "Couldn't load — pull down to refresh" : "Inbox is empty"}
+            {loadError ? t("common.couldntLoadRefresh") : t("inbox.empty")}
           </Text>
         }
       />

@@ -17,8 +17,10 @@ import {
 } from "../../services/api";
 import { ApprovalCard } from "../../components/ApprovalCard";
 import { RejectSheet } from "../../components/RejectSheet";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function ApprovalsScreen() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -48,8 +50,8 @@ export default function ApprovalsScreen() {
       setItems((prev) => prev.filter((approval) => approval.id !== id));
     } catch (error: any) {
       Alert.alert(
-        "Couldn't approve",
-        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+        t("approvals.couldntApproveTitle"),
+        error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
       );
     }
   }
@@ -66,8 +68,8 @@ export default function ApprovalsScreen() {
       setRejectTarget(null);
     } catch (error: any) {
       Alert.alert(
-        "Couldn't reject",
-        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+        t("approvals.couldntRejectTitle"),
+        error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
       );
     }
   }
@@ -102,9 +104,7 @@ export default function ApprovalsScreen() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            {loadError
-              ? "Couldn't load — pull down to refresh"
-              : "No pending approvals"}
+            {loadError ? t("common.couldntLoadRefresh") : t("approvals.empty")}
           </Text>
         }
       />

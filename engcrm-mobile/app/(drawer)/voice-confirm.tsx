@@ -13,9 +13,11 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { confirmVoice, VoiceResult } from "../../services/api";
 import { takeHandoff } from "../../services/handoff";
+import { useTranslation } from "../../i18n/I18nContext";
 
 export default function VoiceConfirmScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [result, setResult] = useState<VoiceResult>({} as VoiceResult);
   const [summary, setSummary] = useState("");
   const [followDate, setFollowDate] = useState("");
@@ -45,7 +47,7 @@ export default function VoiceConfirmScreen() {
 
   async function save() {
     if (selected === "new" && !newName.trim()) {
-      Alert.alert("Name needed", "Give the new contact a name, or pick an existing one.");
+      Alert.alert(t("voiceConfirm.nameNeededTitle"), t("voiceConfirm.nameNeededMessage"));
       return;
     }
     setSaving(true);
@@ -57,13 +59,15 @@ export default function VoiceConfirmScreen() {
         follow_up_date: followDate.trim() || null,
         follow_up_text: followText.trim() || null,
       });
-      Alert.alert("Saved", followDate ? "Interaction logged with a follow-up." : "Interaction logged.", [
-        { text: "OK", onPress: () => router.replace("/(drawer)/voice") },
-      ]);
+      Alert.alert(
+        t("voiceConfirm.savedTitle"),
+        followDate ? t("voiceConfirm.savedWithFollowup") : t("voiceConfirm.savedNoFollowup"),
+        [{ text: "OK", onPress: () => router.replace("/(drawer)/voice") }],
+      );
     } catch (error: any) {
       Alert.alert(
-        "Couldn't save",
-        error?.response ? `Server error (${error.response.status}).` : error?.message || "Try again.",
+        t("voiceConfirm.couldntSaveTitle"),
+        error?.response ? t("common.serverError", { status: error.response.status }) : error?.message || t("common.tryAgain"),
       );
     } finally {
       setSaving(false);
@@ -73,10 +77,10 @@ export default function VoiceConfirmScreen() {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.label}>Heard</Text>
+        <Text style={styles.label}>{t("voiceConfirm.heard")}</Text>
         <Text style={styles.transcript}>{result.transcript}</Text>
 
-        <Text style={styles.label}>Contact</Text>
+        <Text style={styles.label}>{t("voiceConfirm.contact")}</Text>
         {candidates.map((candidate) => (
           <TouchableOpacity
             key={candidate.id}
@@ -94,19 +98,19 @@ export default function VoiceConfirmScreen() {
           style={[styles.option, selected === "new" && styles.optionActive]}
           onPress={() => setSelected("new")}
         >
-          <Text style={styles.optionText}>+ New contact</Text>
+          <Text style={styles.optionText}>{t("voiceConfirm.newContact")}</Text>
         </TouchableOpacity>
         {selected === "new" && (
           <TextInput
             style={styles.input}
             value={newName}
             onChangeText={setNewName}
-            placeholder="New contact name"
+            placeholder={t("voiceConfirm.newContactNamePlaceholder")}
             placeholderTextColor="#555"
           />
         )}
 
-        <Text style={styles.label}>Summary</Text>
+        <Text style={styles.label}>{t("voiceConfirm.summary")}</Text>
         <TextInput
           style={[styles.input, styles.multi]}
           value={summary}
@@ -115,30 +119,30 @@ export default function VoiceConfirmScreen() {
           placeholderTextColor="#555"
         />
 
-        <Text style={styles.label}>Follow-up date (YYYY-MM-DD)</Text>
+        <Text style={styles.label}>{t("voiceConfirm.followUpDate")}</Text>
         <TextInput
           style={styles.input}
           value={followDate}
           onChangeText={setFollowDate}
-          placeholder="none"
+          placeholder={t("voiceConfirm.none")}
           placeholderTextColor="#555"
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <Text style={styles.label}>Follow-up action</Text>
+        <Text style={styles.label}>{t("voiceConfirm.followUpAction")}</Text>
         <TextInput
           style={styles.input}
           value={followText}
           onChangeText={setFollowText}
-          placeholder="none"
+          placeholder={t("voiceConfirm.none")}
           placeholderTextColor="#555"
         />
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{t("common.save")}</Text>}
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancel} onPress={() => router.replace("/(drawer)/voice")}>
-          <Text style={styles.cancelText}>Discard</Text>
+          <Text style={styles.cancelText}>{t("voiceConfirm.discard")}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
