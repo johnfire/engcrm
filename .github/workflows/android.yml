@@ -13,7 +13,12 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: android-build
+  # Scoped per-branch/PR so an unrelated push (e.g. a Dependabot PR) can't
+  # cancel an in-progress main build. A stale run on the SAME ref still gets
+  # canceled by a newer push to that ref, which is the intended behavior.
+  # Only one self-hosted runner exists, so if two refs' build jobs land at
+  # the same time, the second one queues rather than colliding.
+  group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
