@@ -1,5 +1,6 @@
-"""Bearer-JWT auth for the mobile JSON API (HS256, 24h). Separate from the
-cookie/session auth used by the server-rendered web UI.
+"""Bearer-JWT auth for the mobile JSON API (HS256, 30-day lifetime via
+TOKEN_EXPIRY_HOURS). Separate from the cookie/session auth used by the
+server-rendered web UI.
 
 Tokens minted for a real user account carry uid + ver (the user's token
 version). On each request the version is checked against the user's current
