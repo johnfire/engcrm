@@ -44,6 +44,9 @@
       Users
     </a>
     {% endif %}
+    <a href="/impressum" {% if request.url.path.startswith('/impressum') %}class="active"{% endif %}>
+      Impressum
+    </a>
   </nav>
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}

@@ -29,6 +29,7 @@ from gcrm.api.routers import (
     contacts,
     drafts,
     inbox,
+    legal,
     marketing,
     people,
     research,
@@ -79,6 +80,7 @@ UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
 
 app.include_router(auth.router)
+app.include_router(legal.router)
 app.include_router(account.router)
 app.include_router(approval.router)
 app.include_router(activity.router)

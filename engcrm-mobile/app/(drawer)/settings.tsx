@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
 import { useRouter } from "expo-router";
+import { API_BASE } from "../../services/api";
 import { clearToken, getRole } from "../../services/auth";
 
 export default function SettingsScreen() {
@@ -24,6 +25,12 @@ export default function SettingsScreen() {
       </View>
       <TouchableOpacity style={styles.logout} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.impressum}
+        onPress={() => Linking.openURL(`${API_BASE}/impressum`)}
+      >
+        <Text style={styles.impressumText}>Impressum</Text>
       </TouchableOpacity>
     </View>
   );
@@ -50,4 +57,6 @@ const styles = StyleSheet.create({
     borderColor: "#ef444455",
   },
   logoutText: { color: "#ef4444", fontSize: 16, fontWeight: "600" },
+  impressum: { marginTop: 24, alignItems: "center" },
+  impressumText: { color: "#555", fontSize: 12 },
 });

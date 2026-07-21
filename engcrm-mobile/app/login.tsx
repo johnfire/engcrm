@@ -8,10 +8,11 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { login } from "../services/api";
+import { API_BASE, login } from "../services/api";
 import { saveToken } from "../services/auth";
 
 export default function LoginScreen() {
@@ -86,6 +87,9 @@ export default function LoginScreen() {
       <TouchableOpacity style={styles.forgot} onPress={() => router.push("/forgot-password")}>
         <Text style={styles.forgotText}>Forgot password?</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.impressum} onPress={() => Linking.openURL(`${API_BASE}/impressum`)}>
+        <Text style={styles.impressumText}>Impressum</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -130,4 +134,6 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   forgot: { marginTop: 20, alignItems: "center" },
   forgotText: { color: "#7c6fff", fontSize: 14 },
+  impressum: { marginTop: 12, alignItems: "center" },
+  impressumText: { color: "#555", fontSize: 12 },
 });

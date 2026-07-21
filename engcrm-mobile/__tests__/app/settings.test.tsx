@@ -1,4 +1,5 @@
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { Linking } from "react-native";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -30,5 +31,14 @@ describe("settings screen", () => {
     fireEvent.press(getByText("Log out"));
     await waitFor(() => expect(mockClearToken).toHaveBeenCalled());
     expect(mockReplace).toHaveBeenCalledWith("/login");
+  });
+
+  it("opens the Impressum page in the browser", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    const { getByText } = render(<SettingsScreen />);
+    await waitFor(() => expect(getByText("admin")).toBeTruthy());
+    fireEvent.press(getByText("Impressum"));
+    expect(openURL).toHaveBeenCalledWith("https://engcrm.christopherrehm.de/impressum");
+    openURL.mockRestore();
   });
 });
