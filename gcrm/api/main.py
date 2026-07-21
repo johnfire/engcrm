@@ -23,6 +23,7 @@ from gcrm.api.routers import (
     api_push,
     api_recon,
     api_research,
+    api_signs,
     api_voice,
     approval,
     contacts,
@@ -98,6 +99,7 @@ app.include_router(api_contacts.router)
 app.include_router(api_activity.router)
 app.include_router(api_research.router)
 app.include_router(api_cards.router)
+app.include_router(api_signs.router)
 app.include_router(api_voice.router)
 app.include_router(api_people.router)
 app.include_router(api_pipeline.router)

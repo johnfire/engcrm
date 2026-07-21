@@ -50,12 +50,20 @@ export default function DrawerLayout() {
       }}
     >
       <Drawer.Screen
+        name="contacts"
+        options={{ title: "Contacts", drawerLabel: "Contacts" }}
+      />
+      <Drawer.Screen
         name="approvals"
         options={{ title: "Approvals", drawerLabel: "Approvals" }}
       />
       <Drawer.Screen
         name="capture"
         options={{ title: "Scan Card", drawerLabel: "📷 Scan Card" }}
+      />
+      <Drawer.Screen
+        name="scan-sign"
+        options={{ title: "Scan Sign", drawerLabel: "🏪 Scan Sign" }}
       />
       <Drawer.Screen
         name="card-queue"
@@ -68,10 +76,6 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="inbox"
         options={{ title: "Inbox", drawerLabel: "Inbox" }}
-      />
-      <Drawer.Screen
-        name="contacts"
-        options={{ title: "Contacts", drawerLabel: "Contacts" }}
       />
       <Drawer.Screen
         name="people"
@@ -112,6 +116,14 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="voice-confirm"
         options={{ drawerItemStyle: { display: "none" }, title: "Voice Note" }}
+      />
+      <Drawer.Screen
+        name="sign-confirm"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: "Review Sign",
+          headerLeft: () => <HeaderBack to="/(drawer)/scan-sign" />,
+        }}
       />
     </Drawer>
   );

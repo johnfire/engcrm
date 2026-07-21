@@ -170,11 +170,11 @@ def _country_code(raw) -> str:
     return c if len(c) == 2 and c.isalpha() else "DE"
 
 
-def promote_to_contact(fields: dict) -> int:
+def promote_to_contact(fields: dict, source: str = "card_capture") -> int:
     """
-    Create a contact (status 'candidate', source 'card_capture') from card fields.
-    company → name, person+title → decision_maker. Returns the new contact id, or
-    0 if save_contact deduped it (email or name+city already exists).
+    Create a contact (status 'candidate') from card (or sign) fields. company →
+    name, person+title → decision_maker. Returns the new contact id, or 0 if
+    save_contact deduped it (email or name+city already exists).
     """
     from gcrm.db.connection import db
     from gcrm.tools.db import save_contact
@@ -203,9 +203,9 @@ def promote_to_contact(fields: dict) -> int:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE contacts SET decision_maker=%s, address=%s, source='card_capture', "
+            "UPDATE contacts SET decision_maker=%s, address=%s, source=%s, "
             "updated_at=NOW() WHERE id=%s",
-            (decision_maker, address, cid),
+            (decision_maker, address, source, cid),
         )
     return cid
 
@@ -237,36 +237,46 @@ def promote_to_person(fields: dict, contact_id: int | None) -> int:
 # ---------------------------------------------------------------------------
 # Enrich a single contact (background task on confirm)
 # ---------------------------------------------------------------------------
+def _run_enrichment_agent(contact_id: int) -> None:
+    """
+    Run the enrichment agent for exactly one contact (fills website/email/phone
+    when missing). Raises on failure — callers decide how to log/notify.
+    Shared by enrich_one() (card confirm) and signs.research_business() (sign
+    confirm) so both capture flows use the same enrichment step.
+    """
+    from gcrm_enrichment_agent import create_enrichment_agent
+
+    from gcrm.config import CHEAP_LLM
+    from gcrm.tools import (
+        fetch_page,
+        finish_run,
+        get_llm,
+        start_run,
+        update_contact_details,
+        web_search,
+    )
+    from gcrm.tools.db import get_contact
+
+    def fetch_one(limit: int = 1, city: str | None = None) -> list[dict]:
+        c = get_contact(contact_id)
+        return [c] if c else []
+
+    agent = create_enrichment_agent(
+        llm=get_llm(CHEAP_LLM),
+        web_search=web_search,
+        fetch_page=fetch_page,
+        fetch_contacts=fetch_one,
+        update_contact=update_contact_details,
+        start_run=start_run,
+        finish_run=finish_run,
+    )
+    agent.invoke({"limit": 1})
+
+
 def enrich_one(contact_id: int) -> None:
     """Run the enrichment agent for one contact, then push when done. Best-effort."""
     try:
-        from gcrm_enrichment_agent import create_enrichment_agent
-
-        from gcrm.config import CHEAP_LLM
-        from gcrm.tools import (
-            fetch_page,
-            finish_run,
-            get_llm,
-            start_run,
-            update_contact_details,
-            web_search,
-        )
-        from gcrm.tools.db import get_contact
-
-        def fetch_one(limit: int = 1, city: str | None = None) -> list[dict]:
-            c = get_contact(contact_id)
-            return [c] if c else []
-
-        agent = create_enrichment_agent(
-            llm=get_llm(CHEAP_LLM),
-            web_search=web_search,
-            fetch_page=fetch_page,
-            fetch_contacts=fetch_one,
-            update_contact=update_contact_details,
-            start_run=start_run,
-            finish_run=finish_run,
-        )
-        agent.invoke({"limit": 1})
+        _run_enrichment_agent(contact_id)
     except Exception:
         logger.exception("enrich_one: enrichment failed for contact %s", contact_id)
         return

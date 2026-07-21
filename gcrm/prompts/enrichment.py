@@ -64,3 +64,43 @@ def enrich_contact_prompt(
         user += "\n\nPage content:\n" + "\n\n".join(page_texts)
 
     return system, user
+
+
+def find_people_prompt(
+    contact: dict,
+    search_results: list[dict],
+    page_texts: list[str] | None = None,
+) -> tuple[str, str]:
+    """
+    Prompt the LLM to extract key people (owners, managers, decision-makers) for
+    a business from web search results and fetched page content. Companion to
+    enrich_contact_prompt — same inputs, different extraction target.
+    """
+    system = (
+        "You are extracting key people (owners, managers, decision-makers) for a "
+        "business from web search results and page content. Return a JSON array "
+        "of objects, each with exactly these fields: "
+        "name (string, required), role (string or null), email (string or null), "
+        "phone (string or null). Only include real named individuals explicitly "
+        "associated with this business — never invent a name. Prefer data from "
+        "page content (Team/Über uns/Impressum pages) over search snippets. "
+        "Return an empty array if no named individuals are found. "
+        "Return ONLY the JSON array, no explanation."
+    )
+
+    snippets = "\n\n".join(
+        f"Title: {result.get('title', '')}\nURL: {result.get('url', '')}\nSnippet: {result.get('snippet', '')}"
+        for result in search_results[:5]
+    ) or "No results found."
+
+    user = (
+        f"Business: {contact.get('name', '')}\n"
+        f"City: {contact.get('city', '')}\n"
+        f"Country: {contact.get('country', 'DE')}\n\n"
+        f"Search snippets:\n{snippets}"
+    )
+
+    if page_texts:
+        user += "\n\nPage content:\n" + "\n\n".join(page_texts)
+
+    return system, user

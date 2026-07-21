@@ -103,7 +103,9 @@ def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 
     Search for venues using Google Places API (New).
     Paginates up to 3 pages (max 60 results) via nextPageToken, and extracts the
     neighborhood (sublocality) from each result's address components.
-    Returns dicts: name, address, city, country, website, phone, email, neighborhood.
+    Returns dicts: name, place_id, address, city, country, website, phone, email,
+    neighborhood. place_id is a Basic-tier field (no extra cost on top of the
+    Enterprise fields already requested here).
     Falls back to empty list if the API key is missing or a request fails.
     """
     from gcrm.config import GOOGLE_MAPS_API_KEY
@@ -118,7 +120,7 @@ def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 
         # status/rating/types/hours at no extra tier. No Atmosphere fields
         # (editorialSummary/reviews/photos) which would bump the SKU.
         "X-Goog-FieldMask": (
-            "places.displayName,places.formattedAddress,places.addressComponents,"
+            "places.id,places.displayName,places.formattedAddress,places.addressComponents,"
             "places.websiteUri,places.nationalPhoneNumber,places.internationalPhoneNumber,"
             "places.location,places.businessStatus,places.types,places.primaryType,"
             "places.primaryTypeDisplayName,places.rating,places.userRatingCount,"
@@ -160,6 +162,7 @@ def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 
             location = place.get("location", {})
             results.append({
                 "name": name,
+                "place_id": place.get("id", ""),
                 "address": place.get("formattedAddress", ""),
                 "city": city,
                 "country": country,

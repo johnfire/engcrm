@@ -201,6 +201,40 @@ export async function listPendingCards(): Promise<PendingCard[]> {
   return resp.data;
 }
 
+// --- Sign capture (storefront sign -> business name -> Places match -> research) ---
+// Same multipart shape as captureCard — don't set Content-Type, RN sets the boundary.
+export async function captureSign(
+  imageUri: string,
+  gps?: { lat: number; lng: number },
+): Promise<SignCaptureResult> {
+  const form = new FormData();
+  form.append("image", { uri: imageUri, name: "sign.jpg", type: "image/jpeg" } as any);
+  if (gps) {
+    form.append("gps_lat", String(gps.lat));
+    form.append("gps_lng", String(gps.lng));
+  }
+  const resp = await client.post("/api/signs", form, { timeout: 60000 });
+  return resp.data;
+}
+
+export async function confirmSign(
+  captureId: number,
+  businessName: string,
+  acceptPlace: boolean,
+  linkToContactId?: number | null,
+): Promise<{ contact_id: number; capture_id: number }> {
+  const resp = await client.post(`/api/signs/${captureId}/confirm`, {
+    business_name: businessName,
+    accept_place: acceptPlace,
+    link_to_contact_id: linkToContactId ?? null,
+  });
+  return resp.data;
+}
+
+export async function discardSign(captureId: number): Promise<void> {
+  await client.post(`/api/signs/${captureId}/discard`);
+}
+
 // --- Types ---
 export interface Approval {
   id: number;
@@ -309,6 +343,41 @@ export interface PendingCard {
   extracted: CardFields | null;
   dup_contact_id: number | null;
   contact_id: number | null;
+}
+
+export interface SignFields {
+  is_sign?: boolean;
+  confidence?: number | null;
+  business_name?: string | null;
+  business_type?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  tagline?: string | null;
+  language?: string | null;
+  note?: string | null;
+  error?: string;
+}
+
+// A Google Place resolved from the sign's business name + GPS. The confirm
+// screen shows this and lets the user accept or reject it before a contact
+// is created — a wrong match otherwise pollutes the CRM (see api_signs.py).
+export interface SignPlace {
+  name: string;
+  place_id: string;
+  address: string;
+  city: string;
+  website: string;
+  phone: string;
+}
+
+export interface SignCaptureResult {
+  capture_id: number;
+  is_sign: boolean;
+  confidence: number | null;
+  fields: SignFields;
+  place: SignPlace | null;
+  dup_suggestion: DupSuggestion | null;
+  cost_usd: number;
 }
 
 // --- Voice capture ---
