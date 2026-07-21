@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ request.session.get('ui_language', 'en') }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,42 +10,42 @@
 </head>
 <body>
   <nav>
-    <span class="nav-brand">AI-CRM Leads</span>
+    <span class="nav-brand">{{ t('nav.brand') }}</span>
     <a href="/approvals/" {% if request.url.path.startswith('/approvals') %}class="active"{% endif %}>
-      Approvals
+      {{ t('nav.approvals') }}
     </a>
     <a href="/contacts/" {% if request.url.path.startswith('/contacts') %}class="active"{% endif %}>
-      Contacts
+      {{ t('nav.contacts') }}
     </a>
     <a href="/activity/" {% if request.url.path.startswith('/activity') %}class="active"{% endif %}>
-      Activity
+      {{ t('nav.activity') }}
     </a>
     <a href="/people/" {% if request.url.path.startswith('/people') %}class="active"{% endif %}>
-      People
+      {{ t('nav.people') }}
     </a>
     <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
-      Research
+      {{ t('nav.research') }}
     </a>
     <a href="/inbox/" {% if request.url.path.startswith('/inbox') %}class="active"{% endif %}>
-      Inbox
+      {{ t('nav.inbox') }}
     </a>
     <a href="/marketing/" {% if request.url.path.startswith('/marketing') %}class="active"{% endif %}>
-      Marketing
+      {{ t('nav.marketing') }}
     </a>
     <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
-      Drafts
+      {{ t('nav.drafts') }}
     </a>
-    <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active"{% endif %}>Settings</a>
+    <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active"{% endif %}>{{ t('nav.settings') }}</a>
     <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
-      Dropped
+      {{ t('nav.dropped') }}
     </a>
     {% if request.session.get('role') == 'admin' %}
     <a href="/users/" {% if request.url.path.startswith('/users') %}class="active"{% endif %}>
-      Users
+      {{ t('nav.users') }}
     </a>
     {% endif %}
     <a href="/impressum" {% if request.url.path.startswith('/impressum') %}class="active"{% endif %}>
-      Impressum
+      {{ t('nav.impressum') }}
     </a>
   </nav>
   <main class="{% block main_class %}{% endblock %}">

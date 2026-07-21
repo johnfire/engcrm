@@ -14,51 +14,51 @@
     <pre class="body-preview">{{ item.draft_body }}</pre>
 
     <details>
-      <summary>Edit before approving</summary>
+      <summary>{{ t('approval.editBeforeApproving') }}</summary>
       <form hx-post="/approvals/{{ item.id }}/edit"
             hx-target="#approval-list"
             hx-swap="innerHTML">
-        <label>Subject
+        <label>{{ t('approval.subjectLabel') }}
           <input type="text" name="final_subject" value="{{ item.draft_subject }}">
         </label>
-        <label>Body
+        <label>{{ t('approval.bodyLabel') }}
           <textarea name="final_body" rows="10">{{ item.draft_body }}</textarea>
         </label>
-        <label>Note (optional)
-          <input type="text" name="note" placeholder="Reason for edit">
+        <label>{{ t('approval.noteLabel') }}
+          <input type="text" name="note" placeholder="{{ t('approval.noteReasonPlaceholder') }}">
         </label>
-        <button type="submit" class="btn-primary">Save &amp; Approve</button>
+        <button type="submit" class="btn-primary">{{ t('approval.saveApprove') }}</button>
       </form>
     </details>
 
     <div class="actions">
-      <span class="muted small" style="margin-right:0.5rem">contact #{{ item.contact_id }}</span>
+      <span class="muted small" style="margin-right:0.5rem">{{ t('approval.contactHash', id=item.contact_id) }}</span>
       {% if item.website %}
-      <a href="{{ item.website }}" target="_blank" rel="noopener" class="btn-secondary">Website</a>
+      <a href="{{ item.website }}" target="_blank" rel="noopener" class="btn-secondary">{{ t('common.website') }}</a>
       {% endif %}
       <form hx-post="/approvals/{{ item.id }}/approve"
             hx-target="#approval-list"
             hx-swap="innerHTML"
             style="display:inline">
-        <button type="submit" class="btn-primary">Approve</button>
+        <button type="submit" class="btn-primary">{{ t('approval.approve') }}</button>
       </form>
       <form hx-post="/approvals/{{ item.id }}/reject"
             hx-target="#approval-list"
             hx-swap="innerHTML"
             style="display:inline">
-        <input type="text" name="note" placeholder="Reason (optional)">
-        <button type="submit" class="btn-danger">Reject</button>
+        <input type="text" name="note" placeholder="{{ t('approval.rejectReasonPlaceholder') }}">
+        <button type="submit" class="btn-danger">{{ t('approval.reject') }}</button>
       </form>
       <form hx-post="/approvals/{{ item.id }}/delete"
             hx-target="#approval-list"
             hx-swap="innerHTML"
-            hx-confirm="Delete this draft permanently?"
+            hx-confirm="{{ t('approval.deleteConfirm') }}"
             style="display:inline">
-        <button type="submit" class="btn-danger" style="background:#555">Delete</button>
+        <button type="submit" class="btn-danger" style="background:#555">{{ t('approval.delete') }}</button>
       </form>
     </div>
   </article>
   {% endfor %}
 {% else %}
-  <p class="empty">No pending approvals.</p>
+  <p class="empty">{{ t('approval.noPending') }}</p>
 {% endif %}

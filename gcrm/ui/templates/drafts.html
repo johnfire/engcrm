@@ -1,11 +1,8 @@
-{% extends "base.html" %} {% block title %}Held Drafts — AI-CRM Leads{% endblock
+{% extends "base.html" %} {% block title %}{{ t('drafts.title') }} — {{ t('nav.brand') }}{% endblock
 %} {% block content %}
 <div class="page-header">
-  <h1>Held Drafts</h1>
-  <span class="muted"
-    >{{ drafts|length }} email{{ 's' if drafts|length != 1 else '' }} on
-    hold</span
-  >
+  <h1>{{ t('drafts.title') }}</h1>
+  <span class="muted">{{ t('drafts.onHold', count=drafts|length) }}</span>
 </div>
 
 <div id="drafts-list">{% include "partials/drafts_list.html" %}</div>

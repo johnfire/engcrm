@@ -1,9 +1,9 @@
-{% extends "base.html" %} {% block title %}Contacts — EngCRM{% endblock %} {%
-block main_class %}main-wide{% endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}{{ t('contacts.title') }} — {{ t('nav.brand') }}{%
+endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
-  <h1>Contacts</h1>
+  <h1>{{ t('contacts.title') }}</h1>
   <span class="muted"
-    >{{ total }} total — page {{ page }} of {{ total_pages }}</span
+    >{{ t('contacts.totalPage', total=total, page=page, totalPages=total_pages) }}</span
   >
 </div>
 
@@ -14,10 +14,10 @@ block main_class %}main-wide{% endblock %} {% block content %}
     type="text"
     name="q"
     value="{{ query }}"
-    placeholder="Search name or city…"
+    placeholder="{{ t('contacts.searchPlaceholder') }}"
   />
   <select name="status">
-    <option value="">All statuses</option>
+    <option value="">{{ t('contacts.allStatuses') }}</option>
     {% for s in statuses %}
     <option value="{{ s }}" {% if s == active_status %}selected{% endif %}>
       {{ s }}
@@ -25,34 +25,34 @@ block main_class %}main-wide{% endblock %} {% block content %}
     {% endfor %}
   </select>
   <select name="type">
-    <option value="">All types</option>
-    {% for t in types %}
-    <option value="{{ t }}" {% if t == active_type %}selected{% endif %}>
-      {{ t }}
+    <option value="">{{ t('contacts.allTypes') }}</option>
+    {% for t_ in types %}
+    <option value="{{ t_ }}" {% if t_ == active_type %}selected{% endif %}>
+      {{ t_ }}
     </option>
     {% endfor %}
   </select>
   <select name="has_contact">
     <option value="" {% if has_contact == "" %}selected{% endif %}>
-      Any contact date
+      {{ t('contacts.anyContactDate') }}
     </option>
     <option value="1" {% if has_contact == "1" %}selected{% endif %}>
-      Has contact date
+      {{ t('contacts.hasContactDate') }}
     </option>
     <option value="0" {% if has_contact == "0" %}selected{% endif %}>
-      No contact date
+      {{ t('contacts.noContactDate') }}
     </option>
   </select>
-  <button type="submit" class="btn-primary">Filter</button>
+  <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
   {% if query or active_status or active_type or has_contact %}
-  <a href="/contacts/" class="muted" style="align-self: center">clear</a>
+  <a href="/contacts/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
   {% endif %}
   <a
     href="/contacts/print?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&sort={{ sort }}&dir={{ dir }}"
     target="_blank"
     class="btn-secondary"
     style="padding: 0.35rem 0.8rem; text-decoration: none"
-    >Print / PDF</a
+    >{{ t('contacts.printPdf') }}</a
   >
 </form>
 
@@ -69,16 +69,16 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
   <thead>
     <tr>
       <th class="star-col"></th>
-      <th>{{ sort_link('id', '#') }}</th>
-      <th>{{ sort_link('name', 'Name') }}</th>
-      <th>{{ sort_link('city', 'City') }}</th>
-      <th>{{ sort_link('type', 'Type') }}</th>
-      <th>{{ sort_link('status', 'Status') }}</th>
-      <th>{{ sort_link('fit', 'Fit') }}</th>
-      <th>{{ sort_link('last_contact', 'Last contact') }}</th>
-      <th>Email</th>
-      <th>Website</th>
-      <th>Notes</th>
+      <th>{{ sort_link('id', t('contacts.colId')) }}</th>
+      <th>{{ sort_link('name', t('common.name')) }}</th>
+      <th>{{ sort_link('city', t('common.city')) }}</th>
+      <th>{{ sort_link('type', t('common.type')) }}</th>
+      <th>{{ sort_link('status', t('common.status')) }}</th>
+      <th>{{ sort_link('fit', t('contacts.colFit')) }}</th>
+      <th>{{ sort_link('last_contact', t('contacts.colLastContact')) }}</th>
+      <th>{{ t('common.email') }}</th>
+      <th>{{ t('common.website') }}</th>
+      <th>{{ t('common.notes') }}</th>
       <th></th>
     </tr>
   </thead>
@@ -121,16 +121,16 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
           method="post"
           action="/contacts/{{ c.id }}/delete"
           style="display: inline"
-          onsubmit="return confirm('Delete {{ c.name }}?')"
+          onsubmit="return confirm('{{ t('contacts.deleteConfirm', name=c.name) }}')"
         >
-          <button class="btn-danger btn-tiny">del</button>
+          <button class="btn-danger btn-tiny">{{ t('contacts.del') }}</button>
         </form>
         <form
           method="post"
           action="/contacts/{{ c.id }}/unflag"
           style="display: inline"
         >
-          <button class="btn-tiny">keep</button>
+          <button class="btn-tiny">{{ t('contacts.keep') }}</button>
         </form>
         {% endif %}
       </td>
@@ -139,22 +139,22 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
   </tbody>
 </table>
 {% else %}
-<p class="empty">No contacts found.</p>
+<p class="empty">{{ t('contacts.noContactsFound') }}</p>
 {% endif %} {% if total_pages > 1 %}
 <div class="pagination">
   {% if page > 1 %}
   <a
     href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
     class="btn-secondary"
-    >← Prev</a
+    >{{ t('common.prev') }}</a
   >
   {% endif %}
-  <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+  <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
   {% if page < total_pages %}
   <a
     href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
     class="btn-secondary"
-    >Next →</a
+    >{{ t('common.next') }}</a
   >
   {% endif %}
 </div>

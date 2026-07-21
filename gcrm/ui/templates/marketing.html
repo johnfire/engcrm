@@ -1,8 +1,8 @@
-{% extends "base.html" %} {% block title %}Marketing — AI-CRM Leads{% endblock
+{% extends "base.html" %} {% block title %}{{ t('marketing.title') }} — {{ t('nav.brand') }}{% endblock
 %} {% block content %}
 <div class="page-header">
-  <h1>Marketing</h1>
-  <span class="muted">Weekly strategy digest</span>
+  <h1>{{ t('marketing.title') }}</h1>
+  <span class="muted">{{ t('marketing.weeklyDigest') }}</span>
 </div>
 
 {% if digest %}
@@ -10,7 +10,7 @@
   <h2
     style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;"
   >
-    Digest — {{ digest.week_date }}
+    {{ t('marketing.digestHeader', date=digest.week_date) }}
   </h2>
   <div class="digest-content" style="max-width:72ch; line-height:1.7;">
     {# Renders escaped by default. If the digest feature is wired up to show rich
@@ -21,22 +21,22 @@
 </section>
 {% else %}
 <section style="margin-bottom: 2rem;">
-  <p class="muted">No digest yet.</p>
+  <p class="muted">{{ t('marketing.noDigest') }}</p>
 </section>
 {% endif %} {% if strategies %}
 <section style="margin-bottom: 2rem;">
   <h2
     style="font-size:1rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:.75rem;"
   >
-    Strategies
+    {{ t('marketing.strategies') }}
   </h2>
   <table>
     <thead>
       <tr>
-        <th>Name</th>
-        <th>Status</th>
-        <th>Priority</th>
-        <th>Last reviewed</th>
+        <th>{{ t('common.name') }}</th>
+        <th>{{ t('common.status') }}</th>
+        <th>{{ t('marketing.priority') }}</th>
+        <th>{{ t('marketing.lastReviewed') }}</th>
       </tr>
     </thead>
     <tbody>

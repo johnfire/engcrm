@@ -1,12 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Account settings{% endblock %}
-{% block content %}<h1>Account settings</h1>
+{% block title %}{{ t('settings.title') }}{% endblock %}
+{% block content %}<h1>{{ t('settings.title') }}</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if message %}<p>{{ message }}</p>{% endif %}
-<section class="card"><h2>Change password</h2><form method="post" action="/settings/password">
-<label>Current password <input type="password" name="current_password" required autocomplete="current-password"></label>
-<label>New password <input type="password" name="new_password" required minlength="12" autocomplete="new-password"></label>
-<button type="submit">Change password</button></form></section>
-<section class="card"><h2>Session</h2>
-<form method="post" action="/logout"><button type="submit">Log out</button></form>
+<section class="card"><h2>{{ t('settings.changePasswordHeader') }}</h2><form method="post" action="/settings/password">
+<label>{{ t('settings.currentPasswordLabel') }} <input type="password" name="current_password" required autocomplete="current-password"></label>
+<label>{{ t('settings.newPasswordLabel') }} <input type="password" name="new_password" required minlength="12" autocomplete="new-password"></label>
+<button type="submit">{{ t('settings.submit') }}</button></form></section>
+<section class="card"><h2>{{ t('settings.languageHeader') }}</h2><form method="post" action="/settings/language">
+<label>
+  <select name="ui_language">
+    <option value="en" {% if request.session.get('ui_language', 'en') == 'en' %}selected{% endif %}>English</option>
+    <option value="de" {% if request.session.get('ui_language', 'en') == 'de' %}selected{% endif %}>Deutsch</option>
+  </select>
+</label>
+<button type="submit">{{ t('common.save') }}</button></form></section>
+<section class="card"><h2>{{ t('settings.sessionHeader') }}</h2>
+<form method="post" action="/logout"><button type="submit">{{ t('settings.logout') }}</button></form>
 </section>{% endblock %}

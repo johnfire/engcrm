@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Dropped Prospects — AI-CRM Leads{% endblock %}
+{% block title %}{{ t('dropped.title') }} — {{ t('nav.brand') }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Dropped Prospects</h1>
-  <span class="muted">{{ items|length }} total</span>
+  <h1>{{ t('dropped.title') }}</h1>
+  <span class="muted">{{ t('dropped.totalCount', count=items|length) }}</span>
 </div>
 
 {% if items %}
@@ -18,13 +18,13 @@
         {% if item.reviewer_note %}<span class="muted small"> · {{ item.reviewer_note }}</span>{% endif %}
       </div>
       <span class="muted small">
-        Rejected {{ item.reviewed_at.strftime('%Y-%m-%d') if item.reviewed_at else '—' }}
+        {{ t('dropped.rejected', date=(item.reviewed_at.strftime('%Y-%m-%d') if item.reviewed_at else '—')) }}
       </span>
     </div>
     <div class="subject">{{ item.draft_subject }}</div>
   </article>
   {% endfor %}
 {% else %}
-  <p class="empty">No rejected prospects yet.</p>
+  <p class="empty">{{ t('dropped.noRejected') }}</p>
 {% endif %}
 {% endblock %}

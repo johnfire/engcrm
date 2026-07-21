@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ request.session.get('ui_language', 'en') }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -153,39 +153,39 @@
     </div>
 
     <div class="brief-section">
-      <h2>At a glance</h2>
+      <h2>{{ t('contactBrief.atAGlance') }}</h2>
       {% if contact.decision_maker %}
       <div class="brief-row">
-        <span class="brief-label">Decision maker</span>
+        <span class="brief-label">{{ t('contactBrief.decisionMaker') }}</span>
         <span class="brief-val">{{ contact.decision_maker }}</span>
       </div>
       {% endif %} {% if contact.best_visit_time %}
       <div class="brief-row">
-        <span class="brief-label">Best time</span>
+        <span class="brief-label">{{ t('contactBrief.bestTime') }}</span>
         <span class="brief-val">{{ contact.best_visit_time }}</span>
       </div>
       {% endif %} {% if contact.visit_duration %}
       <div class="brief-row">
-        <span class="brief-label">Duration</span>
+        <span class="brief-label">{{ t('contactBrief.duration') }}</span>
         <span class="brief-val">{{ contact.visit_duration }}</span>
       </div>
       {% endif %} {% if contact.phone %}
       <div class="brief-row">
-        <span class="brief-label">Phone</span>
+        <span class="brief-label">{{ t('common.phone') }}</span>
         <span class="brief-val"
           ><a href="tel:{{ contact.phone }}">{{ contact.phone }}</a></span
         >
       </div>
       {% endif %} {% if contact.email %}
       <div class="brief-row">
-        <span class="brief-label">Email</span>
+        <span class="brief-label">{{ t('common.email') }}</span>
         <span class="brief-val"
           ><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></span
         >
       </div>
       {% endif %} {% if contact.website %}
       <div class="brief-row">
-        <span class="brief-label">Website</span>
+        <span class="brief-label">{{ t('common.website') }}</span>
         <span class="brief-val"
           ><a href="{{ contact.website }}" target="_blank"
             >{{ contact.website }}</a
@@ -194,7 +194,7 @@
       </div>
       {% endif %} {% if contact.address %}
       <div class="brief-row">
-        <span class="brief-label">Address</span>
+        <span class="brief-label">{{ t('common.address') }}</span>
         <span class="brief-val">
           <a
             href="https://www.google.com/maps/search/{{ (contact.address ~ ' ' ~ (contact.city or '')) | urlencode }}"
@@ -205,12 +205,12 @@
       </div>
       {% elif contact.city %}
       <div class="brief-row">
-        <span class="brief-label">Maps</span>
+        <span class="brief-label">{{ t('contactBrief.maps') }}</span>
         <span class="brief-val">
           <a
             href="https://www.google.com/maps/search/{{ (contact.name ~ ' ' ~ (contact.city or '')) | urlencode }}"
             target="_blank"
-            >Search {{ contact.name }} in Maps ↗</a
+            >{{ t('contactBrief.searchInMaps', name=contact.name) }}</a
           >
         </span>
       </div>
@@ -218,30 +218,30 @@
     </div>
 
     <div class="brief-section">
-      <h2>Your history</h2>
+      <h2>{{ t('contactBrief.yourHistory') }}</h2>
       {% if contact.last_visited_at %}
       <div class="brief-row">
-        <span class="brief-label">Last visited</span>
+        <span class="brief-label">{{ t('contactBrief.lastVisited') }}</span>
         <span class="brief-val">{{ contact.last_visited_at }}</span>
       </div>
       {% endif %} {% if contact.first_impression %}
       <div class="brief-row">
-        <span class="brief-label">First impression</span>
+        <span class="brief-label">{{ t('contactBrief.firstImpression') }}</span>
         <span class="brief-val">{{ contact.first_impression }}</span>
       </div>
       {% endif %} {% if contact.last_impression %}
       <div class="brief-row">
-        <span class="brief-label">Last impression</span>
+        <span class="brief-label">{{ t('contactBrief.lastImpression') }}</span>
         <span class="brief-val">{{ contact.last_impression }}</span>
       </div>
       {% endif %} {% if contact.materials_left %}
       <div class="brief-row">
-        <span class="brief-label">Materials left</span>
+        <span class="brief-label">{{ t('contactBrief.materialsLeft') }}</span>
         <span class="brief-val">{{ contact.materials_left }}</span>
       </div>
       {% endif %} {% if contact.followup_promised %}
       <div class="brief-row">
-        <span class="brief-label">Follow-up promised</span>
+        <span class="brief-label">{{ t('contactBrief.followupPromised') }}</span>
         <span class="brief-val">{{ contact.followup_promised }}</span>
       </div>
       {% endif %} {% if interactions %}
@@ -269,37 +269,37 @@
       </ul>
       {% else %}
       <p class="no-data" style="margin-top: 0.5rem">
-        No interactions logged yet.
+        {{ t('contactBrief.noInteractions') }}
       </p>
       {% endif %}
     </div>
 
     <div class="brief-section">
-      <h2>Venue intel</h2>
+      <h2>{{ t('contactBrief.venueIntel') }}</h2>
       {% if contact.space_notes %}
       <div class="brief-row">
-        <span class="brief-label">Space</span>
+        <span class="brief-label">{{ t('contactBrief.space') }}</span>
         <span class="brief-val">{{ contact.space_notes }}</span>
       </div>
       {% endif %} {% if contact.access_notes %}
       <div class="brief-row">
-        <span class="brief-label">Access</span>
+        <span class="brief-label">{{ t('contactBrief.access') }}</span>
         <span class="brief-val">{{ contact.access_notes }}</span>
       </div>
       {% endif %} {% if contact.price_sensitivity %}
       <div class="brief-row">
-        <span class="brief-label">Price sensitivity</span>
+        <span class="brief-label">{{ t('contactBrief.priceSensitivity') }}</span>
         <span class="brief-val">{{ contact.price_sensitivity }}</span>
       </div>
       {% endif %} {% if not contact.space_notes and not contact.access_notes and
       not contact.price_sensitivity %}
-      <p class="no-data">No venue notes yet.</p>
+      <p class="no-data">{{ t('contactBrief.noVenueNotes') }}</p>
       {% endif %}
     </div>
 
     {% if contact.notes %}
     <div class="brief-section">
-      <h2>Notes</h2>
+      <h2>{{ t('common.notes') }}</h2>
       <p style="font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap">
         {{ contact.notes }}
       </p>
@@ -307,19 +307,19 @@
     {% endif %}
 
     <div class="interview-box">
-      <h2>After the meeting</h2>
+      <h2>{{ t('contactBrief.afterMeeting') }}</h2>
       <p style="font-size: 0.85rem; margin: 0 0 0.25rem">
-        Run the debrief interview in your terminal:
+        {{ t('contactBrief.runDebrief') }}
       </p>
       <code>engcrm-interview</code>
       <p style="font-size: 0.8rem; color: #888; margin: 0.5rem 0 0">
-        It will ask for company name "{{ contact.name }}" — search for it there.
+        {{ t('contactBrief.searchCompanyHint', name=contact.name) }}
       </p>
     </div>
 
     <div class="brief-actions">
-      <a href="/contacts/{{ contact.id }}" class="btn-edit">Edit record</a>
-      <a href="/contacts/" class="btn-back">← All contacts</a>
+      <a href="/contacts/{{ contact.id }}" class="btn-edit">{{ t('contactBrief.editRecord') }}</a>
+      <a href="/contacts/" class="btn-back">{{ t('contactBrief.allContacts') }}</a>
     </div>
   </body>
 </html>

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ request.session.get('ui_language', 'en') }}">
   <head>
     <meta charset="UTF-8" />
     <title>
-      Contacts{% if active_filters %} — {{ active_filters | join(', ') }}{%
+      {{ t('contacts.title') }}{% if active_filters %} — {{ active_filters | join(', ') }}{%
       endif %}
     </title>
     <style>
@@ -101,10 +101,10 @@
   </head>
   <body>
     <h1>
-      Contacts{% if active_filters %} — {{ active_filters | join(' · ') }}{%
+      {{ t('contacts.title') }}{% if active_filters %} — {{ active_filters | join(' · ') }}{%
       endif %}
     </h1>
-    <p class="meta">{{ total }} contacts · {{ now }}</p>
+    <p class="meta">{{ t('contactsPrint.totalContacts', total=total, date=now) }}</p>
 
     <table>
       <colgroup>
@@ -119,14 +119,14 @@
       </colgroup>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>City</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Fit</th>
-          <th>Email</th>
-          <th>Website</th>
-          <th>Notes</th>
+          <th>{{ t('common.name') }}</th>
+          <th>{{ t('common.city') }}</th>
+          <th>{{ t('common.type') }}</th>
+          <th>{{ t('common.status') }}</th>
+          <th>{{ t('contactsPrint.colFit') }}</th>
+          <th>{{ t('common.email') }}</th>
+          <th>{{ t('common.website') }}</th>
+          <th>{{ t('common.notes') }}</th>
         </tr>
       </thead>
       <tbody>

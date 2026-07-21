@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Users — EngCRM{% endblock %}
+{% block title %}{{ t('users.title') }} — {{ t('nav.brand') }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Users</h1>
+  <h1>{{ t('users.title') }}</h1>
 </div>
 
 {% if flash %}
@@ -14,7 +14,7 @@
     <div class="card">
       <strong>{{ flash.msg }}</strong>
       {% if flash.pw %}
-        <div style="margin-top:8px">Password (shown once — copy it now):
+        <div style="margin-top:8px">{{ t('users.passwordShownOnce') }}
           <code style="font-size:15px">{{ flash.pw }}</code>
         </div>
       {% endif %}
@@ -23,15 +23,15 @@
 {% endif %}
 
 <div class="card">
-  <div class="card-header">Add user</div>
+  <div class="card-header">{{ t('users.addUser') }}</div>
   <form method="post" action="/users/add" class="user-add-form">
-    <input type="email" name="email" placeholder="email@domain.com" required>
-    <input type="text" name="name" placeholder="Name (optional)">
+    <input type="email" name="email" placeholder="{{ t('users.emailPlaceholder') }}" required>
+    <input type="text" name="name" placeholder="{{ t('users.namePlaceholder') }}">
     <select name="role">
       {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
     </select>
-    <input type="text" name="password" placeholder="Password (blank = auto-generate)">
-    <button type="submit" class="btn-primary">Add user</button>
+    <input type="text" name="password" placeholder="{{ t('users.passwordPlaceholder') }}">
+    <button type="submit" class="btn-primary">{{ t('users.addUser') }}</button>
   </form>
 </div>
 
@@ -39,7 +39,7 @@
 <table>
   <thead>
     <tr>
-      <th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th>
+      <th>{{ t('common.email') }}</th><th>{{ t('common.name') }}</th><th>{{ t('users.role') }}</th><th>{{ t('common.status') }}</th><th>{{ t('users.lastLogin') }}</th><th>{{ t('common.actions') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -49,21 +49,21 @@
       <td>{{ u.name or '—' }}</td>
       <td><span class="badge badge-{{ 'completed' if u.role == 'admin' else 'candidate' }}">{{ u.role }}</span></td>
       <td>
-        {% if u.is_active %}<span class="badge badge-running">active</span>
-        {% else %}<span class="badge badge-dropped">disabled</span>{% endif %}
+        {% if u.is_active %}<span class="badge badge-running">{{ t('users.active') }}</span>
+        {% else %}<span class="badge badge-dropped">{{ t('users.disabled') }}</span>{% endif %}
       </td>
-      <td class="muted">{{ u.last_login_at or 'never' }}</td>
+      <td class="muted">{{ u.last_login_at or t('common.never') }}</td>
       <td style="white-space:nowrap">
         <form method="post" action="/users/passwd" style="display:inline"
-              onsubmit="return confirm('Reset password for {{ u.email }}?')">
+              onsubmit="return confirm('{{ t('users.resetConfirm', email=u.email) }}')">
           <input type="hidden" name="email" value="{{ u.email }}">
-          <button type="submit" class="btn-tiny btn-secondary">Reset PW</button>
+          <button type="submit" class="btn-tiny btn-secondary">{{ t('users.resetPw') }}</button>
         </form>
         <form method="post" action="/users/active" style="display:inline">
           <input type="hidden" name="email" value="{{ u.email }}">
           <input type="hidden" name="active" value="{{ '0' if u.is_active else '1' }}">
           <button type="submit" class="btn-tiny {{ 'btn-danger' if u.is_active else 'btn-secondary' }}">
-            {{ 'Disable' if u.is_active else 'Enable' }}
+            {{ t('users.disable') if u.is_active else t('users.enable') }}
           </button>
         </form>
       </td>
@@ -72,7 +72,7 @@
   </tbody>
 </table>
 {% else %}
-<p class="muted">No users yet. Add the first admin above, then we can retire the shared break-glass password.</p>
+<p class="muted">{{ t('users.noUsersYet') }}</p>
 {% endif %}
 
 <style>

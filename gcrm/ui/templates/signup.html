@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><title>Create account</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main class="card" style="max-width:32rem;margin:4rem auto"><h1>Create account</h1>
+<html lang="{{ request.session.get('ui_language', 'en') }}"><head><meta charset="UTF-8"><title>{{ t('signup.pageTitle') }}</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main class="card" style="max-width:32rem;margin:4rem auto"><h1>{{ t('signup.title') }}</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <form method="post" action="/signup">
-<label>Email <input type="email" name="email" required autocomplete="email"></label>
-<label>Name <input name="name" autocomplete="name"></label>
-<label>Invitation code <input name="invitation_token" required></label>
-<label>Password <input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
-<button type="submit">Create account</button></form><p><a href="/login">Sign in</a></p></main></body></html>
+<label>{{ t('signup.emailLabel') }} <input type="email" name="email" required autocomplete="email"></label>
+<label>{{ t('signup.nameLabel') }} <input name="name" autocomplete="name"></label>
+<label>{{ t('signup.invitationLabel') }} <input name="invitation_token" required></label>
+<label>{{ t('signup.passwordLabel') }} <input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
+<button type="submit">{{ t('signup.submit') }}</button></form><p><a href="/login">{{ t('signup.signIn') }}</a></p></main></body></html>

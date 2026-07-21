@@ -1,15 +1,14 @@
-{% extends "base.html" %} {% block title %}Research — AI-CRM Leads{% endblock %}
+{% extends "base.html" %} {% block title %}{{ t('research.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Research</h1>
+  <h1>{{ t('research.title') }}</h1>
   <span class="muted"
-    >{{ total }} cities — {{ level1_done }} level 1 done — {{ unscanned }}
-    unscanned</span
+    >{{ t('research.statsLine', total=total, level1Done=level1_done, unscanned=unscanned) }}</span
   >
 </div>
 
 {% if queued %}
-<div class="run-banner ok">Queued <strong>{{ queued }}</strong> — watch the Activity page for progress.</div>
+<div class="run-banner ok">{{ t('research.queued', stage=queued) }}</div>
 {% endif %}
 {% if error %}
 <div class="run-banner err">{{ error }}</div>
@@ -18,11 +17,10 @@
 {% if city_confirm %}
 <div class="city-confirm">
   {% if city_confirm.candidates %}
-  <p>You entered "<strong>{{ city_confirm.typed }}</strong>". Did you mean:</p>
+  <p>{{ t('research.didYouMean', typed=city_confirm.typed) }}</p>
   {% else %}
   <p>
-    Couldn't find "<strong>{{ city_confirm.typed }}</strong>" in
-    {{ city_confirm.country }} — check the spelling, or run it as typed:
+    {{ t('research.couldNotFind', typed=city_confirm.typed, country=city_confirm.country) }}
   </p>
   {% endif %}
   <div class="city-confirm-row">
@@ -44,29 +42,29 @@
       <input type="hidden" name="country" value="{{ city_confirm.country }}" />
       <input type="hidden" name="city" value="{{ city_confirm.typed }}" />
       <input type="hidden" name="confirmed" value="1" />
-      <button type="submit" class="ghost">Use "{{ city_confirm.typed }}" as typed</button>
+      <button type="submit" class="ghost">{{ t('research.useAsTyped', typed=city_confirm.typed) }}</button>
     </form>
-    <a href="/research/" class="cancel-link">Cancel</a>
+    <a href="/research/" class="cancel-link">{{ t('research.cancel') }}</a>
   </div>
 </div>
 {% endif %}
 
 <form method="post" action="/research/run" class="pipeline-run">
-  <input type="text" name="city" placeholder="City" value="{{ ran_city }}" autocomplete="off" />
-  <select name="level" aria-label="Level">
+  <input type="text" name="city" placeholder="{{ t('research.cityPlaceholder') }}" value="{{ ran_city }}" autocomplete="off" />
+  <select name="level" aria-label="{{ t('research.level') }}">
     {% for lvl in levels %}<option value="{{ lvl }}">L{{ lvl }}</option>{% endfor %}
   </select>
-  <select name="country" aria-label="Country">
+  <select name="country" aria-label="{{ t('research.country') }}">
     <option value="DE">DE</option>
     <option value="AT">AT</option>
   </select>
-  <button type="submit" name="stage" value="research">Research</button>
-  <button type="submit" name="stage" value="scout">Scout</button>
-  <button type="submit" name="stage" value="enrichment">Enrich</button>
-  <button type="submit" name="stage" value="all" class="primary">Run all (research → enrich)</button>
-  <button type="submit" name="stage" value="outreach">Outreach</button>
+  <button type="submit" name="stage" value="research">{{ t('research.research') }}</button>
+  <button type="submit" name="stage" value="scout">{{ t('research.scout') }}</button>
+  <button type="submit" name="stage" value="enrichment">{{ t('research.enrich') }}</button>
+  <button type="submit" name="stage" value="all" class="primary">{{ t('research.runAll') }}</button>
+  <button type="submit" name="stage" value="outreach">{{ t('research.outreach') }}</button>
   <button type="submit" name="stage" value="followup" class="ghost">
-    Followup (all cities)
+    {{ t('research.followupAllCities') }}
   </button>
 </form>
 
@@ -93,32 +91,32 @@
 <div class="stats-row">
   <div class="stat">
     <span class="stat-value">{{ total }}</span>
-    <span class="stat-label">cities</span>
+    <span class="stat-label">{{ t('research.cities') }}</span>
   </div>
   <div class="stat">
     <span class="stat-value">{{ level1_done }}</span>
-    <span class="stat-label">level 1 done</span>
+    <span class="stat-label">{{ t('research.level1Done') }}</span>
   </div>
   <div class="stat">
     <span class="stat-value">{{ unscanned }}</span>
-    <span class="stat-label">unscanned</span>
+    <span class="stat-label">{{ t('research.unscanned') }}</span>
   </div>
   <div class="stat">
     <span class="stat-value">{{ totals.emailed }}</span>
-    <span class="stat-label">emailed</span>
+    <span class="stat-label">{{ t('research.emailed') }}</span>
   </div>
 </div>
 
 <table>
   <thead>
     <tr>
-      <th>City</th>
-      <th>Region</th>
+      <th>{{ t('common.city') }}</th>
+      <th>{{ t('research.region') }}</th>
       {% for lvl in levels %}
       <th>L{{ lvl }}</th>
       {% endfor %}
-      <th>Sent</th>
-      <th>Contacts</th>
+      <th>{{ t('research.sent') }}</th>
+      <th>{{ t('research.contacts') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -130,20 +128,20 @@
       <td class="center">
         {% if l.scan and l.scan.complete %}
         <span
-          title="Complete — last run {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }}, {{ l.scan.contacts_found }} found"
+          title="{{ t('research.completeTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.contacts_found) }}"
           style="color: var(--success); cursor: default"
           >●</span
         >
         {% elif l.scan %}
         <span
-          title="Partial — more to scan. Last run {{ l.scan.last_run_at[:10] if l.scan.last_run_at else '—' }}, {{ l.scan.contacts_found }} so far"
+          title="{{ t('research.partialTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.contacts_found) }}"
           style="color: #eab308; cursor: default"
           >◐</span
         >
         {% else %}
-        <span class="muted" title="Not yet run">○</span>
+        <span class="muted" title="{{ t('research.notYetRun') }}">○</span>
         {% endif %}
-        {% if l.emailed %}<span class="muted small" title="{{ l.emailed }} emailed">{{ l.emailed }}</span>{% endif %}
+        {% if l.emailed %}<span class="muted small" title="{{ t('research.emailedTooltip', count=l.emailed) }}">{{ l.emailed }}</span>{% endif %}
       </td>
       {% endfor %}
       <td class="center">{{ c.emailed_total or '—' }}</td>
@@ -153,7 +151,7 @@
   </tbody>
   <tfoot>
     <tr>
-      <td><strong>Total</strong></td>
+      <td><strong>{{ t('research.total') }}</strong></td>
       <td></td>
       {% for lvl in levels %}<td></td>{% endfor %}
       <td class="center"><strong>{{ totals.emailed }}</strong></td>
@@ -163,7 +161,7 @@
 </table>
 
 <div class="muted small" style="margin-top: 1rem">
-  ● = complete &nbsp;◐ = partial (more to scan) &nbsp;○ = not run &nbsp;|&nbsp; {% for lvl, label in
+  {{ t('research.legend') }} &nbsp;|&nbsp; {% for lvl, label in
   level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %}
   &nbsp;|&nbsp; {% endif %}{% endfor %}
 </div>

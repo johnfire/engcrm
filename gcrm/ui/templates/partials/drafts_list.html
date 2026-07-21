@@ -2,14 +2,14 @@
 <table class="drafts-table">
   <thead>
     <tr>
-      <th>Prospect</th>
-      <th>City</th>
-      <th>Type</th>
-      <th>Email</th>
-      <th>Subject</th>
-      <th>Held since</th>
-      <th>Note</th>
-      <th>Actions</th>
+      <th>{{ t('draftsList.prospect') }}</th>
+      <th>{{ t('common.city') }}</th>
+      <th>{{ t('common.type') }}</th>
+      <th>{{ t('common.email') }}</th>
+      <th>{{ t('common.subject') }}</th>
+      <th>{{ t('draftsList.heldSince') }}</th>
+      <th>{{ t('draftsList.note') }}</th>
+      <th>{{ t('common.actions') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -27,7 +27,7 @@
       <td>
         <div class="draft-subject">{{ d.draft_subject }}</div>
         <details style="margin-top:0.3rem">
-          <summary class="muted small" style="cursor:pointer">Preview email</summary>
+          <summary class="muted small" style="cursor:pointer">{{ t('draftsList.previewEmail') }}</summary>
           <pre class="body-preview" style="margin-top:0.5rem">{{ d.draft_body }}</pre>
         </details>
       </td>
@@ -38,13 +38,13 @@
               hx-target="#drafts-list"
               hx-swap="innerHTML"
               style="display:inline">
-          <button type="submit" class="btn-primary btn-tiny">Send</button>
+          <button type="submit" class="btn-primary btn-tiny">{{ t('draftsList.send') }}</button>
         </form>
         <form hx-post="/drafts/{{ d.id }}/reject"
               hx-target="#drafts-list"
               hx-swap="innerHTML"
               style="display:inline;margin-left:0.3rem">
-          <button type="submit" class="btn-danger btn-tiny">Drop</button>
+          <button type="submit" class="btn-danger btn-tiny">{{ t('draftsList.drop') }}</button>
         </form>
       </td>
     </tr>
@@ -52,5 +52,5 @@
   </tbody>
 </table>
 {% else %}
-<p class="empty">No held drafts.</p>
+<p class="empty">{{ t('draftsList.noDrafts') }}</p>
 {% endif %}

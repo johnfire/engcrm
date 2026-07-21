@@ -1,4 +1,4 @@
-{% extends "base.html" %} {% block title %}{{ contact.name }} — AI-CRM Leads{%
+{% extends "base.html" %} {% block title %}{{ contact.name }} — {{ t('nav.brand') }}{%
 endblock %} {% block content %}
 <div class="page-header">
   <h1>{{ contact.name }}</h1>
@@ -12,23 +12,23 @@ endblock %} {% block content %}
 </div>
 
 {% if saved %}
-<div class="flash-success">Saved.</div>
+<div class="flash-success">{{ t('contactDetail.saved') }}</div>
 {% endif %}
 
 <form method="post" action="/contacts/{{ contact.id }}/edit">
   <div class="detail-grid">
     <section class="detail-section">
-      <h2>Basic Info</h2>
+      <h2>{{ t('contactDetail.basicInfo') }}</h2>
       <div class="field-row">
-        <label>Name</label>
+        <label>{{ t('common.name') }}</label>
         <input type="text" name="name" value="{{ contact.name or '' }}" />
       </div>
       <div class="field-row">
-        <label>City</label>
+        <label>{{ t('common.city') }}</label>
         <input type="text" name="city" value="{{ contact.city or '' }}" />
       </div>
       <div class="field-row">
-        <label>Country</label>
+        <label>{{ t('research.country') }}</label>
         <input
           type="text"
           name="country"
@@ -38,11 +38,11 @@ endblock %} {% block content %}
         />
       </div>
       <div class="field-row">
-        <label>Type</label>
+        <label>{{ t('common.type') }}</label>
         <input type="text" name="type" value="{{ contact.type or '' }}" />
       </div>
       <div class="field-row">
-        <label>Status</label>
+        <label>{{ t('common.status') }}</label>
         <select name="status">
           {% for s in valid_statuses %}
           <option
@@ -61,7 +61,7 @@ endblock %} {% block content %}
         </select>
       </div>
       <div class="field-row">
-        <label>Fit score</label>
+        <label>{{ t('contactDetail.fitScore') }}</label>
         <input
           type="number"
           name="fit_score"
@@ -72,19 +72,19 @@ endblock %} {% block content %}
         />
       </div>
       <div class="field-row">
-        <label>Email</label>
+        <label>{{ t('common.email') }}</label>
         <input type="text" name="email" value="{{ contact.email or '' }}" />
       </div>
       <div class="field-row">
-        <label>Phone</label>
+        <label>{{ t('common.phone') }}</label>
         <input type="text" name="phone" value="{{ contact.phone or '' }}" />
       </div>
       <div class="field-row">
-        <label>Website</label>
+        <label>{{ t('common.website') }}</label>
         <input type="text" name="website" value="{{ contact.website or '' }}" />
       </div>
       <div class="field-row">
-        <label>Preferred contact</label>
+        <label>{{ t('contactDetail.preferredContact') }}</label>
         <select name="preferred_contact_method">
           <option value="">—</option>
           {% for m in ['email', 'phone', 'drop in', 'Instagram DM', 'contact
@@ -105,20 +105,20 @@ endblock %} {% block content %}
         </select>
       </div>
       <div class="field-row">
-        <label>Decision maker</label>
+        <label>{{ t('contactBrief.decisionMaker') }}</label>
         <input
           type="text"
           name="decision_maker"
           value="{{ contact.decision_maker or '' }}"
-          placeholder="Name of person to speak to"
+          placeholder="{{ t('contactDetail.decisionMakerPlaceholder') }}"
         />
       </div>
     </section>
 
     <section class="detail-section">
-      <h2>Visit Info</h2>
+      <h2>{{ t('contactDetail.visitInfo') }}</h2>
       <div class="field-row">
-        <label>Last visited</label>
+        <label>{{ t('contactBrief.lastVisited') }}</label>
         <input
           type="date"
           name="last_visited_at"
@@ -126,25 +126,25 @@ endblock %} {% block content %}
         />
       </div>
       <div class="field-row">
-        <label>Best time to visit</label>
+        <label>{{ t('contactDetail.bestTimeToVisit') }}</label>
         <input
           type="text"
           name="best_visit_time"
           value="{{ contact.best_visit_time or '' }}"
-          placeholder="e.g. Tue–Sat afternoons"
+          placeholder="{{ t('contactDetail.bestTimePlaceholder') }}"
         />
       </div>
       <div class="field-row">
-        <label>Visit duration</label>
+        <label>{{ t('contactDetail.visitDuration') }}</label>
         <input
           type="text"
           name="visit_duration"
           value="{{ contact.visit_duration or '' }}"
-          placeholder="e.g. 20 min, half day"
+          placeholder="{{ t('contactDetail.visitDurationPlaceholder') }}"
         />
       </div>
       <div class="field-row">
-        <label>First impression</label>
+        <label>{{ t('contactBrief.firstImpression') }}</label>
         <select name="first_impression">
           <option value="">—</option>
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
@@ -164,7 +164,7 @@ endblock %} {% block content %}
         </select>
       </div>
       <div class="field-row">
-        <label>Last impression</label>
+        <label>{{ t('contactBrief.lastImpression') }}</label>
         <select name="last_impression">
           <option value="">—</option>
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
@@ -184,85 +184,85 @@ endblock %} {% block content %}
         </select>
       </div>
       <div class="field-row">
-        <label>Materials left</label>
+        <label>{{ t('contactBrief.materialsLeft') }}</label>
         <input
           type="text"
           name="materials_left"
           value="{{ contact.materials_left or '' }}"
-          placeholder="e.g. prints, postcards, portfolio"
+          placeholder="{{ t('contactDetail.materialsLeftPlaceholder') }}"
         />
       </div>
       <div class="field-row">
-        <label>Follow-up promised</label>
+        <label>{{ t('contactBrief.followupPromised') }}</label>
         <input
           type="text"
           name="followup_promised"
           value="{{ contact.followup_promised or '' }}"
-          placeholder="e.g. send price list, visit in May"
+          placeholder="{{ t('contactDetail.followupPromisedPlaceholder') }}"
         />
       </div>
     </section>
 
     <section class="detail-section">
-      <h2>Venue Notes</h2>
+      <h2>{{ t('contactDetail.venueNotes') }}</h2>
       <div class="field-row field-row--tall">
-        <label>Access / logistics</label>
+        <label>{{ t('contactDetail.accessLogistics') }}</label>
         <textarea
           name="access_notes"
           rows="3"
-          placeholder="Train, bus, parking, hilly, no bike…"
+          placeholder="{{ t('contactDetail.accessPlaceholder') }}"
         >
 {{ contact.access_notes or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label>Space notes</label>
+        <label>{{ t('contactDetail.spaceNotes') }}</label>
         <textarea
           name="space_notes"
           rows="3"
-          placeholder="Wall size, lighting, no hanging, intimate…"
+          placeholder="{{ t('contactDetail.spacePlaceholder') }}"
         >
 {{ contact.space_notes or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label>Price sensitivity</label>
+        <label>{{ t('contactBrief.priceSensitivity') }}</label>
         <textarea
           name="price_sensitivity"
           rows="2"
-          placeholder="Cares about price, prefers consignment, wants exclusivity…"
+          placeholder="{{ t('contactDetail.priceSensitivityPlaceholder') }}"
         >
 {{ contact.price_sensitivity or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label>General notes</label>
+        <label>{{ t('contactDetail.generalNotes') }}</label>
         <textarea name="notes" rows="5">{{ contact.notes or '' }}</textarea>
       </div>
     </section>
   </div>
 
   <div class="detail-actions">
-    <button type="submit" class="btn-primary">Save</button>
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
     <a href="/contacts/{{ contact.id }}/brief" class="btn-secondary"
-      >Pre-visit brief</a
+      >{{ t('contactDetail.previsitBrief') }}</a
     >
-    <a href="/contacts/" class="btn-secondary">Back to list</a>
+    <a href="/contacts/" class="btn-secondary">{{ t('contactDetail.backToList') }}</a>
   </div>
 </form>
 
 {% if interactions %}
 <section class="detail-section" style="margin-top: 2rem">
-  <h2>Interaction History</h2>
+  <h2>{{ t('contactDetail.interactionHistory') }}</h2>
   <table>
     <thead>
       <tr>
-        <th>Date</th>
-        <th>Method</th>
-        <th>Direction</th>
-        <th>Summary</th>
-        <th>Outcome</th>
-        <th>Next action</th>
+        <th>{{ t('common.date') }}</th>
+        <th>{{ t('contactDetail.method') }}</th>
+        <th>{{ t('contactDetail.direction') }}</th>
+        <th>{{ t('common.summary') }}</th>
+        <th>{{ t('contactDetail.outcome') }}</th>
+        <th>{{ t('contactDetail.nextAction') }}</th>
       </tr>
     </thead>
     <tbody>

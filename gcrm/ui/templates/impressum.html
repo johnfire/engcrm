@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="de">
+<html lang="{{ request.session.get('ui_language', 'en') }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EngCRM — Impressum</title>
+    <title>{{ t('impressum.pageTitle') }}</title>
     <link rel="stylesheet" href="/static/style.css" />
     <style>
       body {
@@ -41,14 +41,26 @@
         margin-top: 2rem;
         font-size: 0.85rem;
       }
+      .lang-toggle {
+        text-align: left;
+        margin-top: 1.5rem;
+        font-size: 0.75rem;
+      }
+      .lang-toggle a {
+        opacity: 0.6;
+      }
+      .lang-toggle a.active {
+        opacity: 1;
+        text-decoration: none;
+      }
     </style>
   </head>
   <body>
     <div class="box">
-      <h1>Impressum</h1>
-      <p>Angaben gemäß § 5 DDG</p>
+      <h1>{{ t('impressum.title') }}</h1>
+      <p>{{ t('impressum.subtitle') }}</p>
 
-      <h2>Anbieter</h2>
+      <h2>{{ t('impressum.providerHeader') }}</h2>
       <p>
         Christopher Rehm<br />
         Rehm KI Consulting<br />
@@ -57,21 +69,21 @@
         Deutschland
       </p>
 
-      <h2>Kontakt</h2>
+      <h2>{{ t('impressum.contactHeader') }}</h2>
       <p>E-Mail: <a href="mailto:car2187bus@pm.me">car2187bus@pm.me</a></p>
 
-      <h2>EU-Streitschlichtung</h2>
+      <h2>{{ t('impressum.disputeHeader') }}</h2>
       <p>
-        Die Europäische Kommission stellt eine Plattform zur
-        Online-Streitbeilegung (OS) bereit:
-        <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer"
-          >https://ec.europa.eu/consumers/odr/</a
-        >. Wir sind nicht verpflichtet und nicht bereit, an einem
-        Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle
-        teilzunehmen.
+        {% set odr_link %}<a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr/</a>{% endset %}
+        {{ t('impressum.disputeText', link=odr_link) | safe }}
       </p>
 
-      <a class="back" href="/">← Zurück</a>
+      <a class="back" href="/">{{ t('impressum.back') }}</a>
+      <div class="lang-toggle">
+        <a href="?lang=en" {% if request.session.get('ui_language', 'en') == 'en' %}class="active"{% endif %}>EN</a>
+        &nbsp;|&nbsp;
+        <a href="?lang=de" {% if request.session.get('ui_language', 'en') == 'de' %}class="active"{% endif %}>DE</a>
+      </div>
     </div>
   </body>
 </html>

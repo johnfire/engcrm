@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ request.session.get('ui_language', 'en') }}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EngCRM — Login</title>
+    <title>{{ t('login.pageTitle') }}</title>
     <link rel="stylesheet" href="/static/style.css" />
     <style>
       body {
@@ -73,22 +73,34 @@
         font-size: 0.85rem;
         text-align: center;
       }
+      .lang-toggle {
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.75rem;
+      }
+      .lang-toggle a {
+        opacity: 0.6;
+      }
+      .lang-toggle a.active {
+        opacity: 1;
+        text-decoration: none;
+      }
     </style>
   </head>
   <body>
     <div class="login-box">
-      <h1>EngCRM Supervisor</h1>
+      <h1>{{ t('login.title') }}</h1>
       {% if error %}
       <p class="error">{{ error }}</p>
       {% endif %}
       {% if reset_success %}
-      <p class="success">Password reset — sign in with your new password.</p>
+      <p class="success">{{ t('login.resetSuccess') }}</p>
       {% endif %}
       <form method="post" action="/login">
         <input
           type="email"
           name="email"
-          placeholder="Email"
+          placeholder="{{ t('login.emailPlaceholder') }}"
           autocomplete="username"
           autofocus
           required
@@ -98,22 +110,29 @@
             type="password"
             name="password"
             id="password"
-            placeholder="Password"
+            placeholder="{{ t('login.passwordPlaceholder') }}"
             autocomplete="current-password"
             required
           />
           <button
             type="button"
             class="toggle-password"
-            aria-label="Show password"
+            aria-label="{{ t('login.showPassword') }}"
             aria-pressed="false"
+            data-show-label="{{ t('login.showPassword') }}"
+            data-hide-label="{{ t('login.hidePassword') }}"
           ></button>
         </div>
-        <button type="submit">Sign in</button>
+        <button type="submit">{{ t('login.signIn') }}</button>
       </form>
-      <p><a href="/forgot-password">Forgot password?</a></p>
-      <p><a href="/signup">Create account with an invitation</a></p>
-      <p><a href="/impressum">Impressum</a></p>
+      <p><a href="/forgot-password">{{ t('login.forgotPassword') }}</a></p>
+      <p><a href="/signup">{{ t('login.createAccount') }}</a></p>
+      <p><a href="/impressum">{{ t('nav.impressum') }}</a></p>
+      <div class="lang-toggle">
+        <a href="?lang=en" {% if request.session.get('ui_language', 'en') == 'en' %}class="active"{% endif %}>EN</a>
+        &nbsp;|&nbsp;
+        <a href="?lang=de" {% if request.session.get('ui_language', 'en') == 'de' %}class="active"{% endif %}>DE</a>
+      </div>
     </div>
     <script>
       (function () {
@@ -128,7 +147,7 @@
           const show = input.type === "password";
           input.type = show ? "text" : "password";
           btn.innerHTML = show ? EYE_OFF : EYE;
-          btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+          btn.setAttribute("aria-label", show ? btn.dataset.hideLabel : btn.dataset.showLabel);
           btn.setAttribute("aria-pressed", String(show));
           input.focus();
         });

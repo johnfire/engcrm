@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Inbox Replies — AI-CRM Leads{% endblock %}
+{% block title %}{{ t('inbox.title') }} — {{ t('nav.brand') }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Inbox Replies</h1>
-  <span class="muted">{{ total }} classified in the last {{ days }} days</span>
+  <h1>{{ t('inbox.title') }}</h1>
+  <span class="muted">{{ t('inbox.classifiedCount', total=total, days=days) }}</span>
 </div>
 
 <form class="filter-bar" method="get" action="/inbox/">
   <select name="classification">
-    <option value="" {% if active_classification == '' %}selected{% endif %}>All replies</option>
+    <option value="" {% if active_classification == '' %}selected{% endif %}>{{ t('inbox.allReplies') }}</option>
     {% for cls in classifications %}
     <option value="{{ cls }}" {% if cls == active_classification %}selected{% endif %}>
       {{ cls }}{% if counts.get(cls) %} ({{ counts[cls] }}){% endif %}
@@ -18,17 +18,17 @@
   </select>
   <select name="days">
     {% for d in [7, 14, 30, 60, 90] %}
-    <option value="{{ d }}" {% if d == days %}selected{% endif %}>Last {{ d }} days</option>
+    <option value="{{ d }}" {% if d == days %}selected{% endif %}>{{ t('inbox.lastNDays', days=d) }}</option>
     {% endfor %}
   </select>
-  <button type="submit" class="btn-primary">Filter</button>
+  <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
   {% if active_classification %}
-  <a href="/inbox/" class="muted" style="align-self:center">clear</a>
+  <a href="/inbox/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
   {% endif %}
 </form>
 
 {% if not messages %}
-  <p class="empty">No replies found for this filter.</p>
+  <p class="empty">{{ t('inbox.noRepliesFound') }}</p>
 {% else %}
 
 <div class="inbox-summary">
@@ -44,12 +44,12 @@
 <table>
   <thead>
     <tr>
-      <th>Date</th>
-      <th>Contact</th>
-      <th>Classification</th>
-      <th>Subject</th>
-      <th>Snippet</th>
-      <th>Notes</th>
+      <th>{{ t('common.date') }}</th>
+      <th>{{ t('inbox.contact') }}</th>
+      <th>{{ t('inbox.classification') }}</th>
+      <th>{{ t('common.subject') }}</th>
+      <th>{{ t('inbox.snippet') }}</th>
+      <th>{{ t('common.notes') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -67,7 +67,7 @@
       <td>
         <span class="badge inbox-badge--{{ m.classification or 'other' }}">{{ m.classification or '—' }}</span>
         {% if m.visit_when_nearby %}
-        <span title="Flagged for visit when nearby" style="margin-left:0.3rem;color:#e67e22">&#9655;</span>
+        <span title="{{ t('inbox.flaggedForVisit') }}" style="margin-left:0.3rem;color:#e67e22">&#9655;</span>
         {% endif %}
       </td>
       <td class="small">{{ m.subject or '—' }}</td>

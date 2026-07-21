@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Approvals — AI-CRM Leads{% endblock %}
+{% block title %}{{ t('approval.title') }} — {{ t('nav.brand') }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>Approval Queue</h1>
-  <span class="muted">{{ items|length }} pending</span>
+  <h1>{{ t('approval.title') }}</h1>
+  <span class="muted">{{ t('approval.pendingCount', count=items|length) }}</span>
 </div>
 
 <div id="approval-list">

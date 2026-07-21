@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}People — AI-CRM Leads{% endblock %}
+{% block title %}{{ t('people.title') }} — {{ t('nav.brand') }}{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>People</h1>
-  <span class="muted">{{ people|length }} shown</span>
+  <h1>{{ t('people.title') }}</h1>
+  <span class="muted">{{ t('people.shownCount', count=people|length) }}</span>
 </div>
 
 <form class="filter-bar" method="get" action="/people/">
-  <input type="text" name="q" value="{{ query }}" placeholder="Search name, city or email…">
-  <button type="submit" class="btn-primary">Search</button>
+  <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
+  <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
   {% if query %}
-  <a href="/people/" class="muted" style="align-self:center">clear</a>
+  <a href="/people/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
   {% endif %}
 </form>
 
@@ -19,13 +19,13 @@
 <table>
   <thead>
     <tr>
-      <th>Name</th>
-      <th>City</th>
-      <th>Relationship</th>
-      <th>Email</th>
-      <th>Phone</th>
-      <th>Website</th>
-      <th>Notes</th>
+      <th>{{ t('common.name') }}</th>
+      <th>{{ t('common.city') }}</th>
+      <th>{{ t('people.relationship') }}</th>
+      <th>{{ t('common.email') }}</th>
+      <th>{{ t('common.phone') }}</th>
+      <th>{{ t('common.website') }}</th>
+      <th>{{ t('common.notes') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -43,6 +43,6 @@
   </tbody>
 </table>
 {% else %}
-<p class="muted">No people found.</p>
+<p class="muted">{{ t('people.noPeopleFound') }}</p>
 {% endif %}
 {% endblock %}
