@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { listPendingCards, PendingCard, CaptureResult } from "../../services/api";
+import { setHandoff } from "../../services/handoff";
 import { useTranslation } from "../../i18n/I18nContext";
 
 export default function CardQueueScreen() {
@@ -48,10 +49,8 @@ export default function CardQueueScreen() {
       dup_suggestion: null, // backend re-checks dedup on save
       cost_usd: 0,
     };
-    router.push({
-      pathname: "/(drawer)/card-confirm",
-      params: { data: JSON.stringify(capture) },
-    });
+    setHandoff("card", capture);
+    router.push("/(drawer)/card-confirm");
   }
 
   return (
