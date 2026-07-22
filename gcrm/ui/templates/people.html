@@ -9,6 +9,7 @@
 
 <form class="filter-bar" method="get" action="/people/">
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
+  <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>

@@ -41,6 +41,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
       {{ t('contacts.noContactDate') }}
     </option>
   </select>
+  <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
