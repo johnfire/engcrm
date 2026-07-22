@@ -56,9 +56,10 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   >
 </form>
 
-{% macro sort_link(col, label) %} {% set next_dir = 'desc' if (sort == col and
-dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
-'asc') else (' ↓' if (sort == col and dir == 'desc') else '') %}
+{% macro sort_link(col, label, default_dir='asc') %} {% set next_dir = ('asc'
+if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
+= ' ↑' if (sort == col and dir == 'asc') else (' ↓' if (sort == col and dir ==
+'desc') else '') %}
 <a
   href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ col }}&dir={{ next_dir }}&page=1"
   class="sort-link"
@@ -76,6 +77,7 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
       <th>{{ sort_link('status', t('common.status')) }}</th>
       <th>{{ sort_link('fit', t('contacts.colFit')) }}</th>
       <th>{{ sort_link('last_contact', t('contacts.colLastContact')) }}</th>
+      <th>{{ sort_link('created_at', t('common.added'), 'desc') }}</th>
       <th>{{ t('common.email') }}</th>
       <th>{{ t('common.website') }}</th>
       <th>{{ t('common.notes') }}</th>
@@ -104,6 +106,9 @@ dir == 'asc') else 'asc' %} {% set arrow = ' ↑' if (sort == col and dir ==
       </td>
       <td class="muted">
         {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
+      </td>
+      <td class="muted">
+        {{ c.created_at.strftime('%Y-%m-%d') if c.created_at else '—' }}
       </td>
       <td class="muted small">{{ c.email or '—' }}</td>
       <td class="muted small">

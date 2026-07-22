@@ -17,12 +17,12 @@ def people_list(request: Request, q: str = ""):
                 """
                 SELECT * FROM people
                 WHERE name ILIKE %s OR email ILIKE %s OR city ILIKE %s
-                ORDER BY name ASC
+                ORDER BY created_at DESC
                 """,
                 (f"%{q}%", f"%{q}%", f"%{q}%"),
             )
         else:
-            cur.execute("SELECT * FROM people ORDER BY name ASC")
+            cur.execute("SELECT * FROM people ORDER BY created_at DESC")
         people = [dict(row) for row in cur.fetchall()]
 
     return templates.TemplateResponse("people.html", {

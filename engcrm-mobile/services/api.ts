@@ -295,6 +295,7 @@ export interface Contact {
   flagged: boolean;
   starred: boolean;
   last_contact: string | null;
+  created_at: string;
 }
 
 export interface ContactDetail extends Contact {

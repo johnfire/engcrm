@@ -38,12 +38,13 @@ def list_contacts(
             f"""
             SELECT c.id, c.name, c.city, c.country, c.type, c.status,
                    c.email, c.website, c.fit_score, c.flagged, c.starred,
+                   c.created_at,
                    MAX(i.interaction_date) AS last_contact
             FROM contacts c
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE {where_clause}
             GROUP BY c.id
-            ORDER BY c.name ASC
+            ORDER BY c.created_at DESC
             LIMIT 50 OFFSET %s
             """,
             params + [offset],

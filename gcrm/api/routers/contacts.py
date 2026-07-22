@@ -26,6 +26,7 @@ SORT_COLUMNS = {
     "status":       "c.status",
     "fit":          "c.fit_score",
     "last_contact": "MAX(i.interaction_date)",
+    "created_at":   "c.created_at",
 }
 
 
@@ -70,6 +71,7 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset):
             SELECT
                 c.id, c.name, c.city, c.country, c.type, c.status,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
+                c.created_at,
                 MAX(i.interaction_date) AS last_contact
             FROM contacts c
             LEFT JOIN interactions i ON i.contact_id = c.id
@@ -99,11 +101,11 @@ def contact_list(
     q: str = Query(default=""),
     has_contact: str = Query(default=""),
     page: int = Query(default=1, ge=1),
-    sort: str = Query(default="id"),
-    dir: str = Query(default="asc"),
+    sort: str = Query(default="created_at"),
+    dir: str = Query(default="desc"),
 ):
     offset = (page - 1) * PAGE_SIZE
-    sort_col = SORT_COLUMNS.get(sort, "c.id")
+    sort_col = SORT_COLUMNS.get(sort, "c.created_at")
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
     where, params = _build_contact_filters(status, type, q, has_contact)
@@ -134,10 +136,10 @@ def contact_print(
     status: str = Query(default=""),
     type: str = Query(default=""),
     q: str = Query(default=""),
-    sort: str = Query(default="id"),
-    dir: str = Query(default="asc"),
+    sort: str = Query(default="created_at"),
+    dir: str = Query(default="desc"),
 ):
-    sort_col = SORT_COLUMNS.get(sort, "c.id")
+    sort_col = SORT_COLUMNS.get(sort, "c.created_at")
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
     # Same filters as the list view (no has_contact toggle on the print page).
