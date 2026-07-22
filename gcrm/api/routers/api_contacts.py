@@ -6,6 +6,13 @@ from gcrm.db.connection import db
 
 router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
 
+# Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
+SORT_COLUMNS = {
+    "created_at": "c.created_at",
+    "name":       "lower(c.name)",
+    "type":       "lower(c.type)",
+}
+
 
 def _serialize(row: dict) -> dict:
     r = dict(row)
@@ -20,8 +27,12 @@ def list_contacts(
     search: str = Query(""),
     status: str = Query(""),
     page: int = Query(1, ge=1),
+    sort: str = Query("created_at"),
+    dir: str = Query("desc"),
     _role: str = Depends(require_jwt),
 ) -> list[dict]:
+    sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
+    sort_dir = "DESC" if dir == "desc" else "ASC"
     with db() as conn:
         cur = conn.cursor()
         params: list = []
@@ -44,7 +55,7 @@ def list_contacts(
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE {where_clause}
             GROUP BY c.id
-            ORDER BY c.created_at DESC
+            ORDER BY {sort_col} {sort_dir} NULLS LAST
             LIMIT 50 OFFSET %s
             """,
             params + [offset],

@@ -106,10 +106,14 @@ export async function classifyMessage(
 }
 
 // --- Contacts ---
+export type ContactSortKey = "created_at" | "name" | "type";
+
 export async function fetchContacts(params: {
   search?: string;
   status?: string;
   page?: number;
+  sort?: ContactSortKey;
+  dir?: "asc" | "desc";
 }): Promise<Contact[]> {
   const resp = await client.get("/api/contacts", { params });
   return resp.data;
@@ -442,10 +446,14 @@ export interface VoiceResult {
 }
 
 // --- People (individuals on scanned cards, linked to their company contact) ---
-export async function fetchPeople(search = ""): Promise<Person[]> {
-  const resp = await client.get("/api/people", {
-    params: search ? { search } : {},
-  });
+export type PersonSortKey = "created_at" | "name";
+
+export async function fetchPeople(params: {
+  search?: string;
+  sort?: PersonSortKey;
+  dir?: "asc" | "desc";
+} = {}): Promise<Person[]> {
+  const resp = await client.get("/api/people", { params });
   return resp.data;
 }
 export async function fetchPerson(id: number): Promise<Person> {

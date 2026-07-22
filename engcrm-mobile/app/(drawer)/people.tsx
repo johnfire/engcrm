@@ -8,10 +8,16 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { fetchPeople, Person } from "../../services/api";
+import { fetchPeople, Person, PersonSortKey } from "../../services/api";
 import { useTranslation } from "../../i18n/I18nContext";
+
+const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string }[] = [
+  { key: "created_at", dir: "desc", labelKey: "common.sortNewest" },
+  { key: "name", dir: "asc", labelKey: "common.sortAZ" },
+];
 
 export default function PeopleScreen() {
   const router = useRouter();
@@ -20,18 +26,20 @@ export default function PeopleScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<PersonSortKey>("created_at");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await fetchPeople(search));
+      setItems(await fetchPeople({ search, sort, dir }));
       setLoadError(false);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, sort, dir]);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,6 +59,31 @@ export default function PeopleScreen() {
         returnKeyType="search"
         autoCapitalize="none"
       />
+      <Text style={styles.sortLabel}>{t("common.sortBy")}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filters}
+        contentContainerStyle={styles.filtersContent}
+      >
+        {SORT_OPTIONS.map((opt) => {
+          const active = sort === opt.key && dir === opt.dir;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => {
+                setSort(opt.key);
+                setDir(opt.dir);
+              }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {t(opt.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
@@ -110,6 +143,18 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
   },
+  sortLabel: { color: "#666", fontSize: 11, marginHorizontal: 16, marginBottom: 4 },
+  filters: { marginHorizontal: 16, marginBottom: 8 },
+  filtersContent: { gap: 8 },
+  chip: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: "#ffffff10",
+  },
+  chipActive: { backgroundColor: "#7c6fff" },
+  chipText: { color: "#888", fontSize: 12, fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
   list: { padding: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   row: {

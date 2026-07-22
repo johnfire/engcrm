@@ -9,6 +9,14 @@
 
 <form class="filter-bar" method="get" action="/people/">
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
+  <select name="sort" title="{{ t('common.sortBy') }}">
+    <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
+    <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
+  </select>
+  <select name="dir">
+    <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
+    <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
+  </select>
   <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
   {% if query %}
   <a href="/people/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>

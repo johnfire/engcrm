@@ -68,21 +68,30 @@ _SELECT_WITH_COMPANY = (
     "LEFT JOIN contacts company ON company.id = person.contact_id "
 )
 
+# Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
+SORT_COLUMNS = {
+    "created_at": "person.created_at",
+    "name":       "lower(person.name)",
+}
 
-def get_people(search: str = "") -> list[dict]:
-    """All people (optionally filtered by name/email/city), newest first, each
-    annotated with their linked company name."""
+
+def get_people(search: str = "", sort: str = "created_at", dir: str = "desc") -> list[dict]:
+    """All people (optionally filtered by name/email/city), sorted by `sort`
+    (created_at|name; default newest-added-first), each annotated with their
+    linked company name."""
+    sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
+    sort_dir = "DESC" if dir == "desc" else "ASC"
     with db() as conn:
         cur = conn.cursor()
         if search:
             like = f"%{search}%"
             cur.execute(
                 _SELECT_WITH_COMPANY + "WHERE person.name ILIKE %s OR person.email ILIKE %s "
-                "OR person.city ILIKE %s ORDER BY person.created_at DESC",
+                f"OR person.city ILIKE %s ORDER BY {sort_col} {sort_dir}",
                 (like, like, like),
             )
         else:
-            cur.execute(_SELECT_WITH_COMPANY + "ORDER BY person.created_at DESC")
+            cur.execute(_SELECT_WITH_COMPANY + f"ORDER BY {sort_col} {sort_dir}")
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 

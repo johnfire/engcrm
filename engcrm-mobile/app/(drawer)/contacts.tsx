@@ -11,9 +11,15 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { fetchContacts, Contact } from "../../services/api";
+import { fetchContacts, Contact, ContactSortKey } from "../../services/api";
 import { ContactRow } from "../../components/ContactRow";
 import { useTranslation } from "../../i18n/I18nContext";
+
+const SORT_OPTIONS: { key: ContactSortKey; dir: "asc" | "desc"; labelKey: string }[] = [
+  { key: "created_at", dir: "desc", labelKey: "common.sortNewest" },
+  { key: "name", dir: "asc", labelKey: "common.sortAZ" },
+  { key: "type", dir: "asc", labelKey: "common.sortIndustry" },
+];
 
 const STATUS_FILTERS = [
   "",
@@ -44,18 +50,20 @@ export default function ContactsScreen() {
   const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [sort, setSort] = useState<ContactSortKey>("created_at");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await fetchContacts({ search, status }));
+      setItems(await fetchContacts({ search, status, sort, dir }));
       setLoadError(false);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [search, status]);
+  }, [search, status, sort, dir]);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,6 +99,31 @@ export default function ContactsScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+      </ScrollView>
+      <Text style={styles.sortLabel}>{t("common.sortBy")}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filters}
+        contentContainerStyle={styles.filtersContent}
+      >
+        {SORT_OPTIONS.map((opt) => {
+          const active = sort === opt.key && dir === opt.dir;
+          return (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => {
+                setSort(opt.key);
+                setDir(opt.dir);
+              }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {t(opt.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
       {loading ? (
         <View style={styles.center}>
@@ -143,6 +176,7 @@ const styles = StyleSheet.create({
   },
   filters: { marginHorizontal: 16, marginBottom: 8 },
   filtersContent: { gap: 8 },
+  sortLabel: { color: "#666", fontSize: 11, marginHorizontal: 16, marginBottom: 4 },
   chip: {
     borderRadius: 16,
     paddingHorizontal: 14,

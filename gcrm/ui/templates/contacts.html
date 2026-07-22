@@ -8,8 +8,6 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 </div>
 
 <form class="filter-bar" method="get" action="/contacts/">
-  <input type="hidden" name="sort" value="{{ sort }}" />
-  <input type="hidden" name="dir" value="{{ dir }}" />
   <input
     type="text"
     name="q"
@@ -42,6 +40,20 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="0" {% if has_contact == "0" %}selected{% endif %}>
       {{ t('contacts.noContactDate') }}
     </option>
+  </select>
+  <select name="sort" title="{{ t('common.sortBy') }}">
+    <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
+    <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
+    <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
+    <option value="type" {% if sort == "type" %}selected{% endif %}>{{ t('common.type') }}</option>
+    <option value="status" {% if sort == "status" %}selected{% endif %}>{{ t('common.status') }}</option>
+    <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('contacts.colFit') }}</option>
+    <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('contacts.colLastContact') }}</option>
+    <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('contacts.colId') }}</option>
+  </select>
+  <select name="dir">
+    <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
+    <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
   {% if query or active_status or active_type or has_contact %}

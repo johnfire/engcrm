@@ -9,8 +9,13 @@ router = APIRouter(prefix="/api/people", tags=["mobile-people"])
 
 
 @router.get("")
-def list_people(search: str = "", _role: str = Depends(require_jwt)) -> list[dict]:
-    return get_people(search)
+def list_people(
+    search: str = "",
+    sort: str = "created_at",
+    dir: str = "desc",
+    _role: str = Depends(require_jwt),
+) -> list[dict]:
+    return get_people(search, sort, dir)
 
 
 @router.get("/{person_id}")

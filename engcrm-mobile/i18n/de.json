@@ -8,6 +8,9 @@
   "common.tryAgain": "Versuchen Sie es erneut.",
   "common.serverError": "Serverfehler ({{status}}).",
   "common.couldntLoadRefresh": "Laden fehlgeschlagen — zum Aktualisieren nach unten ziehen",
+  "common.sortNewest": "Neueste",
+  "common.sortAZ": "A–Z",
+  "common.sortIndustry": "Branche",
 
   "drawer.approvals": "Freigaben",
   "drawer.scanCard": "📷 Karte scannen",
