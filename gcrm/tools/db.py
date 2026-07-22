@@ -644,9 +644,9 @@ def _legacy_get_contact_interactions(contact_id: int) -> list[dict]:
 
 # Compatibility exports: callers may retain ``gcrm.tools.db`` while focused
 # modules own the implementation.
-def _contact_tool(name, *args, **kwargs):
+def _contact_tool(tool_name, *args, **kwargs):
     db_contacts.db = db
-    return getattr(db_contacts, name)(*args, **kwargs)
+    return getattr(db_contacts, tool_name)(*args, **kwargs)
 
 
 def get_ignored_chains(*args, **kwargs):
