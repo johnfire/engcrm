@@ -240,8 +240,14 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
 <section class="context-help opportunity-action">
   <strong>{{ t('contactDetail.analyseThisContact') }}</strong>
   <p>{{ t('contactDetail.analyseThisContactHint') }}</p>
-  <form method="post" action="/contacts/{{ contact.id }}/opportunity-analysis">
-    <button type="submit" class="btn-secondary">{{ t('contactDetail.runOpportunityAnalysis') }}</button>
+  <form method="post" action="/contacts/{{ contact.id }}/opportunity-analysis" data-opportunity-form>
+    <button type="submit" class="btn-secondary" data-opportunity-button>
+      <span class="opportunity-spinner" data-opportunity-spinner hidden aria-hidden="true"></span>
+      <span data-opportunity-label>{{ t('contactDetail.runOpportunityAnalysis') }}</span>
+    </button>
+    <p class="muted small" data-opportunity-status role="status" aria-live="polite" hidden>
+      {{ t('contactDetail.opportunityAnalysisRunning') }}
+    </p>
   </form>
 </section>
 {% endif %}
@@ -287,6 +293,24 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
   <p>{{ opportunity_analysis.suggested_approach }}</p>
 </section>
 {% endif %}
+
+<script>
+  (() => {
+    const form = document.querySelector("[data-opportunity-form]");
+    if (!form) return;
+    form.addEventListener("submit", () => {
+      const button = form.querySelector("[data-opportunity-button]");
+      const spinner = form.querySelector("[data-opportunity-spinner]");
+      const label = form.querySelector("[data-opportunity-label]");
+      const status = form.querySelector("[data-opportunity-status]");
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      spinner.hidden = false;
+      status.hidden = false;
+      label.textContent = "{{ t('contactDetail.opportunityAnalysisWorking') }}";
+    });
+  })();
+</script>
 
 {% if interactions %}
 <section class="detail-section" style="margin-top: 2rem">

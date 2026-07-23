@@ -189,6 +189,8 @@
   "contactDetail.analyseThisContact": "Analyse this contact",
   "contactDetail.analyseThisContactHint": "Generate a fresh AI/software opportunity assessment for this contact only. It never sends outreach.",
   "contactDetail.runOpportunityAnalysis": "Run opportunity analysis",
+  "contactDetail.opportunityAnalysisRunning": "Fetching the company website, reviewing evidence, and generating recommendations. This can take a moment.",
+  "contactDetail.opportunityAnalysisWorking": "Researching and analysing…",
 
   "contacts.title": "Contacts",
   "contacts.totalPage": "{{total}} total — page {{page}} of {{totalPages}}",

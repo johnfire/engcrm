@@ -1,4 +1,5 @@
 """Contact-detail opportunity analysis stays scoped to one admin-selected contact."""
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -50,3 +51,10 @@ def test_single_contact_runner_injects_only_selected_contact():
 
     assert result["summary"] == "saved"
     assert captured["contacts"] == [contact]
+
+
+def test_contact_template_has_accessible_analysis_progress_feedback():
+    template = (Path(__file__).parents[1] / "gcrm/ui/templates/contact_detail.html").read_text()
+    assert "data-opportunity-form" in template
+    assert "data-opportunity-status" in template
+    assert "aria-busy" in template

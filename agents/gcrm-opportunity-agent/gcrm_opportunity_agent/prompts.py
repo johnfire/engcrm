@@ -24,6 +24,8 @@ def build_opportunity_prompt(mission, contact: dict, interactions: list[dict], w
         "- recommended_services: 1-3 objects with service, outcome, rationale\n"
         "- suggested_approach: a concrete, modest first project or Digitalisierungs-Check angle\n"
         "- discovery_questions: 3-5 questions to validate the hypothesis\n"
-        "Do not recommend generic chatbots. Recommend only services justified by the evidence."
+        "When website content is available, include at least one concrete website observation in evidence. "
+        "If it is unavailable, say so rather than inventing it. Do not recommend generic chatbots. "
+        "Recommend only services justified by the evidence."
     )
     return system, user

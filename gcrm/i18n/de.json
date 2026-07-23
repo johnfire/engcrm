@@ -189,6 +189,8 @@
   "contactDetail.analyseThisContact": "Diesen Kontakt analysieren",
   "contactDetail.analyseThisContactHint": "Erstellt eine neue Chancenanalyse für KI/Software nur für diesen Kontakt. Es wird keine Ansprache versendet.",
   "contactDetail.runOpportunityAnalysis": "Chancenanalyse starten",
+  "contactDetail.opportunityAnalysisRunning": "Die Unternehmenswebsite wird abgerufen, Hinweise werden geprüft und Empfehlungen erstellt. Das kann einen Moment dauern.",
+  "contactDetail.opportunityAnalysisWorking": "Recherche und Analyse läuft…",
 
   "contacts.title": "Kontakte",
   "contacts.totalPage": "{{total}} gesamt — Seite {{page}} von {{totalPages}}",
