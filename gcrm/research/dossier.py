@@ -84,16 +84,23 @@ class CompanyResearchFetcher(Protocol):
 # Domain policy
 # ---------------------------------------------------------------------------
 
-# Pages worth crawling on a company site, in priority order.
-_PRIORITY_PATHS = [
-    "/", "/home", "/index",
-    "/about", "/about-us", "/ueber-uns", "/unternehmen", "/team", "/people",
-    "/contact", "/kontakt", "/contact-us",
-    "/imprint", "/impressum", "/legal-notice",
-    "/services", "/leistungen", "/portfolio", "/projects", "/referenzen",
-    "/clients", "/kunden",
-    "/news", "/blog", "/aktuelles", "/events",
+# Pages worth crawling on a company site, grouped by semantic priority.
+# Within each group, all paths have the same priority.
+_PRIORITY_GROUPS: list[tuple[str, ...]] = [
+    ("/", "/home", "/index"),
+    ("/about", "/about-us", "/ueber-uns", "/unternehmen", "/team", "/people", "/founders"),
+    ("/contact", "/kontakt", "/contact-us"),
+    ("/imprint", "/impressum", "/legal-notice", "/legal"),
+    ("/services", "/leistungen", "/portfolio", "/projects", "/referenzen", "/programme"),
+    ("/clients", "/kunden"),
+    ("/news", "/blog", "/aktuelles", "/events"),
 ]
+
+# Build a flat lookup: path -> group index
+_PRIORITY_MAP: dict[str, int] = {}
+for _idx, _group in enumerate(_PRIORITY_GROUPS):
+    for _path in _group:
+        _PRIORITY_MAP[_path] = _idx
 
 # File extensions to skip (media, assets, downloads).
 _SKIP_EXTENSIONS = {
@@ -107,10 +114,7 @@ _SKIP_EXTENSIONS = {
 def _page_priority(path: str) -> int:
     """Lower number = higher priority. Unknown paths get the lowest priority."""
     path_lower = path.lower().rstrip("/") or "/"
-    try:
-        return _PRIORITY_PATHS.index(path_lower)
-    except ValueError:
-        return len(_PRIORITY_PATHS) + 100
+    return _PRIORITY_MAP.get(path_lower, len(_PRIORITY_GROUPS) + 100)
 
 
 def should_crawl(url: str, base_domain: str) -> bool:
@@ -118,8 +122,11 @@ def should_crawl(url: str, base_domain: str) -> bool:
     if not is_public_http_url(url):
         return False
     parsed = urlparse(url)
-    # Same-domain only during company exploration.
-    if parsed.hostname != base_domain:
+    # Same-domain only during company exploration.  Strip 'www.' from both
+    # sides so www.example.com and example.com are treated as the same domain.
+    hostname = (parsed.hostname or "").lower().removeprefix("www.")
+    base = base_domain.lower().removeprefix("www.")
+    if hostname != base:
         return False
     # Skip media, assets, downloads.
     path_lower = parsed.path.lower()
@@ -134,8 +141,14 @@ def should_crawl(url: str, base_domain: str) -> bool:
 def _extract_domain(url: str) -> str | None:
     """Extract the hostname from a URL, stripping 'www.' prefix."""
     try:
+        # urlparse needs a scheme to parse correctly.
+        if "://" not in url:
+            url = "https://" + url
         parsed = urlparse(url)
         hostname = (parsed.hostname or "").lower()
+        # Must look like a real domain (contains at least one dot).
+        if not hostname or "." not in hostname:
+            return None
         return hostname.removeprefix("www.")
     except Exception:
         return None
