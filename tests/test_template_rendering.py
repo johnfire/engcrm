@@ -189,6 +189,65 @@ class TestContactBriefPage:
             clear_login_session()
 
 
+class TestContactDetailPage:
+    def test_renders_full_and_minimal_contact_details(self):
+        with_login_session()
+        try:
+            full_contact = {
+                **CONTACT_ROW,
+                "decision_maker": "Anna Roth",
+                "preferred_contact_method": "email",
+                "best_visit_time": "Tue afternoons",
+                "visit_duration": "20 min",
+                "last_visited_at": "2026-01-01",
+                "first_impression": "warm",
+                "last_impression": "warm",
+                "materials_left": "cards",
+                "followup_promised": "call back",
+                "space_notes": "small",
+                "access_notes": "bus",
+                "price_sensitivity": "low",
+            }
+            for lang in ("en", "de"):
+                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_contact])
+                with patch("gcrm.api.routers.contacts.db") as mock_db:
+                    mock_db.return_value.__enter__.return_value = conn
+                    response = client.get(f"/contacts/1?lang={lang}")
+                assert response.status_code == 200, response.text
+                assert response.text.count("selected") == 4
+
+            minimal_contact = {
+                **CONTACT_ROW,
+                "city": None,
+                "country": None,
+                "type": None,
+                "fit_score": None,
+                "email": None,
+                "website": None,
+                "phone": None,
+                "notes": None,
+                "decision_maker": None,
+                "preferred_contact_method": None,
+                "best_visit_time": None,
+                "visit_duration": None,
+                "last_visited_at": None,
+                "first_impression": None,
+                "last_impression": None,
+                "materials_left": None,
+                "followup_promised": None,
+                "space_notes": None,
+                "access_notes": None,
+                "price_sensitivity": None,
+            }
+            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_contact])
+            with patch("gcrm.api.routers.contacts.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                response = client.get("/contacts/1")
+            assert response.status_code == 200, response.text
+        finally:
+            clear_login_session()
+
+
 class TestPeoplePage:
     def test_renders_empty_and_populated(self):
         with_login_session()
