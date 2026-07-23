@@ -125,12 +125,24 @@ OPEN_BRAIN_URL: str = os.getenv("OPEN_BRAIN_URL", "")
 OPEN_BRAIN_TOKEN: str = os.getenv("OPEN_BRAIN_TOKEN", "")
 
 # --- LLM backends ---
-# Default everywhere is the cheap DeepSeek V4 Flash. CHEAP_LLM drives the high-
-# volume stages (research, enrichment, scouting, voice); SMART_LLM drives the
-# higher-stakes drafting/classification (outreach, followup). Set SMART_LLM=claude
-# to put outreach back on Sonnet. Card OCR stays on claude-haiku (vision-only).
-CHEAP_LLM: str = os.getenv("CHEAP_LLM", "deepseek-v4-flash")
-SMART_LLM: str = os.getenv("SMART_LLM", "deepseek-v4-flash")
+# The active backends are administrator-selectable in Settings. These variables
+# retain safe boot-time defaults when the database is not yet available.
+DEFAULT_CHEAP_LLM: str = os.getenv("DEFAULT_CHEAP_LLM", "deepseek-v4-flash")
+DEFAULT_SMART_LLM: str = os.getenv("DEFAULT_SMART_LLM", "claude")
+CHEAP_LLM = "selected-cheap"
+SMART_LLM = "selected-smart"
+
+# --- Privacy retention ---
+# These are conservative operational defaults, not a substitute for the
+# controller's documented retention schedule. The daily retention job reads
+# these values so a reviewed policy can tighten them without a code change.
+CONTACT_RETENTION_DAYS: int = int(os.getenv("CONTACT_RETENTION_DAYS", "1095"))
+INBOX_RETENTION_DAYS: int = int(os.getenv("INBOX_RETENTION_DAYS", "365"))
+# Agent-run records can contain information about multiple contacts, so they
+# follow the longest contact lifecycle rather than a shorter draft lifetime.
+AGENT_RUN_RETENTION_DAYS: int = int(os.getenv("AGENT_RUN_RETENTION_DAYS", str(CONTACT_RETENTION_DAYS)))
+AUDIT_LOG_RETENTION_DAYS: int = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "730"))
+PUSH_TOKEN_RETENTION_DAYS: int = int(os.getenv("PUSH_TOKEN_RETENTION_DAYS", "90"))
 
 # How many NEW businesses one research scan processes (an alphabetical batch).
 # Each scan picks up where the last left off, so repeated scans march through the
@@ -161,4 +173,5 @@ ACTIVE_MISSION: Mission = Mission(
     language_default=vertical.LANGUAGE_DEFAULT,
     website=vertical.WEBSITE,
     context=_vertical_context,
+    privacy_notice_url=f"{APP_PUBLIC_URL}/privacy",
 )

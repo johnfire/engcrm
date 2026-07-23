@@ -49,6 +49,8 @@ first if any of these facts change, then re-derive the published pages from it.
 
 - `gcrm/ui/templates/impressum.html` — the published Impressum, linked from
   the web app (login page + nav) and the Android app (login screen + settings).
-- Not yet used for a Datenschutzerklärung (privacy policy) — that's a
-  separate, larger piece of work (see the open GDPR findings) and wasn't
-  part of this task.
+- `gcrm/ui/templates/privacy.html` — the published privacy information at
+  `/privacy`, linked from the public web login/navigation and the Android login
+  screen/settings. Christopher Rehm approved the current notice on 2026-07-23;
+  provider contracts and international-transfer safeguards remain tracked in
+  `docs/legal/processor-transfer-register.md` (GitHub issue #40).

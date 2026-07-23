@@ -101,6 +101,9 @@ export default function LoginScreen() {
       <TouchableOpacity style={styles.impressum} onPress={() => Linking.openURL(`${API_BASE}/impressum`)}>
         <Text style={styles.impressumText}>{t("login.impressum")}</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.privacy} onPress={() => Linking.openURL(`${API_BASE}/privacy`)}>
+        <Text style={styles.impressumText}>{t("login.privacy")}</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -146,5 +149,6 @@ const styles = StyleSheet.create({
   forgot: { marginTop: 20, alignItems: "center" },
   forgotText: { color: "#7c6fff", fontSize: 14 },
   impressum: { marginTop: 12, alignItems: "center" },
+  privacy: { marginTop: 6, alignItems: "center" },
   impressumText: { color: "#555", fontSize: 12 },
 });

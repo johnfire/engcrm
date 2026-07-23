@@ -118,6 +118,25 @@ class TestSetOptOut:
         assert "opt_out" in calls_sql.lower()
 
 
+class TestLlmBackends:
+    def test_supports_deepseek_when_administrator_selects_it(self):
+        from gcrm.tools.llm import get_llm
+
+        assert get_llm("deepseek-chat") is not None
+
+
+class TestAiBackendSettings:
+    def test_rejects_a_model_outside_the_selectable_allowlist(self):
+        from gcrm.tools.db_ai_backends import set_ai_backends
+
+        try:
+            set_ai_backends("unknown", "claude")
+        except ValueError as error:
+            assert "Unsupported" in str(error)
+        else:
+            raise AssertionError("Unsupported AI backend was accepted")
+
+
 class TestStartFinishRun:
     def test_start_run_returns_id(self):
         from gcrm.tools.db import start_run

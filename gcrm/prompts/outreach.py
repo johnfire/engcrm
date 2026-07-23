@@ -10,6 +10,11 @@ OPT_OUT_LINE = {
     "it": "Se non desidera ricevere ulteriori messaggi, risponda con 'Annulla iscrizione'.",
 }
 
+PRIVACY_NOTICE_LINE = {
+    "de": "Datenschutzhinweise: {url}",
+    "en": "Privacy information: {url}",
+}
+
 # Classifications the LLM can assign to an incoming reply.
 REPLY_CLASSIFICATIONS = ("interested", "warm", "not_interested", "not_possible", "opt_out", "other")
 
@@ -23,6 +28,8 @@ def draft_email_prompt(
     learnings: list[str] | None = None,
 ) -> tuple[str, str]:
     opt_out = OPT_OUT_LINE.get(language, OPT_OUT_LINE["en"])
+    privacy_url = getattr(mission, "privacy_notice_url", "")
+    privacy_line = PRIVACY_NOTICE_LINE.get(language, PRIVACY_NOTICE_LINE["en"]).format(url=privacy_url)
 
     context_section = (
         f"\n\n--- BACKGROUND CONTEXT ---\n{mission.context}"
@@ -83,6 +90,7 @@ def draft_email_prompt(
         f"- Be short — 4 to 6 sentences in the body, no fluff\n"
         f"- Sign off with your name and website: {mission.website}\n"
         f'- End with this opt-out line (verbatim): "{opt_out}"\n\n'
+        f'- Include this privacy-information line (verbatim): "{privacy_line}"\n\n'
         f"Return a JSON object with:\n"
         f"- subject: email subject line\n"
         f"- body: full plain-text email body\n\n"

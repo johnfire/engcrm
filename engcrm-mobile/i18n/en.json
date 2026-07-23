@@ -42,7 +42,9 @@
   "settings.signedInAs": "Signed in as",
   "settings.logout": "Log out",
   "settings.impressum": "Impressum",
+  "settings.privacy": "Privacy",
   "settings.language": "Language",
+  "settings.aiBackend": "Routine AI backend",
   "settings.languageUpdateFailedTitle": "Couldn't update language",
   "settings.languageUpdateFailedMessage": "Try again.",
 
@@ -55,6 +57,7 @@
   "login.failedMessage": "Wrong email or password.",
   "login.forgotPassword": "Forgot password?",
   "login.impressum": "Impressum",
+  "login.privacy": "Privacy",
 
   "forgotPassword.title": "Forgot your password?",
   "forgotPassword.hint": "Enter your account email and we'll send you a reset link.",

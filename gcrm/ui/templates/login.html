@@ -127,7 +127,7 @@
       </form>
       <p><a href="/forgot-password">{{ t('login.forgotPassword') }}</a></p>
       <p><a href="/signup">{{ t('login.createAccount') }}</a></p>
-      <p><a href="/impressum">{{ t('nav.impressum') }}</a></p>
+      <p><a href="/impressum">{{ t('nav.impressum') }}</a> · <a href="/privacy">{{ t('nav.privacy') }}</a></p>
       <div class="lang-toggle">
         <a href="?lang=en" {% if request.session.get('ui_language', 'en') == 'en' %}class="active"{% endif %}>EN</a>
         &nbsp;|&nbsp;
