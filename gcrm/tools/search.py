@@ -189,7 +189,7 @@ BRIGHTDATA_UNLOCKER_URL = "https://api.brightdata.com/request"
 BRIGHTDATA_UNLOCKER_ZONE = "mcp_unlocker"
 
 
-def _is_public_http_url(url: str) -> bool:
+def is_public_http_url(url: str) -> bool:
     """True only for http(s) URLs whose host resolves entirely to public IPs.
     Blocks SSRF to loopback/private/link-local/reserved ranges, including the
     cloud metadata endpoint at 169.254.169.254."""
@@ -218,7 +218,7 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
     Uses Bright Data Web Unlocker (bot-bypass) when BRIGHTDATA_API_TOKEN is set,
     falls back to plain httpx + HTML stripping.
     """
-    if not _is_public_http_url(url):
+    if not is_public_http_url(url):
         logger.warning("fetch_page: refusing non-public or unsafe URL: %s", url)
         return ""
     from gcrm.config import BRIGHTDATA_API_TOKEN
@@ -261,7 +261,7 @@ def fetch_page(url: str, max_chars: int = 3000) -> str:
                 logger.warning("fetch_page: redirect without location from %s", current_url)
                 return ""
             current_url = urljoin(current_url, location)
-            if not _is_public_http_url(current_url):
+            if not is_public_http_url(current_url):
                 logger.warning("fetch_page: refusing unsafe redirect target: %s", current_url)
                 return ""
         else:
