@@ -27,13 +27,23 @@ SEARCH_COST_PER_QUERY: float = 0.0
 _lock = threading.Lock()
 _search_queries: int = 0
 _llm_usage: dict[str, dict[str, int]] = {}  # model -> {input, output, cached}
+_crawler_pages: dict[str, int] = {}  # fetcher_tier -> page_count
 
 
 def reset_costs() -> None:
-    global _search_queries, _llm_usage
+    global _search_queries, _llm_usage, _crawler_pages
     with _lock:
         _search_queries = 0
         _llm_usage = {}
+        _crawler_pages = {}
+
+
+def record_crawler(pages: int, tier: str) -> None:
+    """Track crawler page fetches for cost reporting.
+    tier: 'crawl4ai', 'brightdata', or 'http'."""
+    global _crawler_pages
+    with _lock:
+        _crawler_pages[tier] = _crawler_pages.get(tier, 0) + pages
 
 
 def record_search(count: int = 1) -> None:
@@ -56,6 +66,7 @@ def get_costs() -> dict:
     with _lock:
         search_queries = _search_queries
         usage_snapshot = {model: dict(usage) for model, usage in _llm_usage.items()}
+        crawler_snapshot = dict(_crawler_pages)
 
     total = 0.0
     breakdown: dict = {}
@@ -79,6 +90,13 @@ def get_costs() -> dict:
             "cached_tokens": usage["cached"],
             "cost_usd": round(cost, 6),
         }
+
+    # Crawler costs: Bright Data ~$0.01/page, Crawl4AI ~$0.005/page (CPU), HTTP free.
+    CRAWLER_COST_PER_PAGE = {"brightdata": 0.01, "crawl4ai": 0.005, "http": 0.0}
+    for tier, pages in crawler_snapshot.items():
+        cost = pages * CRAWLER_COST_PER_PAGE.get(tier, 0.0)
+        total += cost
+        breakdown[f"crawler_{tier}"] = {"pages": pages, "cost_usd": round(cost, 6)}
 
     return {"total_usd": round(total, 6), "breakdown": breakdown}
 

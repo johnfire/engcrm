@@ -130,6 +130,7 @@ def _build_scout_agent(llm):
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        get_or_create_dossier=get_or_create_dossier if RESEARCH_DOSSIER_ENABLED else None,
     )
 
 

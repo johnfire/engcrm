@@ -66,7 +66,11 @@ def split_and_promote(state: ScoutState, update_contact: ContactUpdater) -> dict
     return {"scored_candidates": to_score, "promoted_count": promoted}
 
 
-def fetch_scored_websites(state: ScoutState, fetch_page: PageFetcher) -> dict:
+def fetch_scored_websites(
+    state: ScoutState,
+    fetch_page: PageFetcher,
+    get_or_create_dossier=None,
+) -> dict:
     enriched = []
     for candidate in state.get("scored_candidates", []):
         contact, content = dict(candidate), ""
@@ -76,6 +80,15 @@ def fetch_scored_websites(state: ScoutState, fetch_page: PageFetcher) -> dict:
             except Exception:
                 pass
         contact["website_content"] = content
+        # Enrich with research dossier when available (feature-flagged).
+        if get_or_create_dossier and contact.get("website"):
+            try:
+                dossier = get_or_create_dossier(contact["id"])
+                if dossier:
+                    contact["dossier"] = dossier
+                    logger.debug("scout: dossier available for contact %s", contact["id"])
+            except Exception as exc:
+                logger.debug("scout: dossier fetch skipped for %s: %s", contact["id"], exc)
         enriched.append(contact)
     return {"scored_candidates": enriched}
 
@@ -175,13 +188,17 @@ def create_scout_agent(
     start_run: RunStarter,
     finish_run: RunFinisher,
     mission: AgentMission,
+    get_or_create_dossier=None,
 ):
     """Build a scout graph from small dependency-injected node functions."""
     graph = StateGraph(ScoutState)
     graph.add_node("init", partial(initialize, start_run=start_run))
     graph.add_node("fetch", partial(fetch, fetch_candidates=fetch_candidates))
     graph.add_node("split_and_promote", partial(split_and_promote, update_contact=update_contact))
-    graph.add_node("fetch_scored_websites", partial(fetch_scored_websites, fetch_page=fetch_page))
+    graph.add_node(
+        "fetch_scored_websites",
+        partial(fetch_scored_websites, fetch_page=fetch_page, get_or_create_dossier=get_or_create_dossier),
+    )
     graph.add_node(
         "score_candidates",
         partial(score_candidates, llm=llm, fetch_city_context=fetch_city_context, mission=mission),

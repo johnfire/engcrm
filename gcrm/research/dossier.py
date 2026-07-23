@@ -20,6 +20,7 @@ Domain policy:
 """
 
 import hashlib
+import json
 import logging
 import re
 import time
@@ -28,7 +29,12 @@ from datetime import datetime, timezone
 from typing import Protocol
 from urllib.parse import urljoin, urlparse
 
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from gcrm.config import CHEAP_LLM
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools.costs import record_crawler
+from gcrm.tools.llm import get_llm
 from gcrm.tools.search import fetch_page as legacy_fetch_page
 from gcrm.tools.search import is_public_http_url
 
@@ -561,6 +567,7 @@ def _generate_dossier(contact: dict) -> dict | None:
 
     # Crawl the company site.
     pages = fetcher.fetch_domain_pages(domain, website, max_pages=8)
+    record_crawler(len(pages), fetcher_tier)
     if not pages:
         return _save_dossier(contact_id, domain, "blocked", [], [], [])
 
@@ -580,8 +587,8 @@ def _generate_dossier(contact: dict) -> dict | None:
             "source_type": source_type,
         })
 
-    # Extract company summary from combined markdown.
-    company_summary = _extract_company_summary(all_markdown, company_name, city)
+    # Extract company facts via LLM from combined markdown.
+    company_summary, extracted_people = _llm_extract_company(all_markdown, company_name, city, domain)
 
     # Determine status.
     if len(pages) == 1 and fetcher_tier in ("brightdata", "http"):
@@ -591,8 +598,8 @@ def _generate_dossier(contact: dict) -> dict | None:
     else:
         research_status = "complete"
 
-    # Person extraction is deferred (Phase 2). Store empty for now.
-    people: list[dict] = []
+    # Person extraction from the company's own pages (passive, not active research).
+    people: list[dict] = extracted_people or []
     person_context: list[dict] = []
 
     return _save_dossier(contact_id, domain, research_status, evidence, people, person_context,
@@ -617,24 +624,80 @@ def _classify_page_type(url: str) -> str:
     return "other"
 
 
-def _extract_company_summary(markdown: str, company_name: str, city: str) -> str:
-    """Extract a short company summary from the first ~2000 chars of markdown.
+def _llm_extract_company(
+    markdown: str, company_name: str, city: str, domain: str
+) -> tuple[str, list[dict]]:
+    """Extract company facts and named professionals from crawled pages via LLM.
 
-    This is a fast heuristic — the LLM extraction step (future phase) will
-    produce the canonical summary. For now, return a truncated excerpt.
+    Returns (company_summary, people) where people is a list of
+    {name, role, source_url, confidence} dicts found on the company's own site.
+    Falls back to heuristic extraction if the LLM call fails.
     """
     if not markdown.strip():
+        return "", []
+
+    # Cap at 12K chars to stay within reasonable token limits.
+    content = markdown[:12000]
+
+    system = (
+        "You are a research analyst extracting facts from a company's website. "
+        "Return ONLY valid JSON. Never hallucinate information not present in the source. "
+        "If a fact cannot be confirmed from the pages provided, omit it."
+    )
+    user = (
+        f"Analyse the following content from {company_name}'s website ({domain}) in {city}.\n\n"
+        f"PAGE CONTENT:\n<<<CONTENT>>>\n{content}\n<<<END CONTENT>>>\n\n"
+        "Return a JSON object with exactly these keys:\n"
+        '- company_summary: 2-4 sentences describing what the company does, their '
+        "industry, size indicators if visible (e.g. 'family business', 'team of 15'), "
+        "and any distinctive capabilities. Be factual and specific.\n"
+        "- people: array of objects with {name, role, source_url, confidence}. "
+        "Only include people whose name AND professional role appear on these pages. "
+        "Confidence is 0-100 based on how clearly the information is stated. "
+        "Use the page URL where the person was found as source_url.\n\n"
+        "Return ONLY the JSON object, no other text."
+    )
+
+    try:
+        llm = get_llm(CHEAP_LLM)
+        response = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
+        result = json.loads(response.content)
+        if not isinstance(result, dict):
+            raise ValueError("Expected JSON object")
+        company_summary = str(result.get("company_summary", "")).strip()[:1000]
+        people_raw = result.get("people", [])
+        people = []
+        if isinstance(people_raw, list):
+            for p in people_raw:
+                if isinstance(p, dict) and p.get("name") and p.get("role"):
+                    people.append({
+                        "name": str(p["name"]).strip(),
+                        "role": str(p["role"]).strip(),
+                        "source_url": str(p.get("source_url", "")).strip(),
+                        "confidence": max(0, min(100, int(p.get("confidence", 50)))),
+                    })
+        logger.info(
+            "dossier LLM extraction: %s — %d chars summary, %d people found",
+            domain, len(company_summary), len(people),
+        )
+        return company_summary, people[:8]  # Cap at 8 people.
+    except Exception as exc:
+        logger.warning("dossier LLM extraction failed for %s: %s — falling back to heuristic", domain, exc)
+        return _heuristic_summary(markdown, company_name, city), []
+
+
+def _heuristic_summary(markdown: str, company_name: str, city: str) -> str:
+    """Fast heuristic fallback: first meaningful paragraph of markdown."""
+    if not markdown.strip():
         return ""
-    # Take first meaningful paragraph (skip navigation boilerplate).
     lines = markdown.strip().split("\n")
     summary_lines: list[str] = []
     for line in lines:
         stripped = line.strip()
         if not stripped:
             if summary_lines:
-                break  # Stop at first blank line after content.
+                break
             continue
-        # Skip navigation-like lines (very short, all caps, or just links).
         if len(stripped) < 10 and stripped.isupper():
             continue
         if stripped.startswith("[") and stripped.endswith(")"):

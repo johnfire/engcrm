@@ -1,4 +1,4 @@
-"""Mobile research trigger — kicks off a city scan in the background."""
+"""Mobile research trigger — kicks off a city scan or generates a dossier."""
 import subprocess
 import sys
 
@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
+from gcrm.research import get_or_create_dossier
 from gcrm.tools.db import build_research_overview
 from gcrm.tools.db_audit import log_audit
 from gcrm.vertical import SCAN_LEVELS
@@ -48,3 +49,30 @@ def run_research(
     background_tasks.add_task(_run_research, body.city, body.level, body.country)
     log_audit(None, None, "pipeline.research_queued", f"city:{body.country}:{body.city}", f"level:{body.level}")
     return {"status": "queued", "city": body.city, "level": body.level}
+
+
+@router.get("/dossier/{contact_id}")
+def get_dossier(contact_id: int, _role: str = Depends(require_jwt)) -> dict:
+    """Retrieve an existing research dossier for a contact.
+    Returns the dossier or 404 if none exists."""
+    dossier = get_or_create_dossier(contact_id)
+    if dossier is None:
+        raise HTTPException(status_code=404, detail="No dossier available for this contact")
+    return {"status": "ok", "dossier": dossier}
+
+
+@router.post("/dossier/{contact_id}", status_code=202)
+def generate_dossier(
+    contact_id: int,
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """Generate a research dossier for a single contact (admin only).
+    Synchronous — returns the dossier immediately."""
+    if payload["sub"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    dossier = get_or_create_dossier(contact_id)
+    if dossier is None:
+        raise HTTPException(status_code=422, detail="No website or all sources blocked")
+    log_audit(None, None, "research.dossier_generated", f"contact:{contact_id}",
+              dossier.get("research_status", "unknown"))
+    return {"status": "ok", "dossier": dossier}

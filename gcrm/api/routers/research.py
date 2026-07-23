@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
+from gcrm.research import get_or_create_dossier
 from gcrm.supervisor.pipeline import spawn_stage
 from gcrm.tools.db import add_city, build_research_overview
 from gcrm.tools.db_audit import log_audit
@@ -69,3 +70,18 @@ def research_run(
     return RedirectResponse(
         url=f"/research/?queued={quote(stage)}&city={quote(city)}", status_code=303,
     )
+
+
+@router.post("/research/dossier/{contact_id}")
+def research_dossier_generate(
+    contact_id: int,
+    _role: str = Depends(require_admin),
+) -> dict:
+    """Generate a research dossier for a single contact (admin only).
+    Returns the dossier dict or an error if generation fails."""
+    dossier = get_or_create_dossier(contact_id)
+    if dossier is None:
+        return {"status": "failed", "contact_id": contact_id, "detail": "No website or all sources blocked"}
+    log_audit(None, None, "research.dossier_generated", f"contact:{contact_id}",
+              dossier.get("research_status", "unknown"))
+    return {"status": "ok", "dossier": dossier}
