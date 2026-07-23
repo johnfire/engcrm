@@ -215,6 +215,10 @@ class TestContactDetailPage:
                     response = client.get(f"/contacts/1?lang={lang}")
                 assert response.status_code == 200, response.text
                 assert response.text.count("selected") == 4
+                assert 'class="contact-edit-form"' in response.text
+                assert 'class="contact-detail-page"' in response.text
+                assert 'for="contact-name"' in response.text
+                assert 'id="contact-name"' in response.text
 
             minimal_contact = {
                 **CONTACT_ROW,
