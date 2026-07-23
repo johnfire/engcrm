@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import httpx
 
-from gcrm.tools.search import _is_public_http_url, fetch_page
+from gcrm.tools.search import is_public_http_url, fetch_page
 
 
 def test_blocks_loopback_private_and_metadata():
@@ -21,13 +21,13 @@ def test_blocks_loopback_private_and_metadata():
         "not-a-url",
     ]
     for url in blocked:
-        assert _is_public_http_url(url) is False, url
+        assert is_public_http_url(url) is False, url
 
 
 def test_allows_public_ip_literals():
     # IP literals need no DNS, so this stays offline.
-    assert _is_public_http_url("http://8.8.8.8/") is True
-    assert _is_public_http_url("https://93.184.216.34/path") is True
+    assert is_public_http_url("http://8.8.8.8/") is True
+    assert is_public_http_url("https://93.184.216.34/path") is True
 
 
 def test_refuses_redirect_to_private_address():
@@ -37,7 +37,7 @@ def test_refuses_redirect_to_private_address():
         request=httpx.Request("GET", "https://public.example/"),
     )
     with patch("gcrm.config.BRIGHTDATA_API_TOKEN", ""), patch(
-        "gcrm.tools.search._is_public_http_url", side_effect=[True, False]
+        "gcrm.tools.search.is_public_http_url", side_effect=[True, False]
     ), patch(
         "gcrm.tools.search.httpx.get", return_value=redirect
     ) as get:
@@ -57,7 +57,7 @@ def test_follows_public_redirect_after_revalidation():
         request=httpx.Request("GET", "https://other.example/about"),
     )
     with patch("gcrm.config.BRIGHTDATA_API_TOKEN", ""), patch(
-        "gcrm.tools.search._is_public_http_url", side_effect=[True, True]
+        "gcrm.tools.search.is_public_http_url", side_effect=[True, True]
     ), patch(
         "gcrm.tools.search.httpx.get", side_effect=[redirect, page]
     ):

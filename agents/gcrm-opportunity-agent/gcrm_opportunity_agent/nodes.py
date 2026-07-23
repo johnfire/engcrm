@@ -46,16 +46,39 @@ def analyse_contacts(state, dependencies) -> dict:
 
 def _analyse_contact(contact, dependencies) -> dict:
     interactions = dependencies.fetch_interactions(contact["id"])
-    website_content = _fetch_website_content(contact, dependencies)
+    dossier = _get_dossier(contact, dependencies)
     system, user = build_opportunity_prompt(
         dependencies.mission,
         contact,
         interactions,
-        website_content,
+        dossier,
     )
     response = dependencies.llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
     analysis = _validate_analysis(parse_llm_json(response.content))
     return {"contact_id": contact["id"], "analysis": analysis}
+
+
+def _get_dossier(contact, dependencies) -> dict | None:
+    """Fetch or create a research dossier for the contact.
+    Uses the injected get_or_create_dossier tool if available,
+    falls back to legacy website fetch for backward compatibility."""
+    if hasattr(dependencies, "get_or_create_dossier") and dependencies.get_or_create_dossier:
+        try:
+            return dependencies.get_or_create_dossier(contact["id"])
+        except Exception as error:
+            logger.info("dossier generation failed for %s: %s — falling back", contact["id"], error)
+    # Legacy fallback: raw website fetch.
+    website_content = _fetch_website_content(contact, dependencies)
+    if website_content:
+        return {
+            "research_status": "legacy_fallback",
+            "official_domain": "",
+            "company_summary": website_content[:800],
+            "evidence": [],
+            "people": [],
+            "person_context": [],
+        }
+    return None
 
 
 def _fetch_website_content(contact, dependencies) -> str:

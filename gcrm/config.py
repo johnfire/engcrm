@@ -137,6 +137,14 @@ SMART_LLM: str = os.getenv("SMART_LLM", "deepseek-v4-flash")
 # full list instead of redoing the same ones. Raise to scan more per press.
 SCAN_CUTOFF: int = int(os.getenv("SCAN_CUTOFF", "25"))
 
+# --- Company research dossier ---
+# Feature flag: enable evidence-backed company crawling via Crawl4AI.
+# Disabled by default. When enabled, the opportunity agent fetches a research
+# dossier (crawling 5-8 pages of the official website) instead of a single
+# homepage fetch. Crawl4AI is the primary fetcher, falling back to Bright Data
+# and plain HTTP.
+RESEARCH_DOSSIER_ENABLED: bool = os.getenv("RESEARCH_DOSSIER_ENABLED", "false").lower() == "true"
+
 # --- Mission ---
 # Edit gcrm/vertical.py to change the target domain. Nothing else needs to change.
 # Edit gcrm/vertical_context.md to provide richer narrative context for outreach emails.
