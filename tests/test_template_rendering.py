@@ -149,7 +149,7 @@ class TestContactsPage:
             )
             with patch("gcrm.api.routers.contacts.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                response = client.get("/contacts/?sort=starred&dir=desc")
+                response = client.get("/contacts/?sort=starred&dir=desc&lang=en")
 
             assert response.status_code == 200, response.text
             assert '<option value="starred" selected>Starred</option>' in response.text
