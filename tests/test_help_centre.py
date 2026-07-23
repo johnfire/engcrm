@@ -32,6 +32,7 @@ def test_help_centre_renders_published_articles(signed_in_customer):
     assert response.status_code == 200
     assert "Review safely" in response.text
     assert "Nothing sends automatically." in response.text
+    assert response.headers["cache-control"] == "private, no-store"
 
 
 def test_help_editor_requires_admin():

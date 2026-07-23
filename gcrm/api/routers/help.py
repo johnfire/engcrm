@@ -31,13 +31,16 @@ def _workspace_id(request: Request) -> int | None:
 
 @router.get("/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def help_centre(request: Request, q: str = ""):
-    return templates.TemplateResponse("help.html", {
+    response = templates.TemplateResponse("help.html", {
         "request": request,
         "articles": list_published_help(_workspace_id(request), _language(request), "web", q),
         "query": q,
         "tour_complete": has_completed_help_tour(request.session.get("user_id")),
         "start_tour": request.query_params.get("tour") == "1",
     })
+    # Published guidance must update immediately after an admin saves it.
+    response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 
 @router.post("/feedback", dependencies=[Depends(require_login)])
