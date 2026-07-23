@@ -47,13 +47,7 @@ endblock %} {% block content %}
           {% for s in valid_statuses %}
           <option
             value="{{ s }}"
-            {%
-            if
-            s=""
-            ="contact.status"
-            %}selected{%
-            endif
-            %}
+            {% if s == contact.status %}selected{% endif %}
           >
             {{ s }}
           </option>
@@ -91,13 +85,7 @@ endblock %} {% block content %}
           form'] %}
           <option
             value="{{ m }}"
-            {%
-            if
-            contact.preferred_contact_method=""
-            ="m"
-            %}selected{%
-            endif
-            %}
+            {% if contact.preferred_contact_method == m %}selected{% endif %}
           >
             {{ m }}
           </option>
@@ -150,13 +138,7 @@ endblock %} {% block content %}
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
           <option
             value="{{ v }}"
-            {%
-            if
-            contact.first_impression=""
-            ="v"
-            %}selected{%
-            endif
-            %}
+            {% if contact.first_impression == v %}selected{% endif %}
           >
             {{ v }}
           </option>
@@ -170,13 +152,7 @@ endblock %} {% block content %}
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
           <option
             value="{{ v }}"
-            {%
-            if
-            contact.last_impression=""
-            ="v"
-            %}selected{%
-            endif
-            %}
+            {% if contact.last_impression == v %}selected{% endif %}
           >
             {{ v }}
           </option>
