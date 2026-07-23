@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
+from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
 from gcrm.tools.db_audit import log_audit
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
@@ -237,7 +238,29 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "valid_statuses": VALID_STATUSES,
         "saved": saved,
+        "opportunity_flash": request.session.pop("opportunity_flash", None),
     })
+
+
+@router.post("/{contact_id}/opportunity-analysis")
+def analyse_selected_contact(
+    contact_id: int,
+    request: Request,
+    _admin: str = Depends(require_admin),
+):
+    """Run a fresh analysis for exactly one contact; it never sends outreach."""
+    log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "started")
+    try:
+        result = analyse_contact_opportunity(contact_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    except Exception as error:
+        log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "failed")
+        request.session["opportunity_flash"] = {"error": str(error)}
+        return RedirectResponse(url=f"/contacts/{contact_id}", status_code=303)
+    log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "completed")
+    request.session["opportunity_flash"] = {"summary": result.get("summary", "Analysis complete")}
+    return RedirectResponse(url=f"/contacts/{contact_id}", status_code=303)
 
 
 def _persist_contact_edit(contact_id, text_fields, fit_score):

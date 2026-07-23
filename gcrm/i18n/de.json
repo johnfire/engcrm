@@ -186,6 +186,9 @@
   "contactDetail.evidence": "Hinweise",
   "contactDetail.discoveryQuestions": "Fragen für das Erstgespräch",
   "contactDetail.suggestedApproach": "Empfohlener erster Schritt",
+  "contactDetail.analyseThisContact": "Diesen Kontakt analysieren",
+  "contactDetail.analyseThisContactHint": "Erstellt eine neue Chancenanalyse für KI/Software nur für diesen Kontakt. Es wird keine Ansprache versendet.",
+  "contactDetail.runOpportunityAnalysis": "Chancenanalyse starten",
 
   "contacts.title": "Kontakte",
   "contacts.totalPage": "{{total}} gesamt — Seite {{page}} von {{totalPages}}",

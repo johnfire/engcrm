@@ -186,6 +186,9 @@
   "contactDetail.evidence": "Evidence",
   "contactDetail.discoveryQuestions": "Discovery questions",
   "contactDetail.suggestedApproach": "Suggested first step",
+  "contactDetail.analyseThisContact": "Analyse this contact",
+  "contactDetail.analyseThisContactHint": "Generate a fresh AI/software opportunity assessment for this contact only. It never sends outreach.",
+  "contactDetail.runOpportunityAnalysis": "Run opportunity analysis",
 
   "contacts.title": "Contacts",
   "contacts.totalPage": "{{total}} total — page {{page}} of {{totalPages}}",

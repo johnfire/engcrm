@@ -236,6 +236,19 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
   </div>
 </form>
 
+{% if request.session.get('role') == 'admin' %}
+<section class="context-help opportunity-action">
+  <strong>{{ t('contactDetail.analyseThisContact') }}</strong>
+  <p>{{ t('contactDetail.analyseThisContactHint') }}</p>
+  <form method="post" action="/contacts/{{ contact.id }}/opportunity-analysis">
+    <button type="submit" class="btn-secondary">{{ t('contactDetail.runOpportunityAnalysis') }}</button>
+  </form>
+</section>
+{% endif %}
+{% if opportunity_flash %}
+  <p class="{{ 'error' if opportunity_flash.error else 'success' }}">{{ opportunity_flash.error or opportunity_flash.summary }}</p>
+{% endif %}
+
 {% if opportunity_analysis %}
 <section class="opportunity-analysis">
   <div class="opportunity-analysis__heading">
