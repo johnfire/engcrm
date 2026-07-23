@@ -39,6 +39,11 @@ from .db import (
     update_contact,
     update_contact_details,
 )
+from .db_opportunities import (
+    get_contacts_needing_opportunity_analysis,
+    get_latest_opportunity_analysis,
+    save_opportunity_analysis,
+)
 from .email import read_inbox, send_email
 from .llm import get_llm
 from .memory import capture_thought, search_gcrm_thoughts
@@ -47,6 +52,8 @@ from .search import fetch_page, geo_search, google_maps_search, web_search
 __all__ = [
     "save_contact", "get_existing_contact_names", "get_candidates", "get_cold_contacts", "update_contact",
     "get_contacts_needing_enrichment", "update_contact_details",
+    "get_contacts_needing_opportunity_analysis", "get_latest_opportunity_analysis",
+    "save_opportunity_analysis",
     "check_compliance", "ensure_consent_log", "queue_for_approval",
     "log_interaction", "get_contact_interactions", "set_opt_out", "get_overdue_contacts",
     "save_inbox_message", "get_unprocessed_inbox", "mark_message_processed",

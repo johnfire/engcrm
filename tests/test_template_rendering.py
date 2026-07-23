@@ -138,6 +138,26 @@ class TestContactsPage:
         finally:
             clear_login_session()
 
+    def test_starred_sort_orders_starred_contacts_first(self):
+        with_login_session()
+        try:
+            conn, cur = make_mock_conn(
+                [{**CONTACT_ROW, "starred": True}],
+                [{"status": "candidate"}],
+                [{"type": "Handwerksbetrieb"}],
+                fetchone_sequence=[{"cnt": 1}],
+            )
+            with patch("gcrm.api.routers.contacts.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                response = client.get("/contacts/?sort=starred&dir=desc")
+
+            assert response.status_code == 200, response.text
+            assert '<option value="starred" selected>Starred</option>' in response.text
+            contact_query = cur.execute.call_args_list[1].args[0]
+            assert "ORDER BY c.starred DESC NULLS LAST, c.id ASC" in contact_query
+        finally:
+            clear_login_session()
+
 
 class TestContactsPrintPage:
     def test_renders(self):
@@ -208,8 +228,19 @@ class TestContactDetailPage:
                 "access_notes": "bus",
                 "price_sensitivity": "low",
             }
+            opportunity_analysis = {
+                "fit_reasoning": "Manual quoting suggests a useful automation opportunity.",
+                "suggested_approach": "Map the quote workflow in a Digitalisierungs-Check.",
+                "priority_score": 80,
+                "opportunity_score": 84,
+                "confidence_score": 70,
+                "evidence": ["Manual quotes"],
+                "recommended_services": [{"service": "Quote assistant", "outcome": "Faster quotes", "rationale": "Manual workflow"}],
+                "discovery_questions": ["How are quotes prepared?"],
+                "analysis_date": None,
+            }
             for lang in ("en", "de"):
-                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_contact])
+                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_contact, opportunity_analysis])
                 with patch("gcrm.api.routers.contacts.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
                     response = client.get(f"/contacts/1?lang={lang}")
@@ -219,6 +250,7 @@ class TestContactDetailPage:
                 assert 'class="contact-detail-page"' in response.text
                 assert 'for="contact-name"' in response.text
                 assert 'id="contact-name"' in response.text
+                assert "Quote assistant" in response.text
 
             minimal_contact = {
                 **CONTACT_ROW,
@@ -243,7 +275,7 @@ class TestContactDetailPage:
                 "access_notes": None,
                 "price_sensitivity": None,
             }
-            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_contact])
+            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_contact, None])
             with patch("gcrm.api.routers.contacts.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
                 response = client.get("/contacts/1")

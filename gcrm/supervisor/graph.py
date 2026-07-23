@@ -6,8 +6,9 @@ Run order per invocation:
   1. research_agent    — once per target in RESEARCH_TARGETS
   2. enrichment_agent  — fills in missing website/email for existing contacts
   3. scout_agent       — scores all candidates
-  4. outreach_agent    — drafts first-contact emails for cold contacts
-  5. followup_agent    — processes inbox + sends follow-ups to overdue contacts
+  4. opportunity_agent — recommends evidence-backed custom AI/software offers
+  5. outreach_agent    — drafts first-contact emails for cold contacts
+  6. followup_agent    — processes inbox + sends follow-ups to overdue contacts
 
 Each agent handles the "nothing to do" case gracefully, so the supervisor
 always runs to completion even when there is no work.
@@ -19,6 +20,7 @@ from typing import TypedDict
 
 from gcrm_enrichment_agent import create_enrichment_agent
 from gcrm_followup_agent import create_followup_agent
+from gcrm_opportunity_agent import create_opportunity_agent
 from gcrm_outreach_agent import create_outreach_agent
 from gcrm_research_agent import create_research_agent
 from gcrm_scout_agent import create_scout_agent
@@ -35,6 +37,7 @@ from gcrm.tools import (
     get_cold_contacts,
     get_contact_interactions,
     get_contacts_needing_enrichment,
+    get_contacts_needing_opportunity_analysis,
     get_existing_contact_names,
     get_llm,
     get_overdue_contacts,
@@ -48,6 +51,7 @@ from gcrm.tools import (
     record_warm_outcome,
     save_contact,
     save_inbox_classification,
+    save_opportunity_analysis,
     search_gcrm_thoughts,
     set_opt_out,
     set_visit_when_nearby,
@@ -65,6 +69,7 @@ class SupervisorState(TypedDict):
     research_jobs: list[dict]   # list of {city, country, level}
     research_summaries: list[str]
     enrichment_summary: str
+    opportunity_summary: str
     scout_summary: str
     outreach_summary: str
     followup_summary: str
@@ -96,6 +101,20 @@ def _build_enrichment_agent(llm):
         update_contact=update_contact_details,
         start_run=start_run,
         finish_run=finish_run,
+    )
+
+
+def _build_opportunity_agent(llm):
+    return create_opportunity_agent(
+        llm=llm,
+        fetch_contacts=get_contacts_needing_opportunity_analysis,
+        fetch_interactions=get_contact_interactions,
+        fetch_page=fetch_page,
+        save_analysis=save_opportunity_analysis,
+        start_run=start_run,
+        finish_run=finish_run,
+        mission=ACTIVE_MISSION,
+        model_name=CHEAP_LLM,
     )
 
 
@@ -151,6 +170,7 @@ def _build_agents():
     return (
         _build_research_agent(get_llm(CHEAP_LLM)),
         _build_enrichment_agent(get_llm(CHEAP_LLM)),
+        _build_opportunity_agent(get_llm(CHEAP_LLM)),
         _build_scout_agent(get_llm(CHEAP_LLM)),
         _build_outreach_agent(get_llm(SMART_LLM)),
         _build_followup_agent(get_llm(SMART_LLM)),
@@ -167,6 +187,7 @@ def _init_node(state: SupervisorState) -> dict:
         "research_jobs": jobs,
         "research_summaries": [],
         "enrichment_summary": "",
+        "opportunity_summary": "",
         "scout_summary": "",
         "outreach_summary": "",
         "followup_summary": "",
@@ -228,6 +249,17 @@ def _run_scout_node(state: SupervisorState, scout_agent) -> dict:
         return {"scout_summary": msg, "errors": state["errors"] + [msg]}
 
 
+def _run_opportunity_node(state: SupervisorState, opportunity_agent) -> dict:
+    try:
+        result = opportunity_agent.invoke({"limit": 50})
+        logger.info("opportunity analysis: %s", result.get("summary", ""))
+        return {"opportunity_summary": result.get("summary", "")}
+    except Exception as error:
+        msg = f"opportunity analysis failed: {error}"
+        logger.error(msg)
+        return {"opportunity_summary": msg, "errors": state["errors"] + [msg]}
+
+
 def _run_outreach_node(state: SupervisorState, outreach_agent) -> dict:
     try:
         learnings = search_gcrm_thoughts("outreach email tone style", limit=5)
@@ -267,6 +299,7 @@ def _generate_report_node(state: SupervisorState) -> dict:
         "",
         f"Enrich:   {state.get('enrichment_summary', '—')}",
         f"Scout:    {state.get('scout_summary', '—')}",
+        f"Opportunity: {state.get('opportunity_summary', '—')}",
         f"Outreach: {state.get('outreach_summary', '—')}",
         f"Followup: {state.get('followup_summary', '—')}",
     ]
@@ -288,12 +321,13 @@ def create_supervisor(checkpointer=None):
     Node bodies live at module level; the per-agent nodes are bound to their
     concrete agent here. Returns the compiled graph.
     """
-    research_agent, enrichment_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
+    research_agent, enrichment_agent, opportunity_agent, scout_agent, outreach_agent, followup_agent = _build_agents()
 
     graph = StateGraph(SupervisorState)
     graph.add_node("init", _init_node)
     graph.add_node("run_research", partial(_run_research_node, research_agent=research_agent))
     graph.add_node("run_enrich", partial(_run_enrich_node, enrichment_agent=enrichment_agent))
+    graph.add_node("run_opportunity", partial(_run_opportunity_node, opportunity_agent=opportunity_agent))
     graph.add_node("run_scout", partial(_run_scout_node, scout_agent=scout_agent))
     graph.add_node("run_outreach", partial(_run_outreach_node, outreach_agent=outreach_agent))
     graph.add_node("run_followup", partial(_run_followup_node, followup_agent=followup_agent))
@@ -303,7 +337,8 @@ def create_supervisor(checkpointer=None):
     graph.add_edge("init", "run_research")
     graph.add_edge("run_research", "run_enrich")
     graph.add_edge("run_enrich", "run_scout")
-    graph.add_edge("run_scout", "run_outreach")
+    graph.add_edge("run_scout", "run_opportunity")
+    graph.add_edge("run_opportunity", "run_outreach")
     graph.add_edge("run_outreach", "run_followup")
     graph.add_edge("run_followup", "generate_report")
     graph.add_edge("generate_report", END)

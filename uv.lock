@@ -478,6 +478,23 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
+name = "gcrm-opportunity-agent"
+version = "0.1.0"
+source = { editable = "agents/gcrm-opportunity-agent" }
+dependencies = [
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "langchain-core", specifier = ">=0.3.0" },
+    { name = "langgraph", specifier = ">=0.2.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "gcrm-outreach-agent"
 version = "0.1.0"
 source = { editable = "agents/gcrm-outreach-agent" }
@@ -538,6 +555,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "gcrm-enrichment-agent" },
     { name = "gcrm-followup-agent" },
+    { name = "gcrm-opportunity-agent" },
     { name = "gcrm-outreach-agent" },
     { name = "gcrm-research-agent" },
     { name = "gcrm-scout-agent" },
@@ -579,6 +597,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "gcrm-enrichment-agent", editable = "agents/gcrm-enrichment-agent" },
     { name = "gcrm-followup-agent", editable = "agents/gcrm-followup-agent" },
+    { name = "gcrm-opportunity-agent", editable = "agents/gcrm-opportunity-agent" },
     { name = "gcrm-outreach-agent", editable = "agents/gcrm-outreach-agent" },
     { name = "gcrm-research-agent", editable = "agents/gcrm-research-agent" },
     { name = "gcrm-scout-agent", editable = "agents/gcrm-scout-agent" },

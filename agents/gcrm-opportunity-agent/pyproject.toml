@@ -1,0 +1,19 @@
+[project]
+name = "gcrm-opportunity-agent"
+version = "0.1.0"
+requires-python = ">=3.11"
+description = "LangGraph agent that recommends custom AI and software opportunities."
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gcrm_opportunity_agent"]

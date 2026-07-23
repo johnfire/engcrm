@@ -48,6 +48,11 @@ class TestSpawn:
             pipeline.spawn_stage("followup")
         assert "gcrm.supervisor.run_followup" in popen.call_args.args[0]
 
+    def test_opportunity_command(self):
+        with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
+            pipeline.spawn_stage("opportunity")
+        assert "gcrm.supervisor.run_opportunity_analysis" in popen.call_args.args[0]
+
 
 class TestEndpoint:
     def test_requires_auth(self):

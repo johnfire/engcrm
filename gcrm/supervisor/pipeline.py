@@ -12,7 +12,7 @@ import sys
 from gcrm.vertical import SCAN_LEVELS
 
 # Stages exposed as buttons. 'all' runs the city pipeline in sequence.
-STAGES = ("research", "scout", "enrichment", "outreach", "followup", "all")
+STAGES = ("research", "scout", "enrichment", "opportunity", "outreach", "followup", "all")
 
 _CITY_STAGES = ("research", "scout", "enrichment", "outreach", "all")
 _LEVEL_STAGES = ("research", "outreach", "all")
@@ -37,6 +37,8 @@ def _command(stage: str, city: str, level, country: str) -> list[str]:
         return run + ["gcrm.supervisor.run_scout", "--city", city]
     if stage == "enrichment":
         return run + ["gcrm.supervisor.run_enrichment", "--city", city]
+    if stage == "opportunity":
+        return run + ["gcrm.supervisor.run_opportunity_analysis"]
     if stage == "outreach":
         return run + ["gcrm.supervisor.run_outreach", "--city", city, "--level", str(level)]
     if stage == "followup":

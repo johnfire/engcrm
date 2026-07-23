@@ -17,6 +17,7 @@ dependencies = [
     "gcrm-research-agent",
     "gcrm-enrichment-agent",
     "gcrm-scout-agent",
+    "gcrm-opportunity-agent",
     "gcrm-outreach-agent",
     "gcrm-followup-agent",
     "duckduckgo-search>=8.1.1",
@@ -70,5 +71,6 @@ ignore = ["E501"]  # Long legacy prompts and data literals are refactored separa
 gcrm-research-agent = { path = "agents/gcrm-research-agent", editable = true }
 gcrm-enrichment-agent = { path = "agents/gcrm-enrichment-agent", editable = true }
 gcrm-scout-agent = { path = "agents/gcrm-scout-agent", editable = true }
+gcrm-opportunity-agent = { path = "agents/gcrm-opportunity-agent", editable = true }
 gcrm-outreach-agent = { path = "agents/gcrm-outreach-agent", editable = true }
 gcrm-followup-agent = { path = "agents/gcrm-followup-agent", editable = true }

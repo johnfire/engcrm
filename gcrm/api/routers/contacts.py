@@ -25,6 +25,7 @@ SORT_COLUMNS = {
     "type":         "lower(c.type)",
     "status":       "c.status",
     "fit":          "c.fit_score",
+    "starred":      "c.starred",
     "last_contact": "MAX(i.interaction_date)",
     "created_at":   "c.created_at",
 }
@@ -77,7 +78,7 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset):
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
             GROUP BY c.id
-            ORDER BY {sort_col} {sort_dir} NULLS LAST
+            ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             LIMIT {PAGE_SIZE} OFFSET {offset}
             """,
             params,
@@ -157,7 +158,7 @@ def contact_print(
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
             GROUP BY c.id
-            ORDER BY {sort_col} {sort_dir} NULLS LAST
+            ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             """,
             params,
         )
@@ -216,10 +217,24 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
             (contact_id,),
         )
         interactions = [dict(row) for row in cur.fetchall()]
+        cur.execute(
+            """
+            SELECT fit_reasoning, suggested_approach, priority_score, opportunity_score,
+                   confidence_score, evidence, recommended_services, discovery_questions,
+                   analysis_date
+            FROM ai_analysis
+            WHERE contact_id = %s AND deleted_at IS NULL AND analysis_kind = 'opportunity'
+            ORDER BY analysis_date DESC, id DESC
+            LIMIT 1
+            """,
+            (contact_id,),
+        )
+        opportunity_analysis = cur.fetchone()
     return templates.TemplateResponse("contact_detail.html", {
         "request": request,
         "contact": contact,
         "interactions": interactions,
+        "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "valid_statuses": VALID_STATUSES,
         "saved": saved,
     })

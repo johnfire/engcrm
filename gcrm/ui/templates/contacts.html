@@ -49,6 +49,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="type" {% if sort == "type" %}selected{% endif %}>{{ t('common.type') }}</option>
     <option value="status" {% if sort == "status" %}selected{% endif %}>{{ t('common.status') }}</option>
     <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('contacts.colFit') }}</option>
+    <option value="starred" {% if sort == "starred" %}selected{% endif %}>{{ t('contacts.colStarred') }}</option>
     <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('contacts.colLastContact') }}</option>
     <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('contacts.colId') }}</option>
   </select>
@@ -82,7 +83,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 <table>
   <thead>
     <tr>
-      <th class="star-col"></th>
+      <th class="star-col">{{ sort_link('starred', '★', 'desc') }}</th>
       <th>{{ sort_link('id', t('contacts.colId')) }}</th>
       <th>{{ sort_link('name', t('common.name')) }}</th>
       <th>{{ sort_link('city', t('common.city')) }}</th>

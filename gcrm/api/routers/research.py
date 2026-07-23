@@ -42,7 +42,7 @@ def research_run(
     """Trigger a pipeline stage (admin only). For city-scoped stages, normalize
     the city via Nominatim and confirm a variant/typo before adding it."""
     city = city.strip()
-    if stage != "followup" and city and not confirmed:
+    if stage not in {"followup", "opportunity"} and city and not confirmed:
         candidates = normalize_city(city, country)
         exact = any(candidate["name"].lower() == city.lower() for candidate in candidates)
         # Confirm unless the typed name is already the single canonical match.
@@ -58,7 +58,7 @@ def research_run(
             return templates.TemplateResponse("research.html", context)
 
     try:
-        if stage != "followup" and city:
+        if stage not in {"followup", "opportunity"} and city:
             add_city(city, country)
         spawn_stage(stage, city=city, level=level, country=country)
     except ValueError as error:
