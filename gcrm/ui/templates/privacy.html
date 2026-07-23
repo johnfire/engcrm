@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="{{ request.session.get('ui_language', 'en') }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ t('privacy.pageTitle') }}</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+      body { display:flex; justify-content:center; padding:2rem 1rem; }
+      main { width:760px; max-width:100%; line-height:1.55; }
+      h1 { font-size:1.5rem; } h2 { margin-top:1.7rem; font-size:1.1rem; }
+      li { margin:0.35rem 0; } .notice { opacity:.8; font-size:.9rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>{{ t('privacy.title') }}</h1>
+      <p class="notice">{{ t('privacy.reviewNotice') }}</p>
+
+      <h2>{{ t('privacy.controllerHeader') }}</h2>
+      <p>Christopher Rehm, Rehm KI Consulting<br />Alpenstr. 3, 86836 Klosterlechfeld, Deutschland<br />
+        <a href="mailto:car2187bus@pm.me">car2187bus@pm.me</a></p>
+
+      <h2>{{ t('privacy.processingHeader') }}</h2>
+      <p>{{ t('privacy.processingText') }}</p>
+      <ul>
+        <li>{{ t('privacy.leadProcessing') }}</li>
+        <li>{{ t('privacy.outreachProcessing') }}</li>
+        <li>{{ t('privacy.accountProcessing') }}</li>
+        <li>{{ t('privacy.cardProcessing') }}</li>
+      </ul>
+
+      <h2>{{ t('privacy.sourcesHeader') }}</h2>
+      <p>{{ t('privacy.sourcesText') }}</p>
+
+      <h2>{{ t('privacy.recipientsHeader') }}</h2>
+      <p>{{ t('privacy.recipientsText') }}</p>
+      <ul>
+        <li>IONOS (Germany) — hosting and database</li>
+        <li>Proton (Switzerland) — business email</li>
+        <li>Anthropic (United States) — AI-assisted extraction and drafting</li>
+        <li>Google Maps / Places (United States) — venue research</li>
+        <li>Expo (United States) — staff-device push notifications</li>
+        <li>Bright Data (Israel) — website retrieval, where enabled</li>
+      </ul>
+
+      <h2>{{ t('privacy.retentionHeader') }}</h2>
+      <p>{{ t('privacy.retentionText') }}</p>
+
+      <h2>{{ t('privacy.rightsHeader') }}</h2>
+      <p>{{ t('privacy.rightsText') }} <a href="mailto:car2187bus@pm.me">car2187bus@pm.me</a>.</p>
+
+      <h2>{{ t('privacy.noTrackingHeader') }}</h2>
+      <p>{{ t('privacy.noTrackingText') }}</p>
+      <p><a href="/impressum">{{ t('privacy.impressumLink') }}</a> · <a href="/">{{ t('privacy.back') }}</a></p>
+    </main>
+  </body>
+</html>

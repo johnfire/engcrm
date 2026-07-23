@@ -3,10 +3,6 @@ LLM factory. Returns a LangChain BaseChatModel that satisfies the
 LanguageModel Protocol used by all agents.
 
 Supported model strings:
-  deepseek-v4-flash   — DeepSeek V4 Flash (fast, low cost; the default everywhere)
-  deepseek-v4-pro     — DeepSeek V4 Pro (stronger reasoning)
-  deepseek-chat /     — legacy aliases for V4 Flash non-thinking / thinking modes
-  deepseek-reasoner     (deprecated 2026-07-24; still resolve meanwhile)
   claude-haiku        — Claude Haiku 4.5 (the ONLY vision-capable option; card OCR)
   claude              — Claude Sonnet 4.6 (high-stakes writing)
 """
@@ -44,10 +40,10 @@ def _get_cost_callback():
                             cached = (meta.get("input_token_details") or {}).get("cache_read", 0)
                             record_llm(model, meta.get("input_tokens", 0), meta.get("output_tokens", 0), cached)
                             return
-                # Fallback: OpenAI-compatible response (DeepSeek)
+                # Fallback for providers that only expose OpenAI-style usage.
                 usage = (response.llm_output or {}).get("token_usage", {})
                 if usage:
-                    model = (response.llm_output or {}).get("model_name", "deepseek-chat")
+                    model = (response.llm_output or {}).get("model_name", "unknown")
                     record_llm(model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
             except Exception as error:
                 logger.debug("cost callback error: %s", error)
@@ -56,15 +52,19 @@ def _get_cost_callback():
     return _cost_cb
 
 
-def get_llm(model: str = "deepseek-chat"):
+def get_llm(model: str = "claude-haiku"):
     """
     Return a LangChain chat model instance.
     All returned objects satisfy the LanguageModel Protocol (have .invoke(messages)).
     """
+    if model in ("selected-cheap", "selected-smart"):
+        from gcrm.tools.db_ai_backends import get_ai_backends
+
+        selected = get_ai_backends()
+        model = selected["cheap_llm" if model == "selected-cheap" else "smart_llm"]
     if model.startswith("deepseek"):
         from langchain_openai import ChatOpenAI
-        # Pass the model string straight through — deepseek-v4-flash / -v4-pro and
-        # the legacy deepseek-chat / deepseek-reasoner aliases are all valid names.
+
         return ChatOpenAI(
             model=model,
             api_key=DEEPSEEK_API_KEY,
@@ -72,7 +72,7 @@ def get_llm(model: str = "deepseek-chat"):
             temperature=0.3,
             callbacks=[_get_cost_callback()],
         )
-    elif model in ("claude", "claude-sonnet"):
+    if model in ("claude", "claude-sonnet"):
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(
             model="claude-sonnet-4-6",
@@ -90,5 +90,4 @@ def get_llm(model: str = "deepseek-chat"):
             max_tokens=8192,
             callbacks=[_get_cost_callback()],
         )
-    else:
-        raise ValueError(f"Unknown model '{model}'. Use: deepseek-chat, deepseek-reasoner, claude-haiku, claude")
+    raise ValueError(f"Unknown model '{model}'. Use: claude-haiku or claude")

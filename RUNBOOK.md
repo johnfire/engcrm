@@ -26,7 +26,8 @@ The repo lives at `~/ppp2/engcrm`. The five agent packages are vendored in-repo 
 - PostgreSQL running with the `gcrm` database (same one used by `theo-hits-the-road`)
 - `uv` installed (`~/.local/bin/uv`)
 - Proton Bridge running locally (required for any email send/receive)
-- DeepSeek API key (routine tasks) and/or Anthropic API key (high-stakes drafts)
+- Anthropic and/or DeepSeek API keys. An administrator selects the models in
+  Settings; DeepSeek use requires a documented controller transfer decision.
 - `~/logs/` directory exists: `mkdir -p ~/logs`
 
 ---
@@ -43,8 +44,6 @@ cp .env.example .env
 Edit `.env`:
 ```
 DATABASE_URL=postgresql://user:password@localhost/gcrm
-DEEPSEEK_API_KEY=your_key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
 ANTHROPIC_API_KEY=your_key          # optional
 
 PROTON_IMAP_HOST=127.0.0.1
@@ -110,6 +109,8 @@ Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
 
 ```cron
 0 7 * * * cd ~/ppp2/engcrm && ~/.local/bin/uv run python -m gcrm.supervisor.run >> ~/logs/supervisor.log 2>&1
+# Apply the controller-reviewed GDPR retention schedule once daily.
+15 2 * * * cd ~/ppp2/engcrm && ~/.local/bin/uv run python -m gcrm.supervisor.run_retention >> ~/logs/privacy-retention.log 2>&1
 ```
 
 ---
@@ -347,7 +348,7 @@ general-crm/
       db.py                 All database operations (contacts, compliance, interactions, runs)
       search.py             Overpass geo search + DuckDuckGo web search
       email.py              Proton Bridge SMTP send + IMAP read
-      llm.py                LLM factory: deepseek-chat, deepseek-reasoner, claude
+      llm.py                LLM factory: claude-haiku, claude
     supervisor/
       targets.py            Research target list
       graph.py              LangGraph supervisor with PostgreSQL checkpointer

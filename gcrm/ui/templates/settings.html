@@ -15,6 +15,14 @@
   </select>
 </label>
 <button type="submit">{{ t('common.save') }}</button></form></section>
+{% if selected_backends %}<section class="card"><h2>{{ t('settings.aiBackendsHeader') }}</h2>
+<p>{{ t('settings.aiBackendsHint') }}</p><form method="post" action="/settings/ai">
+<label>{{ t('settings.routineModel') }} <select name="cheap_llm">
+{% for model in cheap_models %}<option value="{{ model }}" {% if selected_backends.cheap_llm == model %}selected{% endif %}>{{ model }}</option>{% endfor %}
+</select></label>
+<label>{{ t('settings.writingModel') }} <select name="smart_llm">
+{% for model in smart_models %}<option value="{{ model }}" {% if selected_backends.smart_llm == model %}selected{% endif %}>{{ model }}</option>{% endfor %}
+</select></label><button type="submit">{{ t('common.save') }}</button></form></section>{% endif %}
 <section class="card"><h2>{{ t('settings.sessionHeader') }}</h2>
 <form method="post" action="/logout"><button type="submit">{{ t('settings.logout') }}</button></form>
 </section>{% endblock %}

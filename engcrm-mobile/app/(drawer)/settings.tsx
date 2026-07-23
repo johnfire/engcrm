@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from "react-native";
 import { useRouter } from "expo-router";
-import { API_BASE, updateLanguage } from "../../services/api";
+import { AiBackends, API_BASE, fetchAiBackends, updateAiBackends, updateLanguage } from "../../services/api";
 import { clearToken, getRole } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
 import { Language, SUPPORTED_LANGUAGES } from "../../i18n/translate";
@@ -16,10 +16,20 @@ export default function SettingsScreen() {
   const { t, language, setLanguage } = useTranslation();
   const [role, setRole] = useState<string | null>(null);
   const [savingLanguage, setSavingLanguage] = useState(false);
+  const [aiBackends, setAiBackends] = useState<AiBackends | null>(null);
 
   useEffect(() => {
     getRole().then(setRole);
+    fetchAiBackends().then(setAiBackends).catch(() => undefined);
   }, []);
+
+  async function selectRoutineBackend(cheap_llm: AiBackends["cheap_llm"]) {
+    if (!aiBackends) return;
+    const previous = aiBackends;
+    const next = { ...aiBackends, cheap_llm };
+    setAiBackends(next);
+    try { await updateAiBackends(next); } catch { setAiBackends(previous); }
+  }
 
   async function handleLogout() {
     await clearToken();
@@ -47,6 +57,16 @@ export default function SettingsScreen() {
         <Text style={styles.label}>{t("settings.signedInAs")}</Text>
         <Text style={styles.value}>{role || "—"}</Text>
       </View>
+      {role === "admin" && aiBackends && <View style={styles.card}>
+        <Text style={styles.label}>{t("settings.aiBackend")}</Text>
+        <View style={styles.languageRow}>
+          {(["deepseek-v4-flash", "claude-haiku"] as const).map((model) => (
+            <TouchableOpacity key={model} style={[styles.languageBtn, aiBackends.cheap_llm === model && styles.languageBtnActive]} onPress={() => selectRoutineBackend(model)}>
+              <Text style={[styles.languageText, aiBackends.cheap_llm === model && styles.languageTextActive]}>{model}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>}
       <View style={styles.card}>
         <Text style={styles.label}>{t("settings.language")}</Text>
         <View style={styles.languageRow}>
@@ -72,6 +92,12 @@ export default function SettingsScreen() {
         onPress={() => Linking.openURL(`${API_BASE}/impressum`)}
       >
         <Text style={styles.impressumText}>{t("settings.impressum")}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.privacy}
+        onPress={() => Linking.openURL(`${API_BASE}/privacy`)}
+      >
+        <Text style={styles.impressumText}>{t("settings.privacy")}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -110,5 +136,6 @@ const styles = StyleSheet.create({
   },
   logoutText: { color: "#ef4444", fontSize: 16, fontWeight: "600" },
   impressum: { marginTop: 24, alignItems: "center" },
+  privacy: { marginTop: 8, alignItems: "center" },
   impressumText: { color: "#555", fontSize: 12 },
 });

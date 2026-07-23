@@ -74,8 +74,9 @@ general-crm/
 - **Python 3.11+** and [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **PostgreSQL** running locally (any recent version)
 - **Google Maps API key** with Places API enabled ([get one here](https://developers.google.com/maps/documentation/places/web-service/get-api-key))
-- **DeepSeek API key** for routine tasks (research, enrichment, scouting) — cheap and fast
-- **Anthropic API key** for high-stakes writing (outreach drafts, follow-ups)
+- **Anthropic and/or DeepSeek API keys** for the administrator-selected AI
+  backends. CRM prompts can contain personal data; selecting DeepSeek requires
+  the controller to assess and document its China transfer separately.
 - **Proton Bridge** running locally if you want email send/receive via ProtonMail — otherwise email is disabled and you copy drafts manually
 - `~/logs/` directory: `mkdir -p ~/logs`
 
@@ -129,7 +130,6 @@ Edit `.env`:
 DATABASE_URL=postgresql://user:password@localhost/mydb
 
 # AI — at minimum one of these is required
-DEEPSEEK_API_KEY=your_deepseek_key
 ANTHROPIC_API_KEY=your_anthropic_key
 
 # Google Maps (required for research agent)
@@ -154,11 +154,11 @@ SCOUT_THRESHOLD=75
 # Set false to skip email sending (drafts are still created and saved)
 EMAIL_ENABLED=true
 
-# LLM for cheap/high-volume tasks: deepseek-chat or claude-haiku
-CHEAP_LLM=deepseek-chat
+# LLM for cheap/high-volume tasks: claude-haiku
+CHEAP_LLM=claude-haiku
 ```
 
-**Minimum to get started:** `DATABASE_URL`, `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`.
+**Minimum to get started:** `DATABASE_URL`, `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`.
 
 ### 4. Create the database
 
@@ -339,13 +339,16 @@ Only contact types listed in `SCORED_TYPES` get LLM evaluation. All other types 
 
 | Backend             | Used for                                      | Cost           |
 | ------------------- | --------------------------------------------- | -------------- |
-| `deepseek-chat`     | Research, enrichment, scouting                | Very cheap     |
 | `claude-sonnet-4-6` | Outreach drafts, follow-ups                   | Higher quality |
 | `claude-haiku`      | Cheap Anthropic alternative for routine tasks | Cheap          |
 
-Set `CHEAP_LLM=deepseek-chat` or `CHEAP_LLM=claude-haiku` in `.env`. High-stakes writing always uses Claude Sonnet.
+Set `CHEAP_LLM=claude-haiku` for routine work and `SMART_LLM=claude` for
+high-stakes writing. Administrators can choose DeepSeek in Settings; its use
+must remain recorded in the processor and transfer register.
 
-You only need keys for backends you use. DeepSeek alone is sufficient for a full run — outreach quality will be lower but functional.
+Use `claude-haiku` for high-volume tasks and `claude` for drafting. Other
+providers must not be enabled until their processing agreement and transfer
+safeguards have been reviewed and documented.
 
 ---
 

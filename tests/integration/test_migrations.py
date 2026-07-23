@@ -8,6 +8,7 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.tools.db import get_cold_contacts, save_contact
 from gcrm.tools.db_agent_runs import finish_run, start_run
+from gcrm.tools.privacy_retention import purge_expired_data
 
 pytestmark = pytest.mark.integration
 
@@ -63,3 +64,27 @@ def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database)
         "actor_type": "ai",
         "correlation_id": f"run:{run_id}",
     }
+
+
+def test_retention_erases_a_contact_and_all_linked_records_at_three_years(clean_database):
+    """A contact expires from creation time with its contact-linked data."""
+    contact_id = save_contact("Expired Cafe", "Munich", type="cafe", status="cold")
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE contacts SET created_at = NOW() - INTERVAL '3 years 1 day' WHERE id = %s", (contact_id,))
+        cursor.execute("INSERT INTO interactions (contact_id, interaction_date) VALUES (%s, CURRENT_DATE)", (contact_id,))
+        cursor.execute("INSERT INTO ai_analysis (contact_id, raw_response) VALUES (%s, 'contact-specific output')", (contact_id,))
+        cursor.execute("INSERT INTO approval_queue (contact_id, draft_subject, draft_body) VALUES (%s, 'Subject', 'Draft')", (contact_id,))
+        cursor.execute("INSERT INTO inbox_messages (message_id, from_email, matched_contact_id) VALUES ('expired-contact', 'expired@example.test', %s)", (contact_id,))
+        cursor.execute("INSERT INTO people (name, contact_id) VALUES ('Expired Person', %s)", (contact_id,))
+        cursor.execute("INSERT INTO outreach_outcomes (contact_id) VALUES (%s)", (contact_id,))
+
+    counts = purge_expired_data()
+
+    assert counts["contacts"] == 1
+    with db() as connection:
+        cursor = connection.cursor()
+        for table_name in ("contacts", "interactions", "ai_analysis", "approval_queue", "inbox_messages", "people", "outreach_outcomes"):
+            cursor.execute(f"SELECT count(*) AS count FROM {table_name}")
+            assert cursor.fetchone()["count"] == 0

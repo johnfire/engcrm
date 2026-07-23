@@ -47,6 +47,9 @@
     <a href="/impressum" {% if request.url.path.startswith('/impressum') %}class="active"{% endif %}>
       {{ t('nav.impressum') }}
     </a>
+    <a href="/privacy" {% if request.url.path.startswith('/privacy') %}class="active"{% endif %}>
+      {{ t('nav.privacy') }}
+    </a>
   </nav>
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}

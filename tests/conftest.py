@@ -14,7 +14,6 @@ else:
     os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost/test")
 os.environ.setdefault("PROTON_EMAIL", "test@test.com")
 os.environ.setdefault("PROTON_PASSWORD", "test")
-os.environ.setdefault("DEEPSEEK_API_KEY", "test")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-not-for-production")
 os.environ.setdefault("SESSION_SECRET", "test-session-secret-not-for-production")

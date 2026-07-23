@@ -38,7 +38,9 @@
   "settings.signedInAs": "Angemeldet als",
   "settings.logout": "Abmelden",
   "settings.impressum": "Impressum",
+  "settings.privacy": "Datenschutz",
   "settings.language": "Sprache",
+  "settings.aiBackend": "Routine-KI-Backend",
   "settings.languageUpdateFailedTitle": "Sprache konnte nicht aktualisiert werden",
   "settings.languageUpdateFailedMessage": "Versuchen Sie es erneut.",
 
@@ -51,6 +53,7 @@
   "login.failedMessage": "Falsche E-Mail oder falsches Passwort.",
   "login.forgotPassword": "Passwort vergessen?",
   "login.impressum": "Impressum",
+  "login.privacy": "Datenschutz",
 
   "forgotPassword.title": "Passwort vergessen?",
   "forgotPassword.hint": "Geben Sie Ihre Konto-E-Mail ein — wir senden Ihnen einen Link zum Zurücksetzen.",

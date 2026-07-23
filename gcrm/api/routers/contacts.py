@@ -7,6 +7,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.privacy_retention import erase_contact
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 
@@ -295,15 +296,8 @@ def contact_edit(
 
 @router.post("/{contact_id}/delete")
 def delete_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
-    # Soft delete: set deleted_at (the model used everywhere else) so the row
-    # leaves listings but isn't irreversibly destroyed.
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE contacts SET deleted_at = NOW(), updated_at = NOW() WHERE id = %s AND deleted_at IS NULL",
-            (contact_id,),
-        )
-    log_audit(None, None, "contact.deleted", f"contact:{contact_id}", "soft_deleted")
+    if not erase_contact(contact_id):
+        raise HTTPException(status_code=404, detail="Contact not found")
     ref = request.headers.get("referer", "/contacts/")
     return RedirectResponse(url=ref, status_code=303)
 

@@ -74,6 +74,21 @@ export async function updateLanguage(uiLanguage: string): Promise<{ ui_language:
   return resp.data;
 }
 
+export interface AiBackends {
+  cheap_llm: "deepseek-v4-flash" | "claude-haiku";
+  smart_llm: "deepseek-v4-flash" | "claude";
+}
+
+export async function fetchAiBackends(): Promise<AiBackends> {
+  const response = await client.get("/api/account/ai");
+  return response.data;
+}
+
+export async function updateAiBackends(backends: AiBackends): Promise<AiBackends> {
+  const response = await client.patch("/api/account/ai", backends);
+  return response.data;
+}
+
 // Always resolves — the backend never reveals whether the email matched an
 // account. Actual password reset happens via the emailed link, opened in the
 // phone's browser (same /reset-password page the web app uses).

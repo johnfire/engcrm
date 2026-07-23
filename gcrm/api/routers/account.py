@@ -5,12 +5,13 @@ import logging
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from gcrm.api.auth import require_login
+from gcrm.api.auth import require_admin, require_login
 from gcrm.api.security import hash_password, verify_password
 from gcrm.api.templates import templates
 from gcrm.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from gcrm.i18n import translate as t
 from gcrm.tools.db_account_lifecycle import accept_invitation
+from gcrm.tools.db_ai_backends import CHEAP_MODELS, SMART_MODELS, get_ai_backends, set_ai_backends
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_users import get_user_by_email, set_user_password, set_user_ui_language
 
@@ -60,7 +61,18 @@ def signup_submit(
 @router.get("/settings", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def settings_page(request: Request):
     """Show the signed-in user's account settings."""
-    return templates.TemplateResponse("settings.html", {"request": request, "message": None, "error": None})
+    return _settings_response(request)
+
+
+def _settings_response(request: Request, message=None, error=None, status_code: int = 200):
+    """Render settings with administrator-only backend controls."""
+    selected_backends = get_ai_backends() if request.session.get("role") == "admin" else None
+    return templates.TemplateResponse(
+        "settings.html",
+        {"request": request, "message": message, "error": error, "selected_backends": selected_backends,
+         "cheap_models": CHEAP_MODELS, "smart_models": SMART_MODELS},
+        status_code=status_code,
+    )
 
 
 @router.post("/settings/password", response_class=HTMLResponse, dependencies=[Depends(require_login)])
@@ -73,17 +85,9 @@ def change_password(
     email = request.session.get("email", "")
     user = get_user_by_email(email)
     if not user or not verify_password(current_password, user["password_hash"]):
-        return templates.TemplateResponse(
-            "settings.html",
-            {"request": request, "message": None, "error": t("settings.currentPasswordIncorrect", _lang(request))},
-            status_code=400,
-        )
+        return _settings_response(request, error=t("settings.currentPasswordIncorrect", _lang(request)), status_code=400)
     if len(new_password) < 12:
-        return templates.TemplateResponse(
-            "settings.html",
-            {"request": request, "message": None, "error": t("common.passwordTooShort", _lang(request))},
-            status_code=400,
-        )
+        return _settings_response(request, error=t("common.passwordTooShort", _lang(request)), status_code=400)
     set_user_password(email, hash_password(new_password))
     log_audit(email, "user", "account.password_changed", f"user:{user['id']}", "success", request.state.correlation_id)
     request.session.clear()
@@ -100,7 +104,15 @@ def change_language(request: Request, ui_language: str = Form(...)):
     if user_id is not None:
         set_user_ui_language(user_id, ui_language)
     request.session["ui_language"] = ui_language
-    return templates.TemplateResponse(
-        "settings.html",
-        {"request": request, "message": t("settings.languageSaved", ui_language), "error": None},
-    )
+    return _settings_response(request, message=t("settings.languageSaved", ui_language))
+
+
+@router.post("/settings/ai", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
+def change_ai_backends(request: Request, cheap_llm: str = Form(...), smart_llm: str = Form(...)):
+    """Let an administrator select models for future background work."""
+    try:
+        set_ai_backends(cheap_llm, smart_llm)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unsupported AI backend")
+    log_audit(None, None, "ai.backends_changed", "workspace:default", f"{cheap_llm}/{smart_llm}")
+    return _settings_response(request, message=t("settings.aiBackendsSaved", _lang(request)))
