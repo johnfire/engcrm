@@ -569,3 +569,13 @@ main.contact-detail-page {
 .star-btn.starred {
   color: #f9e2af;
 }
+/* Help Centre: content stays usable without hover, a mouse, or JavaScript. */
+.help-search, .help-feedback { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: 1rem 0; }
+.help-search input, .help-feedback input, .help-editor input, .help-editor select, .help-editor textarea { background: #0f0f23; border: 1px solid #ffffff30; border-radius: 6px; color: #fff; padding: .55rem; }
+.help-search input { min-width: 18rem; }.help-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.help-article h2 { margin-top: .25rem; }.help-body { line-height: 1.55; white-space: pre-line; }.help-feedback { font-size: .9rem; border-top: 1px solid #ffffff20; padding-top: .8rem; }
+.help-editor { display: grid; gap: .8rem; max-width: 55rem; }.help-editor textarea { display: block; width: 100%; resize: vertical; }.help-editor fieldset { border: 1px solid #ffffff30; border-radius: 6px; }
+.help-editor label { display: grid; gap: .35rem; }.help-tour ol { line-height: 1.7; }.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.context-help { background: #27234a; border-left: 3px solid #7c6fff; border-radius: 6px; padding: .7rem .9rem; margin: .8rem 0; color: #ddd; }
+.context-help a { margin-left: .4rem; }
+@media (max-width: 640px) { .help-search input { min-width: 0; width: 100%; } }

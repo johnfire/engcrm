@@ -66,3 +66,14 @@ class TestAuthenticate:
         payload = auth.authenticate("a@b.com", "pw", make_user("pw", role="spectator"))
         assert payload["role"] == "spectator"
         assert payload["user_id"] == 1
+
+
+def test_first_login_opens_help_tour(monkeypatch):
+    monkeypatch.setattr(auth, "has_completed_help_tour", lambda user_id: False)
+    assert auth._post_login_destination(1) == "/help/?tour=1"
+
+
+def test_completed_or_break_glass_login_opens_default_page(monkeypatch):
+    monkeypatch.setattr(auth, "has_completed_help_tour", lambda user_id: True)
+    assert auth._post_login_destination(1) == "/approvals/"
+    assert auth._post_login_destination(None) == "/approvals/"

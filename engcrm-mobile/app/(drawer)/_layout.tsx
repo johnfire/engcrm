@@ -101,6 +101,10 @@ export default function DrawerLayout() {
         options={{ title: t("drawer.settingsTitle"), drawerLabel: t("drawer.settings") }}
       />
       <Drawer.Screen
+        name="help"
+        options={{ title: t("drawer.helpTitle"), drawerLabel: t("drawer.help") }}
+      />
+      <Drawer.Screen
         name="contact-detail"
         options={{
           drawerItemStyle: { display: "none" },

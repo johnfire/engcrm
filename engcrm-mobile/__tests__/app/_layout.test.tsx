@@ -19,9 +19,11 @@ jest.mock("../../services/auth", () => ({
 }));
 
 const mockFetchMe = jest.fn();
+const mockFetchHelpTourStatus = jest.fn();
 jest.mock("../../services/api", () => ({
   ...jest.requireActual("../../services/api"),
   fetchMe: (...args: any[]) => mockFetchMe(...args),
+  fetchHelpTourStatus: (...args: any[]) => mockFetchHelpTourStatus(...args),
 }));
 
 const mockRegisterForPush = jest.fn().mockResolvedValue(undefined);
@@ -49,6 +51,7 @@ describe("root layout language sync", () => {
   beforeEach(() => {
     mockReplace.mockClear();
     mockFetchMe.mockReset();
+    mockFetchHelpTourStatus.mockReset().mockResolvedValue({ completed: true });
     mockRegisterForPush.mockClear();
     mockSetLanguage.mockClear();
     languageChangeCallback = null;
@@ -66,6 +69,16 @@ describe("root layout language sync", () => {
 
     await waitFor(() => expect(mockFetchMe).toHaveBeenCalledTimes(1));
     expect(mockSetLanguage).toHaveBeenCalledWith("de");
+  });
+
+  it("opens the tour for a customer who has not completed it", async () => {
+    mockIsLoggedIn.mockResolvedValue(true);
+    mockFetchMe.mockResolvedValue({ email: "a@b.com", role: "admin", ui_language: "en" });
+    mockFetchHelpTourStatus.mockResolvedValue({ completed: false });
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/(drawer)/help?tour=1"));
   });
 
   it("does not fetch or sync language when not logged in", async () => {

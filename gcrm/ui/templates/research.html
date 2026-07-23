@@ -6,6 +6,10 @@
     >{{ t('research.statsLine', total=total, level1Done=level1_done, unscanned=unscanned) }}</span
   >
 </div>
+<aside class="context-help" aria-label="{{ t('help.contextLabel') }}">
+  <strong>{{ t('help.researchContextTitle') }}</strong> {{ t('help.researchContext') }}
+  <a href="/help/#help-getting-started">{{ t('help.learnMore') }}</a>
+</aside>
 
 {% if queued %}
 <div class="run-banner ok">{{ t('research.queued', stage=queued) }}</div>

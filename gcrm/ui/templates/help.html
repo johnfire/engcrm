@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ t('help.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('help.title') }}</h1><span class="muted">{{ t('help.subtitle') }}</span></div>
+{% if not tour_complete or start_tour %}
+<section class="card help-tour" aria-labelledby="tour-heading">
+  <h2 id="tour-heading">{{ t('help.tourTitle') }}</h2>
+  <ol>
+    <li>{{ t('help.tourStepContacts') }}</li><li>{{ t('help.tourStepResearch') }}</li>
+    <li>{{ t('help.tourStepApprovals') }}</li><li>{{ t('help.tourStepCapture') }}</li>
+  </ol>
+  <form method="post" action="/help/tour/complete"><button class="primary">{{ t('help.tourComplete') }}</button></form>
+</section>
+{% endif %}
+<form class="help-search" method="get" action="/help/" role="search">
+  <label for="help-query">{{ t('help.searchLabel') }}</label>
+  <input id="help-query" name="q" value="{{ query }}" placeholder="{{ t('help.searchPlaceholder') }}" />
+  <button type="submit">{{ t('help.search') }}</button>
+</form>
+{% if articles %}
+<div class="help-grid">
+{% for article in articles %}
+  <article class="card help-article" id="help-{{ article.slug }}">
+    <p class="muted small">{{ article.category }}</p><h2>{{ article.title }}</h2>
+    {% if article.summary %}<p>{{ article.summary }}</p>{% endif %}
+    <div class="help-body">{{ article.body }}</div>
+    <form method="post" action="/help/feedback" class="help-feedback">
+      <input type="hidden" name="article_id" value="{{ article.id }}" />
+      <span>{{ t('help.wasHelpful') }}</span>
+      <button name="helpful" value="yes">{{ t('help.yes') }}</button>
+      <button name="helpful" value="no">{{ t('help.no') }}</button>
+      <label class="sr-only" for="comment-{{ article.id }}">{{ t('help.feedbackComment') }}</label>
+      <input id="comment-{{ article.id }}" name="comment" maxlength="1000" placeholder="{{ t('help.feedbackComment') }}" />
+    </form>
+  </article>
+{% endfor %}
+</div>
+{% else %}<p class="muted">{{ t('help.noResults') }}</p>{% endif %}
+{% if request.session.get('role') == 'admin' %}<p><a href="/help/manage">{{ t('help.manage') }}</a></p>{% endif %}
+{% endblock %}

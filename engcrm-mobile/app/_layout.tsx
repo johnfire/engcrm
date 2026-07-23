@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { isLoggedIn } from "../services/auth";
-import { fetchMe } from "../services/api";
+import { fetchHelpTourStatus, fetchMe } from "../services/api";
 import { addLanguageChangeListener, registerForPushNotifications } from "../services/notifications";
 import { I18nProvider, useTranslation } from "../i18n/I18nContext";
 import { isSupportedLanguage } from "../i18n/translate";
@@ -25,6 +25,15 @@ function InnerLayout() {
     }
   }, [setLanguage]);
 
+  const openTourForNewCustomer = useCallback(async () => {
+    try {
+      const tour = await fetchHelpTourStatus();
+      if (!tour.completed) router.replace("/(drawer)/help?tour=1");
+    } catch {
+      // Offline customers can continue; the Help Centre still offers the tour.
+    }
+  }, [router]);
+
   useEffect(() => {
     isLoggedIn()
       .then((loggedIn) => {
@@ -35,7 +44,10 @@ function InnerLayout() {
         } else if (loggedIn && !inDrawer) {
           router.replace("/(drawer)/contacts");
         }
-        if (loggedIn) syncLanguage();
+        if (loggedIn) {
+          syncLanguage();
+          openTourForNewCustomer();
+        }
       })
       .catch(() => {
         // Auth storage unreadable — fall through to login rather than hang

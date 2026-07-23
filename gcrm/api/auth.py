@@ -20,6 +20,7 @@ from gcrm.tools.db_account_lifecycle import (
     password_reset_token_valid,
 )
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_help import has_completed_help_tour
 from gcrm.tools.db_users import set_user_password_by_id
 from gcrm.tools.email import send_email
 
@@ -116,6 +117,17 @@ def complete_password_reset(token: str, new_password: str) -> bool:
     return set_user_password_by_id(user_id, hash_password(new_password))
 
 
+def _post_login_destination(user_id: int | None) -> str:
+    """Start an account's guided workflow once without blocking login on DB trouble."""
+    if user_id is None:
+        return "/approvals/"
+    try:
+        return "/approvals/" if has_completed_help_tour(user_id) else "/help/?tour=1"
+    except Exception as error:
+        logger.warning("help tour lookup failed after login: %s", error)
+        return "/approvals/"
+
+
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     if get_role(request):
@@ -137,7 +149,7 @@ def login_submit(request: Request, email: str = Form(""), password: str = Form(.
             except Exception as error:  # a failed timestamp update must not block login
                 logger.warning("touch_user_login failed: %s", error)
         log_audit(payload["email"], "user", "auth.login", f"user:{payload['email']}", "success", request.state.correlation_id)
-        return RedirectResponse(url="/approvals/", status_code=303)
+        return RedirectResponse(url=_post_login_destination(payload["user_id"]), status_code=303)
     return templates.TemplateResponse(
         "login.html",
         {

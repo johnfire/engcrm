@@ -74,6 +74,35 @@ export async function updateLanguage(uiLanguage: string): Promise<{ ui_language:
   return resp.data;
 }
 
+// --- Help Centre ---
+export interface HelpArticle {
+  id: number;
+  slug: string;
+  category: string;
+  surfaces: string[];
+  title: string;
+  summary: string;
+  body: string;
+}
+
+export async function fetchHelp(query = ""): Promise<HelpArticle[]> {
+  const resp = await client.get("/api/help", { params: { q: query } });
+  return resp.data;
+}
+
+export async function sendHelpFeedback(articleId: number, helpful: boolean, comment = ""): Promise<void> {
+  await client.post("/api/help/feedback", { article_id: articleId, helpful, comment });
+}
+
+export async function completeHelpTour(): Promise<void> {
+  await client.post("/api/help/tour/complete");
+}
+
+export async function fetchHelpTourStatus(): Promise<{ completed: boolean }> {
+  const resp = await client.get("/api/help/tour");
+  return resp.data;
+}
+
 // Always resolves — the backend never reveals whether the email matched an
 // account. Actual password reset happens via the emailed link, opened in the
 // phone's browser (same /reset-password page the web app uses).

@@ -18,6 +18,7 @@ from gcrm.api.routers import (
     api_auth,
     api_cards,
     api_contacts,
+    api_help,
     api_inbox,
     api_people,
     api_pipeline,
@@ -30,6 +31,7 @@ from gcrm.api.routers import (
     contacts,
     drafts,
     inbox,
+    help,
     legal,
     marketing,
     people,
@@ -103,6 +105,7 @@ app.include_router(inbox.router)
 app.include_router(marketing.router)
 app.include_router(drafts.router)
 app.include_router(users.router)
+app.include_router(help.router)
 
 # Mobile JSON API (bearer-JWT, under /api/*)
 app.include_router(api_auth.router)
@@ -119,6 +122,7 @@ app.include_router(api_voice.router)
 app.include_router(api_people.router)
 app.include_router(api_pipeline.router)
 app.include_router(api_recon.router)
+app.include_router(api_help.router)
 
 
 @app.get("/", response_class=HTMLResponse)

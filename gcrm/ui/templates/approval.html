@@ -6,6 +6,10 @@
   <h1>{{ t('approval.title') }}</h1>
   <span class="muted">{{ t('approval.pendingCount', count=items|length) }}</span>
 </div>
+<aside class="context-help" aria-label="{{ t('help.contextLabel') }}">
+  <strong>{{ t('help.approvalsContextTitle') }}</strong> {{ t('help.approvalsContext') }}
+  <a href="/help/#help-approvals">{{ t('help.learnMore') }}</a>
+</aside>
 
 <div id="approval-list">
   {% include "partials/approval_list.html" %}

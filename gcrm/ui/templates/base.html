@@ -35,6 +35,9 @@
     <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
       {{ t('nav.drafts') }}
     </a>
+    <a href="/help/" {% if request.url.path.startswith('/help') %}class="active"{% endif %}>
+      {{ t('nav.help') }}
+    </a>
     <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active"{% endif %}>{{ t('nav.settings') }}</a>
     <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
       {{ t('nav.dropped') }}
