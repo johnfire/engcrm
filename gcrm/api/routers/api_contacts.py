@@ -1,8 +1,11 @@
 """Mobile contacts endpoints (JSON)."""
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.db.connection import db
+from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
+from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 
 router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
 
@@ -20,6 +23,29 @@ def _serialize(row: dict) -> dict:
         if key in r and r[key] is not None:
             r[key] = r[key].isoformat()
     return r
+
+
+def _opportunity_payload(row: dict | None) -> dict | None:
+    """Shape a stored opportunity assessment for the mobile detail screen.
+
+    Mirrors the fields the web contact_detail template renders. The JSONB list
+    fields arrive already deserialized from db_opportunities; analysis_date is a
+    date/datetime that we render as an ISO string like every other timestamp."""
+    if not row:
+        return None
+    analysis_date = row.get("analysis_date")
+    return {
+        "opportunity_score": row.get("opportunity_score"),
+        "confidence_score": row.get("confidence_score"),
+        "priority_score": row.get("priority_score"),
+        "fit_reasoning": row.get("fit_reasoning"),
+        "suggested_approach": row.get("suggested_approach"),
+        "evidence": row.get("evidence") or [],
+        "recommended_services": row.get("recommended_services") or [],
+        "discovery_questions": row.get("discovery_questions") or [],
+        "analysis_date": analysis_date.isoformat() if analysis_date else None,
+        "model_used": row.get("model_used"),
+    }
 
 
 @router.get("")
@@ -96,4 +122,34 @@ def get_contact(contact_id: int, _role: str = Depends(require_jwt)) -> dict:
             {**dict(row), "interaction_date": row["interaction_date"].isoformat() if row["interaction_date"] else None}
             for row in cur.fetchall()
         ]
-        return contact
+
+    contact["opportunity_analysis"] = _opportunity_payload(
+        get_latest_opportunity_analysis(contact_id)
+    )
+    return contact
+
+
+@router.post("/{contact_id}/opportunity-analysis")
+def run_opportunity_analysis(
+    contact_id: int,
+    _role: str = Depends(require_jwt_admin),
+) -> dict:
+    """Run a fresh opportunity assessment for one contact and return the result.
+
+    Admin-only, matching the web contact-detail action. Synchronous: it fetches
+    the company website, runs the LLM, and persists — so the caller should use a
+    generous client timeout. It never sends outreach."""
+    log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "started")
+    try:
+        analyse_contact_opportunity(contact_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    except Exception as error:
+        log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "failed")
+        raise HTTPException(status_code=502, detail=f"Analysis failed: {error}")
+    log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "completed")
+    return {
+        "opportunity_analysis": _opportunity_payload(
+            get_latest_opportunity_analysis(contact_id)
+        )
+    }

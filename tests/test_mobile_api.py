@@ -67,6 +67,49 @@ class TestRoleEnforcement:
         assert r.status_code == 403
 
 
+class TestOpportunityAnalysis:
+    """The mobile opportunity-analysis run mirrors the web action: admin-only,
+    synchronous, returns the freshly stored assessment."""
+    ADMIN = {"Authorization": f"Bearer {create_token('admin')}"}
+    SPECTATOR = {"Authorization": f"Bearer {create_token('spectator')}"}
+
+    STORED = {
+        "opportunity_score": 80,
+        "confidence_score": 60,
+        "priority_score": 70,
+        "fit_reasoning": "Strong fit.",
+        "suggested_approach": "Email the owner.",
+        "evidence": ["Old website"],
+        "recommended_services": [{"service": "Booking bot", "outcome": "Fewer no-shows", "rationale": "Manual now"}],
+        "discovery_questions": ["How do you book today?"],
+        "analysis_date": None,
+        "model_used": "cheap-llm",
+    }
+
+    def test_spectator_cannot_run_analysis(self):
+        assert client.post("/api/contacts/42/opportunity-analysis", headers=self.SPECTATOR).status_code == 403
+
+    def test_admin_runs_analysis_and_gets_result(self):
+        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", return_value={"summary": "saved"}) as run, \
+             patch("gcrm.api.routers.api_contacts.get_latest_opportunity_analysis", return_value=dict(self.STORED)):
+            r = client.post("/api/contacts/42/opportunity-analysis", headers=self.ADMIN)
+        run.assert_called_once_with(42)
+        assert r.status_code == 200
+        payload = r.json()["opportunity_analysis"]
+        assert payload["opportunity_score"] == 80
+        assert payload["recommended_services"][0]["service"] == "Booking bot"
+
+    def test_missing_contact_returns_404(self):
+        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", side_effect=LookupError):
+            r = client.post("/api/contacts/999/opportunity-analysis", headers=self.ADMIN)
+        assert r.status_code == 404
+
+    def test_analysis_failure_returns_502(self):
+        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", side_effect=RuntimeError("llm down")):
+            r = client.post("/api/contacts/42/opportunity-analysis", headers=self.ADMIN)
+        assert r.status_code == 502
+
+
 class TestResearchOverview:
     """The read-only Research overview (mobile display parity with the web page)
     is viewable by any authenticated user, including a spectator."""

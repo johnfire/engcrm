@@ -1,0 +1,104 @@
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
+
+const mockFetchContact = jest.fn();
+const mockRunAnalysis = jest.fn();
+jest.mock("../../services/api", () => ({
+  fetchContact: (...args: any[]) => mockFetchContact(...args),
+  runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
+}));
+
+const mockGetRole = jest.fn();
+jest.mock("../../services/auth", () => ({
+  getRole: (...args: any[]) => mockGetRole(...args),
+}));
+
+jest.mock("expo-router", () => ({
+  useLocalSearchParams: () => ({ id: "42" }),
+}));
+
+import ContactDetailScreen from "../../app/(drawer)/contact-detail";
+
+const ANALYSIS = {
+  opportunity_score: 82,
+  confidence_score: 61,
+  priority_score: 74,
+  fit_reasoning: "Runs a busy salon with manual booking.",
+  suggested_approach: "Offer a booking assistant demo.",
+  evidence: ["Website has no online booking"],
+  recommended_services: [
+    { service: "Booking bot", outcome: "Fewer no-shows", rationale: "Bookings are manual today" },
+  ],
+  discovery_questions: ["How do clients book today?"],
+  analysis_date: "2026-07-23T10:00:00",
+  model_used: "cheap-llm",
+};
+
+const BASE_CONTACT = {
+  id: 42,
+  name: "Acme Salon",
+  city: "Berlin",
+  country: "DE",
+  type: "salon",
+  status: "cold",
+  email: null,
+  website: null,
+  phone: null,
+  notes: null,
+  fit_score: null,
+  flagged: false,
+  starred: false,
+  last_contact: null,
+  created_at: "2026-07-01T00:00:00",
+  interactions: [],
+  opportunity_analysis: null,
+};
+
+describe("contact detail — opportunity analysis", () => {
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockRunAnalysis.mockReset();
+    mockGetRole.mockReset();
+  });
+
+  it("renders a stored analysis with scores and recommended services", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, opportunity_analysis: ANALYSIS });
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Runs a busy salon with manual booking.")).toBeTruthy());
+    expect(screen.getByText("82/100")).toBeTruthy();
+    expect(screen.getByText("Booking bot")).toBeTruthy();
+    expect(screen.getByText("How do clients book today?")).toBeTruthy();
+    // A spectator never sees the run button.
+    expect(screen.queryByText("Run opportunity analysis")).toBeNull();
+  });
+
+  it("lets an admin run the analysis and shows the fresh result", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+    mockRunAnalysis.mockResolvedValue(ANALYSIS);
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Run opportunity analysis")).toBeTruthy());
+    expect(screen.getByText("No opportunity analysis yet.")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Run opportunity analysis"));
+    await waitFor(() => expect(mockRunAnalysis).toHaveBeenCalledWith(42));
+    await waitFor(() => expect(screen.getByText("Booking bot")).toBeTruthy());
+    // After a successful run the button offers a re-run.
+    expect(screen.getByText("Re-run analysis")).toBeTruthy();
+  });
+
+  it("surfaces an error when the analysis fails", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+    mockRunAnalysis.mockRejectedValue(new Error("boom"));
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Run opportunity analysis")).toBeTruthy());
+    fireEvent.press(screen.getByText("Run opportunity analysis"));
+    await waitFor(() =>
+      expect(screen.getByText("Analysis failed — please try again.")).toBeTruthy(),
+    );
+  });
+});
