@@ -152,6 +152,20 @@ export async function fetchContact(id: number): Promise<ContactDetail> {
   return resp.data;
 }
 
+// Run a fresh opportunity assessment for one contact (admin only, 403
+// otherwise). Synchronous server-side — it fetches the company website and
+// runs the LLM — so allow a generous timeout. Returns the stored analysis.
+export async function runOpportunityAnalysis(
+  id: number,
+): Promise<OpportunityAnalysis | null> {
+  const resp = await client.post(
+    `/api/contacts/${id}/opportunity-analysis`,
+    {},
+    { timeout: 120000 },
+  );
+  return resp.data.opportunity_analysis ?? null;
+}
+
 // --- Activity ---
 export async function fetchActivity(): Promise<AgentRun[]> {
   const resp = await client.get("/api/activity");
@@ -335,6 +349,28 @@ export interface ContactDetail extends Contact {
   phone: string | null;
   notes: string | null;
   interactions: Interaction[];
+  opportunity_analysis: OpportunityAnalysis | null;
+}
+
+export interface RecommendedService {
+  service: string;
+  outcome: string;
+  rationale: string;
+}
+
+// The explainable AI/software opportunity assessment produced by the
+// opportunity agent. Scores are 0–100. Mirrors the web contact-detail render.
+export interface OpportunityAnalysis {
+  opportunity_score: number | null;
+  confidence_score: number | null;
+  priority_score: number | null;
+  fit_reasoning: string | null;
+  suggested_approach: string | null;
+  evidence: string[];
+  recommended_services: RecommendedService[];
+  discovery_questions: string[];
+  analysis_date: string | null;
+  model_used: string | null;
 }
 
 export interface Interaction {
