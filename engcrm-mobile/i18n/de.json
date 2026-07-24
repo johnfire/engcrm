@@ -8,6 +8,7 @@
   "common.tryAgain": "Versuchen Sie es erneut.",
   "common.serverError": "Serverfehler ({{status}}).",
   "common.couldntLoadRefresh": "Laden fehlgeschlagen — zum Aktualisieren nach unten ziehen",
+  "common.sortBy": "Sortieren nach",
   "common.sortNewest": "Neueste",
   "common.sortAZ": "A–Z",
   "common.sortIndustry": "Branche",
