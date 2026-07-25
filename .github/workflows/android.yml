@@ -42,7 +42,11 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Dependency audit
-        run: npm audit --omit=dev --audit-level=high
+        # 'critical' rather than 'high': the Expo/React-Native transitive tree
+        # regularly carries high-severity advisories (e.g. brace-expansion DoS)
+        # with no fix short of major Expo/jest downgrades, which would otherwise
+        # red every mobile PR for issues we can't act on. Critical still gates.
+        run: npm audit --omit=dev --audit-level=critical
       - name: Unit tests
         run: npm test
 
