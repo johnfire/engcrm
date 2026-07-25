@@ -174,17 +174,22 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
   },
-  filters: { marginHorizontal: 16, marginBottom: 8 },
-  filtersContent: { gap: 8 },
+  // flexGrow:0 keeps the horizontal chip bar from stretching in the column;
+  // the contentContainer's vertical padding + centered alignment give the
+  // chips room so their text isn't clipped top/bottom on Android.
+  filters: { marginHorizontal: 16, marginBottom: 8, flexGrow: 0 },
+  filtersContent: { gap: 8, alignItems: "center", paddingVertical: 6 },
   sortLabel: { color: "#666", fontSize: 11, marginHorizontal: 16, marginBottom: 4 },
   chip: {
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 6,
+    minHeight: 32,
+    justifyContent: "center",
     backgroundColor: "#ffffff10",
   },
   chipActive: { backgroundColor: "#7c6fff" },
-  chipText: { color: "#888", fontSize: 12, fontWeight: "600" },
+  chipText: { color: "#888", fontSize: 12, fontWeight: "600", lineHeight: 16 },
   chipTextActive: { color: "#fff" },
   list: { padding: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
