@@ -101,7 +101,7 @@ jobs:
         # if you need 32-bit/legacy device coverage.
         run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a
       - name: Upload AAB artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: engcrm-release-aab
           path: engcrm-mobile/android/app/build/outputs/bundle/release/app-release.aab
