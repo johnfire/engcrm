@@ -1,13 +1,11 @@
 """Unit tests for the company research dossier module — domain policy, URL safety,
 candidate ranking, and page classification. Tests are network-free and DB-free."""
 
-import pytest
 
 from gcrm.research.dossier import (
     _classify_page_type,
     _extract_domain,
     _page_priority,
-    _DIRECTORY_DOMAINS,
     should_crawl,
     verify_domain,
 )

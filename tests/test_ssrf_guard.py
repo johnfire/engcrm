@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import httpx
 
-from gcrm.tools.search import is_public_http_url, fetch_page
+from gcrm.tools.search import fetch_page, is_public_http_url
 
 
 def test_blocks_loopback_private_and_metadata():
