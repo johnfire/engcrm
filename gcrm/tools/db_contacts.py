@@ -10,6 +10,7 @@ from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
+from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +131,11 @@ def save_contact(
             INSERT INTO contacts
                 (name, city, country, type, website, email, phone, notes, status,
                  scan_level, neighborhood, latitude, longitude,
-                 business_status, rating, user_ratings, google_data)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 business_status, rating, user_ratings, google_data, workspace_id)
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
+            )
             RETURNING id
             """,
             (
@@ -152,6 +156,7 @@ def save_contact(
                 rating,
                 user_ratings,
                 google_json,
+                get_workspace_id(),
             ),
         )
         contact_id = cur.fetchone()["id"]

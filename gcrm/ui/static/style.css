@@ -582,4 +582,44 @@ main.contact-detail-page {
 .opportunity-spinner { display: inline-block; width: .9rem; height: .9rem; margin-right: .45rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -.1rem; animation: opportunity-spin .8s linear infinite; }
 .opportunity-action button[aria-busy="true"] { cursor: wait; opacity: .8; }
 @keyframes opportunity-spin { to { transform: rotate(360deg); } }
+.personal-priority {
+  align-items: center;
+  background: #1a1a2e;
+  border: 1px solid #ffffff20;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .8rem 1.2rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+.personal-priority h2 { margin: 0 0 .2rem; }
+.personal-priority__choices { display: flex; flex-wrap: wrap; gap: .45rem; }
+.personal-priority__button, .personal-priority__clear {
+  background: #ffffff10;
+  border: 1px solid #ffffff30;
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  padding: .4rem .75rem;
+}
+.personal-priority__button.selected {
+  background: #7c6fff;
+  border-color: #a9a1ff;
+  color: #fff;
+}
+.personal-priority__button:focus-visible, .personal-priority__clear:focus-visible {
+  outline: 2px solid #c8c3ff;
+  outline-offset: 2px;
+}
+.personal-priority__button[aria-busy="true"] { cursor: wait; opacity: .75; }
+.personal-priority-badge {
+  background: #7c6fff25;
+  border: 1px solid #7c6fff80;
+  border-radius: 999px;
+  color: #b9b4ff;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: .12rem .45rem;
+}
 @media (max-width: 640px) { .help-search input { min-width: 0; width: 100%; } }

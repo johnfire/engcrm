@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token, decode_token
+from gcrm.api.routers import api_contacts
 
 client = TestClient(main.app)
 
@@ -108,6 +109,90 @@ class TestOpportunityAnalysis:
         with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", side_effect=RuntimeError("llm down")):
             r = client.post("/api/contacts/42/opportunity-analysis", headers=self.ADMIN)
         assert r.status_code == 502
+
+
+class TestPersonalPriority:
+    """Any real account may mutate only its own contact priority."""
+
+    PAYLOAD = {"sub": "spectator", "uid": 7}
+    USER = {
+        "id": 7,
+        "role": "spectator",
+        "is_active": True,
+        "workspace_id": 3,
+    }
+
+    def test_spectator_can_set_personal_priority(self):
+        with patch(
+            "gcrm.api.routers.api_contacts.get_user_by_id",
+            return_value=self.USER,
+        ), patch(
+            "gcrm.api.routers.api_contacts.set_personal_priority",
+            return_value=(True, 1),
+        ) as save_priority, patch("gcrm.api.routers.api_contacts.log_audit"):
+            response = api_contacts.update_personal_priority(
+                42,
+                api_contacts.PersonalPriorityBody(priority=1),
+                self.PAYLOAD,
+            )
+
+        assert response == {"personal_priority": 1}
+        save_priority.assert_called_once_with(7, 3, 42, 1)
+
+    def test_spectator_can_clear_personal_priority(self):
+        with patch(
+            "gcrm.api.routers.api_contacts.get_user_by_id",
+            return_value=self.USER,
+        ), patch(
+            "gcrm.api.routers.api_contacts.set_personal_priority",
+            return_value=(True, None),
+        ), patch("gcrm.api.routers.api_contacts.log_audit"):
+            response = api_contacts.update_personal_priority(
+                42,
+                api_contacts.PersonalPriorityBody(priority=None),
+                self.PAYLOAD,
+            )
+
+        assert response == {"personal_priority": None}
+
+    def test_rejects_out_of_range_priority(self):
+        with patch(
+            "gcrm.api.routers.api_contacts.get_user_by_id",
+            return_value=self.USER,
+        ), pytest.raises(api_contacts.HTTPException) as error:
+            api_contacts.update_personal_priority(
+                42,
+                api_contacts.PersonalPriorityBody(priority=6),
+                self.PAYLOAD,
+            )
+
+        assert error.value.status_code == 400
+
+    def test_shared_admin_cannot_own_personal_priority(self):
+        with pytest.raises(api_contacts.HTTPException) as error:
+            api_contacts.update_personal_priority(
+                42,
+                api_contacts.PersonalPriorityBody(priority=1),
+                {"sub": "admin"},
+            )
+        assert error.value.status_code == 403
+
+    def test_cross_workspace_contact_is_hidden(self):
+        with patch(
+            "gcrm.api.routers.api_contacts.get_user_by_id",
+            return_value=self.USER,
+        ), patch(
+            "gcrm.api.routers.api_contacts.set_personal_priority",
+            return_value=(False, None),
+        ):
+            with pytest.raises(api_contacts.HTTPException) as error:
+                api_contacts.update_personal_priority(
+                    42,
+                    api_contacts.PersonalPriorityBody(priority=1),
+                    self.PAYLOAD,
+                )
+
+        assert error.value.status_code == 404
 
 
 class TestResearchOverview:

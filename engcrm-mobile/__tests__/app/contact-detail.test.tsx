@@ -2,9 +2,11 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 
 const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
+const mockUpdatePersonalPriority = jest.fn();
 jest.mock("../../services/api", () => ({
   fetchContact: (...args: any[]) => mockFetchContact(...args),
   runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
+  updatePersonalPriority: (...args: any[]) => mockUpdatePersonalPriority(...args),
 }));
 
 const mockGetRole = jest.fn();
@@ -47,6 +49,7 @@ const BASE_CONTACT = {
   fit_score: null,
   flagged: false,
   starred: false,
+  personal_priority: null,
   last_contact: null,
   created_at: "2026-07-01T00:00:00",
   interactions: [],
@@ -58,6 +61,47 @@ describe("contact detail — opportunity analysis", () => {
     mockFetchContact.mockReset();
     mockRunAnalysis.mockReset();
     mockGetRole.mockReset();
+    mockUpdatePersonalPriority.mockReset();
+  });
+
+  it("lets a spectator set and clear a private priority", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+    mockUpdatePersonalPriority
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(null);
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("1 Best"));
+    await waitFor(() =>
+      expect(mockUpdatePersonalPriority).toHaveBeenCalledWith(42, 1),
+    );
+
+    fireEvent.press(screen.getByText("Clear rating"));
+    await waitFor(() =>
+      expect(mockUpdatePersonalPriority).toHaveBeenCalledWith(42, null),
+    );
+  });
+
+  it("rolls back and reports a failed priority save", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, personal_priority: 2 });
+    mockUpdatePersonalPriority.mockRejectedValue(new Error("offline"));
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
+    fireEvent.press(screen.getByText("1 Best"));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Could not save. Tap a rating to try again."),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.getByRole("radio", { name: "2 High" }).props.accessibilityState.selected,
+    ).toBe(true);
   });
 
   it("renders a stored analysis with scores and recommended services", async () => {

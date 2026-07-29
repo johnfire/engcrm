@@ -8,6 +8,10 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.tools.db import get_cold_contacts, save_contact
 from gcrm.tools.db_agent_runs import finish_run, start_run
+from gcrm.tools.db_personal_priorities import (
+    get_personal_priority,
+    set_personal_priority,
+)
 from gcrm.tools.privacy_retention import purge_expired_data
 
 pytestmark = pytest.mark.integration
@@ -64,6 +68,60 @@ def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database)
         "actor_type": "ai",
         "correlation_id": f"run:{run_id}",
     }
+
+
+def test_personal_priorities_are_private_per_user(clean_database):
+    """Two users can independently rate one contact in their workspace."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug = 'default'")
+        workspace_id = cursor.fetchone()["id"]
+        cursor.execute(
+            """
+            INSERT INTO users (email, password_hash, role, workspace_id)
+            VALUES
+                ('priority-one@example.test', 'hash', 'spectator', %s),
+                ('priority-two@example.test', 'hash', 'spectator', %s)
+            RETURNING id
+            """,
+            (workspace_id, workspace_id),
+        )
+        user_ids = [row["id"] for row in cursor.fetchall()]
+        cursor.execute(
+            """
+            INSERT INTO contacts (name, status, workspace_id)
+            VALUES ('Priority Venue', 'cold', %s)
+            RETURNING id
+            """,
+            (workspace_id,),
+        )
+        contact_id = cursor.fetchone()["id"]
+
+    assert set_personal_priority(user_ids[0], workspace_id, contact_id, 1) == (True, 1)
+    assert set_personal_priority(user_ids[1], workspace_id, contact_id, 5) == (True, 5)
+    assert get_personal_priority(user_ids[0], workspace_id, contact_id) == 1
+    assert get_personal_priority(user_ids[1], workspace_id, contact_id) == 5
+
+    assert set_personal_priority(user_ids[0], workspace_id, contact_id, None) == (True, None)
+    assert get_personal_priority(user_ids[0], workspace_id, contact_id) is None
+    assert get_personal_priority(user_ids[1], workspace_id, contact_id) == 5
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_ids[1],))
+        cursor.execute(
+            "SELECT count(*) AS count FROM contact_user_priorities",
+        )
+        assert cursor.fetchone()["count"] == 0
+
+    assert set_personal_priority(user_ids[0], workspace_id, contact_id, 2) == (True, 2)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
+        cursor.execute(
+            "SELECT count(*) AS count FROM contact_user_priorities",
+        )
+        assert cursor.fetchone()["count"] == 0
 
 
 def test_retention_erases_a_contact_and_all_linked_records_at_three_years(clean_database):

@@ -35,7 +35,8 @@ def make_mock_conn(*fetchall_sequences, fetchone_sequence=None):
 CONTACT_ROW = {
     "id": 1, "name": "Acme GmbH", "city": "Augsburg", "country": "DE", "type": "Handwerksbetrieb",
     "status": "candidate", "email": "a@acme.de", "website": "https://acme.de", "fit_score": 80,
-    "notes": "Test note", "flagged": False, "starred": False, "last_contact": None,
+    "notes": "Test note", "flagged": False, "starred": False,
+    "personal_priority": None, "last_contact": None,
 }
 
 INTERACTION_ROW = {

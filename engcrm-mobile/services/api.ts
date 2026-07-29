@@ -150,7 +150,7 @@ export async function classifyMessage(
 }
 
 // --- Contacts ---
-export type ContactSortKey = "created_at" | "name" | "type";
+export type ContactSortKey = "created_at" | "name" | "type" | "personal_priority";
 
 export async function fetchContacts(params: {
   search?: string;
@@ -158,6 +158,7 @@ export async function fetchContacts(params: {
   page?: number;
   sort?: ContactSortKey;
   dir?: "asc" | "desc";
+  personal_priority?: string;
 }): Promise<Contact[]> {
   const resp = await client.get("/api/contacts", { params });
   return resp.data;
@@ -165,6 +166,16 @@ export async function fetchContacts(params: {
 export async function fetchContact(id: number): Promise<ContactDetail> {
   const resp = await client.get(`/api/contacts/${id}`);
   return resp.data;
+}
+
+export async function updatePersonalPriority(
+  id: number,
+  priority: number | null,
+): Promise<number | null> {
+  const response = await client.put(`/api/contacts/${id}/personal-priority`, {
+    priority,
+  });
+  return response.data.personal_priority ?? null;
 }
 
 // Run a fresh opportunity assessment for one contact (admin only, 403
@@ -356,6 +367,7 @@ export interface Contact {
   fit_score: number | null;
   flagged: boolean;
   starred: boolean;
+  personal_priority: number | null;
   last_contact: string | null;
   created_at: string;
 }

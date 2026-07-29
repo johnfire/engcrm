@@ -28,6 +28,8 @@ class TestTranslateEngine:
     def test_resolves_key_per_language(self):
         assert translate("nav.contacts", "en") == "Contacts"
         assert translate("nav.contacts", "de") == "Kontakte"
+        assert translate("personalPriority.title", "en") == "Personal priority"
+        assert translate("personalPriority.title", "de") == "Persönliche Priorität"
 
     def test_interpolation(self):
         assert translate("contacts.deleteConfirm", "en", name="Acme") == "Delete Acme?"

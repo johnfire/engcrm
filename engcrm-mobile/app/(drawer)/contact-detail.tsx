@@ -12,11 +12,13 @@ import { useLocalSearchParams } from "expo-router";
 import {
   fetchContact,
   runOpportunityAnalysis,
+  updatePersonalPriority,
   ContactDetail,
   OpportunityAnalysis,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
+import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 
 export default function ContactDetailScreen() {
   const { t } = useTranslation();
@@ -56,6 +58,13 @@ export default function ContactDetailScreen() {
     }
   }
 
+  async function handlePrioritySave(priority: number | null) {
+    const storedPriority = await updatePersonalPriority(Number(id), priority);
+    setContact((current) =>
+      current ? { ...current, personal_priority: storedPriority } : current,
+    );
+  }
+
   if (loading)
     return (
       <View style={styles.center}>
@@ -83,6 +92,12 @@ export default function ContactDetailScreen() {
           <Text style={styles.score}>{t("contactDetail.score", { score: contact.fit_score })}</Text>
         )}
       </View>
+
+      <PersonalPrioritySelector
+        key={contact.id}
+        priority={contact.personal_priority}
+        onSave={handlePrioritySave}
+      />
 
       {contact.email && (
         <TouchableOpacity

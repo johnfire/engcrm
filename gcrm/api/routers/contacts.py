@@ -2,12 +2,14 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.privacy_retention import erase_contact
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
@@ -27,13 +29,28 @@ SORT_COLUMNS = {
     "type":         "lower(c.type)",
     "status":       "c.status",
     "fit":          "c.fit_score",
+    "personal_priority": "cup.priority",
     "starred":      "c.starred",
     "last_contact": "MAX(i.interaction_date)",
     "created_at":   "c.created_at",
 }
 
 
-def _build_contact_filters(status, type, q, has_contact):
+class PersonalPriorityBody(BaseModel):
+    priority: int | None = None
+
+
+def _priority_join(user_id: int | None) -> tuple[str, list]:
+    if user_id is None:
+        return "LEFT JOIN contact_user_priorities cup ON FALSE", []
+    return (
+        "LEFT JOIN contact_user_priorities cup "
+        "ON cup.contact_id = c.id AND cup.user_id = %s",
+        [user_id],
+    )
+
+
+def _build_contact_filters(status, type, q, has_contact, personal_priority="", workspace_id=None):
     """Build the WHERE clause + bound params for the contact list from the query
     filters. The name/city search is a parenthesized OR so it can't leak past an
     AND — don't regress that."""
@@ -52,20 +69,30 @@ def _build_contact_filters(status, type, q, has_contact):
         conditions.append("c.id IN (SELECT DISTINCT contact_id FROM interactions)")
     elif has_contact == "0":
         conditions.append("c.id NOT IN (SELECT DISTINCT contact_id FROM interactions)")
+    if personal_priority in {"1", "2", "3", "4", "5"}:
+        conditions.append("cup.priority = %s")
+        params.append(int(personal_priority))
+    elif personal_priority == "unrated":
+        conditions.append("cup.priority IS NULL")
+    if workspace_id is not None:
+        conditions.append("c.workspace_id = %s")
+        params.append(workspace_id)
 
     where = "WHERE " + " AND ".join(conditions)
     return where, params
 
 
-def _fetch_contacts_page(where, params, sort_col, sort_dir, offset):
+def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None):
     """Run the count + page queries for the given filters and gather the distinct
     status/type option lists. Returns (contacts, statuses, types, total)."""
     with db() as conn:
         cur = conn.cursor()
+        priority_join, priority_params = _priority_join(user_id)
+        query_params = priority_params + params
 
         cur.execute(
-            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {where}",
-            params,
+            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {priority_join} {where}",
+            query_params,
         )
         total = cur.fetchone()["cnt"]
 
@@ -74,23 +101,34 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset):
             SELECT
                 c.id, c.name, c.city, c.country, c.type, c.status,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
-                c.created_at,
+                c.created_at, cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact
             FROM contacts c
+            {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id
+            GROUP BY c.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             LIMIT {PAGE_SIZE} OFFSET {offset}
             """,
-            params,
+            query_params,
         )
         contacts = [dict(row) for row in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT status FROM contacts WHERE status IS NOT NULL ORDER BY status")
+        workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""
+        workspace_params = [workspace_id] if workspace_id is not None else []
+        cur.execute(
+            f"SELECT DISTINCT status FROM contacts "
+            f"WHERE status IS NOT NULL{workspace_filter} ORDER BY status",
+            workspace_params,
+        )
         statuses = [row["status"] for row in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT type FROM contacts WHERE type IS NOT NULL AND type != '' ORDER BY type")
+        cur.execute(
+            f"SELECT DISTINCT type FROM contacts "
+            f"WHERE type IS NOT NULL AND type != ''{workspace_filter} ORDER BY type",
+            workspace_params,
+        )
         types = [row["type"] for row in cur.fetchall()]
 
     return contacts, statuses, types, total
@@ -103,6 +141,7 @@ def contact_list(
     type: str = Query(default=""),
     q: str = Query(default=""),
     has_contact: str = Query(default=""),
+    personal_priority: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
@@ -111,8 +150,14 @@ def contact_list(
     sort_col = SORT_COLUMNS.get(sort, "c.created_at")
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
-    where, params = _build_contact_filters(status, type, q, has_contact)
-    contacts, statuses, types, total = _fetch_contacts_page(where, params, sort_col, sort_dir, offset)
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    where, params = _build_contact_filters(
+        status, type, q, has_contact, personal_priority, workspace_id,
+    )
+    contacts, statuses, types, total = _fetch_contacts_page(
+        where, params, sort_col, sort_dir, offset, user_id, workspace_id,
+    )
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
@@ -125,6 +170,7 @@ def contact_list(
         "active_type": type,
         "query": q,
         "has_contact": has_contact,
+        "personal_priority": personal_priority,
         "page": page,
         "total_pages": total_pages,
         "total": total,
@@ -139,6 +185,7 @@ def contact_print(
     status: str = Query(default=""),
     type: str = Query(default=""),
     q: str = Query(default=""),
+    personal_priority: str = Query(default=""),
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
 ):
@@ -146,7 +193,12 @@ def contact_print(
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
     # Same filters as the list view (no has_contact toggle on the print page).
-    where, params = _build_contact_filters(status, type, q, "")
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    priority_join, priority_params = _priority_join(user_id)
+    where, params = _build_contact_filters(
+        status, type, q, "", personal_priority, workspace_id,
+    )
 
     with db() as conn:
         cur = conn.cursor()
@@ -155,14 +207,16 @@ def contact_print(
             SELECT
                 c.id, c.name, c.city, c.country, c.type, c.status,
                 c.email, c.website, c.fit_score, c.notes,
+                cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact
             FROM contacts c
+            {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id
+            GROUP BY c.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             """,
-            params,
+            priority_params + params,
         )
         contacts = [dict(row) for row in cur.fetchall()]
 
@@ -174,6 +228,8 @@ def contact_print(
         active_filters.append(f"type: {type}")
     if q:
         active_filters.append(f"search: {q}")
+    if personal_priority:
+        active_filters.append(f"personal priority: {personal_priority}")
 
     return templates.TemplateResponse("contacts_print.html", {
         "request": request,
@@ -209,7 +265,21 @@ def contact_brief(contact_id: int, request: Request):
 def contact_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM contacts WHERE id = %s AND deleted_at IS NULL", (contact_id,))
+        user_id = request.session.get("user_id")
+        workspace_id = request.session.get("workspace_id")
+        priority_join, priority_params = _priority_join(user_id)
+        workspace_filter = "AND c.workspace_id = %s" if workspace_id is not None else ""
+        cur.execute(
+            f"""
+            SELECT c.*, cup.priority AS personal_priority
+            FROM contacts c
+            {priority_join}
+            WHERE c.id = %s
+              AND c.deleted_at IS NULL
+              {workspace_filter}
+            """,
+            priority_params + [contact_id] + ([workspace_id] if workspace_id is not None else []),
+        )
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Contact not found")
@@ -241,6 +311,40 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
         "saved": saved,
         "opportunity_flash": request.session.pop("opportunity_flash", None),
     })
+
+
+@router.put("/{contact_id}/personal-priority")
+def update_personal_priority(
+    contact_id: int,
+    body: PersonalPriorityBody,
+    request: Request,
+):
+    """Set or clear the signed-in user's private priority for one contact."""
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    if body.priority is not None and body.priority not in range(1, 6):
+        raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
+
+    contact_found, stored_priority = set_personal_priority(
+        user_id,
+        workspace_id,
+        contact_id,
+        body.priority,
+    )
+    if not contact_found:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    outcome = "cleared" if stored_priority is None else f"set:{stored_priority}"
+    log_audit(
+        None,
+        None,
+        "contact.personal_priority_changed",
+        f"contact:{contact_id}",
+        outcome,
+    )
+    return {"personal_priority": stored_priority}
 
 
 @router.post("/{contact_id}/opportunity-analysis")

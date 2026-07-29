@@ -1,0 +1,45 @@
+<section
+  class="personal-priority"
+  data-personal-priority
+  data-contact-id="{{ contact.id }}"
+>
+  <div>
+    <h2>{{ t('personalPriority.title') }}</h2>
+    <p class="muted small">{{ t('personalPriority.privateHint') }}</p>
+  </div>
+  {% if request.session.get('user_id') %}
+  <div
+    class="personal-priority__choices"
+    role="group"
+    aria-label="{{ t('personalPriority.title') }}"
+  >
+    {% for value, label_key in [
+      (1, 'personalPriority.best'),
+      (2, 'personalPriority.high'),
+      (3, 'personalPriority.medium'),
+      (4, 'personalPriority.low'),
+      (5, 'personalPriority.notNow')
+    ] %}
+    <button
+      type="button"
+      class="personal-priority__button{% if contact.personal_priority == value %} selected{% endif %}"
+      data-priority-value="{{ value }}"
+      aria-pressed="{{ 'true' if contact.personal_priority == value else 'false' }}"
+    >
+      {{ value }} {{ t(label_key) }}
+    </button>
+    {% endfor %}
+    <button
+      type="button"
+      class="personal-priority__clear"
+      data-priority-value=""
+      {% if contact.personal_priority is none %}disabled{% endif %}
+    >
+      {{ t('personalPriority.clear') }}
+    </button>
+  </div>
+  <p class="muted small" role="status" aria-live="polite" data-priority-status></p>
+  {% else %}
+  <p class="muted small">{{ t('personalPriority.accountRequired') }}</p>
+  {% endif %}
+</section>

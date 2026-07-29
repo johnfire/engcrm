@@ -15,6 +15,8 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
 <div class="flash-success">{{ t('contactDetail.saved') }}</div>
 {% endif %}
 
+{% include 'partials/personal_priority.html' %}
+
 <form method="post" action="/contacts/{{ contact.id }}/edit" class="contact-edit-form">
   <div class="detail-grid">
     <section class="detail-section">
@@ -308,6 +310,63 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
       spinner.hidden = false;
       status.hidden = false;
       label.textContent = "{{ t('contactDetail.opportunityAnalysisWorking') }}";
+    });
+  })();
+
+  (() => {
+    const panel = document.querySelector("[data-personal-priority]");
+    if (!panel) return;
+    const buttons = [...panel.querySelectorAll("[data-priority-value]")];
+    const status = panel.querySelector("[data-priority-status]");
+    if (!buttons.length || !status) return;
+
+    const updateSelection = (priority) => {
+      buttons.forEach((button) => {
+        const isSelected = button.dataset.priorityValue === priority;
+        if (button.classList.contains("personal-priority__button")) {
+          button.classList.toggle("selected", isSelected);
+          button.setAttribute("aria-pressed", String(isSelected));
+        }
+        if (button.classList.contains("personal-priority__clear")) {
+          button.disabled = priority === "";
+        }
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        const previous = panel.querySelector('[aria-pressed="true"]')?.dataset.priorityValue || "";
+        const priority = button.dataset.priorityValue;
+        buttons.forEach((choice) => {
+          choice.disabled = true;
+          choice.setAttribute("aria-busy", "true");
+        });
+        status.textContent = "{{ t('personalPriority.saving') }}";
+        try {
+          const response = await fetch(
+            `/contacts/${panel.dataset.contactId}/personal-priority`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ priority: priority === "" ? null : Number(priority) }),
+            },
+          );
+          if (!response.ok) throw new Error("save failed");
+          updateSelection(priority);
+          status.textContent = "{{ t('personalPriority.saved') }}";
+        } catch {
+          updateSelection(previous);
+          status.textContent = "{{ t('personalPriority.saveFailed') }}";
+        } finally {
+          buttons.forEach((choice) => {
+            choice.removeAttribute("aria-busy");
+            choice.disabled = false;
+          });
+          const clearButton = panel.querySelector(".personal-priority__clear");
+          if (clearButton) clearButton.disabled =
+            !panel.querySelector('.personal-priority__button[aria-pressed="true"]');
+        }
+      });
     });
   })();
 </script>

@@ -81,3 +81,80 @@ def test_admin_can_approve_unsent_draft_and_mobile_roles_are_enforced(clean_data
     assert contacts_response.status_code == 200
     assert contacts_response.json()[0]["id"] == contact_id
     assert spectator_response.status_code == 403
+
+
+def test_users_rate_the_same_contact_independently_on_web_and_mobile(clean_database):
+    """A web save and mobile save never expose or replace another user's value."""
+    password_one = "spectator-one-password"
+    password_two = "spectator-two-password"
+    create_user(
+        "priority-one@example.test",
+        hash_password(password_one),
+        "spectator",
+    )
+    create_user(
+        "priority-two@example.test",
+        hash_password(password_two),
+        "spectator",
+    )
+    contact_id = save_contact("Priority E2E Venue", "Munich", status="cold")
+
+    web_client = TestClient(app)
+    login_response = web_client.post(
+        "/login",
+        data={
+            "email": "priority-one@example.test",
+            "password": password_one,
+        },
+        follow_redirects=False,
+    )
+    web_priority_response = web_client.put(
+        f"/contacts/{contact_id}/personal-priority",
+        json={"priority": 1},
+        headers={"X-Request-ID": "e2e-personal-priority"},
+    )
+
+    mobile_client = TestClient(app)
+    token_two = _mobile_token(
+        mobile_client,
+        "priority-two@example.test",
+        password_two,
+    )
+    user_two_before = mobile_client.get(
+        f"/api/contacts/{contact_id}",
+        headers={"Authorization": f"Bearer {token_two}"},
+    )
+    user_two_save = mobile_client.put(
+        f"/api/contacts/{contact_id}/personal-priority",
+        headers={"Authorization": f"Bearer {token_two}"},
+        json={"priority": 5},
+    )
+    token_one = _mobile_token(
+        mobile_client,
+        "priority-one@example.test",
+        password_one,
+    )
+    user_one_after = mobile_client.get(
+        f"/api/contacts/{contact_id}",
+        headers={"Authorization": f"Bearer {token_one}"},
+    )
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT priority
+            FROM contact_user_priorities
+            WHERE contact_id = %s
+            ORDER BY priority
+            """,
+            (contact_id,),
+        )
+        stored_priorities = [row["priority"] for row in cursor.fetchall()]
+
+    assert login_response.status_code == 303
+    assert web_priority_response.json() == {"personal_priority": 1}
+    assert user_two_before.json()["personal_priority"] is None
+    assert user_two_save.json() == {"personal_priority": 5}
+    assert user_one_after.json()["personal_priority"] == 1
+    assert stored_priorities == [1, 5]

@@ -30,6 +30,17 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     </option>
     {% endfor %}
   </select>
+  <select name="personal_priority" aria-label="{{ t('personalPriority.title') }}">
+    <option value="">{{ t('personalPriority.all') }}</option>
+    {% for priority in [1, 2, 3, 4, 5] %}
+    <option value="{{ priority }}" {% if personal_priority == priority|string %}selected{% endif %}>
+      P{{ priority }}
+    </option>
+    {% endfor %}
+    <option value="unrated" {% if personal_priority == "unrated" %}selected{% endif %}>
+      {{ t('personalPriority.unrated') }}
+    </option>
+  </select>
   <select name="has_contact">
     <option value="" {% if has_contact == "" %}selected{% endif %}>
       {{ t('contacts.anyContactDate') }}
@@ -49,6 +60,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="type" {% if sort == "type" %}selected{% endif %}>{{ t('common.type') }}</option>
     <option value="status" {% if sort == "status" %}selected{% endif %}>{{ t('common.status') }}</option>
     <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('contacts.colFit') }}</option>
+    <option value="personal_priority" {% if sort == "personal_priority" %}selected{% endif %}>{{ t('personalPriority.title') }}</option>
     <option value="starred" {% if sort == "starred" %}selected{% endif %}>{{ t('contacts.colStarred') }}</option>
     <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('contacts.colLastContact') }}</option>
     <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('contacts.colId') }}</option>
@@ -58,11 +70,11 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  {% if query or active_status or active_type or has_contact %}
+  {% if query or active_status or active_type or has_contact or personal_priority %}
   <a href="/contacts/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
   {% endif %}
   <a
-    href="/contacts/print?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&sort={{ sort }}&dir={{ dir }}"
+    href="/contacts/print?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}"
     target="_blank"
     class="btn-secondary"
     style="padding: 0.35rem 0.8rem; text-decoration: none"
@@ -75,7 +87,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 = ' ↑' if (sort == col and dir == 'asc') else (' ↓' if (sort == col and dir ==
 'desc') else '') %}
 <a
-  href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ col }}&dir={{ next_dir }}&page=1"
+  href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ col }}&dir={{ next_dir }}&page=1"
   class="sort-link"
   >{{ label }}{{ arrow }}</a
 >
@@ -90,6 +102,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th>{{ sort_link('type', t('common.type')) }}</th>
       <th>{{ sort_link('status', t('common.status')) }}</th>
       <th>{{ sort_link('fit', t('contacts.colFit')) }}</th>
+      <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>
       <th>{{ sort_link('last_contact', t('contacts.colLastContact')) }}</th>
       <th>{{ sort_link('created_at', t('common.added'), 'desc') }}</th>
       <th>{{ t('common.email') }}</th>
@@ -115,8 +128,13 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td>
         {% if c.fit_score is not none %}{{ c.fit_score }}{% else %}<span
           class="muted"
-          >—</span
+        >—</span
         >{% endif %}
+      </td>
+      <td>
+        {% if c.personal_priority is not none %}
+        <span class="personal-priority-badge">P{{ c.personal_priority }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td class="muted">
         {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
@@ -163,7 +181,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 <div class="pagination">
   {% if page > 1 %}
   <a
-    href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
+    href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
     class="btn-secondary"
     >{{ t('common.prev') }}</a
   >
@@ -171,7 +189,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
   {% if page < total_pages %}
   <a
-    href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
+    href="?status={{ active_status }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
     class="btn-secondary"
     >{{ t('common.next') }}</a
   >

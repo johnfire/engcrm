@@ -62,8 +62,7 @@
         white-space: normal;
         word-break: break-word;
       }
-      /* A4 landscape printable width ≈ 267mm ≈ 1009px.
-       Fixed cols: 180+80+80+65+30+150+185 = 770px, leaving ~239px for notes */
+      /* A4 landscape printable width ≈ 267mm ≈ 1009px. */
       col.c-name {
         width: 180px;
       }
@@ -78,6 +77,9 @@
       }
       col.c-fit {
         width: 30px;
+      }
+      col.c-priority {
+        width: 35px;
       }
       col.c-email {
         width: 150px;
@@ -113,6 +115,7 @@
         <col class="c-type" />
         <col class="c-status" />
         <col class="c-fit" />
+        <col class="c-priority" />
         <col class="c-email" />
         <col class="c-website" />
         <col class="c-notes" />
@@ -124,6 +127,7 @@
           <th>{{ t('common.type') }}</th>
           <th>{{ t('common.status') }}</th>
           <th>{{ t('contactsPrint.colFit') }}</th>
+          <th>{{ t('personalPriority.short') }}</th>
           <th>{{ t('common.email') }}</th>
           <th>{{ t('common.website') }}</th>
           <th>{{ t('common.notes') }}</th>
@@ -137,6 +141,7 @@
           <td>{{ c.type or '—' }}</td>
           <td><span class="badge">{{ c.status }}</span></td>
           <td>{{ c.fit_score if c.fit_score is not none else '—' }}</td>
+          <td>{{ 'P' ~ c.personal_priority if c.personal_priority is not none else '—' }}</td>
           <td>{{ c.email or '—' }}</td>
           <td>{{ c.website or '—' }}</td>
           <td class="notes">{{ c.notes or '—' }}</td>
