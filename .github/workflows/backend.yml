@@ -6,6 +6,7 @@ on:
     paths:
       - "gcrm/**"
       - "agents/**"
+      - "tests/**"
       - "scripts/**"
       - "engcrm-interview-agent/**"
       - "pyproject.toml"
@@ -17,6 +18,7 @@ on:
     paths:
       - "gcrm/**"
       - "agents/**"
+      - "tests/**"
       - "scripts/**"
       - "engcrm-interview-agent/**"
       - "pyproject.toml"
