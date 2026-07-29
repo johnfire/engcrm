@@ -3,6 +3,7 @@ empty and populated data. This was a pre-existing coverage gap (most of these
 routes had zero render tests) — closing it now doubles as the correctness
 check for the i18n conversion (a bad t() call or Jinja typo shows up as a
 500 or an UndefinedError here, not just at request time in prod)."""
+import re
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -246,7 +247,9 @@ class TestContactDetailPage:
                     mock_db.return_value.__enter__.return_value = conn
                     response = client.get(f"/contacts/1?lang={lang}")
                 assert response.status_code == 200, response.text
-                assert response.text.count("selected") == 4
+                assert re.search(r'value="candidate"\s+selected', response.text)
+                assert re.search(r'value="email"\s+selected', response.text)
+                assert len(re.findall(r'value="warm"\s+selected', response.text)) == 2
                 assert 'class="contact-edit-form"' in response.text
                 assert 'class="contact-detail-page"' in response.text
                 assert 'for="contact-name"' in response.text
