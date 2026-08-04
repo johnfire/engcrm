@@ -1,0 +1,180 @@
+name: Android Security
+
+# Report-only Android security checks: static manifest/build-config analysis
+# against Gradle's merged manifest, including exported-component detection
+# (scripts/security/android-static-checks.mjs) plus a real emulator boot doing
+# deep-link fuzzing (scripts/security/android-dynamic-checks.sh — deliberately
+# does NOT re-derive exported status from dumpsys; see that script's header
+# for why that's unreliable). Never blocks the push — see
+# scripts/security/android-baseline.json for the diff-against-known-good
+# design. Adapted from notes-world's identical pipeline; unlike that repo,
+# engcrm has no deployed VPS to push a status file to, so results land in the
+# GitHub Actions job summary + a downloadable artifact instead. Runs on fresh
+# ubuntu-latest runners, independent of the existing self-hosted-runner
+# android.yml release pipeline — this workflow only needs a debug build, no
+# signing secrets.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "engcrm-mobile/**"
+      - "!engcrm-mobile/**.md"
+      - "scripts/security/**"
+      - ".github/workflows/android-security.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: engcrm-mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: engcrm-mobile
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        working-directory: engcrm-mobile/android
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Stage artifacts at flat paths
+        run: |
+          mkdir -p /tmp/artifacts
+          cp engcrm-mobile/android/app/build/outputs/apk/debug/app-debug.apk /tmp/artifacts/app-debug.apk
+          cp engcrm-mobile/android/app/build/intermediates/packaged_manifests/debug/processDebugManifestForPackage/AndroidManifest.xml \
+            /tmp/artifacts/merged-manifest.xml
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: /tmp/artifacts/app-debug.apk
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: merged-manifest
+          path: /tmp/artifacts/merged-manifest.xml
+          retention-days: 7
+
+  static:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: merged-manifest
+          path: /tmp/artifacts
+
+      - name: Static checks
+        env:
+          MERGED_MANIFEST_PATH: /tmp/artifacts/merged-manifest.xml
+          SECURITY_FINDINGS_OUT: /tmp/artifacts/android-static-findings.json
+        run: node scripts/security/android-static-checks.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-findings
+          path: /tmp/artifacts/android-static-findings.json
+          retention-days: 30
+
+  dynamic:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-debug-apk
+          path: /tmp/artifacts
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot emulator and run dynamic checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb install /tmp/artifacts/app-debug.apk
+            adb shell monkey -p de.christopherrehm.engcrm -c android.intent.category.LAUNCHER 1
+            sleep 3
+            SECURITY_FINDINGS_OUT=/tmp/artifacts/android-dynamic-findings.json bash scripts/security/android-dynamic-checks.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dynamic-findings
+          path: /tmp/artifacts/android-dynamic-findings.json
+          retention-days: 30
+
+  report:
+    needs: [static, dynamic]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: static-findings
+          path: /tmp/artifacts
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dynamic-findings
+          path: /tmp/artifacts
+        continue-on-error: true
+
+      - name: Build combined report
+        env:
+          STATIC_FINDINGS_PATH: /tmp/artifacts/android-static-findings.json
+          DYNAMIC_FINDINGS_PATH: /tmp/artifacts/android-dynamic-findings.json
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/security/build-security-report.mjs
+
+      - name: Write to job summary
+        run: cat android-security-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: combined-report
+          path: |
+            android-security-report.json
+            android-security-report.md
+          retention-days: 90
