@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 description = "LangGraph agent that recommends custom AI and software opportunities."
 dependencies = [
     "langgraph>=0.2.0",
-    "langchain-core>=0.3.0",
+    "langchain-core>=1.5.3",
 ]
 
 [project.optional-dependencies]
