@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 _EXTRACT_MODEL = "claude-haiku"                  # get_llm() key
 _EXTRACT_MODEL_NAME = "claude-haiku-4-5-20251001"  # PRICING / response model name
 
+# What the mobile client is told when extraction fails. Deliberately free of
+# detail — the diagnosable version is in the server log.
+_EXTRACTION_FAILED = "Could not read this card. Enter the details manually or retake the photo."
+
 
 # ---------------------------------------------------------------------------
 # Vision extraction
@@ -45,7 +49,8 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
     Run Claude Haiku 4.5 vision on a business-card image.
 
     Returns {"fields": {...}, "model": str, "cost_usd": float}. `fields` always
-    has an `is_card` key; on any failure it's {"is_card": False, "error": ...}.
+    has an `is_card` key; on any failure it's {"is_card": False, "error": ...},
+    where `error` is a fixed client-safe string — the real cause goes to the log.
     """
     from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -61,9 +66,12 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
         fields = parse_llm_json(_content_to_text(resp.content))
         usage = getattr(resp, "usage_metadata", None) or {}
         cost = _usage_cost(_EXTRACT_MODEL_NAME, usage.get("input_tokens", 0), usage.get("output_tokens", 0))
-    except Exception as error:
+    except Exception:
+        # The detail stays in the server log; the mobile client gets a fixed
+        # string. str(error) here reached the app verbatim, and an upstream SDK
+        # error can carry request URLs, model wiring, even key fragments.
         logger.exception("card extraction failed")
-        return {"fields": {"is_card": False, "error": str(error)}, "model": _EXTRACT_MODEL_NAME, "cost_usd": 0.0}
+        return {"fields": {"is_card": False, "error": _EXTRACTION_FAILED}, "model": _EXTRACT_MODEL_NAME, "cost_usd": 0.0}
 
     fields.setdefault("is_card", True)
     return {"fields": fields, "model": _EXTRACT_MODEL_NAME, "cost_usd": cost}

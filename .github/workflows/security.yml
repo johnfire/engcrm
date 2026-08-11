@@ -9,6 +9,12 @@ on:
   pull_request:
     branches: [main]
 
+# Pinned rather than inherited: the repo default is already read-only, but that
+# is a repo setting anyone can widen, and a secret scanner is exactly the job
+# you don't want silently handed a write token.
+permissions:
+  contents: read
+
 jobs:
   gitleaks:
     name: Gitleaks — secret scan

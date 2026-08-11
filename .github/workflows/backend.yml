@@ -32,6 +32,11 @@ concurrency:
   group: backend-deploy
   cancel-in-progress: false
 
+# Default for every job; build-deploy overrides it below with the packages:write
+# it needs to push to GHCR, so the test job can't inherit a token that can.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest

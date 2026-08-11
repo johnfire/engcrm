@@ -141,3 +141,20 @@ class TestPreLoginLangToggle:
         assert "E-Mail oder Passwort ungültig" in r.text
         # reset session language back to English so later tests in this process aren't affected
         client.get("/login?lang=en")
+
+
+class TestCatalogPathTraversal:
+    """_load_catalog() builds a filesystem path from the language. main.py
+    validates ?lang= on the way in, but the guard has to live where the path is
+    built too — otherwise one future caller passing a raw value turns a
+    translation lookup into an arbitrary file read."""
+
+    def test_traversal_language_falls_back_to_default(self):
+        assert translate("nav.contacts", "../../../../etc/passwd") == translate("nav.contacts", DEFAULT_LANGUAGE)
+
+    def test_unsupported_language_falls_back_to_default(self):
+        assert translate("nav.contacts", "fr") == translate("nav.contacts", DEFAULT_LANGUAGE)
+
+    def test_supported_languages_still_resolve_independently(self):
+        rendered = {language: translate("nav.contacts", language) for language in SUPPORTED_LANGUAGES}
+        assert all(value and not value.startswith("[") for value in rendered.values())

@@ -8,7 +8,8 @@ Usage:
     uv run python scripts/manage_users.py enable  --email a@b.com
     uv run python scripts/manage_users.py list
 
-If --password is omitted, a strong one is generated and printed once.
+If --password is omitted, a strong one is generated and printed once — to
+stderr, so redirecting stdout to a file doesn't capture the secret.
 Connects to the database via DATABASE_URL (same as scripts/migrate.py).
 """
 import argparse
@@ -30,12 +31,24 @@ def _generate_password(length: int = 18) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+def _show_secret(label: str, password: str) -> None:
+    """Print a generated password to stderr, not stdout.
+
+    It still lands on the admin's terminal, which is the whole point of the
+    tool — but `manage_users.py add ... > users.log` now keeps the secret out
+    of the file. CodeQL flags this as clear-text logging either way; the two
+    alerts are dismissed as false positives, since a password you cannot read
+    once is a password you cannot hand over.
+    """
+    print(f"{label}: {password}", file=sys.stderr)
+
+
 def cmd_add(args):
     password = args.password or _generate_password()
     user_id = create_user(args.email, hash_password(password), role=args.role, name=args.name)
     print(f"Created user #{user_id}: {args.email.lower()} (role={args.role})")
     if not args.password:
-        print(f"Generated password: {password}")
+        _show_secret("Generated password", password)
 
 
 def cmd_passwd(args):
@@ -44,7 +57,7 @@ def cmd_passwd(args):
         sys.exit(f"No such user: {args.email}")
     print(f"Password updated for {args.email.lower()}")
     if not args.password:
-        print(f"New password: {password}")
+        _show_secret("New password", password)
 
 
 def cmd_disable(args):

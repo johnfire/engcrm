@@ -44,8 +44,11 @@ class TestExtraction:
         with patch("gcrm.tools.llm.get_llm", return_value=fake_llm):
             out = signs.extract_sign_fields(b"x")
         assert out["fields"]["is_sign"] is False
-        assert "boom" in out["fields"]["error"]
         assert out["cost_usd"] == 0.0
+        # The upstream message is logged, never handed to the client: it can
+        # carry request URLs and model wiring. Only the fixed string goes out.
+        assert out["fields"]["error"] == signs._EXTRACTION_FAILED
+        assert "boom" not in out["fields"]["error"]
 
 
 class TestResolveBusiness:

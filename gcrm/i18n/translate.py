@@ -23,6 +23,14 @@ _catalogs: dict[str, dict[str, str]] = {}
 
 
 def _load_catalog(language: str) -> dict[str, str]:
+    # The language reaches us from a session value that main.py validates on the
+    # way in — but that leaves the file read one careless caller away from being
+    # an arbitrary-read primitive ("../../secrets" resolving outside _I18N_DIR).
+    # Whitelist here too, where the path is actually built, so the guarantee
+    # holds no matter who calls.
+    if language not in SUPPORTED_LANGUAGES:
+        logger.warning("i18n: unsupported language %r, falling back to %s", language, DEFAULT_LANGUAGE)
+        language = DEFAULT_LANGUAGE
     if language not in _catalogs:
         path = _I18N_DIR / f"{language}.json"
         try:

@@ -23,6 +23,11 @@ on:
       - ".github/workflows/android-security.yml"
   workflow_dispatch:
 
+# Report-only pipeline: it reads the repo, builds, and uploads artifacts. It
+# never needs to write back, so every job here inherits read-only.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

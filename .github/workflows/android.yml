@@ -21,6 +21,11 @@ concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
+# Play submission authenticates with its own service-account secret, not the
+# workflow token, so nothing here needs more than repo read.
+permissions:
+  contents: read
+
 jobs:
   # Fast gate: typecheck + unit tests. The (slow) build only runs if this passes.
   mobile-test:

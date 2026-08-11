@@ -1,9 +1,8 @@
-from urllib.parse import quote
-
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.research import get_or_create_dossier
 from gcrm.supervisor.pipeline import spawn_stage
@@ -63,13 +62,9 @@ def research_run(
             add_city(city, country)
         spawn_stage(stage, city=city, level=level, country=country)
     except ValueError as error:
-        return RedirectResponse(
-            url=f"/research/?error={quote(str(error))}&city={quote(city)}", status_code=303,
-        )
+        return local_redirect("/research/", error=str(error), city=city)
     log_audit(None, None, "pipeline.stage_queued", f"pipeline:{stage}", city or "global")
-    return RedirectResponse(
-        url=f"/research/?queued={quote(stage)}&city={quote(city)}", status_code=303,
-    )
+    return local_redirect("/research/", queued=stage, city=city)
 
 
 @router.post("/research/dossier/{contact_id}")

@@ -3,7 +3,7 @@ Tests use dummy implementations of every Protocol — no real LLM, DB, or networ
 """
 from dataclasses import dataclass
 
-from gcrm_research_agent import create_research_agent
+from gcrm_research_agent import create_research_agent, nodes
 from langchain_core.messages import AIMessage
 
 
@@ -165,3 +165,16 @@ def test_agent_handles_markdown_wrapped_json():
 
     assert len(result["saved_ids"]) == 1
     assert result["errors"] == []
+
+
+class TestGoogleHostFilter:
+    """fetch_pages skips Google's own result pages. The check used to be
+    url.startswith("https://www.google"), which a look-alike host clears."""
+
+    def test_real_google_hosts_are_skipped(self):
+        for url in ("https://www.google.com/search?q=x", "https://google.com/", "https://maps.google.com/x"):
+            assert nodes._is_google_host(url) is True
+
+    def test_lookalike_hosts_are_not_skipped(self):
+        for url in ("https://www.google.evil.test/", "https://notgoogle.com/", "https://evil.test/?u=https://www.google"):
+            assert nodes._is_google_host(url) is False

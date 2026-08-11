@@ -1,10 +1,11 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
@@ -362,10 +363,10 @@ def analyse_selected_contact(
     except Exception as error:
         log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "failed")
         request.session["opportunity_flash"] = {"error": str(error)}
-        return RedirectResponse(url=f"/contacts/{contact_id}", status_code=303)
+        return local_redirect(f"/contacts/{contact_id}")
     log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "completed")
     request.session["opportunity_flash"] = {"summary": result.get("summary", "Analysis complete")}
-    return RedirectResponse(url=f"/contacts/{contact_id}", status_code=303)
+    return local_redirect(f"/contacts/{contact_id}")
 
 
 def _persist_contact_edit(contact_id, text_fields, fit_score):
@@ -435,15 +436,16 @@ def contact_edit(
     }
     _persist_contact_edit(contact_id, text_fields, fit_score)
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
-    return RedirectResponse(url=f"/contacts/{contact_id}?saved=1", status_code=303)
+    return local_redirect(f"/contacts/{contact_id}", saved="1")
 
 
 @router.post("/{contact_id}/delete")
 def delete_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
     if not erase_contact(contact_id):
         raise HTTPException(status_code=404, detail="Contact not found")
-    ref = request.headers.get("referer", "/contacts/")
-    return RedirectResponse(url=ref, status_code=303)
+    # Bounce back to whichever list the admin deleted from — but only if the
+    # Referer is one of our own paths; see gcrm/api/redirects.py.
+    return local_redirect(request.headers.get("referer", ""), fallback="/contacts/")
 
 
 @router.post("/{contact_id}/unflag")
@@ -452,8 +454,7 @@ def unflag_contact(contact_id: int, request: Request, _admin: str = Depends(requ
         cur = conn.cursor()
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
     log_audit(None, None, "contact.unflagged", f"contact:{contact_id}", "updated")
-    ref = request.headers.get("referer", "/contacts/")
-    return RedirectResponse(url=ref, status_code=303)
+    return local_redirect(request.headers.get("referer", ""), fallback="/contacts/")
 
 
 @router.post("/{contact_id}/star", response_class=HTMLResponse)

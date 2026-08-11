@@ -2,6 +2,7 @@
 
 import logging
 import re
+from urllib.parse import urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -111,6 +112,18 @@ def run_web_search(state: ResearchState, dependencies) -> dict:
     return {"raw_results": web_results}
 
 
+def _is_google_host(url: str) -> bool:
+    """Google's own result pages carry no contact detail worth fetching.
+
+    Matched on the parsed hostname rather than a URL prefix: a search result for
+    "https://www.google.evil.test/" carries the prefix but is somebody else's
+    server, and prefix-matching would have skipped a real page (or, read the
+    other way, let a look-alike host pose as one we trust).
+    """
+    host = (urlparse(url).hostname or "").lower()
+    return host == "google.com" or host.endswith(".google.com")
+
+
 def fetch_pages(state: ResearchState, dependencies) -> dict:
     """Fetch top web result pages to get full contact details beyond snippets."""
     if not state.get("raw_results"):
@@ -119,7 +132,7 @@ def fetch_pages(state: ResearchState, dependencies) -> dict:
     urls = []
     for result in state["raw_results"]:
         url = result.get("url", "") or result.get("website", "")
-        if url and url not in seen and (not url.startswith("https://www.google")):
+        if url and url not in seen and not _is_google_host(url):
             seen.add(url)
             urls.append(url)
     pages = []
