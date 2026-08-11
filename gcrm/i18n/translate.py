@@ -21,18 +21,20 @@ _VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
 _catalogs: dict[str, dict[str, str]] = {}
 
+# Every catalog file this module can ever open, fixed at import time. The path
+# is chosen by lookup rather than built from the language string, so a caller
+# passing "../../secrets" doesn't get a traversal — it just isn't a key. main.py
+# already validates ?lang= on the way in; this makes the file read safe on its
+# own terms, without depending on every future caller remembering to.
+_CATALOG_PATHS = {language: _I18N_DIR / f"{language}.json" for language in SUPPORTED_LANGUAGES}
+
 
 def _load_catalog(language: str) -> dict[str, str]:
-    # The language reaches us from a session value that main.py validates on the
-    # way in — but that leaves the file read one careless caller away from being
-    # an arbitrary-read primitive ("../../secrets" resolving outside _I18N_DIR).
-    # Whitelist here too, where the path is actually built, so the guarantee
-    # holds no matter who calls.
-    if language not in SUPPORTED_LANGUAGES:
+    if language not in _CATALOG_PATHS:
         logger.warning("i18n: unsupported language %r, falling back to %s", language, DEFAULT_LANGUAGE)
         language = DEFAULT_LANGUAGE
     if language not in _catalogs:
-        path = _I18N_DIR / f"{language}.json"
+        path = _CATALOG_PATHS[language]
         try:
             _catalogs[language] = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
