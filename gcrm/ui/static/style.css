@@ -681,3 +681,10 @@ main.person-detail-page {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Fixed-shape cell values (dates, phone numbers): wrapping them costs a line
+   per row and buys no width back. */
+th.nowrap,
+td.nowrap {
+  white-space: nowrap;
+}

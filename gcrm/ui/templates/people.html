@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ t('people.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -32,11 +33,11 @@
       <th>{{ t('common.city') }}</th>
       <th>{{ t('people.relationship') }}</th>
       <th>{{ t('common.email') }}</th>
-      <th>{{ t('common.phone') }}</th>
+      <th class="nowrap">{{ t('common.phone') }}</th>
       <th>{{ t('common.website') }}</th>
       <th>{{ t('people.metAt') }}</th>
       <th>{{ t('common.notes') }}</th>
-      <th>{{ t('common.added') }}</th>
+      <th class="nowrap">{{ t('common.added') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -46,11 +47,11 @@
       <td>{{ p.city or '—' }}</td>
       <td class="muted">{{ p.relationship or '—' }}</td>
       <td class="muted small">{{ p.email or '—' }}</td>
-      <td class="muted small">{{ p.phone or '—' }}</td>
+      <td class="muted small nowrap">{{ p.phone or '—' }}</td>
       <td class="muted small">{% if p.website %}<a href="{{ p.website }}" target="_blank">{{ p.website }}</a>{% else %}—{% endif %}</td>
       <td class="muted small">{{ p.met_at or '—' }}</td>
       <td class="muted small">{{ p.notes or '—' }}</td>
-      <td class="muted">{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '—' }}</td>
+      <td class="muted nowrap">{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>
