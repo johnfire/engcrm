@@ -433,6 +433,8 @@ export interface CardFields {
   industry?: string | null;
   language?: string | null;
   note?: string | null;
+  // Typed by hand on the confirm screen — never extracted from the card.
+  met_at?: string | null;
   error?: string;
 }
 
@@ -564,6 +566,7 @@ export interface Person {
   country: string | null;
   relationship: string | null;
   notes: string | null;
+  met_at: string | null;
   contact_id: number | null;
   company: string | null;
   source: string | null;

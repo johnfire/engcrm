@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { setHandoff } from "../../services/handoff";
 
 // card-confirm is a drawer screen, so React Navigation keeps its instance
@@ -19,6 +19,7 @@ jest.mock("../../services/api", () => ({
   discardCard: jest.fn(),
 }));
 
+import { confirmCard } from "../../services/api";
 import CardConfirmScreen from "../../app/(drawer)/card-confirm";
 
 function card(company: string, captureId: number) {
@@ -41,5 +42,26 @@ describe("card-confirm re-seeds on a new capture", () => {
 
     expect(getByDisplayValue("Globex Ltd")).toBeTruthy();
     expect(queryByDisplayValue("Acme GmbH")).toBeNull();
+  });
+});
+
+// "Met at" is the one field no card carries — it's typed on this screen before
+// the lead is saved — so it has to survive the edit and reach confirmCard.
+describe("card-confirm met-at field", () => {
+  it("sends the edited met_at with the confirmed fields", async () => {
+    setHandoff("card", {
+      capture_id: 7,
+      is_card: true,
+      fields: { company: "Acme GmbH", name: "Anna Roth", met_at: "Kunstmesse" },
+    });
+    const { getByDisplayValue, getByText } = render(<CardConfirmScreen />);
+
+    fireEvent.changeText(getByDisplayValue("Kunstmesse"), "Gallery opening, Augsburg");
+    fireEvent.press(getByText("Save lead"));
+
+    await waitFor(() => expect(confirmCard).toHaveBeenCalled());
+    expect((confirmCard as jest.Mock).mock.calls[0][1]).toMatchObject({
+      met_at: "Gallery opening, Augsburg",
+    });
   });
 });

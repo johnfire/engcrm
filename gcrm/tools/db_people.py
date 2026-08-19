@@ -20,6 +20,7 @@ def save_person(
     city: str = "",
     country: str = "DE",
     notes: str = "",
+    met_at: str = "",
     contact_id: int | None = None,
     source: str = "",
 ) -> int:
@@ -50,12 +51,14 @@ def save_person(
         cur.execute(
             """
             INSERT INTO people
-                (name, title, email, phone, website, city, country, notes, contact_id, source)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (name, title, email, phone, website, city, country, notes, met_at,
+                 contact_id, source)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (name, title or None, email or None, phone or None, website or None,
-             city or None, country or None, notes or None, contact_id, source or None),
+             city or None, country or None, notes or None, met_at or None,
+             contact_id, source or None),
         )
         person_id = cur.fetchone()["id"]
         logger.info("save_person: created id=%d  %s (contact_id=%s)", person_id, name, contact_id)

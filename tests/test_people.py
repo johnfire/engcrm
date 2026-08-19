@@ -34,6 +34,17 @@ class TestSavePerson:
         assert person_id == 11
         assert "INSERT INTO people" in cur.execute.call_args_list[-1].args[0]
 
+    def test_stores_met_at(self):
+        conn, cur = make_mock_conn()
+        # no email, so only the name-dedup miss then INSERT ... RETURNING id
+        cur.fetchone.side_effect = [None, {"id": 12}]
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth", met_at="Kunstmesse Augsburg")
+        insert = cur.execute.call_args_list[-1]
+        assert "met_at" in insert.args[0]
+        assert "Kunstmesse Augsburg" in insert.args[1]
+
     def test_dedups_on_email(self):
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [{"id": 7}]  # email match on first lookup
@@ -52,12 +63,14 @@ class TestPromoteToPerson:
         with patch("gcrm.tools.db.save_person", return_value=11) as msave:
             person_id = cards.promote_to_person(
                 {"name": "Anna Roth", "title": "CTO", "email": "anna@acme.de",
-                 "phone": "+49 821 1", "city": "Augsburg", "country": "DE"},
+                 "phone": "+49 821 1", "city": "Augsburg", "country": "DE",
+                 "met_at": " Kunstmesse Augsburg "},
                 contact_id=42,
             )
         assert person_id == 11
         assert msave.call_args.kwargs["name"] == "Anna Roth"
         assert msave.call_args.kwargs["title"] == "CTO"
+        assert msave.call_args.kwargs["met_at"] == "Kunstmesse Augsburg"
         assert msave.call_args.kwargs["contact_id"] == 42
         assert msave.call_args.kwargs["source"] == "card_capture"
 

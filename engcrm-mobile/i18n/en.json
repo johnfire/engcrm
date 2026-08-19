@@ -96,6 +96,7 @@
   "cardConfirm.city": "City",
   "cardConfirm.country": "Country",
   "cardConfirm.industry": "Industry",
+  "cardConfirm.metAt": "Met at",
   "cardConfirm.note": "Note",
   "cardConfirm.saveLead": "Save lead",
   "cardConfirm.linkToExistingLead": "Link to existing lead",
@@ -202,6 +203,7 @@
 
   "personDetail.couldntLoad": "Couldn't load — check your connection",
   "personDetail.notFound": "Person not found",
+  "personDetail.metAt": "Met at",
 
   "recon.notContactedOnly": "Not contacted only",
   "recon.fitScore": "fit {{score}}",

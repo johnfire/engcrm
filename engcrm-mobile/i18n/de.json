@@ -96,6 +96,7 @@
   "cardConfirm.city": "Stadt",
   "cardConfirm.country": "Land",
   "cardConfirm.industry": "Branche",
+  "cardConfirm.metAt": "Kennengelernt bei",
   "cardConfirm.note": "Notiz",
   "cardConfirm.saveLead": "Lead speichern",
   "cardConfirm.linkToExistingLead": "Mit bestehendem Lead verknüpfen",
@@ -202,6 +203,7 @@
 
   "personDetail.couldntLoad": "Laden fehlgeschlagen — Verbindung prüfen",
   "personDetail.notFound": "Person nicht gefunden",
+  "personDetail.metAt": "Kennengelernt bei",
 
   "recon.notContactedOnly": "Nur nicht kontaktierte",
   "recon.fitScore": "Fit {{score}}",

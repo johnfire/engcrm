@@ -120,6 +120,7 @@ export default function CardConfirmScreen() {
         <CardField label={t("cardConfirm.city")} value={fields.city} onChange={set("city")} />
         <CardField label={t("cardConfirm.country")} value={fields.country} onChange={set("country")} />
         <CardField label={t("cardConfirm.industry")} value={fields.industry} onChange={set("industry")} />
+        <CardField label={t("cardConfirm.metAt")} value={fields.met_at} onChange={set("met_at")} />
         <CardField label={t("cardConfirm.note")} value={fields.note} onChange={set("note")} multiline />
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>

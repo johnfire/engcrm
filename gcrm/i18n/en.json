@@ -292,6 +292,7 @@
   "people.shownCount": "{{count}} shown",
   "people.searchPlaceholder": "Search name, city or email…",
   "people.relationship": "Relationship",
+  "people.metAt": "Met at",
   "people.noPeopleFound": "No people found.",
 
   "research.title": "Research",

@@ -71,6 +71,13 @@ export default function PersonDetailScreen() {
         </TouchableOpacity>
       )}
 
+      {person.met_at && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t("personDetail.metAt")}</Text>
+          <Text style={styles.fieldText}>{person.met_at}</Text>
+        </View>
+      )}
+
       {person.notes && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
