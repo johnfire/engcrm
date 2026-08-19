@@ -10,7 +10,7 @@ import socket
 from urllib.parse import urljoin, urlparse
 
 import httpx
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 logger = logging.getLogger(__name__)
 
@@ -282,6 +282,11 @@ def web_search(query: str, max_results: int = 8) -> list[dict]:
     """
     Search the web using DuckDuckGo. No API key required.
     Returns list of dicts with: title, url, snippet.
+
+    Backed by `ddgs`. Its predecessor `duckduckgo-search` still imports and still
+    returns an empty list for every query rather than raising, which made this
+    look like "no results on the web" instead of a broken dependency — so the
+    agents degraded silently. Keep the failure loud if this is ever swapped again.
     """
     from gcrm.tools.costs import record_search
     record_search(1)
