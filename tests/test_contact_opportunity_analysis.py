@@ -30,6 +30,8 @@ def test_selected_contact_analysis_redirects_with_summary(admin_access):
 
 
 def test_single_contact_runner_injects_only_selected_contact():
+    # autospec so the stub enforces the real create_opportunity_agent signature —
+    # a permissive **kwargs mock let a missing required dependency ship.
     captured = {}
     contact = {"id": 42, "name": "Acme", "deleted_at": None}
 
@@ -46,7 +48,8 @@ def test_single_contact_runner_injects_only_selected_contact():
 
     with patch.object(contact_opportunity_analysis, "get_contact", return_value=contact), \
          patch.object(contact_opportunity_analysis, "get_llm"), \
-         patch("gcrm_opportunity_agent.create_opportunity_agent", side_effect=create_agent):
+         patch("gcrm_opportunity_agent.create_opportunity_agent",
+               autospec=True, side_effect=create_agent):
         result = contact_opportunity_analysis.analyse_contact_opportunity(42)
 
     assert result["summary"] == "saved"

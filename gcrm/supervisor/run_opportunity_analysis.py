@@ -20,7 +20,8 @@ def main():
 
     from gcrm_opportunity_agent import create_opportunity_agent
 
-    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
+    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, RESEARCH_DOSSIER_ENABLED
+    from gcrm.research import get_or_create_dossier
     from gcrm.tools import (
         fetch_page,
         finish_run,
@@ -36,6 +37,7 @@ def main():
         fetch_contacts=get_contacts_needing_opportunity_analysis,
         fetch_interactions=get_contact_interactions,
         fetch_page=fetch_page,
+        get_or_create_dossier=get_or_create_dossier if RESEARCH_DOSSIER_ENABLED else None,
         save_analysis=save_opportunity_analysis,
         start_run=start_run,
         finish_run=finish_run,
