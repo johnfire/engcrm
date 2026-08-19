@@ -47,17 +47,19 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
         missing_email = not contact.get("email")
         missing_phone = not contact.get("phone")
         query = build_search_query(contact)
+        known_website = (contact.get("website") or "").strip()
         try:
             search_results = dependencies.web_search(query=query)
         except Exception as error:
+            # A search outage must not decide the contact's fate — fall through
+            # and read the site we already hold, if there is one.
             logger.warning("enrichment: search failed for %s — %s", name, error)
-            results.append({"contact_id": contact_id, "found": False})
-            continue
-        if not search_results:
+            search_results = []
+        if not search_results and not known_website:
             results.append({"contact_id": contact_id, "found": False})
             continue
         page_texts = []
-        for url in _candidate_urls(search_results):
+        for url in _candidate_urls(search_results, known_website):
             try:
                 text = dependencies.fetch_page(url)
                 if text:

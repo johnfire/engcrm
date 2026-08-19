@@ -36,19 +36,39 @@ _SKIP_FETCH_DOMAINS = re.compile(
 )
 
 
-def _candidate_urls(search_results: list[dict]) -> list[str]:
+MAX_FETCHES = 3
+
+
+def _impressum_url(website: str) -> str:
+    """German law requires an Impressum, and it is where the real contact address
+    lives — a far better target than a homepage footer."""
+    return website.rstrip("/") + "/impressum"
+
+
+def _candidate_urls(search_results: list[dict], known_website: str = "") -> list[str]:
     """
-    Pick URLs from search results that are likely the business's own website.
-    Returns up to 2, skipping known directory/social domains.
+    URLs likely to carry the business's own contact details, best first.
+
+    A website we already hold leads, together with its Impressum: a small trade
+    business is often invisible to web search while its contact address sits on
+    its own site. Relying on search alone meant those contacts were written off
+    as unreachable without anyone ever opening the page we already knew about.
+
+    Directory and social domains are skipped, and the total is capped so a
+    contact cannot cost an unbounded number of fetches.
     """
     candidates = []
+    website = (known_website or "").strip()
+    if website and not _SKIP_FETCH_DOMAINS.search(website):
+        candidates.append(website)
+        candidates.append(_impressum_url(website))
     for result in search_results:
-        url = result.get("url", "")
-        if url and not _SKIP_FETCH_DOMAINS.search(url):
-            candidates.append(url)
-        if len(candidates) >= 2:
+        if len(candidates) >= MAX_FETCHES:
             break
-    return candidates
+        url = result.get("url", "")
+        if url and url not in candidates and not _SKIP_FETCH_DOMAINS.search(url):
+            candidates.append(url)
+    return candidates[:MAX_FETCHES]
 
 
 def create_enrichment_agent(
