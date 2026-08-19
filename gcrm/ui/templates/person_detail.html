@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ person.name }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}person-detail-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ person.name }}</h1>
+  <span class="muted">
+    {%- if person.title %}{{ person.title }}{% endif -%}
+    {%- if person.title and person.company %} · {% endif -%}
+    {%- if person.company %}
+    <a href="/contacts/{{ person.contact_id }}">{{ person.company }}</a>
+    {%- endif -%}
+  </span>
+</div>
+
+{% if saved %}
+<div class="flash-success">{{ t('personDetail.saved') }}</div>
+{% endif %}
+
+<form method="post" action="/people/{{ person.id }}/edit" class="person-edit-form">
+  <div class="detail-grid">
+    <section class="detail-section">
+      <h2>{{ t('personDetail.details') }}</h2>
+      <div class="field-row field-row--wide">
+        <label for="person-name">{{ t('common.name') }}</label>
+        <input id="person-name" type="text" name="name" value="{{ person.name or '' }}" required />
+      </div>
+      <div class="field-row">
+        <label for="person-title">{{ t('personDetail.jobTitle') }}</label>
+        <input id="person-title" type="text" name="title" value="{{ person.title or '' }}" />
+      </div>
+      <div class="field-row">
+        <label for="person-relationship">{{ t('people.relationship') }}</label>
+        <input id="person-relationship" type="text" name="relationship" value="{{ person.relationship or '' }}" />
+      </div>
+      <div class="field-row">
+        <label for="person-email">{{ t('common.email') }}</label>
+        <input id="person-email" type="email" name="email" value="{{ person.email or '' }}" />
+      </div>
+      <div class="field-row">
+        <label for="person-phone">{{ t('common.phone') }}</label>
+        <input id="person-phone" type="text" name="phone" value="{{ person.phone or '' }}" />
+      </div>
+      <div class="field-row field-row--wide">
+        <label for="person-website">{{ t('common.website') }}</label>
+        <input id="person-website" type="text" name="website" value="{{ person.website or '' }}" />
+      </div>
+      <div class="field-row">
+        <label for="person-city">{{ t('common.city') }}</label>
+        <input id="person-city" type="text" name="city" value="{{ person.city or '' }}" />
+      </div>
+      <div class="field-row">
+        <label for="person-country">{{ t('common.country') }}</label>
+        <input id="person-country" type="text" name="country" value="{{ person.country or '' }}" maxlength="2" />
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h2>{{ t('personDetail.context') }}</h2>
+      <div class="field-row field-row--wide">
+        <label for="person-met-at">{{ t('people.metAt') }}</label>
+        <input id="person-met-at" type="text" name="met_at" value="{{ person.met_at or '' }}"
+               placeholder="{{ t('personDetail.metAtPlaceholder') }}" />
+      </div>
+      <div class="field-row field-row--wide field-row--tall">
+        <label for="person-notes">{{ t('common.notes') }}</label>
+        <textarea id="person-notes" name="notes" rows="6">{{ person.notes or '' }}</textarea>
+      </div>
+      <dl class="person-meta">
+        <dt>{{ t('personDetail.company') }}</dt>
+        <dd>
+          {%- if person.company -%}
+          <a href="/contacts/{{ person.contact_id }}">{{ person.company }}</a>
+          {%- else -%}—{%- endif -%}
+        </dd>
+        <dt>{{ t('personDetail.source') }}</dt>
+        <dd>{{ person.source or '—' }}</dd>
+        <dt>{{ t('common.added') }}</dt>
+        <dd>{{ person.created_at[:10] if person.created_at else '—' }}</dd>
+      </dl>
+    </section>
+  </div>
+
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+    <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+  </div>
+</form>
+{% endblock %}

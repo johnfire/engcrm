@@ -88,6 +88,43 @@ def save_person(
         return person_id
 
 
+# Whitelisted so the UPDATE below builds its column list from constants only —
+# never from submitted form keys. Deliberately excludes contact_id (the company
+# link is a relation, not a text field) and source/created_at (provenance).
+EDITABLE_COLUMNS = (
+    "name", "title", "email", "phone", "website",
+    "city", "country", "relationship", "notes", "met_at",
+)
+
+
+def update_person(person_id: int, values: dict) -> bool:
+    """
+    Write the editable fields of one person. Only EDITABLE_COLUMNS keys present
+    in `values` are written; blank strings become NULL. Returns False when the
+    person does not exist, so the caller can 404 rather than silently no-op.
+    """
+    updates = {
+        column: ((values.get(column) or "").strip() or None)
+        for column in EDITABLE_COLUMNS
+        if column in values
+    }
+    if not updates:
+        return False
+
+    assignments = ", ".join(f"{column} = %s" for column in updates)
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE people SET {assignments}, updated_at = NOW() WHERE id = %s",
+            list(updates.values()) + [person_id],
+        )
+        if cur.rowcount == 0:
+            logger.warning("update_person: no person with id=%s", person_id)
+            return False
+    logger.info("update_person: updated id=%d (%s)", person_id, ", ".join(updates))
+    return True
+
+
 _SELECT_WITH_COMPANY = (
     "SELECT person.*, company.name AS company "
     "FROM people person "

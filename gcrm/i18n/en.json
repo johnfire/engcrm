@@ -13,6 +13,7 @@
   "common.website": "Website",
   "common.notes": "Notes",
   "common.address": "Address",
+  "common.country": "Country",
   "common.actions": "Actions",
   "common.date": "Date",
   "common.added": "Added",
@@ -294,6 +295,15 @@
   "people.relationship": "Relationship",
   "people.metAt": "Met at",
   "people.noPeopleFound": "No people found.",
+
+  "personDetail.saved": "Saved.",
+  "personDetail.details": "Person",
+  "personDetail.context": "Context",
+  "personDetail.jobTitle": "Job title",
+  "personDetail.company": "Company",
+  "personDetail.source": "Source",
+  "personDetail.backToList": "Back to people",
+  "personDetail.metAtPlaceholder": "Event, venue or occasion",
 
   "research.title": "Research",
   "research.statsLine": "{{total}} cities — {{level1Done}} level 1 done — {{unscanned}} unscanned",

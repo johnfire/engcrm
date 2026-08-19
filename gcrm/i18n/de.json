@@ -13,6 +13,7 @@
   "common.website": "Website",
   "common.notes": "Notizen",
   "common.address": "Adresse",
+  "common.country": "Land",
   "common.actions": "Aktionen",
   "common.date": "Datum",
   "common.added": "Hinzugefügt",
@@ -294,6 +295,15 @@
   "people.relationship": "Beziehung",
   "people.metAt": "Kennengelernt bei",
   "people.noPeopleFound": "Keine Personen gefunden.",
+
+  "personDetail.saved": "Gespeichert.",
+  "personDetail.details": "Person",
+  "personDetail.context": "Kontext",
+  "personDetail.jobTitle": "Position",
+  "personDetail.company": "Firma",
+  "personDetail.source": "Quelle",
+  "personDetail.backToList": "Zurück zu Personen",
+  "personDetail.metAtPlaceholder": "Veranstaltung, Ort oder Anlass",
 
   "research.title": "Recherche",
   "research.statsLine": "{{total}} Städte — {{level1Done}} Level 1 erledigt — {{unscanned}} nicht gescannt",
