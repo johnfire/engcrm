@@ -10,6 +10,25 @@ from gcrm.db.connection import db, serialize_row
 logger = logging.getLogger(__name__)
 
 
+def _refresh_met_at(cur, person_id: int, met_at: str) -> int:
+    """
+    A re-scan carries a freshly typed met_at, so write it to the row we deduped
+    onto — otherwise the new place is silently dropped. Returns person_id so the
+    dedup branches can `return _refresh_met_at(...)` directly.
+
+    An empty met_at is a no-op: re-saving a card without typing a place must not
+    erase the place already recorded.
+    """
+    if not met_at:
+        return person_id
+    cur.execute(
+        "UPDATE people SET met_at = %s, updated_at = NOW() WHERE id = %s",
+        (met_at, person_id),
+    )
+    logger.info("save_person: updated met_at on existing person id=%d", person_id)
+    return person_id
+
+
 def save_person(
     name: str,
     *,
@@ -28,6 +47,10 @@ def save_person(
     Insert a person, optionally linked to their company contact. Returns the new
     person's id, or the id of an existing match — dedup by email, else by
     (name, contact_id). Never returns 0, so the caller always gets a usable id.
+
+    On a dedup hit the existing row is left as-is except for `met_at`, which a
+    re-scan is allowed to update (a person can be met somewhere new). Every
+    other field still belongs to whoever created the row first.
     """
     with db() as conn:
         cur = conn.cursor()
@@ -36,7 +59,7 @@ def save_person(
             existing = cur.fetchone()
             if existing:
                 logger.debug("save_person: email duplicate — %s (%s)", name, email)
-                return existing["id"]
+                return _refresh_met_at(cur, existing["id"], met_at)
         # IS NOT DISTINCT FROM so a NULL contact_id matches another NULL.
         cur.execute(
             "SELECT id FROM people WHERE lower(name) = lower(%s) "
@@ -46,7 +69,7 @@ def save_person(
         existing = cur.fetchone()
         if existing:
             logger.debug("save_person: name duplicate — %s (contact_id=%s)", name, contact_id)
-            return existing["id"]
+            return _refresh_met_at(cur, existing["id"], met_at)
 
         cur.execute(
             """
