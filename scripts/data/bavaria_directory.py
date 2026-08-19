@@ -17,6 +17,12 @@ Conventions:
     someone's personal address on their institution would be wrong.
   * `city` is the seat named by the document or carried in the institution's own
     name; additional sites go in the notes rather than inventing extra rows.
+  * Section A ("Regional Startup Hubs & Ecosystems") is deliberately NOT imported.
+    Its entries are places — Munich, Ingolstadt, Erlangen — not organisations, and
+    as CRM rows they were worse than useless: enrichment resolved them to their
+    city administrations, putting town-hall addresses into the outreach pipeline.
+    The organisations that actually sit in those places are already covered by
+    sections B and C below.
 """
 
 SOURCE = "bavaria_directory_2026-08-19"
@@ -236,69 +242,6 @@ RESEARCH_INSTITUTES = [
               "spin-offs group-wide."},
 ]
 
-# Regional startup hubs and ecosystems (section A), organised by Regierungsbezirk.
-# These are places rather than organisations — no website, email or phone exists
-# for them — so they act as regional anchors for the incubators resident in each.
-REGIONAL_HUBS = [
-    {"name": "Munich", "city": "München", "website": "",
-     "notes": "Oberbayern. General tech/AI/deep-tech/biotech/mobility hub; Bavaria's dominant startup "
-              "region by volume and capital. Densest concentration of accelerators and corporate "
-              "venture units in the state, plus two of the four BayPAT-anchor universities (TUM, LMU). "
-              "~20 resident incubators/accelerators."},
-    {"name": "Garching / Freising", "city": "Garching", "website": "",
-     "notes": "Oberbayern. TUM's northern campus satellite — Garching: physics/tech; "
-              "Freising/Weihenstephan: agri-food-tech via Hochschule Weihenstephan-Triesdorf."},
-    {"name": "Martinsried / Planegg", "city": "Planegg", "website": "",
-     "notes": "Oberbayern. Biotech cluster (BioM, IZB) just southwest of Munich."},
-    {"name": "Ingolstadt", "city": "Ingolstadt", "website": "",
-     "notes": "Oberbayern. Automotive/mobility focus (Audi HQ); home of brigk and brigkAIR."},
-    {"name": "Rosenheim", "city": "Rosenheim", "website": "",
-     "notes": "Oberbayern. Stellwerk18 campus-style hub, TH Rosenheim."},
-    {"name": "Augsburg", "city": "Augsburg", "website": "",
-     "notes": "Schwaben. aiti-Park / aitiRaum, rebranded as the anchor site of Digitales Zentrum "
-              "Schwaben (DZ.S); strong Industrie 4.0 / materials / mechatronics base "
-              "(Fraunhofer IGCV presence)."},
-    {"name": "Kempten (Allgäu)", "city": "Kempten", "website": "",
-     "notes": "Schwaben. Allgäu Digital, second DZ.S site; regional network also touches Memmingen "
-              "and Kaufbeuren."},
-    {"name": "Nuremberg", "city": "Nürnberg", "website": "",
-     "notes": "Mittelfranken. ZOLLHOF Tech Incubator, one of Germany's fastest-growing tech "
-              "incubators; anchors Digital Hub Health with Medical Valley."},
-    {"name": "Erlangen", "city": "Erlangen", "website": "",
-     "notes": "Mittelfranken. Medical Valley EMN, Germany's leading digital-health cluster "
-              "(Siemens Healthineers base, FAU medical faculty); recognized federal Digital Hub "
-              "for Digital Health."},
-    {"name": "Ansbach", "city": "Ansbach", "website": "",
-     "notes": "Mittelfranken. ANsWERK digital start-up centre."},
-    {"name": "Bayreuth", "city": "Bayreuth", "website": "",
-     "notes": "Oberfranken. Institut für Entrepreneurship und Innovation (Uni Bayreuth) plus a newly "
-              "opened city start-up centre (2026); materials-science lean (Neue Materialien Bayreuth "
-              "cluster — flagged in the source as pattern inference, not re-verified)."},
-    {"name": "Hof", "city": "Hof", "website": "",
-     "notes": "Oberfranken. Einstein1, big-data/healthcare focus."},
-    {"name": "Bamberg", "city": "Bamberg", "website": "",
-     "notes": "Oberfranken. LAGARDE1, digital transformation and 3D printing."},
-    {"name": "Coburg / Rödental", "city": "Coburg", "website": "",
-     "notes": "Oberfranken. Zukunft.Coburg.Digital."},
-    {"name": "Würzburg", "city": "Würzburg", "website": "",
-     "notes": "Unterfranken. IGZ Würzburg (biomed/life-science leaning, 20+ years running), plus "
-              "ZDI Mainfranken (idea labs/prototyping, spans Würzburg/Schweinfurt/Bad Kissingen)."},
-    {"name": "Aschaffenburg / Lohr am Main", "city": "Aschaffenburg", "website": "",
-     "notes": "Unterfranken. Alte Schlosserei (digital business models) and Starthouse Spessart."},
-    {"name": "Regensburg", "city": "Regensburg", "website": "",
-     "notes": "Oberpfalz. TechBase Regensburg (25-year-old innovation campus, sensor tech, near OTH "
-              "and Uni Regensburg), anchor of DGO spanning Regensburg/Amberg/Weiden."},
-    {"name": "Cham / Roding / Furth im Wald", "city": "Cham", "website": "",
-     "notes": "Oberpfalz. IGZ network — seminars and specialist forums."},
-    {"name": "Parsberg-Lupburg", "city": "Parsberg-Lupburg", "website": "",
-     "notes": "Oberpfalz. Technology Campus Parsberg-Lupburg."},
-    {"name": "Niederbayern (GZDN network)", "city": "Passau", "website": "",
-     "notes": "Niederbayern. Single coordinated network across five sites: Passau (INN.KUBATOR), "
-              "Landshut, Deggendorf (ITC1), Pfarrkirchen, Freyung. University-anchored (Uni Passau, "
-              "TH Deggendorf, Hochschule Landshut). Named separately from the GZDN organisation row "
-              "so the region and the operator stay distinct."},
-]
-
 # Websites the source document did not carry, found afterwards and confirmed by
 # fetching the page and checking it names the organisation. Kept apart from the
 # transcription above so it stays a faithful copy of the briefing, and so the
@@ -314,7 +257,6 @@ RESEARCHED_WEBSITES = {
 # type -> rows. The CRM's `type` column is what makes this import filterable
 # apart from the art-marketing pipeline that shares the contacts table.
 SECTIONS = {
-    "startup_hub": REGIONAL_HUBS,
     "startup_centre": STARTUP_CENTRES,
     "incubator": INCUBATORS,
     "funding_network": FUNDING_NETWORKS,

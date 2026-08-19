@@ -214,12 +214,9 @@ def find_websites(apply: bool) -> None:
 
     with db() as conn:
         cur = conn.cursor()
-        # startup_hub rows are places, not organisations — searching "Munich"
-        # returns tourism portals, not something that belongs in this column.
         cur.execute(
             "SELECT id, name, city, email FROM contacts WHERE source = %s "
-            "AND (website IS NULL OR website = '') AND type <> 'startup_hub' "
-            "AND deleted_at IS NULL ORDER BY id",
+            "AND (website IS NULL OR website = '') AND deleted_at IS NULL ORDER BY id",
             (SOURCE,),
         )
         targets = [dict(r) for r in cur.fetchall()]
