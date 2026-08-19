@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ t('inbox.title') }} — {{ t('nav.brand') }}{% endblock %}
 
+{% block main_class %}main-wide{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h1>{{ t('inbox.title') }}</h1>
@@ -44,7 +46,7 @@
 <table>
   <thead>
     <tr>
-      <th>{{ t('common.date') }}</th>
+      <th class="nowrap">{{ t('common.date') }}</th>
       <th>{{ t('inbox.contact') }}</th>
       <th>{{ t('inbox.classification') }}</th>
       <th>{{ t('common.subject') }}</th>
@@ -55,7 +57,7 @@
   <tbody>
     {% for m in messages %}
     <tr class="inbox-row inbox-row--{{ m.classification or 'other' }}">
-      <td class="muted small">{{ m.received_at.strftime('%Y-%m-%d %H:%M') if m.received_at else '—' }}</td>
+      <td class="muted small nowrap">{{ m.received_at.strftime('%Y-%m-%d %H:%M') if m.received_at else '—' }}</td>
       <td>
         {% if m.contact_id %}
         <a href="/contacts/{{ m.contact_id }}"><strong>{{ m.contact_name }}</strong></a>
@@ -71,8 +73,8 @@
         {% endif %}
       </td>
       <td class="small">{{ m.subject or '—' }}</td>
-      <td class="muted small" style="max-width:280px;white-space:pre-wrap">{{ m.body_snippet or '—' }}</td>
-      <td class="muted small" style="max-width:200px">{{ m.classification_reasoning or '—' }}</td>
+      <td class="muted small" style="max-width:420px;white-space:pre-wrap">{{ m.body_snippet or '—' }}</td>
+      <td class="muted small" style="max-width:320px">{{ m.classification_reasoning or '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>

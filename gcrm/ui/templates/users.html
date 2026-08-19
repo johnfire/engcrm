@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ t('users.title') }} — {{ t('nav.brand') }}{% endblock %}
 
+{% block main_class %}main-wide{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <h1>{{ t('users.title') }}</h1>
@@ -39,7 +41,7 @@
 <table>
   <thead>
     <tr>
-      <th>{{ t('common.email') }}</th><th>{{ t('common.name') }}</th><th>{{ t('users.role') }}</th><th>{{ t('common.status') }}</th><th>{{ t('users.lastLogin') }}</th><th>{{ t('common.actions') }}</th>
+      <th>{{ t('common.email') }}</th><th>{{ t('common.name') }}</th><th>{{ t('users.role') }}</th><th>{{ t('common.status') }}</th><th class="nowrap">{{ t('users.lastLogin') }}</th><th>{{ t('common.actions') }}</th>
     </tr>
   </thead>
   <tbody>
@@ -52,7 +54,7 @@
         {% if u.is_active %}<span class="badge badge-running">{{ t('users.active') }}</span>
         {% else %}<span class="badge badge-dropped">{{ t('users.disabled') }}</span>{% endif %}
       </td>
-      <td class="muted">{{ u.last_login_at or t('common.never') }}</td>
+      <td class="muted nowrap">{{ u.last_login_at[:16]|replace('T', ' ') if u.last_login_at else t('common.never') }}</td>
       <td style="white-space:nowrap">
         <form method="post" action="/users/passwd" style="display:inline"
               onsubmit="return confirm('{{ t('users.resetConfirm', email=u.email) }}')">
