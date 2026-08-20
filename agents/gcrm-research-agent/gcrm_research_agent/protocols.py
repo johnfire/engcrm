@@ -37,9 +37,19 @@ class PageFetcher(Protocol):
 
 
 class GeoSearcher(Protocol):
-    """Search for venues by location. Returns list of results with name, address, city."""
+    """Search for venues by location. Returns list of results with name, address, city.
+    lat/lon/radius_m, when given, constrain results to that circle instead of
+    the named city — used for area/GPS-radius scans."""
 
-    def __call__(self, query: str, city: str, country: str = "DE") -> list[dict]: ...
+    def __call__(
+        self,
+        query: str,
+        city: str,
+        country: str = "DE",
+        lat: float | None = None,
+        lon: float | None = None,
+        radius_m: int | None = None,
+    ) -> list[dict]: ...
 
 
 class OrganizationSaver(Protocol):

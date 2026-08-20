@@ -56,3 +56,41 @@ def spawn_stage(stage: str, city: str = "", level=None, country: str = "DE") -> 
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+
+# Only discovery is geography-scoped. Scout and enrichment already process
+# every 'candidate'/'ready' contact regardless of how it was found (city scan
+# or area scan) — see get_candidates()/run_scout.py — so an area scan just
+# triggers the ordinary "scout"/"enrichment" stage via spawn_stage() after
+# research finds new contacts, rather than needing its own area variant.
+_AREA_STAGES = ("research",)
+_MAX_AREA_LEVELS = 6  # bounds Places API calls per run — see design doc's rollout risks
+
+
+def validate_area(stage: str, area_id, levels: list[int]) -> None:
+    """Raise ValueError if the request is invalid for the area stage."""
+    if stage not in _AREA_STAGES:
+        raise ValueError(f"area stage must be one of {', '.join(_AREA_STAGES)}")
+    if not isinstance(area_id, int) or area_id <= 0:
+        raise ValueError("area stage requires a valid area_id")
+    if not levels or any(level not in SCAN_LEVELS for level in levels):
+        raise ValueError(f"area stage requires levels in {sorted(SCAN_LEVELS)}")
+    if len(levels) > _MAX_AREA_LEVELS:
+        raise ValueError(f"area scans are capped at {_MAX_AREA_LEVELS} levels per run")
+
+
+def _area_command(area_id: int, levels: list[int]) -> list[str]:
+    level_arg = ",".join(str(level) for level in levels)
+    return [sys.executable, "-m", "gcrm.supervisor.run_research",
+            "--area-id", str(area_id), "--levels", level_arg]
+
+
+def spawn_area_stage(stage: str, area_id: int, levels: list[int]) -> None:
+    """Validate the request, then launch an area/GPS-radius research scan as a
+    detached background process."""
+    validate_area(stage, area_id, levels)
+    subprocess.Popen(
+        _area_command(area_id, levels),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )

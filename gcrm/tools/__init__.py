@@ -40,6 +40,13 @@ from .db import (
     update_city_market,
     update_organization_details,
 )
+from .db_areas import (
+    build_area_overview,
+    find_or_create_area,
+    get_area,
+    get_area_organizations,
+    record_area_scan_result,
+)
 from .db_opportunities import (
     get_latest_opportunity_analysis,
     get_organizations_needing_opportunity_analysis,
@@ -48,7 +55,7 @@ from .db_opportunities import (
 from .email import read_inbox, send_email
 from .llm import get_llm
 from .memory import capture_thought, search_gcrm_thoughts
-from .search import fetch_page, geo_search, google_maps_search, web_search
+from .search import fetch_page, geo_search, google_maps_search, reverse_geocode, web_search
 
 __all__ = [
     "save_organization", "get_existing_organization_names", "get_candidates",
@@ -63,7 +70,9 @@ __all__ = [
     "get_cities", "add_city", "get_city_market_context", "update_city_market",
     "get_city_scan_status", "get_all_city_scan_status",
     "record_scan_result", "can_run_level",
-    "web_search", "geo_search", "google_maps_search", "fetch_page",
+    "web_search", "geo_search", "google_maps_search", "fetch_page", "reverse_geocode",
+    "find_or_create_area", "get_area", "build_area_overview",
+    "record_area_scan_result", "get_area_organizations",
     "send_email", "read_inbox",
     "get_llm",
     "capture_thought", "search_gcrm_thoughts",

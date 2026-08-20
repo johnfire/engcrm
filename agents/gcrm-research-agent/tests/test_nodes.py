@@ -1,7 +1,65 @@
-"""fetch_missing_emails: homepage-first, then a short list of contact subpaths."""
+"""fetch_missing_emails: homepage-first, then a short list of contact subpaths.
+init/run_maps_search: multi-level union and geo-restriction passthrough for
+area/GPS-radius scans."""
 from types import SimpleNamespace
 
 from gcrm_research_agent import nodes
+
+
+class TestMultiLevelInit:
+    def test_unions_maps_terms_across_requested_levels(self):
+        from gcrm.vertical import SCAN_LEVELS
+
+        dependencies = SimpleNamespace(start_run=lambda *args, **kwargs: 1)
+        state = {"city": "Munich", "country": "DE", "levels": [1, 2]}
+
+        result = nodes.init(state, dependencies)
+
+        assert result["maps_terms"] == SCAN_LEVELS[1]["maps_terms"] + SCAN_LEVELS[2]["maps_terms"]
+        assert result["levels"] == [1, 2]
+
+    def test_defaults_to_level_1_when_levels_missing(self):
+        from gcrm.vertical import SCAN_LEVELS
+
+        dependencies = SimpleNamespace(start_run=lambda *args, **kwargs: 1)
+        state = {"city": "Munich", "country": "DE"}
+
+        result = nodes.init(state, dependencies)
+
+        assert result["maps_terms"] == SCAN_LEVELS[1]["maps_terms"]
+
+
+class TestAreaGeoRestriction:
+    def test_run_maps_search_passes_lat_lon_radius_through(self):
+        calls = []
+
+        def geo_search(query, city, country="DE", lat=None, lon=None, radius_m=None):
+            calls.append((lat, lon, radius_m))
+            return []
+
+        dependencies = SimpleNamespace(geo_search=geo_search)
+        state = {
+            "city": "Augsburg", "country": "DE", "maps_terms": ["Handwerksbetrieb"],
+            "latitude": 48.37, "longitude": 10.90, "radius_m": 500,
+        }
+
+        nodes.run_maps_search(state, dependencies)
+
+        assert calls == [(48.37, 10.90, 500)]
+
+    def test_city_scan_leaves_geo_restriction_unset(self):
+        calls = []
+
+        def geo_search(query, city, country="DE", lat=None, lon=None, radius_m=None):
+            calls.append((lat, lon, radius_m))
+            return []
+
+        dependencies = SimpleNamespace(geo_search=geo_search)
+        state = {"city": "Augsburg", "country": "DE", "maps_terms": ["Handwerksbetrieb"]}
+
+        nodes.run_maps_search(state, dependencies)
+
+        assert calls == [(None, None, None)]
 
 
 def _dependencies(pages: dict[str, str]):

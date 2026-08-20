@@ -40,7 +40,7 @@ def make_tools():
     def web_search(query: str) -> list[dict]:
         return [{"title": f"Result for {query}", "url": "http://example.com", "snippet": "A gallery"}]
 
-    def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
+    def geo_search(query: str, city: str, country: str = "DE", lat=None, lon=None, radius_m=None) -> list[dict]:
         return [{"name": "Test Gallery", "address": "Main St 1", "city": city, "country": country}]
 
     def save_organization(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
@@ -92,7 +92,7 @@ def test_agent_saves_organizations():
 def test_agent_handles_empty_search_results():
     web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
-    def empty_geo_search(query, city, country="DE"):
+    def empty_geo_search(query, city, country="DE", lat=None, lon=None, radius_m=None):
         return []
 
     def empty_web_search(query):

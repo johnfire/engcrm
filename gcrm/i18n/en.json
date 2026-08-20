@@ -407,5 +407,22 @@
   "flag.research_exhausted": "No more data findable",
   "flagShort.do_not_contact": "DNC",
   "flagShort.email_bounced": "bounced",
-  "flagShort.research_exhausted": "no data"
+  "flagShort.research_exhausted": "no data",
+  "nav.areas": "Areas",
+  "areas.title": "Areas",
+  "areas.statsLine": "{{total}} saved areas",
+  "areas.contextTitle": "Scan a specific area.",
+  "areas.contextBody": "Pick a point and a radius (a Gewerbegebiet, or wherever you're standing) instead of scanning a whole city.",
+  "areas.latPlaceholder": "Latitude",
+  "areas.lonPlaceholder": "Longitude",
+  "areas.radiusPlaceholder": "Radius (m)",
+  "areas.labelPlaceholder": "Label (optional)",
+  "areas.scan": "Scan area",
+  "areas.mapPickNote": "Map-pick is available in the mobile app. Here, enter coordinates directly (e.g. from Google Maps' \"copy coordinates\").",
+  "areas.queued": "Queued — watch the Activity page for progress.",
+  "areas.levelRequired": "Pick at least one level.",
+  "areas.label": "Area",
+  "areas.radius": "Radius",
+  "areas.scannedLevels": "Scanned levels",
+  "areas.unnamed": "Unnamed area"
 }

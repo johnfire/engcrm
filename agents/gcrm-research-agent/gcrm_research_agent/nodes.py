@@ -16,16 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 def init(state: ResearchState, dependencies) -> dict:
-    level = state.get("level", 1)
+    levels = state.get("levels") or [1]
     run_id = dependencies.start_run(
         "research_agent",
-        {"city": state["city"], "country": state.get("country", "DE"), "level": level},
+        {"city": state["city"], "country": state.get("country", "DE"), "levels": levels},
     )
+    maps_terms = []
+    for level in levels:
+        maps_terms.extend(SCAN_LEVELS.get(level, {}).get("maps_terms", []))
     return {
         "run_id": run_id,
         "country": state.get("country", "DE"),
-        "level": level,
-        "maps_terms": SCAN_LEVELS.get(level, SCAN_LEVELS.get(1, {})).get("maps_terms", []),
+        "levels": levels,
+        "maps_terms": maps_terms or SCAN_LEVELS[1]["maps_terms"],
         "raw_results": [],
         "organizations_to_save": [],
         "saved_ids": [],
@@ -35,11 +38,20 @@ def init(state: ResearchState, dependencies) -> dict:
 
 
 def run_maps_search(state: ResearchState, dependencies) -> dict:
-    """Run each Google Maps term for this level. Collects structured venue data."""
+    """Run each Google Maps term for the requested level(s). Collects structured
+    venue data, geo-restricted to a circle instead of the city when this is an
+    area/GPS-radius scan."""
     results = []
     for term in state.get("maps_terms", []):
         try:
-            hits = dependencies.geo_search(term, state["city"], state.get("country", "DE"))
+            hits = dependencies.geo_search(
+                term,
+                state["city"],
+                state.get("country", "DE"),
+                lat=state.get("latitude"),
+                lon=state.get("longitude"),
+                radius_m=state.get("radius_m"),
+            )
             results.extend(hits)
         except Exception as error:
             logger.warning("maps_search term '%s' failed (non-fatal): %s", term, error)
@@ -74,7 +86,7 @@ def select_new_chunk(state: ResearchState, dependencies) -> dict:
     logger.info(
         "research: %s L%s — %d new of %d found; scanning %d this pass (complete=%s)",
         state["city"],
-        state.get("level"),
+        state.get("levels"),
         len(new_ones),
         len(businesses),
         len(chunk),
@@ -89,20 +101,21 @@ def select_new_chunk(state: ResearchState, dependencies) -> dict:
 
 
 def run_web_search(state: ResearchState, dependencies) -> dict:
-    """Run up to 2 targeted web searches per level to supplement Maps data.
-    Queries are read from SCAN_LEVELS[level]['web_queries'] in vertical.py.
+    """Run up to 2 targeted web searches per requested level to supplement Maps
+    data. Queries are read from SCAN_LEVELS[level]['web_queries'] in vertical.py.
     Falls back to building a query from maps_terms if none are defined."""
-    level = state.get("level", 1)
     city = state["city"]
-    level_info = SCAN_LEVELS.get(level, {})
-    raw_queries = level_info.get("web_queries", [])
-    if raw_queries:
-        queries = [query.format(city=city) for query in raw_queries[:2]]
-    else:
-        maps_terms = level_info.get("maps_terms", [])
-        label = level_info.get("label", "venues")
-        fallback = " ".join(maps_terms[:3]) if maps_terms else label
-        queries = [f"{fallback} {city}", f"{city} {label}"]
+    queries = []
+    for level in state.get("levels") or [1]:
+        level_info = SCAN_LEVELS.get(level, {})
+        raw_queries = level_info.get("web_queries", [])
+        if raw_queries:
+            queries.extend(query.format(city=city) for query in raw_queries[:2])
+        else:
+            maps_terms = level_info.get("maps_terms", [])
+            label = level_info.get("label", "venues")
+            fallback = " ".join(maps_terms[:3]) if maps_terms else label
+            queries.extend([f"{fallback} {city}", f"{city} {label}"])
     web_results = list(state.get("raw_results", []))
     for query in queries:
         try:
@@ -148,9 +161,9 @@ def fetch_pages(state: ResearchState, dependencies) -> dict:
 def extract_organizations(state: ResearchState, dependencies) -> dict:
     if not state.get("raw_results"):
         return {"organizations_to_save": []}
-    level = state.get("level", 1)
+    levels = state.get("levels") or [1]
     system, user = extract_organizations_prompt(
-        dependencies.mission, state["city"], level, state["raw_results"]
+        dependencies.mission, state["city"], levels, state["raw_results"]
     )
     try:
         response = dependencies.llm.invoke(
@@ -242,7 +255,12 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
 
 
 def save_organizations(state: ResearchState, dependencies) -> dict:
-    level = state.get("level", 1)
+    # scan_level records which level's terms this run searched under. For a
+    # multi-level run the levels were searched together and results deduped
+    # across them, so a single found business can't be attributed to one
+    # level over another — it's tagged with the first requested level as a
+    # representative value rather than left blank.
+    level = (state.get("levels") or [1])[0]
     google_by_name = state.get("google_by_name", {})
     saved_ids = []
     for organization in state.get("organizations_to_save", []):
@@ -274,14 +292,15 @@ def generate_report(state: ResearchState, dependencies) -> dict:
     n = len(state.get("saved_ids", []))
     errs = state.get("errors", [])
     city = state["city"]
-    level = state.get("level", 1)
+    levels = state.get("levels") or [1]
+    level_label = ",".join(str(level) for level in levels)
     if errs:
-        summary = f"research_agent: {city} level {level} — {n} contacts saved, {len(errs)} error(s): {errs[0]}"
+        summary = f"research_agent: {city} level {level_label} — {n} contacts saved, {len(errs)} error(s): {errs[0]}"
         status = "failed" if n == 0 else "completed"
     else:
-        summary = f"research_agent: {city} level {level} — {n} new contacts saved"
+        summary = f"research_agent: {city} level {level_label} — {n} new contacts saved"
         status = "completed"
     dependencies.finish_run(
-        state.get("run_id", 0), status, summary, {"saved_count": n, "level": level, "errors": errs}
+        state.get("run_id", 0), status, summary, {"saved_count": n, "levels": levels, "errors": errs}
     )
     return {"summary": summary}

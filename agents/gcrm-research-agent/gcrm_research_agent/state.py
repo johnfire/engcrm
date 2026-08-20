@@ -5,11 +5,17 @@ class ResearchState(TypedDict):
     # --- inputs ---
     city: str
     country: str  # ISO 3166-1 alpha-2, default "DE"
-    level: int  # scan level 1-5
+    levels: list[int]  # scan levels, 1-10; a city scan passes a single-item list
+
+    # --- area/GPS-radius scan inputs (unset for a plain city scan) ---
+    area_id: int | None
+    latitude: float | None
+    longitude: float | None
+    radius_m: int | None
 
     # --- working state ---
     run_id: int
-    maps_terms: list[str]  # fixed terms for this level
+    maps_terms: list[str]  # union of terms across all requested levels
     raw_results: list[dict]  # from Google Maps + web search + fetched pages
     organizations_to_save: list[dict]
     saved_ids: list[int]

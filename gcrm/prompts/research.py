@@ -6,11 +6,12 @@ from gcrm.vertical import SCAN_LEVELS
 def extract_organizations_prompt(
     mission,
     city: str,
-    level: int,
+    levels: list[int],
     raw_results: list[dict],
 ) -> tuple[str, str]:
-    level_info = SCAN_LEVELS.get(level, {})
-    level_desc = level_info.get("label", "venues")
+    level_desc = "; ".join(
+        SCAN_LEVELS[level]["label"] for level in levels if level in SCAN_LEVELS
+    ) or "venues"
 
     system = (
         f"You are extracting contact information for {mission.identity}.\n"

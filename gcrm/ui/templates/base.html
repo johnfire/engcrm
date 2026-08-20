@@ -26,6 +26,9 @@
     <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
       {{ t('nav.research') }}
     </a>
+    <a href="/areas/" {% if request.url.path.startswith('/areas') %}class="active"{% endif %}>
+      {{ t('nav.areas') }}
+    </a>
     <a href="/inbox/" {% if request.url.path.startswith('/inbox') %}class="active"{% endif %}>
       {{ t('nav.inbox') }}
     </a>

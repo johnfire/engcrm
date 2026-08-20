@@ -54,6 +54,41 @@ class TestSpawn:
         assert "gcrm.supervisor.run_opportunity_analysis" in popen.call_args.args[0]
 
 
+class TestValidateArea:
+    def test_unknown_stage(self):
+        with pytest.raises(ValueError):
+            pipeline.validate_area("scout", 1, [1])
+
+    def test_invalid_area_id(self):
+        with pytest.raises(ValueError):
+            pipeline.validate_area("research", 0, [1])
+
+    def test_no_levels(self):
+        with pytest.raises(ValueError):
+            pipeline.validate_area("research", 1, [])
+
+    def test_unknown_level(self):
+        with pytest.raises(ValueError):
+            pipeline.validate_area("research", 1, [99])
+
+    def test_too_many_levels(self):
+        with pytest.raises(ValueError):
+            pipeline.validate_area("research", 1, [1, 2, 3, 4, 5, 6, 7])
+
+    def test_valid_request_does_not_raise(self):
+        pipeline.validate_area("research", 1, [1, 3])
+
+
+class TestSpawnArea:
+    def test_research_command(self):
+        with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
+            pipeline.spawn_area_stage("research", area_id=7, levels=[1, 3])
+        argv = popen.call_args.args[0]
+        assert "gcrm.supervisor.run_research" in argv
+        assert "--area-id" in argv and "7" in argv
+        assert "--levels" in argv and "1,3" in argv
+
+
 class TestEndpoint:
     def test_requires_auth(self):
         assert client.post("/api/pipeline/scout/run", json={"city": "X"}).status_code in (401, 403)

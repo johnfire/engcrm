@@ -33,10 +33,22 @@ INDUSTRY_OSM_TAGS: dict[str, list[tuple[str, str]]] = {
 }
 
 
-def _build_overpass_query(city: str, tags: list[tuple[str, str]], country: str = "DE") -> str:
-    area_filter = f'area["name"="{city}"]["ISO3166-2"~"^{country}"]->.a;'
+def _build_overpass_query(
+    city: str,
+    tags: list[tuple[str, str]],
+    country: str = "DE",
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_m: int | None = None,
+) -> str:
+    if lat is not None and lon is not None and radius_m is not None:
+        area_filter = ""
+        location_filter = f"(around:{radius_m},{lat},{lon})"
+    else:
+        area_filter = f'area["name"="{city}"]["ISO3166-2"~"^{country}"]->.a;'
+        location_filter = "(area.a)"
     node_clauses = "\n".join(
-        f'  node["{k}"="{v}"](area.a);' for k, v in tags
+        f'  node["{k}"="{v}"]{location_filter};' for k, v in tags
     )
     return f"""
 [out:json][timeout:30];
@@ -48,11 +60,21 @@ out center tags;
 """.strip()
 
 
-def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
+def geo_search(
+    query: str,
+    city: str,
+    country: str = "DE",
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_m: int | None = None,
+) -> list[dict]:
     """
-    Search for venues in a city using OpenStreetMap's Overpass API.
+    Search for venues using OpenStreetMap's Overpass API.
     `query` is used to determine the OSM tag set (matched by keyword).
-    Returns list of dicts with: name, address, city, country, website, phone.
+    When `lat`/`lon`/`radius_m` are given, results are constrained to that
+    circle instead of the named city area — used for area/GPS-radius scans.
+    Returns list of dicts with: name, address, city, country, website, phone,
+    latitude, longitude.
     """
     # Match query to tag set — fall back to generic text search tags
     industry_key = next(
@@ -61,7 +83,7 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
     )
     tags = INDUSTRY_OSM_TAGS.get(industry_key, [("name", "*")])
 
-    overpass_q = _build_overpass_query(city, tags, country)
+    overpass_q = _build_overpass_query(city, tags, country, lat=lat, lon=lon, radius_m=radius_m)
     try:
         resp = httpx.post(
             OVERPASS_URL,
@@ -81,6 +103,7 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
         name = tags_data.get("name", "")
         if not name:
             continue
+        center = el.get("center") or {}
         results.append({
             "name": name,
             "address": " ".join(filter(None, [
@@ -92,17 +115,31 @@ def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
             "website": tags_data.get("website", tags_data.get("contact:website", "")),
             "phone": tags_data.get("phone", tags_data.get("contact:phone", "")),
             "email": tags_data.get("email", tags_data.get("contact:email", "")),
+            "latitude": el.get("lat", center.get("lat")),
+            "longitude": el.get("lon", center.get("lon")),
         })
 
     logger.info("geo_search: %d results for '%s' in %s", len(results), query, city)
     return results
 
 
-def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 3) -> list[dict]:
+def google_maps_search(
+    query: str,
+    city: str,
+    country: str = "DE",
+    pages: int = 3,
+    lat: float | None = None,
+    lon: float | None = None,
+    radius_m: int | None = None,
+) -> list[dict]:
     """
     Search for venues using Google Places API (New).
     Paginates up to 3 pages (max 60 results) via nextPageToken, and extracts the
     neighborhood (sublocality) from each result's address components.
+    When `lat`/`lon`/`radius_m` are given, adds a `locationRestriction` circle
+    and drops the city name from the text query — the circle constrains
+    geography, the query text just picks the business type. Used for
+    area/GPS-radius scans; city-wide scans leave these unset.
     Returns dicts: name, place_id, address, city, country, website, phone, email,
     neighborhood. place_id is a Basic-tier field (no extra cost on top of the
     Enterprise fields already requested here).
@@ -128,15 +165,23 @@ def google_maps_search(query: str, city: str, country: str = "DE", pages: int = 
         ),
     }
 
+    geo_restricted = lat is not None and lon is not None and radius_m is not None
     results: list[dict] = []
     page_token = None
     for page in range(pages):  # up to pages × 20 results
         payload = {
-            "textQuery": f"{query} {city}",
+            "textQuery": query if geo_restricted else f"{query} {city}",
             "languageCode": "de",
             "regionCode": country,
             "maxResultCount": 20,
         }
+        if geo_restricted:
+            payload["locationRestriction"] = {
+                "circle": {
+                    "center": {"latitude": lat, "longitude": lon},
+                    "radius": radius_m,
+                }
+            }
         if page_token:
             payload["pageToken"] = page_token
         try:
@@ -353,6 +398,34 @@ def normalize_city(name: str, country: str = "DE", limit: int = 4) -> list[dict]
             "type": row.get("addresstype", ""),
         })
     return candidates
+
+
+def reverse_geocode(lat: float, lon: float) -> dict | None:
+    """Resolve a lat/lon to the enclosing city via Nominatim reverse geocoding
+    (OSM, free, no key). Returns {name, country, state} or None if the point
+    doesn't resolve to a city/town/village (e.g. open countryside) — callers
+    treat that as "no city association" rather than an error."""
+    try:
+        resp = httpx.get(
+            "https://nominatim.openstreetmap.org/reverse",
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "addressdetails": 1, "zoom": 10},
+            headers={"User-Agent": NOMINATIM_UA},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        row = resp.json()
+    except Exception as error:
+        logger.warning("reverse_geocode failed for %s,%s: %s", lat, lon, error)
+        return None
+    address = row.get("address", {})
+    name = address.get("city") or address.get("town") or address.get("village") or address.get("municipality")
+    if not name:
+        return None
+    return {
+        "name": name,
+        "country": (address.get("country_code") or "").upper(),
+        "state": address.get("state", ""),
+    }
 
 
 def geocode(query: str, country: str = "DE") -> tuple[float, float] | None:
