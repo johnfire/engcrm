@@ -260,6 +260,15 @@ class TestOrganizationDetailPage:
                 assert 'for="organization-name"' in response.text
                 assert 'id="organization-name"' in response.text
                 assert "Quote assistant" in response.text
+                # The personal-priority widget reads its target id from a data
+                # attribute the server renders and a dataset property the
+                # client-side JS reads back — those two must name the same
+                # thing, or the save silently posts to ".../undefined/...".
+                # This regressed once already during the contacts->organizations
+                # rename: the HTML attribute was renamed but the JS lookup was not.
+                assert 'data-organization-id="1"' in response.text
+                assert "panel.dataset.organizationId" in response.text
+                assert "panel.dataset.contactId" not in response.text
 
             minimal_organization = {
                 **CONTACT_ROW,

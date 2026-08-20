@@ -380,7 +380,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         status.textContent = "{{ t('personalPriority.saving') }}";
         try {
           const response = await fetch(
-            `/organizations/${panel.dataset.contactId}/personal-priority`,
+            `/organizations/${panel.dataset.organizationId}/personal-priority`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
