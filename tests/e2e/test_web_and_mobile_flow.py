@@ -26,7 +26,8 @@ def _seed_approval_flow() -> tuple[int, int, str]:
         "E2E Venue",
         "Munich",
         email="venue@example.test",
-        status="cold",
+        pipeline_stage="suspect",
+        status="ready",
     )
     approval_id = queue_for_approval(contact_id, 0, "Hello", "A test draft.")
     return approval_id, contact_id, admin_password
@@ -97,7 +98,7 @@ def test_users_rate_the_same_organization_independently_on_web_and_mobile(clean_
         hash_password(password_two),
         "spectator",
     )
-    contact_id = save_organization("Priority E2E Venue", "Munich", status="cold")
+    contact_id = save_organization("Priority E2E Venue", "Munich", pipeline_stage="suspect", status="ready")
 
     web_client = TestClient(app)
     login_response = web_client.post(
@@ -109,7 +110,7 @@ def test_users_rate_the_same_organization_independently_on_web_and_mobile(clean_
         follow_redirects=False,
     )
     web_priority_response = web_client.put(
-        f"/contacts/{contact_id}/personal-priority",
+        f"/organizations/{contact_id}/personal-priority",
         json={"priority": 1},
         headers={"X-Request-ID": "e2e-personal-priority"},
     )
