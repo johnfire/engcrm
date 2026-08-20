@@ -32,7 +32,7 @@
   "common.passwordTooShort": "Use a password with at least 12 characters.",
   "nav.brand": "AI-CRM Leads",
   "nav.approvals": "Approvals",
-  "nav.contacts": "Organizations",
+  "nav.organizations": "Organizations",
   "nav.activity": "Activity",
   "nav.people": "People",
   "nav.research": "Research",

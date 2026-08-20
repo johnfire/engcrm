@@ -657,6 +657,7 @@ main.person-detail-page {
 .context-help { background: #27234a; border-left: 3px solid #7c6fff; border-radius: 6px; padding: .7rem .9rem; margin: .8rem 0; color: #ddd; }
 .context-help a { margin-left: .4rem; }
 .opportunity-action p { margin: .35rem 0 .75rem; }
+.opportunity-spinner[hidden] { display: none; }
 .opportunity-spinner { display: inline-block; width: .9rem; height: .9rem; margin-right: .45rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -.1rem; animation: opportunity-spin .8s linear infinite; }
 .opportunity-action button[aria-busy="true"] { cursor: wait; opacity: .8; }
 @keyframes opportunity-spin { to { transform: rotate(360deg); } }
