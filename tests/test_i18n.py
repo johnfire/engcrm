@@ -26,8 +26,8 @@ def make_mock_conn(rows=None):
 
 class TestTranslateEngine:
     def test_resolves_key_per_language(self):
-        assert translate("nav.contacts", "en") == "Organizations"
-        assert translate("nav.contacts", "de") == "Organisationen"
+        assert translate("nav.organizations", "en") == "Organizations"
+        assert translate("nav.organizations", "de") == "Organisationen"
         assert translate("personalPriority.title", "en") == "Personal priority"
         assert translate("personalPriority.title", "de") == "Persönliche Priorität"
 
@@ -41,7 +41,7 @@ class TestTranslateEngine:
 
     def test_falls_back_to_english_when_missing_in_language(self):
         with patch.dict("gcrm.i18n.translate._catalogs", {"de": {}}, clear=False):
-            assert translate("nav.contacts", "de") == "Organizations"
+            assert translate("nav.organizations", "de") == "Organizations"
 
     def test_missing_key_shows_visible_marker(self):
         assert translate("totally.made.up.key", "en") == "[totally.made.up.key]"
@@ -150,11 +150,11 @@ class TestCatalogPathTraversal:
     translation lookup into an arbitrary file read."""
 
     def test_traversal_language_falls_back_to_default(self):
-        assert translate("nav.contacts", "../../../../etc/passwd") == translate("nav.contacts", DEFAULT_LANGUAGE)
+        assert translate("nav.organizations", "../../../../etc/passwd") == translate("nav.organizations", DEFAULT_LANGUAGE)
 
     def test_unsupported_language_falls_back_to_default(self):
-        assert translate("nav.contacts", "fr") == translate("nav.contacts", DEFAULT_LANGUAGE)
+        assert translate("nav.organizations", "fr") == translate("nav.organizations", DEFAULT_LANGUAGE)
 
     def test_supported_languages_still_resolve_independently(self):
-        rendered = {language: translate("nav.contacts", language) for language in SUPPORTED_LANGUAGES}
+        rendered = {language: translate("nav.organizations", language) for language in SUPPORTED_LANGUAGES}
         assert all(value and not value.startswith("[") for value in rendered.values())
