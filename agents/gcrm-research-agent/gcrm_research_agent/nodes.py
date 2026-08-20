@@ -2,7 +2,7 @@
 
 import logging
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -167,11 +167,27 @@ def extract_organizations(state: ResearchState, dependencies) -> dict:
     return {"organizations_to_save": organizations}
 
 
+# Tried in order, after the homepage, before giving up on an org with a
+# website. Kontakt/Impressum carry a legal disclosure requirement in Germany
+# (TMG) and almost always list a real email, but it's rarely on the homepage.
+CONTACT_SUBPATHS = ("/kontakt", "/contact", "/impressum", "/about")
+
+
+def _find_email(text: str, email_re: re.Pattern, noise_domains: set) -> str | None:
+    for match in email_re.finditer(text):
+        email = match.group(0).lower()
+        if email.split("@")[1] not in noise_domains:
+            return email
+    return None
+
+
 def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
-    """For each extracted contact with a website but no email, fetch the page
-    and regex-extract an email, skipping noise/builder domains. Contacts with
-    no website (or where no usable email turns up) are flagged _no_data=True so
-    save_contacts records them with the research_exhausted flag raised."""
+    """For each extracted contact with a website but no email, fetch the
+    homepage and, if that turns up nothing, a short list of likely contact
+    subpaths (kontakt/contact/impressum/about), regex-extracting an email and
+    skipping noise/builder domains. Contacts with no website (or where no
+    usable email turns up anywhere) are flagged _no_data=True so save_contacts
+    records them with the research_exhausted flag raised."""
     organizations = state.get("organizations_to_save", [])
     if not organizations:
         return {}
@@ -191,28 +207,27 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
     for organization in organizations:
         if organization.get("email"):
             continue
-        if not organization.get("website"):
+        website = organization.get("website")
+        if not website:
             organization["_no_data"] = True
             no_data += 1
             continue
+        email = None
         try:
-            text = dependencies.fetch_page(organization["website"])
-            if not text:
-                organization["_no_data"] = True
-                no_data += 1
-                continue
-            for match in email_re.finditer(text):
-                email = match.group(0).lower()
-                domain = email.split("@")[1]
-                if domain not in noise_domains:
-                    organization["email"] = email
-                    found += 1
-                    logger.info("research: email found for %s — %s", organization.get("name", ""), email)
+            for url in (website, *(urljoin(website, path) for path in CONTACT_SUBPATHS)):
+                text = dependencies.fetch_page(url)
+                if not text:
+                    continue
+                email = _find_email(text, email_re, noise_domains)
+                if email:
                     break
-            else:
-                organization["_no_data"] = True
-                no_data += 1
         except Exception:
+            email = None
+        if email:
+            organization["email"] = email
+            found += 1
+            logger.info("research: email found for %s — %s", organization.get("name", ""), email)
+        else:
             organization["_no_data"] = True
             no_data += 1
     if found:
