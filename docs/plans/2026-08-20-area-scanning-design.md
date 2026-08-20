@@ -126,20 +126,30 @@ auth for web, JWT for mobile):
 ## Mobile UI
 
 Two new screens under `(drawer)`, using `expo-location` (already a
-dependency) for GPS. **`react-native-maps` is not currently a dependency** and
-is a native module — adding it requires an EAS dev-client rebuild, not just a
-Metro reload, so this is called out as separate, first infra work rather than
-folded into the screen work.
+dependency) for GPS, plus `expo-maps` — **not `react-native-maps` as
+originally planned here**: `engcrm-mobile/AGENTS.md` requires checking
+current versioned Expo docs before writing any code, and Expo SDK 56's
+recommended map library turned out to be its own first-party `expo-maps`
+(alpha, platform-split `AppleMaps.View`/`GoogleMaps.View` components), not
+`react-native-maps`. Both `expo-maps` and `@react-native-community/slider`
+(radius control) are native modules — adding them requires an EAS dev-client
+rebuild, not just a Metro reload, so that rebuild is separate, first infra
+work rather than folded into the screen work. An Android build additionally
+needs a real Google Maps API key in `app.json`'s
+`android.config.googleMaps.apiKey` (currently a placeholder) — iOS needs
+none (Apple Maps).
 
-- `area-scan.tsx` — full-screen `MapView`, centered on device GPS by default.
-  A single tap drops a pin (map-pick); "Use my location" recenters to GPS
-  (the fallback). A radius slider, 100m–2km, draws a circle overlay. Level
-  chips below, multi-select, all selected by default. "Scan" posts to
-  `/api/areas/scan`.
-- `area-results.tsx` — same `MapView`, pins from
-  `GET /api/areas/{id}/organizations` colored by `pipeline_stage` (reusing
-  `organizations.tsx`'s existing stage-color mapping), tap → the existing
-  `organization-detail.tsx`, unchanged.
+- `area-scan.tsx` — full-screen map, centered on device GPS by default. A
+  single tap drops a pin (map-pick); "Use my location" recenters to GPS (the
+  fallback). A radius slider, 100m–2km, draws a circle overlay via the map's
+  native `circles` prop. Level chips below, multi-select, all selected by
+  default. "Scan" posts to `/api/areas/scan`.
+- `area-results.tsx` — same map, pins from `GET /api/areas/{id}/organizations`
+  (name + type + pipeline_stage in the callout; expo-maps markers don't
+  support a simple pin-color prop without a custom icon image, so
+  color-by-stage is left as a follow-up rather than pulled in via
+  `expo-image` for this pass), tap → the existing `organization-detail.tsx`
+  via the marker's `id`.
 
 `research.tsx` gets a new "Scan an area" entry point linking to
 `area-scan.tsx`, alongside the existing city-form flow (not replacing it).
@@ -161,9 +171,10 @@ Leaflet instance.
 1. **Backend first** (migration, `db_areas.py`, discovery-layer geo params,
    research agent multi-level support, pipeline + API routes) — fully
    testable without any native mobile dependency.
-2. **Mobile map dependency** (`react-native-maps` + EAS dev-client rebuild) is
-   isolated infra work that blocks on-device testing of the mobile screens —
-   should happen before the mobile screens are built, not stalled behind them.
+2. **Mobile map dependency** (`expo-maps` + `@react-native-community/slider` +
+   EAS dev-client rebuild) is isolated infra work that blocks on-device
+   testing of the mobile screens — an actual on-device/EAS build is still
+   outstanding and can't be run from this environment.
 3. **Cost guard**: multi-level area scans multiply Google Places calls (up to
    ~90 terms across all 10 levels x up to 3 pages each). Worth a sanity cap
    (e.g. warn past 6 selected levels) so a big-radius "select all" doesn't
