@@ -17,6 +17,12 @@ import {
   OpportunityAnalysis,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
+import {
+  SUPPRESSION_FLAGS,
+  flagLabelKey,
+  stageLabelKey,
+  statusLabelKey,
+} from "../../services/contactState";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
@@ -88,11 +94,21 @@ export default function ContactDetailScreen() {
         {contact.city}, {contact.country} · {contact.type}
       </Text>
       <View style={styles.statusRow}>
-        <Text style={styles.statusBadge}>{contact.status}</Text>
+        <Text style={styles.stageBadge}>{t(stageLabelKey(contact.pipeline_stage))}</Text>
+        <Text style={styles.statusBadge}>{t(statusLabelKey(contact.status))}</Text>
         {contact.fit_score !== null && (
           <Text style={styles.score}>{t("contactDetail.score", { score: contact.fit_score })}</Text>
         )}
       </View>
+      {SUPPRESSION_FLAGS.some((flag) => contact[flag]) && (
+        <View style={styles.statusRow}>
+          {SUPPRESSION_FLAGS.filter((flag) => contact[flag]).map((flag) => (
+            <Text key={flag} style={styles.flagBadge}>
+              {t(flagLabelKey(flag))}
+            </Text>
+          ))}
+        </View>
+      )}
 
       <PersonalPrioritySelector
         key={contact.id}
@@ -317,6 +333,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     marginBottom: 16,
+  },
+  stageBadge: {
+    color: "#0f0f23",
+    backgroundColor: "#7c6fff",
+    fontSize: 12,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  flagBadge: {
+    color: "#ff6b6b",
+    borderColor: "#ff6b6b",
+    borderWidth: 1,
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 3,
+    overflow: "hidden",
   },
   statusBadge: {
     backgroundColor: "#7c6fff25",

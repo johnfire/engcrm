@@ -139,7 +139,7 @@
           <td><strong>{{ c.name }}</strong></td>
           <td>{{ c.city }}{% if c.country %} {{ c.country }}{% endif %}</td>
           <td>{{ c.type or '—' }}</td>
-          <td><span class="badge">{{ c.status }}</span></td>
+          <td><span class="badge">{{ t('status.' ~ c.status) }}</span></td>
           <td>{{ c.fit_score if c.fit_score is not none else '—' }}</td>
           <td>{{ 'P' ~ c.personal_priority if c.personal_priority is not none else '—' }}</td>
           <td>{{ c.email or '—' }}</td>

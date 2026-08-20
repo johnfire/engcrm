@@ -4,7 +4,7 @@ LangGraph agent that researches venues, drafts personalized first-contact emails
 
 ## What it does
 
-Fetches contacts with `status=cold`, then for each:
+Fetches contacts with `status=ready` and no suppression flag, then for each:
 
 1. GDPR compliance check — hard block if opt-out or erasure flag is set
 2. Fetches the venue's website and reads the content

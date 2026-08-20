@@ -26,7 +26,7 @@ def score_contact_prompt(mission, contact: dict, city_context: dict | None = Non
         f"Positive signals (indicates a good fit):\n{positive_signals}\n\n"
         f"Negative signals (indicates a poor fit):\n{negative_signals}\n\n"
         f"If the website is thin or no content was fetched, use whatever is in "
-        f"the notes field and mark as 'maybe'.\n\n"
+        f"the notes field and answer 'unsure'.\n\n"
         f"Be specific in your reasoning — quote language from the website or notes, "
         f"name specific details that tipped the decision."
     )
@@ -35,10 +35,10 @@ def score_contact_prompt(mission, contact: dict, city_context: dict | None = Non
         f"Evaluate this contact:\n\n"
         f"{contact_json}\n\n"
         f"Return a JSON object with EXACTLY these keys:\n"
-        f"- outcome: one of 'cold' | 'maybe' | 'dropped'\n"
-        f"  cold = realistic outreach target\n"
-        f"  maybe = unclear, mixed signals, or website too thin to judge\n"
-        f"  dropped = clearly not a fit based on negative signals\n"
+        f"- outcome: one of 'fit' | 'unsure' | 'no_fit'\n"
+        f"  fit = realistic outreach target\n"
+        f"  unsure = unclear, mixed signals, or website too thin to judge\n"
+        f"  no_fit = clearly not a fit based on negative signals\n"
         f"- reasoning: 3-5 sentences. Be specific.\n\n"
         f"Return ONLY the JSON object, no other text."
     )

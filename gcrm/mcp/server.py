@@ -191,7 +191,7 @@ def approval_approve(item_id: int, note: str = "") -> str:
             """, (final_status, note or None, item_id))
             cur.execute("""
                 UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
-                WHERE id = %s AND status IN ('cold', 'on_hold')
+                WHERE id = %s AND status IN ('ready', 'on_hold')
             """, (row["contact_id"],))
         log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 
@@ -272,7 +272,7 @@ def agent_runs(limit: int = 20) -> str:
 @mcp_mutation
 def manual_drop(contact_id: int, reason: str = "") -> str:
     """
-    Manually drop a contact — mark as status=dropped with your reason.
+    Manually drop a contact — takes it out of the pipeline with your reason.
     Use this for venues you know are a waste of time, wrong fit, or already visited.
     """
     try:
@@ -281,7 +281,7 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
             note = f"[Manually dropped] {reason}".strip() if reason else "[Manually dropped]"
             cur.execute("""
                 UPDATE contacts
-                SET status = 'dropped',
+                SET pipeline_stage = 'not_in_pipeline', status = 'dropped',
                     notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
                                  ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
@@ -302,7 +302,7 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
 @mcp_mutation
 def manual_promote(contact_id: int, note: str = "") -> str:
     """
-    Manually promote a contact to cold — bypasses scout scoring.
+    Manually promote a contact to suspect/ready — bypasses scout scoring.
     Use this for venues you know personally or are confident are a good fit.
     """
     try:
@@ -311,7 +311,7 @@ def manual_promote(contact_id: int, note: str = "") -> str:
             note_text = f"[Manually promoted] {note}".strip() if note else "[Manually promoted]"
             cur.execute("""
                 UPDATE contacts
-                SET status = 'cold',
+                SET pipeline_stage = 'suspect', status = 'ready',
                     notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
                                  ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
@@ -321,7 +321,7 @@ def manual_promote(contact_id: int, note: str = "") -> str:
                 return json.dumps({"error": f"Contact {contact_id} not found"})
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
-        log_audit(None, None, "contact.manual_promote", f"contact:{contact_id}", "cold")
+        log_audit(None, None, "contact.manual_promote", f"contact:{contact_id}", "suspect/ready")
         return json.dumps({"promoted": True, "contact": row["name"], "city": row["city"]})
     except Exception as error:
         logger.warning("manual_promote failed for contact %s: %s", contact_id, error)

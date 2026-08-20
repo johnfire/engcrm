@@ -12,6 +12,7 @@ Voice input tip (Ubuntu):
 import sys
 from datetime import date
 
+from gcrm.contact_state import PIPELINE_STAGES, STATUSES
 from gcrm.db.connection import db
 from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 
@@ -74,7 +75,7 @@ def search_contacts(query: str) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, name, city, country, status, type
+            SELECT id, name, city, country, pipeline_stage, status, type
             FROM contacts
             WHERE deleted_at IS NULL
               AND (lower(name) LIKE %s OR lower(city) LIKE %s)
@@ -175,11 +176,19 @@ def _prompt_visit_outcome(contact: dict) -> dict:
     if visited:
         updates["last_visited_at"] = visited
 
-    # Status update
-    current = contact.get("status", "")
+    # Where the relationship stands, and what is going on right now.
+    current_stage = contact.get("pipeline_stage", "")
+    new_stage = menu(
+        f"Move pipeline stage? (current: {current_stage})",
+        list(PIPELINE_STAGES),
+    )
+    if new_stage:
+        updates["pipeline_stage"] = new_stage
+
+    current_status = contact.get("status", "")
     new_status = menu(
-        f"Update status? (current: {current})",
-        ["candidate", "cold", "contacted", "networking_visit", "meeting", "accepted", "on_hold", "dropped", "do_not_contact"],
+        f"Update status? (current: {current_status})",
+        list(STATUSES),
     )
     if new_status:
         updates["status"] = new_status

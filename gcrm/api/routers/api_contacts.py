@@ -81,6 +81,7 @@ def _opportunity_payload(row: dict | None) -> dict | None:
 def list_contacts(
     search: str = Query(""),
     status: str = Query(""),
+    stage: str = Query(""),
     page: int = Query(1, ge=1),
     sort: str = Query("created_at"),
     dir: str = Query("desc"),
@@ -101,6 +102,9 @@ def list_contacts(
         if status:
             where.append("c.status = %s")
             filter_params.append(status)
+        if stage:
+            where.append("c.pipeline_stage = %s")
+            filter_params.append(stage)
         if personal_priority in {"1", "2", "3", "4", "5"}:
             where.append("cup.priority = %s")
             filter_params.append(int(personal_priority))
@@ -113,7 +117,9 @@ def list_contacts(
         offset = (page - 1) * 50
         cur.execute(
             f"""
-            SELECT c.id, c.name, c.city, c.country, c.type, c.status,
+            SELECT c.id, c.name, c.city, c.country, c.type,
+                   c.pipeline_stage, c.status,
+                   c.do_not_contact, c.email_bounced, c.research_exhausted,
                    c.email, c.website, c.fit_score, c.flagged, c.starred,
                    c.created_at, cup.priority AS personal_priority,
                    MAX(i.interaction_date) AS last_contact

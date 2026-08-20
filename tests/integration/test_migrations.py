@@ -6,7 +6,7 @@ from subprocess import run
 import pytest
 
 from gcrm.db.connection import db
-from gcrm.tools.db import get_cold_contacts, save_contact
+from gcrm.tools.db import get_contacts_ready_for_outreach, save_contact
 from gcrm.tools.db_agent_runs import finish_run, start_run
 from gcrm.tools.db_personal_priorities import (
     get_personal_priority,
@@ -38,15 +38,16 @@ def test_contact_repository_persists_and_hides_soft_deleted_records(clean_databa
         "Munich",
         type="cafe",
         email="integration@example.test",
-        status="cold",
+        pipeline_stage="suspect",
+        status="ready",
     )
 
-    assert [contact["id"] for contact in get_cold_contacts()] == [contact_id]
+    assert [contact["id"] for contact in get_contacts_ready_for_outreach()] == [contact_id]
 
     with db() as connection:
         connection.cursor().execute("UPDATE contacts SET deleted_at = NOW() WHERE id = %s", (contact_id,))
 
-    assert get_cold_contacts() == []
+    assert get_contacts_ready_for_outreach() == []
 
 
 def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database):

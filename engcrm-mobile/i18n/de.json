@@ -12,7 +12,6 @@
   "common.sortNewest": "Neueste",
   "common.sortAZ": "A–Z",
   "common.sortIndustry": "Branche",
-
   "drawer.approvals": "Freigaben",
   "drawer.scanCard": "📷 Karte scannen",
   "drawer.scanSign": "🏪 Schild scannen",
@@ -38,7 +37,6 @@
   "drawer.reconTitle": "Erkundung",
   "drawer.researchTitle": "Recherche",
   "drawer.settingsTitle": "Einstellungen",
-
   "settings.signedInAs": "Angemeldet als",
   "settings.logout": "Abmelden",
   "settings.impressum": "Impressum",
@@ -47,7 +45,6 @@
   "settings.aiBackend": "Routine-KI-Backend",
   "settings.languageUpdateFailedTitle": "Sprache konnte nicht aktualisiert werden",
   "settings.languageUpdateFailedMessage": "Versuchen Sie es erneut.",
-
   "login.title": "EngCRM",
   "login.subtitle": "Zum Fortfahren anmelden",
   "login.emailPlaceholder": "E-Mail",
@@ -58,13 +55,11 @@
   "login.forgotPassword": "Passwort vergessen?",
   "login.impressum": "Impressum",
   "login.privacy": "Datenschutz",
-
   "forgotPassword.title": "Passwort vergessen?",
   "forgotPassword.hint": "Geben Sie Ihre Konto-E-Mail ein — wir senden Ihnen einen Link zum Zurücksetzen.",
   "forgotPassword.sentMessage": "Falls ein Konto mit dieser E-Mail existiert, haben wir einen Link zum Zurücksetzen gesendet. Er ist 1 Stunde gültig — öffnen Sie ihn im Browser, um ein neues Passwort festzulegen, und kommen Sie dann zurück, um sich anzumelden.",
   "forgotPassword.submit": "Link senden",
   "forgotPassword.backToSignIn": "Zurück zur Anmeldung",
-
   "capture.hint": "Fotografieren Sie eine Visitenkarte — sie wird gelesen und zu einem Lead.",
   "capture.pending_one": "{{count}} Karte wartet auf Upload — zum Wiederholen tippen",
   "capture.pending_other": "{{count}} Karten warten auf Upload — zum Wiederholen tippen",
@@ -80,7 +75,6 @@
   "capture.uploadFailedTitle": "Upload fehlgeschlagen",
   "capture.uploadFailedGeneric": "Server konnte nicht erreicht oder Karte nicht gespeichert werden. Versuchen Sie es erneut.",
   "capture.uploadFailedProcess": "Die Karte konnte nicht verarbeitet werden. Versuchen Sie es erneut.",
-
   "cardConfirm.duplicateWarning": "⚠ Mögliches Duplikat",
   "cardConfirm.createNew": "Neu anlegen",
   "cardConfirm.linkExisting": "Mit bestehendem verknüpfen",
@@ -106,10 +100,8 @@
   "cardConfirm.savedTitle": "Lead gespeichert",
   "cardConfirm.savedMessage": "Die Anreicherung läuft im Hintergrund — Sie erhalten eine Benachrichtigung, sobald sie fertig ist.",
   "cardConfirm.couldntSaveTitle": "Konnte nicht gespeichert werden",
-
   "cardQueue.emptyTitle": "Keine Karten zur Überprüfung.\nGescannte, nicht abgeschlossene Karten erscheinen hier.",
   "cardQueue.unreadCard": "Ungelesene Karte",
-
   "scanSign.hint": "Fotografieren Sie ein Ladenschild — wir suchen das Unternehmen und recherchieren es.",
   "scanSign.cameraPermissionMessage": "Kamerazugriff aktivieren, um Schilder zu scannen.",
   "scanSign.reading": "Schild wird gelesen…",
@@ -117,7 +109,6 @@
   "scanSign.notASignMessage": "Das sieht nicht wie ein Firmenschild aus. Versuchen Sie es mit dem Schild mittiger im Bild erneut.",
   "scanSign.uploadFailedTitle": "Upload fehlgeschlagen",
   "scanSign.uploadFailedProcess": "Das Schild konnte nicht verarbeitet werden. Versuchen Sie es erneut.",
-
   "signConfirm.matched": "📍 Übereinstimmung bei Google Places",
   "signConfirm.acceptMatch": "Übereinstimmung akzeptieren",
   "signConfirm.rejectMatch": "Ablehnen — nur Schildtext verwenden",
@@ -127,7 +118,6 @@
   "signConfirm.enterOrConfirmMessage": "Geben Sie zuerst einen Firmennamen ein oder bestätigen Sie ihn.",
   "signConfirm.savedTitle": "Unternehmen gespeichert",
   "signConfirm.savedMessage": "Die Recherche läuft im Hintergrund — Sie erhalten eine Benachrichtigung, sobald sie fertig ist.",
-
   "voice.hint": "Tippen, um eine Notiz zu einem Besuch oder Anruf aufzunehmen. Sie wird transkribiert, einem Kontakt zugeordnet und als Interaktion mit Nachfassung protokolliert.",
   "voice.transcribing": "Wird transkribiert…",
   "voice.recordingTapStop": "Aufnahme läuft… zum Stoppen tippen",
@@ -136,7 +126,6 @@
   "voice.micNeededTitle": "Mikrofon erforderlich",
   "voice.micNeededMessage": "Mikrofonzugriff aktivieren, um Sprachnotizen aufzunehmen.",
   "voice.couldntStartTitle": "Aufnahme konnte nicht gestartet werden",
-
   "voiceConfirm.heard": "Gehört",
   "voiceConfirm.contact": "Kontakt",
   "voiceConfirm.newContact": "+ Neuer Kontakt",
@@ -152,21 +141,12 @@
   "voiceConfirm.savedWithFollowup": "Interaktion mit Nachfassung protokolliert.",
   "voiceConfirm.savedNoFollowup": "Interaktion protokolliert.",
   "voiceConfirm.couldntSaveTitle": "Konnte nicht gespeichert werden",
-
   "contacts.searchPlaceholder": "Stadt, Name, Typ suchen...",
   "contacts.statusAll": "Alle",
-  "contacts.statusCold": "Kalt",
-  "contacts.statusContacted": "Kontaktiert",
-  "contacts.statusMeeting": "Termin",
-  "contacts.statusProposal": "Angebot",
-  "contacts.statusAccepted": "Angenommen",
-  "contacts.statusRejected": "Abgelehnt",
-  "contacts.statusDropped": "Verworfen",
   "contacts.sortPersonalPriority": "Persönliche Priorität",
   "contacts.priorityAll": "Alle Bewertungen",
   "contacts.priorityUnrated": "Unbewertet",
   "contacts.notFound": "Keine Kontakte gefunden",
-
   "contactDetail.couldntLoad": "Laden fehlgeschlagen — Verbindung prüfen",
   "contactDetail.notFound": "Kontakt nicht gefunden",
   "contactDetail.score": "Score: {{score}}",
@@ -197,14 +177,11 @@
   "personalPriority.clear": "Bewertung löschen",
   "personalPriority.saving": "Wird gespeichert…",
   "personalPriority.saveFailed": "Speichern fehlgeschlagen. Tippen Sie zum erneuten Versuch auf eine Bewertung.",
-
   "people.searchPlaceholder": "Name, E-Mail, Stadt suchen...",
   "people.empty": "Noch keine Personen.\nScannen Sie eine Visitenkarte, um eine hinzuzufügen.",
-
   "personDetail.couldntLoad": "Laden fehlgeschlagen — Verbindung prüfen",
   "personDetail.notFound": "Person nicht gefunden",
   "personDetail.metAt": "Kennengelernt bei",
-
   "recon.notContactedOnly": "Nur nicht kontaktierte",
   "recon.fitScore": "Fit {{score}}",
   "recon.relocate": "↻ Standort aktualisieren",
@@ -217,9 +194,7 @@
   "recon.call": "Anrufen",
   "recon.navigate": "Navigieren",
   "recon.scanCard": "Karte scannen",
-
   "activity.empty": "Noch keine Aktivität",
-
   "research.pipelineStatus": "Pipeline-Status",
   "research.city": "Stadt",
   "research.cityPlaceholder": "z. B. München",
@@ -245,26 +220,21 @@
   "research.couldntLoadStatus": "Recherche-Status konnte nicht geladen werden.",
   "research.couldntLoadStatusServer": "Status konnte nicht geladen werden (Serverfehler {{status}}).",
   "research.hint": "Jede Stufe läuft im Hintergrund und erscheint auf dem Aktivitäts-Bildschirm. Die Stufen bauen aufeinander auf — Recherche findet Leads, Scout bewertet sie, Anreichern ergänzt Details, Outreach entwirft E-Mails zur Freigabe.",
-
   "approvals.empty": "Keine ausstehenden Freigaben",
   "approvals.couldntApproveTitle": "Freigabe fehlgeschlagen",
   "approvals.couldntRejectTitle": "Ablehnung fehlgeschlagen",
-
   "inbox.empty": "Posteingang ist leer",
   "inbox.couldntClassifyTitle": "Klassifizierung fehlgeschlagen",
   "inbox.classify": "Klassifizieren",
-
   "approvalCard.approve": "Freigeben",
   "approvalCard.reject": "Ablehnen",
   "approvalCard.edit": "Bearbeiten",
   "approvalCard.close": "Schließen",
-
   "rejectSheet.title": "Entwurf ablehnen",
   "rejectSheet.reasonLabel": "Grund (optional)",
   "rejectSheet.reasonPlaceholder": "z. B. zu förmlich, wärmerer Ton nötig",
   "rejectSheet.cancel": "Abbrechen",
   "rejectSheet.confirmReject": "Ablehnung bestätigen",
-
   "classifySheet.title": "Antwort klassifizieren",
   "classifySheet.interested": "Interessiert",
   "classifySheet.warm": "Warm / Überlegt",
@@ -274,7 +244,6 @@
   "classifySheet.bounce": "Unzustellbar",
   "classifySheet.other": "Sonstiges",
   "classifySheet.cancel": "Abbrechen",
-
   "researchOverview.cities": "Städte",
   "researchOverview.l1Done": "L1 erledigt",
   "researchOverview.unscanned": "nicht gescannt",
@@ -283,14 +252,12 @@
   "researchOverview.total": "Gesamt:",
   "researchOverview.contacts": "Kontakte",
   "researchOverview.legend": "● abgeschlossen   ◐ teilweise (mehr zu scannen)   ○ nicht ausgeführt",
-
   "researchCity.completeDetail": "Abgeschlossen — letzter Lauf {{date}}, {{count}} gefunden{{emailedLine}}",
   "researchCity.emailedLine": "\n{{count}} kontaktiert",
   "researchCity.partialDetail": "Teilweise — mehr zu scannen.\nLetzter Lauf {{date}}, {{count}} bisher{{emailedLine}}",
   "researchCity.notYetRun": "Noch nicht ausgeführt",
   "researchCity.sent": "gesendet",
   "researchCity.contacts": "Kontakte",
-
   "drawer.help": "❔ Hilfe",
   "drawer.helpTitle": "Hilfe-Center",
   "help.intro": "Klare Anleitung für jeden Kundenablauf.",
@@ -313,5 +280,24 @@
   "help.tourCapture": "Nutzen Sie Karte scannen, Schild scannen oder Spracheingabe nur mit berechtigtem geschäftlichem Zweck.",
   "help.back": "Zurück",
   "help.next": "Weiter",
-  "help.finish": "Fertig"
+  "help.finish": "Fertig",
+  "common.pipelineStage": "Pipeline-Stufe",
+  "contacts.allStages": "Alle Stufen",
+  "stage.candidate": "Kandidat",
+  "stage.suspect": "Verdacht",
+  "stage.prospect": "Interessent",
+  "stage.opportunity": "Verkaufschance",
+  "stage.customer": "Kunde",
+  "stage.not_in_pipeline": "Nicht in der Pipeline",
+  "status.none": "—",
+  "status.ready": "Bereit für Kontakt",
+  "status.contacted": "Kontaktiert",
+  "status.meeting": "Termin",
+  "status.proposal": "Angebot",
+  "status.dormant": "Ruhend",
+  "status.on_hold": "Pausiert",
+  "status.dropped": "Verworfen",
+  "flag.do_not_contact": "Nicht kontaktieren",
+  "flag.email_bounced": "E-Mail unzustellbar",
+  "flag.research_exhausted": "Keine weiteren Daten auffindbar"
 }

@@ -123,7 +123,7 @@ def apply_results(state: EnrichmentState, dependencies) -> dict:
                 enriched += 1
             else:
                 not_found += 1
-                dependencies.update_contact(contact_id=contact_id, status="cannot_find_more_data")
+                dependencies.set_suppression_flag(contact_id=contact_id, flag="research_exhausted")
         except Exception as error:
             logger.warning("enrichment: update failed for contact %s — %s", contact_id, error)
     return {"enriched_count": enriched, "not_found_count": not_found}

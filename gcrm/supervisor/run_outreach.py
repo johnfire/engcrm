@@ -32,8 +32,8 @@ def main():
         check_compliance,
         fetch_page,
         finish_run,
-        get_cold_contacts,
         get_contact_interactions,
+        get_contacts_ready_for_outreach,
         get_llm,
         queue_for_approval,
         start_run,
@@ -49,7 +49,11 @@ def main():
         fetch_kwargs["neighborhood"] = args.neighborhood
     if args.min_tier:
         fetch_kwargs["min_tier"] = args.min_tier
-    fetch_fn = functools.partial(get_cold_contacts, **fetch_kwargs) if fetch_kwargs else get_cold_contacts
+    fetch_fn = (
+        functools.partial(get_contacts_ready_for_outreach, **fetch_kwargs)
+        if fetch_kwargs
+        else get_contacts_ready_for_outreach
+    )
 
     agent = create_outreach_agent(
         llm=get_llm(SMART_LLM),

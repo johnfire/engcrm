@@ -2,28 +2,17 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactSortKey } from "../services/api";
+import {
+  PIPELINE_STAGES,
+  STATUSES,
+  stageLabelKey,
+  statusLabelKey,
+} from "../services/contactState";
 
-const STATUS_FILTERS = [
-  "",
-  "cold",
-  "contacted",
-  "meeting",
-  "proposal",
-  "accepted",
-  "rejected",
-  "dropped",
-];
-
-const STATUS_LABEL_KEYS: Record<string, string> = {
-  "": "contacts.statusAll",
-  cold: "contacts.statusCold",
-  contacted: "contacts.statusContacted",
-  meeting: "contacts.statusMeeting",
-  proposal: "contacts.statusProposal",
-  accepted: "contacts.statusAccepted",
-  rejected: "contacts.statusRejected",
-  dropped: "contacts.statusDropped",
-};
+// "" is the "all" chip; the rest come from the shared vocabulary, so a value
+// added in gcrm/contact_state.py shows up here without editing this file.
+const STAGE_FILTERS = ["", ...PIPELINE_STAGES];
+const STATUS_FILTERS = ["", ...STATUSES];
 
 const PRIORITY_FILTERS = ["", "1", "2", "3", "4", "5", "unrated"];
 
@@ -43,10 +32,12 @@ const SORT_OPTIONS: {
 ];
 
 interface Props {
+  stage: string;
   status: string;
   personalPriority: string;
   sort: ContactSortKey;
   direction: "asc" | "desc";
+  onStageChange: (stage: string) => void;
   onStatusChange: (status: string) => void;
   onPriorityChange: (priority: string) => void;
   onSortChange: (sort: ContactSortKey, direction: "asc" | "desc") => void;
@@ -75,10 +66,12 @@ function ChipRow({
 }
 
 export function ContactListControls({
+  stage,
   status,
   personalPriority,
   sort,
   direction,
+  onStageChange,
   onStatusChange,
   onPriorityChange,
   onSortChange,
@@ -86,11 +79,21 @@ export function ContactListControls({
   const { t } = useTranslation();
   return (
     <>
-      <ChipRow>
+      <ChipRow label={t("common.pipelineStage")}>
+        {STAGE_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter}
+            label={filter === "" ? t("contacts.allStages") : t(stageLabelKey(filter))}
+            isActive={stage === filter}
+            onPress={() => onStageChange(filter)}
+          />
+        ))}
+      </ChipRow>
+      <ChipRow label={t("common.status")}>
         {STATUS_FILTERS.map((filter) => (
           <FilterChip
             key={filter}
-            label={t(STATUS_LABEL_KEYS[filter])}
+            label={filter === "" ? t("contacts.statusAll") : t(statusLabelKey(filter))}
             isActive={status === filter}
             onPress={() => onStatusChange(filter)}
           />

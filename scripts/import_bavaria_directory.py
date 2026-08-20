@@ -35,8 +35,6 @@ from gcrm.tools.db_audit import log_audit  # noqa: E402
 from gcrm.tools.db_contacts import save_contact  # noqa: E402
 from gcrm.tools.db_people import save_person  # noqa: E402
 
-STATUS = "candidate"
-
 
 def normalise_website(raw: str) -> str:
     """The directory lists bare domains ("zollhof.de"); the CRM stores URLs."""
@@ -121,7 +119,7 @@ def import_orgs(apply: bool) -> None:
                 name=row["name"], city=row["city"], country="DE", type=kind,
                 website=normalise_website(row.get("website", "")),
                 email=row.get("email", ""), phone=row.get("phone", ""),
-                notes=row.get("notes", ""), status=STATUS,
+                notes=row.get("notes", ""),
             )
             if contact_id:
                 stamp_extras(contact_id, row, SOURCE)

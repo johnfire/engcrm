@@ -21,6 +21,7 @@ from .protocols import (
     PageFetcher,
     RunFinisher,
     RunStarter,
+    SuppressionFlagSetter,
     WebSearcher,
 )
 from .state import EnrichmentState
@@ -77,6 +78,7 @@ def create_enrichment_agent(
     fetch_page: PageFetcher,
     fetch_contacts: ContactFetcher,
     update_contact: ContactUpdater,
+    set_suppression_flag: SuppressionFlagSetter,
     start_run: RunStarter,
     finish_run: RunFinisher,
 ):
@@ -92,6 +94,7 @@ def create_enrichment_agent(
         fetch_page=fetch_page,
         fetch_contacts=fetch_contacts,
         update_contact=update_contact,
+        set_suppression_flag=set_suppression_flag,
         start_run=start_run,
         finish_run=finish_run,
     )

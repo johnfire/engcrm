@@ -1,7 +1,7 @@
 """
 Tests use dummy implementations of every Protocol — no real LLM, DB, or network.
 Focus: the three ported behaviours — page fetching, language-aware queries, and
-the never-overwrite-existing-data guard (with cannot_find_more_data fallback).
+the never-overwrite-existing-data guard (with the research_exhausted fallback).
 """
 from gcrm_enrichment_agent import create_enrichment_agent
 from langchain_core.messages import AIMessage
@@ -27,7 +27,8 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
     state = {
         "searched": [],      # queries passed to web_search
         "fetched": [],       # urls passed to fetch_page
-        "updates": {},       # contact_id -> dict of kwargs written
+        "updates": {},       # contact_id -> detail fields written
+        "flags": {},         # contact_id -> suppression flag raised
         "runs": {},
     }
 
@@ -52,6 +53,9 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
     def update_contact(contact_id: int, **kwargs) -> None:
         state["updates"][contact_id] = kwargs
 
+    def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None:
+        state["flags"][contact_id] = {flag: value}
+
     def start_run(agent_name: str, input_data: dict) -> int:
         run_id = len(state["runs"]) + 1
         state["runs"][run_id] = {"agent": agent_name, "status": "running"}
@@ -66,6 +70,7 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
         fetch_page=fetch_page,
         fetch_contacts=fetch_contacts,
         update_contact=update_contact,
+        set_suppression_flag=set_suppression_flag,
         start_run=start_run,
         finish_run=finish_run,
     )
@@ -119,13 +124,13 @@ def test_never_overwrites_existing_data():
     assert result["enriched_count"] == 1
 
 
-def test_nothing_found_marks_cannot_find_more_data():
+def test_nothing_found_raises_research_exhausted():
     contacts = [{"id": 1, "name": "Ghost Co", "city": "Munich", "country": "DE"}]
     agent, state = make_tools(contacts, ['{"website": null, "email": null, "phone": null}'])
 
     result = agent.invoke({"limit": 10})
 
-    assert state["updates"][1] == {"status": "cannot_find_more_data"}
+    assert state["flags"][1] == {"research_exhausted": True}
     assert result["not_found_count"] == 1
     assert result["enriched_count"] == 0
 
@@ -198,5 +203,5 @@ def test_no_website_and_no_search_results_is_still_a_dead_end():
     result = agent.invoke({"limit": 10})
 
     assert state["fetched"] == []
-    assert state["updates"][1] == {"status": "cannot_find_more_data"}
+    assert state["flags"][1] == {"research_exhausted": True}
     assert result["not_found_count"] == 1

@@ -27,6 +27,12 @@ class ContactUpdater(Protocol):
     def __call__(self, contact_id: int, **kwargs) -> None: ...
 
 
+class SuppressionFlagSetter(Protocol):
+    """Raise or clear one suppression fact about a contact."""
+
+    def __call__(self, contact_id: int, flag: str, value: bool = True) -> None: ...
+
+
 class RunStarter(Protocol):
     def __call__(self, agent_name: str, input_data: dict) -> int: ...
 

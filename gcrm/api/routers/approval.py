@@ -70,7 +70,11 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
         with db() as conn:
             cur = conn.cursor()
             cur.execute(
-                "UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s AND status IN ('cold', 'on_hold')",
+                """
+                UPDATE contacts
+                SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
+                WHERE id = %s AND status IN ('ready', 'on_hold')
+                """,
                 (contact_id,),
             )
         return success, "sent" if success else "approved_unsent"
@@ -148,7 +152,11 @@ def reject(request: Request, item_id: int, note: str = Form(default=""), _admin:
         if not row:
             raise HTTPException(status_code=404, detail="Item not found or already reviewed")
         cur.execute(
-            "UPDATE contacts SET status = 'dropped', updated_at = NOW() WHERE id = %s",
+            """
+            UPDATE contacts
+            SET pipeline_stage = 'not_in_pipeline', status = 'dropped', updated_at = NOW()
+            WHERE id = %s
+            """,
             (row["contact_id"],),
         )
         items = _fetch_pending(conn)

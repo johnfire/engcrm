@@ -3,7 +3,7 @@ Read-only data-quality audit of the contacts table. Changes nothing.
 
     uv run python scripts/audit_contact_data.py
 
-Four checks, each for a failure this CRM has actually suffered:
+Five checks, each for a failure this CRM has actually suffered:
 
   1. unfetchable website  — a value with no http(s) scheme is rejected by the
      SSRF guard, so every fetch for that contact silently returns "". 18 rows
@@ -14,6 +14,8 @@ Four checks, each for a failure this CRM has actually suffered:
      portal or group site rather than the individual business.
   4. email/website mismatch — usually benign (same firm, second domain), but it
      is how a city-hall address on a Gruenderzentrum was spotted.
+  5. odd stage/status pair — a combination outside the expected ones, e.g. a
+     candidate carrying a proposal. Legal and sometimes correct; worth a look.
 
 Checks 2 and 4 are heuristics and report false positives by design: German firms
 trade under initials (kl-mw.de for KL Mechanische Werkstaette) and municipally
@@ -28,6 +30,7 @@ from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from gcrm.contact_state import is_typical  # noqa: E402
 from gcrm.db.connection import db  # noqa: E402
 
 UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
@@ -100,8 +103,8 @@ def section(title: str, rows: list[str], note: str = "") -> None:
 def main() -> int:
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id, name, website, email FROM contacts "
-                    "WHERE deleted_at IS NULL ORDER BY id")
+        cur.execute("SELECT id, name, website, email, pipeline_stage, status "
+                    "FROM contacts WHERE deleted_at IS NULL ORDER BY id")
         contacts = [dict(r) for r in cur.fetchall()]
 
     with_site = [c for c in contacts if (c["website"] or "").strip()]
@@ -130,6 +133,13 @@ def main() -> int:
     section("DOMAIN SHARED BY SEVERAL CONTACTS", [
         f"{len(cs):>3}x  {d[:40]:<40} e.g. {cs[0]['name'][:28]}" for d, cs in shared
     ], "a chain, portal or directory rather than each business's own site")
+
+    odd_state = [
+        f"[{c['id']:>4}] {(c['name'] or '')[:30]:<30} {c['pipeline_stage']} / {c['status']}"
+        for c in contacts if not is_typical(c["pipeline_stage"], c["status"])
+    ]
+    section("UNUSUAL STAGE / STATUS COMBINATION", odd_state,
+            "allowed, but rarely what you meant — check the ones you did not set by hand")
 
     email_diff = []
     for c in with_site:

@@ -30,7 +30,6 @@
   "common.pageOf": "Seite {{page}} von {{totalPages}}",
   "common.never": "nie",
   "common.passwordTooShort": "Verwenden Sie ein Passwort mit mindestens 12 Zeichen.",
-
   "nav.brand": "AI-CRM Leads",
   "nav.approvals": "Freigaben",
   "nav.contacts": "Kontakte",
@@ -67,7 +66,6 @@
   "privacy.noTrackingText": "Die Webanwendung nutzt nur das für den angemeldeten Betrieb erforderliche Session-Cookie. Sie nutzt keine Analyse-, Werbe- oder Tracking-Cookies.",
   "privacy.impressumLink": "Impressum",
   "privacy.back": "Zur Anmeldung",
-
   "login.pageTitle": "EngCRM — Anmeldung",
   "login.title": "EngCRM Supervisor",
   "login.emailPlaceholder": "E-Mail",
@@ -79,14 +77,12 @@
   "login.forgotPassword": "Passwort vergessen?",
   "login.createAccount": "Konto mit Einladung erstellen",
   "login.resetSuccess": "Passwort zurückgesetzt — melden Sie sich mit dem neuen Passwort an.",
-
   "forgotPassword.pageTitle": "EngCRM — Passwort vergessen",
   "forgotPassword.title": "Passwort vergessen?",
   "forgotPassword.hint": "Geben Sie Ihre Konto-E-Mail ein — wir senden Ihnen einen Link zum Zurücksetzen.",
   "forgotPassword.sentMessage": "Falls ein Konto mit dieser E-Mail existiert, haben wir einen Link zum Zurücksetzen gesendet. Er ist 1 Stunde gültig — prüfen Sie Ihren Posteingang.",
   "forgotPassword.submit": "Link senden",
   "forgotPassword.backToSignIn": "Zurück zur Anmeldung",
-
   "resetPassword.pageTitle": "EngCRM — Passwort zurücksetzen",
   "resetPassword.title": "Neues Passwort festlegen",
   "resetPassword.invalidLink": "Dieser Link ist ungültig oder abgelaufen.",
@@ -94,7 +90,6 @@
   "resetPassword.newPasswordPlaceholder": "Neues Passwort",
   "resetPassword.submit": "Passwort zurücksetzen",
   "resetPassword.errorGeneric": "Der Link ist ungültig oder abgelaufen, oder das Passwort ist zu kurz (mind. 12 Zeichen).",
-
   "signup.pageTitle": "Konto erstellen",
   "signup.title": "Konto erstellen",
   "signup.emailLabel": "E-Mail",
@@ -104,7 +99,6 @@
   "signup.submit": "Konto erstellen",
   "signup.signIn": "Anmelden",
   "signup.invitationInvalid": "Die Einladung ist ungültig, abgelaufen oder bereits verwendet.",
-
   "settings.title": "Kontoeinstellungen",
   "settings.changePasswordHeader": "Passwort ändern",
   "settings.currentPasswordLabel": "Aktuelles Passwort",
@@ -115,7 +109,6 @@
   "settings.logout": "Abmelden",
   "settings.languageHeader": "Sprache",
   "settings.languageSaved": "Sprache aktualisiert.",
-
   "impressum.pageTitle": "EngCRM — Impressum",
   "impressum.title": "Impressum",
   "impressum.subtitle": "Angaben gemäß § 5 DDG",
@@ -124,7 +117,6 @@
   "impressum.disputeHeader": "EU-Streitschlichtung",
   "impressum.disputeText": "Die Europäische Kommission stellt eine Plattform zur Online-Streitbeilegung (OS) bereit: {{link}}. Wir sind nicht verpflichtet und nicht bereit, an einem Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen.",
   "impressum.back": "← Zurück",
-
   "activity.title": "Aktivitäts-Feed",
   "activity.pending": "Ausstehend",
   "activity.approved": "Freigegeben",
@@ -135,7 +127,6 @@
   "activity.duration": "Dauer",
   "activity.running": "läuft…",
   "activity.noRuns": "Noch keine Agent-Läufe.",
-
   "approval.title": "Freigabe-Warteschlange",
   "approval.pendingCount": "{{count}} ausstehend",
   "approval.noPending": "Keine ausstehenden Freigaben.",
@@ -151,7 +142,6 @@
   "approval.rejectReasonPlaceholder": "Grund (optional)",
   "approval.delete": "Löschen",
   "approval.deleteConfirm": "Diesen Entwurf endgültig löschen?",
-
   "contactBrief.atAGlance": "Auf einen Blick",
   "contactBrief.decisionMaker": "Entscheidungsträger",
   "contactBrief.bestTime": "Beste Zeit",
@@ -175,7 +165,6 @@
   "contactBrief.searchCompanyHint": "Es wird nach dem Firmennamen „{{name}}“ gefragt — dort danach suchen.",
   "contactBrief.editRecord": "Datensatz bearbeiten",
   "contactBrief.allContacts": "← Alle Kontakte",
-
   "contactDetail.saved": "Gespeichert.",
   "contactDetail.basicInfo": "Basisinformationen",
   "contactDetail.fitScore": "Fit-Score",
@@ -216,7 +205,6 @@
   "contactDetail.runOpportunityAnalysis": "Chancenanalyse starten",
   "contactDetail.opportunityAnalysisRunning": "Die Unternehmenswebsite wird abgerufen, Hinweise werden geprüft und Empfehlungen erstellt. Das kann einen Moment dauern.",
   "contactDetail.opportunityAnalysisWorking": "Recherche und Analyse läuft…",
-
   "personalPriority.title": "Persönliche Priorität",
   "personalPriority.short": "Meine",
   "personalPriority.privateHint": "Nur Sie können diese Bewertung sehen.",
@@ -232,7 +220,6 @@
   "personalPriority.saved": "Persönliche Priorität gespeichert.",
   "personalPriority.saveFailed": "Speichern fehlgeschlagen. Bitte erneut versuchen.",
   "personalPriority.accountRequired": "Melden Sie sich mit einem persönlichen Konto an, um diesen Interessenten zu bewerten.",
-
   "contacts.title": "Kontakte",
   "contacts.totalPage": "{{total}} gesamt — Seite {{page}} von {{totalPages}}",
   "contacts.searchPlaceholder": "Name oder Stadt suchen…",
@@ -252,10 +239,8 @@
   "contacts.keep": "behalten",
   "contacts.star": "Markieren",
   "contacts.unstar": "Markierung aufheben",
-
   "contactsPrint.totalContacts": "{{total}} Kontakte · {{date}}",
   "contactsPrint.colFit": "Fit",
-
   "drafts.title": "Zurückgehaltene Entwürfe",
   "drafts.onHold_one": "{{count}} E-Mail zurückgehalten",
   "drafts.onHold_other": "{{count}} E-Mails zurückgehalten",
@@ -266,12 +251,10 @@
   "draftsList.send": "Senden",
   "draftsList.drop": "Verwerfen",
   "draftsList.noDrafts": "Keine zurückgehaltenen Entwürfe.",
-
   "dropped.title": "Abgelehnte Interessenten",
   "dropped.totalCount": "{{count}} gesamt",
   "dropped.rejected": "Abgelehnt am {{date}}",
   "dropped.noRejected": "Noch keine abgelehnten Interessenten.",
-
   "inbox.title": "Posteingang-Antworten",
   "inbox.classifiedCount": "{{total}} klassifiziert in den letzten {{days}} Tagen",
   "inbox.allReplies": "Alle Antworten",
@@ -281,7 +264,6 @@
   "inbox.classification": "Klassifizierung",
   "inbox.snippet": "Auszug",
   "inbox.flaggedForVisit": "Für Besuch in der Nähe markiert",
-
   "marketing.title": "Marketing",
   "marketing.weeklyDigest": "Wöchentliches Strategie-Digest",
   "marketing.digestHeader": "Digest — {{date}}",
@@ -289,14 +271,12 @@
   "marketing.strategies": "Strategien",
   "marketing.priority": "Priorität",
   "marketing.lastReviewed": "Zuletzt geprüft",
-
   "people.title": "Personen",
   "people.shownCount": "{{count}} angezeigt",
   "people.searchPlaceholder": "Name, Stadt oder E-Mail suchen…",
   "people.relationship": "Beziehung",
   "people.metAt": "Kennengelernt bei",
   "people.noPeopleFound": "Keine Personen gefunden.",
-
   "personDetail.saved": "Gespeichert.",
   "personDetail.details": "Person",
   "personDetail.context": "Kontext",
@@ -305,7 +285,6 @@
   "personDetail.source": "Quelle",
   "personDetail.backToList": "Zurück zu Personen",
   "personDetail.metAtPlaceholder": "Veranstaltung, Ort oder Anlass",
-
   "research.title": "Recherche",
   "research.statsLine": "{{total}} Städte — {{level1Done}} Level 1 erledigt — {{unscanned}} nicht gescannt",
   "research.queued": "{{stage}} eingereiht — Fortschritt auf der Aktivitäts-Seite verfolgen.",
@@ -336,7 +315,6 @@
   "research.notYetRun": "Noch nicht ausgeführt",
   "research.emailedTooltip": "{{count}} kontaktiert",
   "research.legend": "● = abgeschlossen  ◐ = teilweise (mehr zu scannen)  ○ = nicht ausgeführt",
-
   "users.title": "Benutzer",
   "users.addUser": "Benutzer hinzufügen",
   "users.emailPlaceholder": "email@domain.com",
@@ -361,7 +339,6 @@
   "users.passwordResetFor": "Passwort für {{email}} zurückgesetzt.",
   "users.enabledFlash": "{{email}} aktiviert.",
   "users.disabledFlash": "{{email}} deaktiviert.",
-
   "nav.help": "Hilfe",
   "help.title": "Hilfe-Center",
   "help.subtitle": "Klare Anleitung für jeden Kundenablauf.",
@@ -395,8 +372,8 @@
   "help.bodyEn": "Englischer Artikel",
   "help.bodyDe": "Deutscher Artikel",
   "help.saveArticle": "Artikel speichern",
-  "help.existingArticles": "Vorhandene Artikel"
-  ,"help.contextLabel": "Kontextbezogene Hilfe",
+  "help.existingArticles": "Vorhandene Artikel",
+  "help.contextLabel": "Kontextbezogene Hilfe",
   "help.researchContextTitle": "Recherche ist entwurfssicher.",
   "help.researchContext": "Sie startet Recherche und Analyse, versendet aber keine erste E-Mail.",
   "help.approvalsContextTitle": "Sie behalten die Kontrolle.",
@@ -406,5 +383,29 @@
   "settings.aiBackendsHint": "Gilt für künftige Hintergrundläufe. DeepSeek kann personenbezogene Daten nach China übermitteln; Anbieter- und Transfergarantien müssen geprüft bleiben.",
   "settings.routineModel": "Routineaufgaben",
   "settings.writingModel": "Texte und Nachfassaktionen",
-  "settings.aiBackendsSaved": "KI-Backends gespeichert"
+  "settings.aiBackendsSaved": "KI-Backends gespeichert",
+  "common.pipelineStage": "Pipeline-Stufe",
+  "contacts.allStages": "Alle Stufen",
+  "contacts.suppression": "Sperren",
+  "contacts.anySuppression": "Alle Sperren",
+  "stage.candidate": "Kandidat",
+  "stage.suspect": "Verdacht",
+  "stage.prospect": "Interessent",
+  "stage.opportunity": "Verkaufschance",
+  "stage.customer": "Kunde",
+  "stage.not_in_pipeline": "Nicht in der Pipeline",
+  "status.none": "—",
+  "status.ready": "Bereit für Kontakt",
+  "status.contacted": "Kontaktiert",
+  "status.meeting": "Termin",
+  "status.proposal": "Angebot",
+  "status.dormant": "Ruhend",
+  "status.on_hold": "Pausiert",
+  "status.dropped": "Verworfen",
+  "flag.do_not_contact": "Nicht kontaktieren",
+  "flag.email_bounced": "E-Mail unzustellbar",
+  "flag.research_exhausted": "Keine weiteren Daten auffindbar",
+  "flagShort.do_not_contact": "Sperre",
+  "flagShort.email_bounced": "unzustellbar",
+  "flagShort.research_exhausted": "keine Daten"
 }

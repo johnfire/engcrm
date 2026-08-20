@@ -81,11 +81,16 @@ def save_inbox_classification(
 
 
 def mark_bad_email(contact_id: int) -> None:
-    """Mark a contact's email undeliverable: status='bad_email' + log a bounce interaction."""
+    """Mark a contact's email undeliverable and log a bounce interaction.
+
+    A bounce says nothing about where the relationship stands, so it raises the
+    email_bounced flag and leaves stage and status alone — a contact with a
+    meeting booked keeps the meeting.
+    """
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE contacts SET status = 'bad_email', updated_at = NOW() WHERE id = %s",
+            "UPDATE contacts SET email_bounced = TRUE, updated_at = NOW() WHERE id = %s",
             (contact_id,),
         )
         cur.execute(
@@ -96,8 +101,8 @@ def mark_bad_email(contact_id: int) -> None:
             """,
             (contact_id,),
         )
-        logger.info("mark_bad_email: contact_id=%d marked as bad_email", contact_id)
-    log_audit(None, None, "contact.bad_email", f"contact:{contact_id}", "bad_email")
+        logger.info("mark_bad_email: contact_id=%d email_bounced", contact_id)
+    log_audit(None, None, "contact.email_bounced", f"contact:{contact_id}", "true")
 
 
 def set_visit_when_nearby(contact_id: int) -> None:

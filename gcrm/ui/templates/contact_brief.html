@@ -144,7 +144,7 @@
         <span
           class="badge badge-{{ contact.status }}"
           style="margin-left: 0.5rem"
-          >{{ contact.status }}</span
+          >{{ t('status.' ~ contact.status) }}</span
         >
         {% if contact.fit_score is not none %}<span class="fit-score"
           >{{ contact.fit_score }}/100</span

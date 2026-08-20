@@ -1,6 +1,7 @@
 import axios from "axios";
 import { router } from "expo-router";
 import { clearToken, getToken } from "./auth";
+import { ContactStatus, PipelineStage } from "./contactState";
 
 export const API_BASE = "https://engcrm.christopherrehm.de";
 
@@ -154,6 +155,7 @@ export type ContactSortKey = "created_at" | "name" | "type" | "personal_priority
 
 export async function fetchContacts(params: {
   search?: string;
+  stage?: string;
   status?: string;
   page?: number;
   sort?: ContactSortKey;
@@ -361,7 +363,11 @@ export interface Contact {
   city: string;
   country: string;
   type: string;
-  status: string;
+  pipeline_stage: PipelineStage;
+  status: ContactStatus;
+  do_not_contact: boolean;
+  email_bounced: boolean;
+  research_exhausted: boolean;
   email: string | null;
   website: string | null;
   fit_score: number | null;
@@ -596,7 +602,9 @@ export interface ReconContact {
   rating: number | null;
   user_ratings: number | null;
   business_status: string | null;
-  status: string | null;
+  pipeline_stage: PipelineStage | null;
+  status: ContactStatus | null;
+  do_not_contact: boolean;
   fit_score: number | null;
   phone: string | null;
   website: string | null;

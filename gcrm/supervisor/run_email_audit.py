@@ -27,10 +27,10 @@ from gcrm.supervisor.logging_setup import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# Statuses that mean "we already have contact" — don't downgrade these
-ACTIVE_STATUSES = {"contacted", "networking_visit", "meeting", "accepted", "on_hold", "closed"}
-# Statuses that should be upgraded to 'contacted' if email was found in Sent
-UPGRADEABLE_STATUSES = {"cold", "candidate", "dormant", "lead_unverified", "maybe"}
+# Statuses that already say "we have reached this contact" — never downgrade
+ACTIVE_STATUSES = {"contacted", "meeting", "proposal", "on_hold"}
+# Statuses that should become 'contacted' when the address turns up in Sent
+UPGRADEABLE_STATUSES = {"none", "ready", "dormant"}
 
 
 def fetch_sent_recipients(imap_host: str, imap_port: int, username: str, password: str) -> set[str]:
@@ -125,7 +125,7 @@ def main():
                 already_ok.append(contact)
             elif contact["status"] in UPGRADEABLE_STATUSES:
                 to_fix.append(contact)
-            # dropped / do_not_contact — leave alone
+            # 'dropped' and anything suppressed — leave alone
         else:
             not_found.append(contact)
 

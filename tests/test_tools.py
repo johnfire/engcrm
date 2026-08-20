@@ -78,7 +78,7 @@ class TestCheckCompliance:
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
             {"opt_out": False, "erasure_requested": False},
-            {"name": "Galerie Nord", "status": "cold"},
+            {"name": "Galerie Nord", "do_not_contact": False},
         ]
 
         with patch("gcrm.tools.db.db") as mock_db:
@@ -92,7 +92,7 @@ class TestCheckCompliance:
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
             None,                    # no consent_log row
-            {"name": "Galerie Sud", "status": "cold"},
+            {"name": "Galerie Sud", "do_not_contact": False},
         ]
 
         with patch("gcrm.tools.db.db") as mock_db:

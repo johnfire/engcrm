@@ -35,7 +35,9 @@ def make_mock_conn(*fetchall_sequences, fetchone_sequence=None):
 
 CONTACT_ROW = {
     "id": 1, "name": "Acme GmbH", "city": "Augsburg", "country": "DE", "type": "Handwerksbetrieb",
-    "status": "candidate", "email": "a@acme.de", "website": "https://acme.de", "fit_score": 80,
+    "pipeline_stage": "candidate", "status": "none",
+    "do_not_contact": False, "email_bounced": False, "research_exhausted": False,
+    "email": "a@acme.de", "website": "https://acme.de", "fit_score": 80,
     "notes": "Test note", "flagged": False, "starred": False,
     "personal_priority": None, "last_contact": None,
 }
@@ -116,7 +118,10 @@ class TestContactsPage:
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn(
                     [CONTACT_ROW],  # contacts rows
-                    [{"status": "candidate"}, {"status": "cold"}],  # distinct statuses
+                    [  # status/stage counts
+                        {"status": "none", "pipeline_stage": "candidate", "cnt": 4},
+                        {"status": "ready", "pipeline_stage": "suspect", "cnt": 2},
+                    ],
                     [{"type": "Handwerksbetrieb"}],  # distinct types
                     fetchone_sequence=[{"cnt": 1}],
                 )
@@ -145,7 +150,7 @@ class TestContactsPage:
         try:
             conn, cur = make_mock_conn(
                 [{**CONTACT_ROW, "starred": True}],
-                [{"status": "candidate"}],
+                [{"status": "none", "pipeline_stage": "candidate", "cnt": 1}],
                 [{"type": "Handwerksbetrieb"}],
                 fetchone_sequence=[{"cnt": 1}],
             )

@@ -35,10 +35,10 @@ from gcrm.tools import (
     finish_run,
     get_candidates,
     get_city_market_context,
-    get_cold_contacts,
     get_contact_interactions,
     get_contacts_needing_enrichment,
     get_contacts_needing_opportunity_analysis,
+    get_contacts_ready_for_outreach,
     get_existing_contact_names,
     get_llm,
     get_overdue_contacts,
@@ -54,10 +54,10 @@ from gcrm.tools import (
     save_inbox_classification,
     save_opportunity_analysis,
     search_gcrm_thoughts,
+    set_contact_state,
     set_opt_out,
     set_visit_when_nearby,
     start_run,
-    update_contact,
     update_contact_details,
     web_search,
 )
@@ -124,7 +124,7 @@ def _build_scout_agent(llm):
     return create_scout_agent(
         llm=llm,
         fetch_candidates=get_candidates,
-        update_contact=update_contact,
+        set_contact_state=set_contact_state,
         fetch_page=fetch_page,
         fetch_city_context=get_city_market_context,
         start_run=start_run,
@@ -137,7 +137,7 @@ def _build_scout_agent(llm):
 def _build_outreach_agent(llm):
     return create_outreach_agent(
         llm=llm,
-        fetch_ready_contacts=get_cold_contacts,
+        fetch_ready_contacts=get_contacts_ready_for_outreach,
         fetch_interactions=get_contact_interactions,
         fetch_page=fetch_page,
         check_compliance=check_compliance,

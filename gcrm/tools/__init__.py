@@ -13,9 +13,9 @@ from .db import (
     get_cities,
     get_city_market_context,
     get_city_scan_status,
-    get_cold_contacts,
     get_contact_interactions,
     get_contacts_needing_enrichment,
+    get_contacts_ready_for_outreach,
     get_existing_contact_names,
     get_ignored_chains,
     get_outreach_outcomes,
@@ -32,11 +32,12 @@ from .db import (
     save_contact,
     save_inbox_classification,
     save_inbox_message,
+    set_contact_state,
     set_opt_out,
+    set_suppression_flag,
     set_visit_when_nearby,
     start_run,
     update_city_market,
-    update_contact,
     update_contact_details,
 )
 from .db_opportunities import (
@@ -50,7 +51,8 @@ from .memory import capture_thought, search_gcrm_thoughts
 from .search import fetch_page, geo_search, google_maps_search, web_search
 
 __all__ = [
-    "save_contact", "get_existing_contact_names", "get_candidates", "get_cold_contacts", "update_contact",
+    "save_contact", "get_existing_contact_names", "get_candidates",
+    "get_contacts_ready_for_outreach", "set_contact_state", "set_suppression_flag",
     "get_contacts_needing_enrichment", "update_contact_details",
     "get_contacts_needing_opportunity_analysis", "get_latest_opportunity_analysis",
     "save_opportunity_analysis",

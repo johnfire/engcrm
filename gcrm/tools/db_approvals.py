@@ -42,15 +42,20 @@ def check_compliance(contact_id: int) -> bool:
         consent = cursor.fetchone()
         if consent and (consent["opt_out"] or consent["erasure_requested"]):
             return False
-        cursor.execute("SELECT name, status FROM contacts WHERE id = %s", (contact_id,))
+        cursor.execute("SELECT name, do_not_contact FROM contacts WHERE id = %s", (contact_id,))
         contact = cursor.fetchone()
         return bool(
-            contact and contact["name"] != "[removed]" and contact["status"] != "do_not_contact"
+            contact and contact["name"] != "[removed]" and not contact["do_not_contact"]
         )
 
 
 def set_opt_out(contact_id: int) -> None:
-    """Record an opt-out and immediately prevent further outreach."""
+    """Record an opt-out and immediately prevent further outreach.
+
+    The flag rides alongside the pipeline position rather than replacing it, so
+    an organization that opted out at proposal stage still reads as one that got
+    that far — and no later status edit can quietly un-suppress it.
+    """
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -58,7 +63,7 @@ def set_opt_out(contact_id: int) -> None:
             (contact_id,),
         )
         cursor.execute(
-            "UPDATE contacts SET status = 'do_not_contact', updated_at = NOW() WHERE id = %s",
+            "UPDATE contacts SET do_not_contact = TRUE, updated_at = NOW() WHERE id = %s",
             (contact_id,),
         )
     log_audit(None, None, "contact.opted_out", f"contact:{contact_id}", "do_not_contact")

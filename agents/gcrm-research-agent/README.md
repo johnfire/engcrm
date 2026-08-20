@@ -1,6 +1,6 @@
 # gcrm-research-agent
 
-LangGraph agent that researches cities and industries for potential contacts. Saves results to the database as `status=candidate` for the scout agent to score.
+LangGraph agent that researches cities and industries for potential contacts. Saves results to the database at the `candidate` stage for the scout agent to score.
 
 ## What it does
 

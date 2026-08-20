@@ -39,8 +39,8 @@ def main():
         get_candidates,
         get_city_market_context,
         get_llm,
+        set_contact_state,
         start_run,
-        update_contact,
     )
 
     if args.skip_scoring:
@@ -61,7 +61,7 @@ def main():
     agent = create_scout_agent(
         llm=get_llm(CHEAP_LLM),
         fetch_candidates=fetch_candidates,
-        update_contact=update_contact,
+        set_contact_state=set_contact_state,
         fetch_page=fetch_page,
         fetch_city_context=get_city_market_context,
         start_run=start_run,

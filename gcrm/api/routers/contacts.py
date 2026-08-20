@@ -7,6 +7,13 @@ from pydantic import BaseModel
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
+from gcrm.contact_state import (
+    PIPELINE_STAGES,
+    STATUSES,
+    SUPPRESSION_FLAGS,
+    coerce_stage,
+    coerce_status,
+)
 from gcrm.db.connection import db
 from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
 from gcrm.tools.db_audit import log_audit
@@ -15,11 +22,8 @@ from gcrm.tools.privacy_retention import erase_contact
 
 router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
 
-VALID_STATUSES = (
-    "candidate", "cold", "contacted", "meeting", "proposal",
-    "accepted", "rejected", "dormant", "on_hold", "dropped", "do_not_contact",
-    "networking_visit", "bad_email", "cannot_find_more_data",
-)
+# The vocabulary lives in gcrm/contact_state.py — every picker and filter on
+# the site reads it from there so they cannot drift apart again.
 
 PAGE_SIZE = 100
 
@@ -51,7 +55,9 @@ def _priority_join(user_id: int | None) -> tuple[str, list]:
     )
 
 
-def _build_contact_filters(status, type, q, has_contact, personal_priority="", workspace_id=None):
+def _build_contact_filters(
+    status, type, q, has_contact, personal_priority="", workspace_id=None, stage="", suppressed="",
+):
     """Build the WHERE clause + bound params for the contact list from the query
     filters. The name/city search is a parenthesized OR so it can't leak past an
     AND — don't regress that."""
@@ -60,6 +66,11 @@ def _build_contact_filters(status, type, q, has_contact, personal_priority="", w
     if status:
         conditions.append("c.status = %s")
         params.append(status)
+    if stage:
+        conditions.append("c.pipeline_stage = %s")
+        params.append(stage)
+    if suppressed in SUPPRESSION_FLAGS:
+        conditions.append(f"c.{suppressed} = TRUE")
     if type:
         conditions.append("lower(c.type) = lower(%s)")
         params.append(type)
@@ -84,8 +95,15 @@ def _build_contact_filters(status, type, q, has_contact, personal_priority="", w
 
 
 def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None):
-    """Run the count + page queries for the given filters and gather the distinct
-    status/type option lists. Returns (contacts, statuses, types, total)."""
+    """Run the count + page queries for the given filters, and gather the option
+    lists for the filter bar. Returns (contacts, status_counts, stage_counts,
+    types, total).
+
+    The status and stage options are the full vocabulary with a count each, not
+    the distinct values present in the data. The old DISTINCT query meant the
+    filter only ever offered statuses some row already had — with three statuses
+    in use it looked like the CRM had three statuses, and a stage nobody had
+    reached yet was unreachable and invisible."""
     with db() as conn:
         cur = conn.cursor()
         priority_join, priority_params = _priority_join(user_id)
@@ -100,7 +118,9 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None
         cur.execute(
             f"""
             SELECT
-                c.id, c.name, c.city, c.country, c.type, c.status,
+                c.id, c.name, c.city, c.country, c.type,
+                c.pipeline_stage, c.status,
+                c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact
@@ -119,11 +139,18 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None
         workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""
         workspace_params = [workspace_id] if workspace_id is not None else []
         cur.execute(
-            f"SELECT DISTINCT status FROM contacts "
-            f"WHERE status IS NOT NULL{workspace_filter} ORDER BY status",
+            f"SELECT status, pipeline_stage, COUNT(*) AS cnt FROM contacts "
+            f"WHERE deleted_at IS NULL{workspace_filter} GROUP BY status, pipeline_stage",
             workspace_params,
         )
-        statuses = [row["status"] for row in cur.fetchall()]
+        rows = cur.fetchall()
+        status_counts = {value: 0 for value in STATUSES}
+        stage_counts = {value: 0 for value in PIPELINE_STAGES}
+        for row in rows:
+            if row["status"] in status_counts:
+                status_counts[row["status"]] += row["cnt"]
+            if row["pipeline_stage"] in stage_counts:
+                stage_counts[row["pipeline_stage"]] += row["cnt"]
 
         cur.execute(
             f"SELECT DISTINCT type FROM contacts "
@@ -132,13 +159,15 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None
         )
         types = [row["type"] for row in cur.fetchall()]
 
-    return contacts, statuses, types, total
+    return contacts, status_counts, stage_counts, types, total
 
 
 @router.get("/", response_class=HTMLResponse)
 def contact_list(
     request: Request,
     status: str = Query(default=""),
+    stage: str = Query(default=""),
+    suppressed: str = Query(default=""),
     type: str = Query(default=""),
     q: str = Query(default=""),
     has_contact: str = Query(default=""),
@@ -154,9 +183,9 @@ def contact_list(
     user_id = request.session.get("user_id")
     workspace_id = request.session.get("workspace_id")
     where, params = _build_contact_filters(
-        status, type, q, has_contact, personal_priority, workspace_id,
+        status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed,
     )
-    contacts, statuses, types, total = _fetch_contacts_page(
+    contacts, status_counts, stage_counts, types, total = _fetch_contacts_page(
         where, params, sort_col, sort_dir, offset, user_id, workspace_id,
     )
 
@@ -165,9 +194,13 @@ def contact_list(
     return templates.TemplateResponse("contacts.html", {
         "request": request,
         "contacts": contacts,
-        "statuses": statuses,
+        "status_counts": status_counts,
+        "stage_counts": stage_counts,
+        "suppression_flags": SUPPRESSION_FLAGS,
         "types": types,
         "active_status": status,
+        "active_stage": stage,
+        "active_suppressed": suppressed,
         "active_type": type,
         "query": q,
         "has_contact": has_contact,
@@ -206,7 +239,9 @@ def contact_print(
         cur.execute(
             f"""
             SELECT
-                c.id, c.name, c.city, c.country, c.type, c.status,
+                c.id, c.name, c.city, c.country, c.type,
+                c.pipeline_stage, c.status,
+                c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes,
                 cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact
@@ -308,7 +343,9 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
         "contact": contact,
         "interactions": interactions,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
-        "valid_statuses": VALID_STATUSES,
+        "pipeline_stages": PIPELINE_STAGES,
+        "statuses": STATUSES,
+        "suppression_flags": SUPPRESSION_FLAGS,
         "saved": saved,
         "opportunity_flash": request.session.pop("opportunity_flash", None),
     })
@@ -369,9 +406,10 @@ def analyse_selected_contact(
     return local_redirect(f"/contacts/{contact_id}")
 
 
-def _persist_contact_edit(contact_id, text_fields, fit_score):
+def _persist_contact_edit(contact_id, text_fields, fit_score, flags=None):
     """Normalize blank strings to NULL, parse the numeric fit_score, and write the
-    contact row. text_fields maps column name -> submitted string."""
+    contact row. text_fields maps column name -> submitted string; flags maps
+    suppression column -> bool, written as-is since a false flag is meaningful."""
     def empty_none(value):
         return value if value and value.strip() else None
 
@@ -384,6 +422,7 @@ def _persist_contact_edit(contact_id, text_fields, fit_score):
 
     updates = {column: empty_none(value) for column, value in text_fields.items()}
     updates["fit_score"] = score
+    updates.update(flags or {})
 
     assignments = ", ".join(f"{column} = %s" for column in updates)
     values = list(updates.values()) + [contact_id]
@@ -404,7 +443,11 @@ def contact_edit(
     city: str = Form(""),
     country: str = Form(""),
     type: str = Form(""),
+    pipeline_stage: str = Form(""),
     status: str = Form(""),
+    do_not_contact: bool = Form(False),
+    email_bounced: bool = Form(False),
+    research_exhausted: bool = Form(False),
     fit_score: Optional[str] = Form(None),
     email: str = Form(""),
     phone: str = Form(""),
@@ -425,7 +468,8 @@ def contact_edit(
     _admin: str = Depends(require_admin),
 ):
     text_fields = {
-        "name": name, "city": city, "country": country, "type": type, "status": status,
+        "name": name, "city": city, "country": country, "type": type,
+        "pipeline_stage": coerce_stage(pipeline_stage), "status": coerce_status(status),
         "email": email, "phone": phone, "website": website,
         "preferred_contact_method": preferred_contact_method, "decision_maker": decision_maker,
         "last_visited_at": last_visited_at, "best_visit_time": best_visit_time,
@@ -434,7 +478,12 @@ def contact_edit(
         "followup_promised": followup_promised, "access_notes": access_notes,
         "space_notes": space_notes, "price_sensitivity": price_sensitivity, "notes": notes,
     }
-    _persist_contact_edit(contact_id, text_fields, fit_score)
+    flags = {
+        "do_not_contact": do_not_contact,
+        "email_bounced": email_bounced,
+        "research_exhausted": research_exhausted,
+    }
+    _persist_contact_edit(contact_id, text_fields, fit_score, flags)
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return local_redirect(f"/contacts/{contact_id}", saved="1")
 

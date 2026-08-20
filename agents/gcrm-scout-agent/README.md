@@ -4,16 +4,16 @@ LangGraph agent that evaluates candidate contacts and decides whether to pursue 
 
 ## What it does
 
-Fetches all contacts with `status=candidate` and splits them by type:
+Fetches all contacts at the `candidate` stage and splits them by type:
 
-- **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `status=cold` with no LLM call
+- **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `suspect` / `ready` with no LLM call
 - **Galleries** → fetches the gallery website and evaluates whether they show emerging/regional artists
 
 Gallery outcomes:
 
-- `cold` — shows emerging, regional, or mid-career artists — worth contacting
-- `maybe` — website unclear, too thin, or mixed signals — flagged for manual review
-- `dropped` — exclusively blue-chip / internationally established — not a fit
+- `fit` — worth contacting → `suspect` / `ready`
+- `unsure` — website unclear, too thin, or mixed signals — stays `candidate` / `none` for manual review
+- `no_fit` — exclusively blue-chip / internationally established → `not_in_pipeline` / `dropped`
 
 ## City market context
 
@@ -37,7 +37,7 @@ agent = create_scout_agent(
 
 result = agent.invoke({"limit": 50})
 print(result["summary"])
-# "scout_agent: 12 non-galleries auto-promoted, 5 galleries evaluated — 3 cold, 1 maybe, 1 dropped"
+# "scout_agent: 17 candidates — 15 promoted to suspect/ready, 1 left as candidates for review, 1 taken out of the pipeline (5 evaluated by LLM)"
 ```
 
 ## Protocols
@@ -48,7 +48,7 @@ All dependencies are injected. Each callable must match the Protocol defined in 
 | -------------------- | -------------------- | ----------------------------------------------------------- |
 | `llm`                | `LanguageModel`      | Any LangChain `BaseChatModel`                               |
 | `fetch_candidates`   | `CandidateFetcher`   | `(limit: int) -> list[dict]`                                |
-| `update_contact`     | `ContactUpdater`     | `(contact_id, status, fit_score, notes) -> None`            |
+| `set_contact_state`  | `ContactStateSetter` | `(contact_id, *, pipeline_stage, status, fit_score, notes) -> None` |
 | `fetch_page`         | `PageFetcher`        | `(url: str) -> str` — returns plain-text page content       |
 | `fetch_city_context` | `CityContextFetcher` | `(city, country) -> dict` — market_character + market_notes |
 | `start_run`          | `RunStarter`         | `(agent_name, input_data) -> int`                           |

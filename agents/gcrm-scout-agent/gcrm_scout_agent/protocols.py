@@ -22,13 +22,21 @@ class LanguageModel(Protocol):
 
 
 class CandidateFetcher(Protocol):
-    """Fetch contacts with status='candidate'. Returns list of contact dicts."""
+    """Fetch contacts at the 'candidate' stage. Returns list of contact dicts."""
     def __call__(self, limit: int = 50) -> list[dict]: ...
 
 
-class ContactUpdater(Protocol):
-    """Update a contact's status and fit_score in the database."""
-    def __call__(self, contact_id: int, status: str, fit_score: int, notes: str = "") -> None: ...
+class ContactStateSetter(Protocol):
+    """Place a contact on a pipeline stage and a current status, with its score."""
+    def __call__(
+        self,
+        contact_id: int,
+        *,
+        pipeline_stage: str,
+        status: str,
+        fit_score: int | None = None,
+        notes: str = "",
+    ) -> None: ...
 
 
 class PageFetcher(Protocol):

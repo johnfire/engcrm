@@ -12,7 +12,6 @@
   "common.sortNewest": "Newest",
   "common.sortAZ": "A–Z",
   "common.sortIndustry": "Industry",
-
   "drawer.approvals": "Approvals",
   "drawer.scanCard": "📷 Scan Card",
   "drawer.scanSign": "🏪 Scan Sign",
@@ -38,7 +37,6 @@
   "drawer.reconTitle": "Recon",
   "drawer.researchTitle": "Research",
   "drawer.settingsTitle": "Settings",
-
   "settings.signedInAs": "Signed in as",
   "settings.logout": "Log out",
   "settings.impressum": "Impressum",
@@ -47,7 +45,6 @@
   "settings.aiBackend": "Routine AI backend",
   "settings.languageUpdateFailedTitle": "Couldn't update language",
   "settings.languageUpdateFailedMessage": "Try again.",
-
   "login.title": "EngCRM",
   "login.subtitle": "Sign in to continue",
   "login.emailPlaceholder": "Email",
@@ -58,13 +55,11 @@
   "login.forgotPassword": "Forgot password?",
   "login.impressum": "Impressum",
   "login.privacy": "Privacy",
-
   "forgotPassword.title": "Forgot your password?",
   "forgotPassword.hint": "Enter your account email and we'll send you a reset link.",
   "forgotPassword.sentMessage": "If an account exists for that email, we've sent a link to reset your password. It's valid for 1 hour — open it in your browser to set a new one, then come back and sign in.",
   "forgotPassword.submit": "Send reset link",
   "forgotPassword.backToSignIn": "Back to sign in",
-
   "capture.hint": "Snap a business card — it gets read and turned into a lead.",
   "capture.pending_one": "{{count}} card waiting to upload — tap to retry",
   "capture.pending_other": "{{count}} cards waiting to upload — tap to retry",
@@ -80,7 +75,6 @@
   "capture.uploadFailedTitle": "Upload failed",
   "capture.uploadFailedGeneric": "Couldn't reach the server or save the card. Try again.",
   "capture.uploadFailedProcess": "Could not process the card. Try again.",
-
   "cardConfirm.duplicateWarning": "⚠ Possible duplicate",
   "cardConfirm.createNew": "Create new",
   "cardConfirm.linkExisting": "Link to existing",
@@ -106,10 +100,8 @@
   "cardConfirm.savedTitle": "Lead saved",
   "cardConfirm.savedMessage": "Enrichment is running in the background — you’ll get a notification when it’s ready.",
   "cardConfirm.couldntSaveTitle": "Couldn't save",
-
   "cardQueue.emptyTitle": "No cards waiting for review.\nScanned cards you don’t finish show up here.",
   "cardQueue.unreadCard": "Unread card",
-
   "scanSign.hint": "Snap a storefront sign — we'll look up the business and research it.",
   "scanSign.cameraPermissionMessage": "Enable camera access to scan signs.",
   "scanSign.reading": "Reading the sign…",
@@ -117,7 +109,6 @@
   "scanSign.notASignMessage": "That doesn't look like a business sign. Try again with the sign more centered.",
   "scanSign.uploadFailedTitle": "Upload failed",
   "scanSign.uploadFailedProcess": "Could not process the sign. Try again.",
-
   "signConfirm.matched": "📍 Matched on Google Places",
   "signConfirm.acceptMatch": "Accept match",
   "signConfirm.rejectMatch": "Reject — use sign text only",
@@ -127,7 +118,6 @@
   "signConfirm.enterOrConfirmMessage": "Enter or confirm a business name first.",
   "signConfirm.savedTitle": "Business saved",
   "signConfirm.savedMessage": "Researching in the background — you’ll get a notification when it’s ready.",
-
   "voice.hint": "Tap to record a note about a visit or call. It’s transcribed, matched to a contact, and logged as an interaction with a follow-up.",
   "voice.transcribing": "Transcribing…",
   "voice.recordingTapStop": "Recording… tap to stop",
@@ -136,7 +126,6 @@
   "voice.micNeededTitle": "Microphone needed",
   "voice.micNeededMessage": "Enable mic access to record voice notes.",
   "voice.couldntStartTitle": "Couldn't start recording",
-
   "voiceConfirm.heard": "Heard",
   "voiceConfirm.contact": "Contact",
   "voiceConfirm.newContact": "+ New contact",
@@ -152,21 +141,12 @@
   "voiceConfirm.savedWithFollowup": "Interaction logged with a follow-up.",
   "voiceConfirm.savedNoFollowup": "Interaction logged.",
   "voiceConfirm.couldntSaveTitle": "Couldn't save",
-
   "contacts.searchPlaceholder": "Search city, name, type...",
   "contacts.statusAll": "All",
-  "contacts.statusCold": "Cold",
-  "contacts.statusContacted": "Contacted",
-  "contacts.statusMeeting": "Meeting",
-  "contacts.statusProposal": "Proposal",
-  "contacts.statusAccepted": "Accepted",
-  "contacts.statusRejected": "Rejected",
-  "contacts.statusDropped": "Dropped",
   "contacts.sortPersonalPriority": "Personal priority",
   "contacts.priorityAll": "All ratings",
   "contacts.priorityUnrated": "Unrated",
   "contacts.notFound": "No contacts found",
-
   "contactDetail.couldntLoad": "Couldn't load — check your connection",
   "contactDetail.notFound": "Contact not found",
   "contactDetail.score": "Score: {{score}}",
@@ -197,14 +177,11 @@
   "personalPriority.clear": "Clear rating",
   "personalPriority.saving": "Saving…",
   "personalPriority.saveFailed": "Could not save. Tap a rating to try again.",
-
   "people.searchPlaceholder": "Search name, email, city...",
   "people.empty": "No people yet.\nScan a business card to add one.",
-
   "personDetail.couldntLoad": "Couldn't load — check your connection",
   "personDetail.notFound": "Person not found",
   "personDetail.metAt": "Met at",
-
   "recon.notContactedOnly": "Not contacted only",
   "recon.fitScore": "fit {{score}}",
   "recon.relocate": "↻ Re-locate",
@@ -217,9 +194,7 @@
   "recon.call": "Call",
   "recon.navigate": "Navigate",
   "recon.scanCard": "Scan card",
-
   "activity.empty": "No activity yet",
-
   "research.pipelineStatus": "Pipeline status",
   "research.city": "City",
   "research.cityPlaceholder": "e.g. München",
@@ -245,26 +220,21 @@
   "research.couldntLoadStatus": "Couldn't load research status.",
   "research.couldntLoadStatusServer": "Couldn't load status (server error {{status}}).",
   "research.hint": "Each stage runs in the background and appears on the Activity screen. Stages build on each other — research finds leads, scout scores them, enrich fills in details, outreach drafts emails for approval.",
-
   "approvals.empty": "No pending approvals",
   "approvals.couldntApproveTitle": "Couldn't approve",
   "approvals.couldntRejectTitle": "Couldn't reject",
-
   "inbox.empty": "Inbox is empty",
   "inbox.couldntClassifyTitle": "Couldn't classify",
   "inbox.classify": "Classify",
-
   "approvalCard.approve": "Approve",
   "approvalCard.reject": "Reject",
   "approvalCard.edit": "Edit",
   "approvalCard.close": "Close",
-
   "rejectSheet.title": "Reject draft",
   "rejectSheet.reasonLabel": "Reason (optional)",
   "rejectSheet.reasonPlaceholder": "e.g. Too formal, needs warmer tone",
   "rejectSheet.cancel": "Cancel",
   "rejectSheet.confirmReject": "Confirm Reject",
-
   "classifySheet.title": "Classify reply",
   "classifySheet.interested": "Interested",
   "classifySheet.warm": "Warm / Considering",
@@ -274,7 +244,6 @@
   "classifySheet.bounce": "Bounce",
   "classifySheet.other": "Other",
   "classifySheet.cancel": "Cancel",
-
   "researchOverview.cities": "cities",
   "researchOverview.l1Done": "L1 done",
   "researchOverview.unscanned": "unscanned",
@@ -283,14 +252,12 @@
   "researchOverview.total": "Total:",
   "researchOverview.contacts": "contacts",
   "researchOverview.legend": "● complete   ◐ partial (more to scan)   ○ not run",
-
   "researchCity.completeDetail": "Complete — last run {{date}}, {{count}} found{{emailedLine}}",
   "researchCity.emailedLine": "\n{{count}} emailed",
   "researchCity.partialDetail": "Partial — more to scan.\nLast run {{date}}, {{count}} so far{{emailedLine}}",
   "researchCity.notYetRun": "Not yet run",
   "researchCity.sent": "sent",
   "researchCity.contacts": "contacts",
-
   "drawer.help": "❔ Help",
   "drawer.helpTitle": "Help Centre",
   "help.intro": "Clear guidance for every customer workflow.",
@@ -313,5 +280,24 @@
   "help.tourCapture": "Use Scan Card, Scan Sign, or Voice Entry only for a legitimate business purpose.",
   "help.back": "Back",
   "help.next": "Next",
-  "help.finish": "Finish"
+  "help.finish": "Finish",
+  "common.pipelineStage": "Pipeline stage",
+  "contacts.allStages": "All stages",
+  "stage.candidate": "Candidate",
+  "stage.suspect": "Suspect",
+  "stage.prospect": "Prospect",
+  "stage.opportunity": "Opportunity",
+  "stage.customer": "Customer",
+  "stage.not_in_pipeline": "Not in pipeline",
+  "status.none": "—",
+  "status.ready": "Ready to contact",
+  "status.contacted": "Contacted",
+  "status.meeting": "Meeting",
+  "status.proposal": "Proposal",
+  "status.dormant": "Dormant",
+  "status.on_hold": "On hold",
+  "status.dropped": "Dropped",
+  "flag.do_not_contact": "Do not contact",
+  "flag.email_bounced": "Email bounced",
+  "flag.research_exhausted": "No more data findable"
 }

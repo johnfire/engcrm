@@ -44,17 +44,47 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         <input id="contact-type" type="text" name="type" value="{{ contact.type or '' }}" />
       </div>
       <div class="field-row">
-        <label for="contact-status">{{ t('common.status') }}</label>
-        <select id="contact-status" name="status">
-          {% for s in valid_statuses %}
+        <label for="contact-pipeline-stage">{{ t('common.pipelineStage') }}</label>
+        <select id="contact-pipeline-stage" name="pipeline_stage">
+          {% for stage_value in pipeline_stages %}
           <option
-            value="{{ s }}"
-            {% if s == contact.status %}selected{% endif %}
+            value="{{ stage_value }}"
+            {% if stage_value == contact.pipeline_stage %}selected{% endif %}
           >
-            {{ s }}
+            {{ t('stage.' ~ stage_value) }}
           </option>
           {% endfor %}
         </select>
+      </div>
+      <div class="field-row">
+        <label for="contact-status">{{ t('common.status') }}</label>
+        <select id="contact-status" name="status">
+          {% for status_value in statuses %}
+          <option
+            value="{{ status_value }}"
+            {% if status_value == contact.status %}selected{% endif %}
+          >
+            {{ t('status.' ~ status_value) }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row field-row--wide">
+        <span class="field-group-label">{{ t('contacts.suppression') }}</span>
+        <div class="flag-row">
+          {% for flag in suppression_flags %}
+          <label class="flag-check" for="contact-{{ flag }}">
+            <input
+              id="contact-{{ flag }}"
+              type="checkbox"
+              name="{{ flag }}"
+              value="true"
+              {% if contact[flag] %}checked{% endif %}
+            />
+            {{ t('flag.' ~ flag) }}
+          </label>
+          {% endfor %}
+        </div>
       </div>
       <div class="field-row">
         <label for="contact-fit-score">{{ t('contactDetail.fitScore') }}</label>

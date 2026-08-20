@@ -6,6 +6,14 @@ import re
 
 from psycopg2.extras import Json
 
+from gcrm.contact_state import (
+    DEFAULT_STAGE,
+    DEFAULT_STATUS,
+    SUPPRESSION_FLAGS,
+    coerce_stage,
+    coerce_status,
+    is_typical,
+)
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
@@ -74,14 +82,20 @@ def save_contact(
     phone: str = "",
     notes: str = "",
     scan_level: int | None = None,
-    status: str = "candidate",
+    pipeline_stage: str = DEFAULT_STAGE,
+    status: str = DEFAULT_STATUS,
+    research_exhausted: bool = False,
     neighborhood: str = "",
     latitude: float | None = None,
     longitude: float | None = None,
     google: dict | None = None,
 ) -> int:
     """
-    Insert a new contact (default status 'candidate').
+    Insert a new contact (a fresh `candidate` with nothing going on by default).
+
+    `research_exhausted=True` records that the research agent could find no web
+    presence at all — a fact about the data, not a pipeline position, so the
+    contact still enters as a candidate someone can work by hand.
     Returns the new contact's id on insert, or 0 if NOT newly created — i.e. an
     ignored chain, an email duplicate, or a (name, city) duplicate. Callers rely
     on this falsy value to skip/count duplicates rather than re-process a known
@@ -129,11 +143,12 @@ def save_contact(
         cur.execute(
             """
             INSERT INTO contacts
-                (name, city, country, type, website, email, phone, notes, status,
+                (name, city, country, type, website, email, phone, notes,
+                 pipeline_stage, status, research_exhausted,
                  scan_level, neighborhood, latitude, longitude,
                  business_status, rating, user_ratings, google_data, workspace_id)
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
@@ -147,7 +162,9 @@ def save_contact(
                 email or None,
                 phone or None,
                 notes or None,
-                status,
+                coerce_stage(pipeline_stage),
+                coerce_status(status),
+                research_exhausted,
                 scan_level,
                 neighborhood or None,
                 latitude,
@@ -201,17 +218,18 @@ def update_contact_google_data(contact_id: int, google: dict) -> None:
 
 
 def get_candidates(limit: int = 50) -> list[dict]:
-    """Return contacts with status='candidate'."""
+    """Return contacts still at the 'candidate' stage — not yet evaluated."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM contacts WHERE status = 'candidate' ORDER BY created_at ASC LIMIT %s",
+            "SELECT * FROM contacts WHERE pipeline_stage = 'candidate' "
+            "AND deleted_at IS NULL ORDER BY created_at ASC LIMIT %s",
             (limit,),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def get_cold_contacts(
+def get_contacts_ready_for_outreach(
     limit: int = 20,
     city: str | None = None,
     scan_level: int | None = None,
@@ -219,8 +237,13 @@ def get_cold_contacts(
     min_tier: str | None = None,
 ) -> list[dict]:
     """
-    Return contacts with status='cold' ready for first outreach, excluding any
-    already in the approval queue, best-fit first.
+    Return contacts with status='ready' — scored a fit, first email not yet
+    sent — excluding any already in the approval queue, best-fit first.
+
+    Suppression is filtered here explicitly. It used to be implicit: an opt-out
+    or a bounce overwrote the status, so a suppressed contact could not also be
+    'cold'. Now that those are flags that survive any status, this query is the
+    thing standing between an opted-out organization and another email.
 
     min_tier: 'normal' excludes tier='poor'; 'wealthy' returns only wealthy.
               NULL-tier contacts are always included unless min_tier is set.
@@ -228,7 +251,9 @@ def get_cold_contacts(
     with db() as conn:
         cur = conn.cursor()
         conditions = [
-            "status = 'cold'",
+            "status = 'ready'",
+            "do_not_contact = FALSE",
+            "email_bounced = FALSE",
             "deleted_at IS NULL",
             "id NOT IN (SELECT contact_id FROM approval_queue)",
         ]
@@ -256,27 +281,72 @@ def get_cold_contacts(
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def update_contact(contact_id: int, status: str, fit_score: int, notes: str = "") -> None:
-    """Update a contact's status and fit_score. Appends notes if provided."""
+def set_contact_state(
+    contact_id: int,
+    *,
+    pipeline_stage: str,
+    status: str,
+    fit_score: int | None = None,
+    notes: str = "",
+) -> None:
+    """Move a contact to a pipeline stage and a current status, together.
+
+    The two are written in one statement because they describe one decision —
+    "this is a suspect and it is ready for outreach" — and a half-applied move
+    leaves a contact somewhere that makes no sense.
+    """
+    stage, current_status = coerce_stage(pipeline_stage), coerce_status(status)
+    if not is_typical(stage, current_status):
+        logger.info(
+            "contact %d moved to an unusual combination: stage=%s status=%s",
+            contact_id, stage, current_status,
+        )
     with db() as conn:
         cur = conn.cursor()
         if notes:
             cur.execute(
                 """
                 UPDATE contacts
-                SET status = %s, fit_score = %s,
+                SET pipeline_stage = %s, status = %s,
+                    fit_score = COALESCE(%s, fit_score),
                     notes = CASE WHEN notes IS NULL THEN %s ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
                 WHERE id = %s
                 """,
-                (status, fit_score, notes, notes, contact_id),
+                (stage, current_status, fit_score, notes, notes, contact_id),
             )
         else:
             cur.execute(
-                "UPDATE contacts SET status = %s, fit_score = %s, updated_at = NOW() WHERE id = %s",
-                (status, fit_score, contact_id),
+                """
+                UPDATE contacts
+                SET pipeline_stage = %s, status = %s,
+                    fit_score = COALESCE(%s, fit_score), updated_at = NOW()
+                WHERE id = %s
+                """,
+                (stage, current_status, fit_score, contact_id),
             )
-    log_audit(None, None, "contact.scored", f"contact:{contact_id}", status)
+    log_audit(None, None, "contact.state_changed", f"contact:{contact_id}", f"{stage}/{current_status}")
+
+
+def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None:
+    """Raise or clear one suppression fact about a contact.
+
+    Suppression is deliberately not a status: an organization can be at
+    `meeting` and have a bounced address at the same time, and recording the
+    bounce must not cost you the meeting. The flag name is checked against
+    SUPPRESSION_FLAGS before it reaches SQL — it is interpolated into the
+    statement, so an unchecked name would be an injection point.
+    """
+    if flag not in SUPPRESSION_FLAGS:
+        raise ValueError(f"unknown suppression flag: {flag!r}")
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"UPDATE contacts SET {flag} = %s, updated_at = NOW() WHERE id = %s",
+            (value, contact_id),
+        )
+    logger.info("contact %d: %s = %s", contact_id, flag, value)
+    log_audit(None, None, f"contact.{flag}", f"contact:{contact_id}", str(value).lower())
 
 
 def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
@@ -286,7 +356,7 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
         conditions = [
             "(email IS NULL OR email = '')",
             "deleted_at IS NULL",
-            "status != 'cannot_find_more_data'",
+            "research_exhausted = FALSE",
         ]
         params: list = []
         if city:
@@ -304,11 +374,14 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
 
 def update_contact_details(contact_id: int, **kwargs) -> None:
     """
-    Update contact fields (website, email, phone, status). Ignores unknown keys.
+    Update contact detail fields (website, email, phone). Ignores unknown keys.
     Always stamps enriched_at so the contact counts as processed by enrichment,
     even when no field changed.
+
+    Pipeline position is not a detail: use set_contact_state. Suppression is not
+    a detail either: use set_suppression_flag.
     """
-    allowed = {"website", "email", "phone", "status"}
+    allowed = {"website", "email", "phone"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v}
     set_clause = ", ".join(f"{column} = %s" for column in fields)
     if set_clause:

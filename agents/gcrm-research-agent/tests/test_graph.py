@@ -44,10 +44,11 @@ def make_tools():
         return [{"name": "Test Gallery", "address": "Main St 1", "city": city, "country": country}]
 
     def save_contact(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
-                     scan_level=None, neighborhood="", status="candidate",
+                     scan_level=None, neighborhood="", research_exhausted=False,
                      latitude=None, longitude=None, google=None) -> int:
         saved.append({"name": name, "city": city, "scan_level": scan_level,
-                      "neighborhood": neighborhood, "status": status, "google": google})
+                      "neighborhood": neighborhood,
+                      "research_exhausted": research_exhausted, "google": google})
         return len(saved)
 
     def start_run(agent_name: str, input_data: dict) -> int:

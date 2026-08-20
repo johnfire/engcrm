@@ -30,7 +30,6 @@
   "common.pageOf": "Page {{page}} of {{totalPages}}",
   "common.never": "never",
   "common.passwordTooShort": "Use a password with at least 12 characters.",
-
   "nav.brand": "AI-CRM Leads",
   "nav.approvals": "Approvals",
   "nav.contacts": "Contacts",
@@ -67,7 +66,6 @@
   "privacy.noTrackingText": "The web application uses only the session cookie required for authenticated operation. It does not use analytics, advertising or tracking cookies.",
   "privacy.impressumLink": "Impressum",
   "privacy.back": "Back to login",
-
   "login.pageTitle": "EngCRM — Login",
   "login.title": "EngCRM Supervisor",
   "login.emailPlaceholder": "Email",
@@ -79,14 +77,12 @@
   "login.forgotPassword": "Forgot password?",
   "login.createAccount": "Create account with an invitation",
   "login.resetSuccess": "Password reset — sign in with your new password.",
-
   "forgotPassword.pageTitle": "EngCRM — Forgot password",
   "forgotPassword.title": "Forgot your password?",
   "forgotPassword.hint": "Enter your account email and we'll send you a reset link.",
   "forgotPassword.sentMessage": "If an account exists for that email, we've sent a link to reset your password. It's valid for 1 hour — check your inbox.",
   "forgotPassword.submit": "Send reset link",
   "forgotPassword.backToSignIn": "Back to sign in",
-
   "resetPassword.pageTitle": "EngCRM — Reset password",
   "resetPassword.title": "Set a new password",
   "resetPassword.invalidLink": "This link is invalid or has expired.",
@@ -94,7 +90,6 @@
   "resetPassword.newPasswordPlaceholder": "New password",
   "resetPassword.submit": "Reset password",
   "resetPassword.errorGeneric": "That link is invalid or has expired, or the password is too short (12+ characters).",
-
   "signup.pageTitle": "Create account",
   "signup.title": "Create account",
   "signup.emailLabel": "Email",
@@ -104,7 +99,6 @@
   "signup.submit": "Create account",
   "signup.signIn": "Sign in",
   "signup.invitationInvalid": "The invitation is invalid, expired, or already used.",
-
   "settings.title": "Account settings",
   "settings.changePasswordHeader": "Change password",
   "settings.currentPasswordLabel": "Current password",
@@ -115,7 +109,6 @@
   "settings.logout": "Log out",
   "settings.languageHeader": "Language",
   "settings.languageSaved": "Language updated.",
-
   "impressum.pageTitle": "EngCRM — Impressum",
   "impressum.title": "Impressum (Legal Notice)",
   "impressum.subtitle": "Information per § 5 DDG (German Digital Services Act)",
@@ -124,7 +117,6 @@
   "impressum.disputeHeader": "EU Dispute Resolution",
   "impressum.disputeText": "The European Commission provides a platform for online dispute resolution (ODR): {{link}}. We are neither obligated nor willing to participate in dispute-resolution proceedings before a consumer arbitration board.",
   "impressum.back": "← Back",
-
   "activity.title": "Activity Feed",
   "activity.pending": "Pending",
   "activity.approved": "Approved",
@@ -135,7 +127,6 @@
   "activity.duration": "Duration",
   "activity.running": "running…",
   "activity.noRuns": "No agent runs yet.",
-
   "approval.title": "Approval Queue",
   "approval.pendingCount": "{{count}} pending",
   "approval.noPending": "No pending approvals.",
@@ -151,7 +142,6 @@
   "approval.rejectReasonPlaceholder": "Reason (optional)",
   "approval.delete": "Delete",
   "approval.deleteConfirm": "Delete this draft permanently?",
-
   "contactBrief.atAGlance": "At a glance",
   "contactBrief.decisionMaker": "Decision maker",
   "contactBrief.bestTime": "Best time",
@@ -175,7 +165,6 @@
   "contactBrief.searchCompanyHint": "It will ask for company name \"{{name}}\" — search for it there.",
   "contactBrief.editRecord": "Edit record",
   "contactBrief.allContacts": "← All contacts",
-
   "contactDetail.saved": "Saved.",
   "contactDetail.basicInfo": "Basic Info",
   "contactDetail.fitScore": "Fit score",
@@ -216,7 +205,6 @@
   "contactDetail.runOpportunityAnalysis": "Run opportunity analysis",
   "contactDetail.opportunityAnalysisRunning": "Fetching the company website, reviewing evidence, and generating recommendations. This can take a moment.",
   "contactDetail.opportunityAnalysisWorking": "Researching and analysing…",
-
   "personalPriority.title": "Personal priority",
   "personalPriority.short": "Mine",
   "personalPriority.privateHint": "Only you can see this rating.",
@@ -232,7 +220,6 @@
   "personalPriority.saved": "Personal priority saved.",
   "personalPriority.saveFailed": "Could not save. Please try again.",
   "personalPriority.accountRequired": "Sign in with a personal account to rate this prospect.",
-
   "contacts.title": "Contacts",
   "contacts.totalPage": "{{total}} total — page {{page}} of {{totalPages}}",
   "contacts.searchPlaceholder": "Search name or city…",
@@ -252,10 +239,8 @@
   "contacts.keep": "keep",
   "contacts.star": "Star",
   "contacts.unstar": "Unstar",
-
   "contactsPrint.totalContacts": "{{total}} contacts · {{date}}",
   "contactsPrint.colFit": "Fit",
-
   "drafts.title": "Held Drafts",
   "drafts.onHold_one": "{{count}} email on hold",
   "drafts.onHold_other": "{{count}} emails on hold",
@@ -266,12 +251,10 @@
   "draftsList.send": "Send",
   "draftsList.drop": "Drop",
   "draftsList.noDrafts": "No held drafts.",
-
   "dropped.title": "Dropped Prospects",
   "dropped.totalCount": "{{count}} total",
   "dropped.rejected": "Rejected {{date}}",
   "dropped.noRejected": "No rejected prospects yet.",
-
   "inbox.title": "Inbox Replies",
   "inbox.classifiedCount": "{{total}} classified in the last {{days}} days",
   "inbox.allReplies": "All replies",
@@ -281,7 +264,6 @@
   "inbox.classification": "Classification",
   "inbox.snippet": "Snippet",
   "inbox.flaggedForVisit": "Flagged for visit when nearby",
-
   "marketing.title": "Marketing",
   "marketing.weeklyDigest": "Weekly strategy digest",
   "marketing.digestHeader": "Digest — {{date}}",
@@ -289,14 +271,12 @@
   "marketing.strategies": "Strategies",
   "marketing.priority": "Priority",
   "marketing.lastReviewed": "Last reviewed",
-
   "people.title": "People",
   "people.shownCount": "{{count}} shown",
   "people.searchPlaceholder": "Search name, city or email…",
   "people.relationship": "Relationship",
   "people.metAt": "Met at",
   "people.noPeopleFound": "No people found.",
-
   "personDetail.saved": "Saved.",
   "personDetail.details": "Person",
   "personDetail.context": "Context",
@@ -305,7 +285,6 @@
   "personDetail.source": "Source",
   "personDetail.backToList": "Back to people",
   "personDetail.metAtPlaceholder": "Event, venue or occasion",
-
   "research.title": "Research",
   "research.statsLine": "{{total}} cities — {{level1Done}} level 1 done — {{unscanned}} unscanned",
   "research.queued": "Queued {{stage}} — watch the Activity page for progress.",
@@ -336,7 +315,6 @@
   "research.notYetRun": "Not yet run",
   "research.emailedTooltip": "{{count}} emailed",
   "research.legend": "● = complete  ◐ = partial (more to scan)  ○ = not run",
-
   "users.title": "Users",
   "users.addUser": "Add user",
   "users.emailPlaceholder": "email@domain.com",
@@ -361,7 +339,6 @@
   "users.passwordResetFor": "Password reset for {{email}}.",
   "users.enabledFlash": "Enabled {{email}}.",
   "users.disabledFlash": "Disabled {{email}}.",
-
   "nav.help": "Help",
   "help.title": "Help Centre",
   "help.subtitle": "Clear guidance for every customer workflow.",
@@ -395,8 +372,8 @@
   "help.bodyEn": "English article",
   "help.bodyDe": "German article",
   "help.saveArticle": "Save article",
-  "help.existingArticles": "Existing articles"
-  ,"help.contextLabel": "Contextual help",
+  "help.existingArticles": "Existing articles",
+  "help.contextLabel": "Contextual help",
   "help.researchContextTitle": "Research is draft-safe.",
   "help.researchContext": "It queues discovery and analysis work; it does not send a first email.",
   "help.approvalsContextTitle": "You are in control.",
@@ -406,5 +383,29 @@
   "settings.aiBackendsHint": "Controls future background runs. DeepSeek may transfer personal data to China; keep provider and transfer safeguards under review.",
   "settings.routineModel": "Routine work",
   "settings.writingModel": "Writing and follow-up",
-  "settings.aiBackendsSaved": "AI backends saved"
+  "settings.aiBackendsSaved": "AI backends saved",
+  "common.pipelineStage": "Pipeline stage",
+  "contacts.allStages": "All stages",
+  "contacts.suppression": "Suppression",
+  "contacts.anySuppression": "Any suppression",
+  "stage.candidate": "Candidate",
+  "stage.suspect": "Suspect",
+  "stage.prospect": "Prospect",
+  "stage.opportunity": "Opportunity",
+  "stage.customer": "Customer",
+  "stage.not_in_pipeline": "Not in pipeline",
+  "status.none": "—",
+  "status.ready": "Ready to contact",
+  "status.contacted": "Contacted",
+  "status.meeting": "Meeting",
+  "status.proposal": "Proposal",
+  "status.dormant": "Dormant",
+  "status.on_hold": "On hold",
+  "status.dropped": "Dropped",
+  "flag.do_not_contact": "Do not contact",
+  "flag.email_bounced": "Email bounced",
+  "flag.research_exhausted": "No more data findable",
+  "flagShort.do_not_contact": "DNC",
+  "flagShort.email_bounced": "bounced",
+  "flagShort.research_exhausted": "no data"
 }

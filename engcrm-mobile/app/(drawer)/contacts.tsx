@@ -21,6 +21,7 @@ export default function ContactsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
+  const [stage, setStage] = useState("");
   const [status, setStatus] = useState("");
   const [personalPriority, setPersonalPriority] = useState("");
   const [sort, setSort] = useState<ContactSortKey>("created_at");
@@ -32,6 +33,7 @@ export default function ContactsScreen() {
       setItems(
         await fetchContacts({
           search,
+          stage,
           status,
           sort,
           dir,
@@ -44,7 +46,7 @@ export default function ContactsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, personalPriority, sort, dir]);
+  }, [search, stage, status, personalPriority, sort, dir]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,10 +66,12 @@ export default function ContactsScreen() {
         returnKeyType="search"
       />
       <ContactListControls
+        stage={stage}
         status={status}
         personalPriority={personalPriority}
         sort={sort}
         direction={dir}
+        onStageChange={setStage}
         onStatusChange={setStatus}
         onPriorityChange={setPersonalPriority}
         onSortChange={(nextSort, nextDirection) => {

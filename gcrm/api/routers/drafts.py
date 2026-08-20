@@ -83,7 +83,7 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
         """, (final_status, note or None, item_id))
         cur.execute("""
             UPDATE contacts SET status = 'contacted', updated_at = NOW()
-            WHERE id = %s AND status NOT IN ('contacted', 'meeting', 'accepted')
+            WHERE id = %s AND status NOT IN ('contacted', 'meeting', 'proposal')
         """, (row["contact_id"],))
         drafts = _fetch_held_drafts(conn)
     log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)

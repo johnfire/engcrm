@@ -3,10 +3,10 @@ Import contacts from the 'contacts  leads' sheet of art-marketing.xlsx.
 
 Rules:
 - Contacts with count numbers (col C) have been actively contacted → status=contacted
-- Contacts with '*' in col K but no count → status=cold (good targets, not yet contacted)
-- Contacts with no count and no '*' → status=candidate
-- Contacts with rejection notes ('def no', 'no interest', etc.) → status=dropped
-- Contacts with 'ON HOLD' → status=on_hold
+- Contacts with '*' in col K but no count → suspect / ready (good targets, not yet contacted)
+- Contacts with no count and no '*' → candidate / none
+- Contacts with rejection notes ('def no', 'no interest', etc.) → not_in_pipeline / dropped
+- Contacts with 'ON HOLD' → prospect / on_hold
 - City inferred from section headers in col A/B
 - Type inferred from sub-section headers (Galleries, Cafes, etc.)
 - Questionable rows get [NEEDS REVIEW] prepended to their notes
@@ -134,35 +134,35 @@ def infer_type(section_header: str) -> str:
     return ""
 
 
-def parse_status(count, reply_notes: str, poss_target: str) -> tuple[str, bool]:
+def parse_status(count, reply_notes: str, poss_target: str) -> tuple[str, str, bool]:
     """
-    Returns (status, needs_review).
+    Returns (pipeline_stage, status, needs_review).
     """
     notes_lower = (reply_notes or "").strip().lower()
 
     # Hard rejections
     if any(p in notes_lower for p in REJECTION_PATTERNS):
-        return "dropped", False
+        return "not_in_pipeline", "dropped", False
 
     # On hold
     if any(p in notes_lower for p in HOLD_PATTERNS):
-        return "on_hold", False
+        return "prospect", "on_hold", False
 
     # Active contact with count number
     if count and str(count).isdigit():
-        # 'not now' after contact = cold (try again)
+        # 'not now' after contact = ready to try again
         if any(p in notes_lower for p in NOT_NOW_PATTERNS):
-            return "cold", False
-        return "contacted", False
+            return "prospect", "on_hold", False
+        return "prospect", "contacted", False
 
     # Possible target flag but not yet contacted
     if poss_target and str(poss_target).strip() in ("*", "?"):
         if poss_target.strip() == "?":
-            return "candidate", True  # uncertain
-        return "cold", False
+            return "candidate", "none", True  # uncertain
+        return "suspect", "ready", False
 
     # Anything else with a contact date but no count
-    return "candidate", False
+    return "candidate", "none", False
 
 
 def should_skip(name: str) -> bool:
@@ -257,7 +257,7 @@ def extract_contacts(ws) -> list[dict]:
         reply = str(col_i).strip() if col_i else ""
         poss_tgt = str(col_k).strip() if col_k else ""
         count_val = col_c
-        status, review_from_status = parse_status(count_val, reply, poss_tgt)
+        pipeline_stage, status, review_from_status = parse_status(count_val, reply, poss_tgt)
 
         # First contact date
         first_contact = col_d if isinstance(col_d, datetime) else None
@@ -289,6 +289,7 @@ def extract_contacts(ws) -> list[dict]:
             "name": name,
             "city": city or "Unknown",
             "type": contact_type,
+            "pipeline_stage": pipeline_stage,
             "status": status,
             "best_visit_time": visit_time,
             "notes": final_notes,
@@ -321,12 +322,14 @@ def import_contacts(contacts: list[dict], dry_run: bool = True):
             if not dry_run:
                 cur.execute("""
                     INSERT INTO contacts
-                        (name, city, country, type, status, best_visit_time, notes)
-                    VALUES (%s, %s, 'DE', %s, %s, %s, %s)
+                        (name, city, country, type, pipeline_stage, status,
+                         best_visit_time, notes)
+                    VALUES (%s, %s, 'DE', %s, %s, %s, %s, %s)
                 """, (
                     c["name"],
                     c["city"],
                     c["type"] or None,
+                    c["pipeline_stage"],
                     c["status"],
                     c["best_visit_time"] or None,
                     c["notes"] or None,
@@ -350,7 +353,7 @@ def main():
 
     # Status breakdown
     from collections import Counter
-    status_counts = Counter(c["status"] for c in contacts)
+    status_counts = Counter(f"{c['pipeline_stage']}/{c['status']}" for c in contacts)
     review_count = sum(1 for c in contacts if c["needs_review"])
     print("Status breakdown:")
     for s, n in sorted(status_counts.items()):
@@ -361,7 +364,8 @@ def main():
         print("\n--- DRY RUN: first 40 contacts that would be imported ---")
         for c in contacts[:40]:
             flag = " [REVIEW]" if c["needs_review"] else ""
-            print(f"  row {c['source_row']:3d} | {c['status']:10s} | {c['city']:20s} | {c['type']:18s} | {c['name']}{flag}")
+            state = f"{c['pipeline_stage']}/{c['status']}"
+            print(f"  row {c['source_row']:3d} | {state:24s} | {c['city']:20s} | {c['type']:18s} | {c['name']}{flag}")
         print("\nRe-run without --dry-run to actually import.")
         return
 

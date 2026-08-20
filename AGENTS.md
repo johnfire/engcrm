@@ -47,7 +47,7 @@ research → enrich → scout → outreach → followup
 
 ### 2. Research Agent (gcrm-research-agent)
 
-**What it does:** Finds new potential contacts for a given city + level combination and saves them to the database as `status=candidate`.
+**What it does:** Finds new potential contacts for a given city + level combination and saves them to the database at the `candidate` stage.
 
 **Inputs:** `city`, `country`, `level` (1–5)
 
@@ -69,11 +69,11 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 2. **run_web_search** — two targeted DuckDuckGo queries per level to supplement Maps data and catch venues Maps might miss.
 3. **fetch_pages** — visits the top 3 URLs found, strips HTML to plain text, feeds the content to the extraction LLM. This is how emails, contact names, and gallery style signals get extracted from actual venue websites.
 4. **extract_contacts** — LLM parses all raw results into structured contact records. Writes 2–3 sentence notes per venue including fit signals. Includes ALL venues found — no filtering at this stage.
-5. **save_contacts** — writes each contact to `contacts` with `status=candidate`. Deduplication key is `(name, city)` so re-runs are safe.
+5. **save_contacts** — writes each contact to `contacts` at the `candidate` stage, raising `research_exhausted` for businesses with no web presence. Deduplication key is `(name, city)` so re-runs are safe.
 
 **LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku) — this is volume work.
 
-**Output:** contacts in the database with `status=candidate`
+**Output:** contacts in the database at the `candidate` stage
 
 **City registry:** Every city scanned is tracked in the `cities` and `city_scans` tables — what level was run, when, and how many contacts were found. Visible at `/research/`.
 
@@ -114,9 +114,9 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Steps inside the agent:**
 
-1. **fetch** — pulls all contacts where `status=candidate`
+1. **fetch** — pulls all contacts at the `candidate` stage
 2. **split_and_promote** — separates candidates by type:
-   - **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `status=cold` with no LLM call. No evaluation needed.
+   - **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `suspect` / `ready` with no LLM call. No evaluation needed.
    - **Galleries** → sent to the research pipeline below.
 3. **fetch_gallery_websites** — for each gallery, fetches the gallery website and reads up to 4000 characters of content. Galleries with no website still proceed — the LLM falls back to research notes.
 4. **score_galleries** — for each gallery, the LLM reads the website content and notes and asks: does this gallery show emerging, regional, or mid-career artists? Or only blue-chip / internationally established names?
@@ -148,7 +148,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Steps inside the agent:**
 
-1. **fetch** — pulls contacts where `status=cold`
+1. **fetch** — pulls contacts where `status=ready`, excluding any carrying a suppression flag
 2. **draft_all** — for each contact:
    - Checks GDPR compliance first (hard block if `opt_out` or `erasure_requested` is set in `consent_log`)
    - Fetches the venue's website and reads up to 3000 characters of content
@@ -292,8 +292,8 @@ The FastMCP server exposes tools for operating the CRM from Claude Code directly
 | `contact_search`                   | Search by name, city, status             |
 | `contact_get`                      | Full contact record                      |
 | `contact_update`                   | Edit any field                           |
-| `manual_drop(contact_id, reason)`  | Set status=dropped and log the reason    |
-| `manual_promote(contact_id, note)` | Set status=cold (move to outreach queue) |
+| `manual_drop(contact_id, reason)`  | Move to not_in_pipeline / dropped and log the reason |
+| `manual_promote(contact_id, note)` | Move to suspect / ready (into the outreach queue) |
 
 **City context:**
 

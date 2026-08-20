@@ -37,7 +37,7 @@ All of this runs on demand. You approve emails and trigger scans through convers
 | [README.md](README.md) | You want the overview, setup, and how to run the pipeline (this file). |
 | [AGENTS.md](AGENTS.md) | You need how each of the agents works and how they're wired together. *(refreshed to `gcrm` paths; architecture prose rewrite pending)* |
 | [RUNBOOK.md](RUNBOOK.md) | You're setting up, operating, scheduling, or testing the system. *(refreshed to `gcrm` paths; architecture prose rewrite pending)* |
-| [STATUSES.md](STATUSES.md) | You need the meaning of each contact status in the pipeline. |
+| [STATUSES.md](STATUSES.md) | You need the meaning of each pipeline stage, status and suppression flag. |
 | [docs/open-brain-guide.md](docs/open-brain-guide.md) | You're integrating the Open Brain memory server (connection, tools, project usage). |
 | [docs/older-docs/](docs/older-docs/) | Historical plans for shipped features — kept for provenance, not current. |
 
@@ -228,7 +228,7 @@ Nothing gets sent without your sign-off. After each run, go to `http://127.0.0.1
 
 - **Approve** — sends immediately via SMTP, logs the interaction, marks contact as `contacted`
 - **Edit + Approve** — edit subject/body inline, then send
-- **Reject** — discards the draft; contact stays `cold` and will be re-drafted next run
+- **Reject** — discards the draft; contact stays `ready` and will be re-drafted next run
 
 If Proton Bridge isn't running, approved emails are marked `approved_unsent` rather than failing.
 
@@ -239,7 +239,7 @@ If Proton Bridge isn't running, approved emails are marked `approved_unsent` rat
 | Page           | URL           | What it shows                                      |
 | -------------- | ------------- | -------------------------------------------------- |
 | Approval Queue | `/approvals/` | Email drafts waiting for review                    |
-| Contacts       | `/contacts/`  | All contacts with status filter and search         |
+| Contacts       | `/contacts/`  | All contacts with stage, status and suppression filters |
 | Research       | `/research/`  | Cities and scan levels with email counts per level |
 | Activity       | `/activity/`  | Agent run log with status, duration, summary       |
 
@@ -248,10 +248,11 @@ If Proton Bridge isn't running, approved emails are marked `approved_unsent` rat
 ## Contact Pipeline
 
 ```
-cities table → research_agent → status=candidate
+cities table → research_agent → candidate / none
                                      ↓
-                             scout_agent → status=cold  (fit score ≥ threshold)
-                                       → status=dropped (fit score < threshold)
+                             scout_agent → suspect / ready       (fit)
+                                       → candidate / none      (unsure — for your review)
+                                       → not_in_pipeline / dropped (no fit)
                                              ↓
                              outreach_agent → approval_queue (pending)
                                                    ↓
@@ -372,7 +373,7 @@ The system has a built-in compliance layer. Before drafting any email, the outre
 
 - Contacts who have opted out (replied "unsubscribe" or equivalent)
 - Contacts whose data has been erased
-- Contacts with `status=do_not_contact`
+- Contacts with the `do_not_contact` flag
 
 Opt-out detection is automatic — the followup agent classifies incoming replies and sets the flag without human intervention. All consent events are logged to `consent_log`.
 

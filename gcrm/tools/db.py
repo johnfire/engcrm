@@ -209,12 +209,16 @@ def get_candidates(*args, **kwargs):
     return _contact_tool("get_candidates", *args, **kwargs)
 
 
-def get_cold_contacts(*args, **kwargs):
-    return _contact_tool("get_cold_contacts", *args, **kwargs)
+def get_contacts_ready_for_outreach(*args, **kwargs):
+    return _contact_tool("get_contacts_ready_for_outreach", *args, **kwargs)
 
 
-def update_contact(*args, **kwargs):
-    return _contact_tool("update_contact", *args, **kwargs)
+def set_contact_state(*args, **kwargs):
+    return _contact_tool("set_contact_state", *args, **kwargs)
+
+
+def set_suppression_flag(*args, **kwargs):
+    return _contact_tool("set_suppression_flag", *args, **kwargs)
 
 
 def get_contacts_needing_enrichment(*args, **kwargs):
@@ -276,7 +280,7 @@ __all__ = [
     "get_cities",
     "get_city_market_context",
     "get_city_scan_status",
-    "get_cold_contacts",
+    "get_contacts_ready_for_outreach",
     "get_contact_interactions",
     "get_contacts_needing_enrichment",
     "get_existing_contact_names",
@@ -308,6 +312,7 @@ __all__ = [
     "start_run",
     "touch_user_login",
     "update_city_market",
-    "update_contact",
+    "set_contact_state",
+    "set_suppression_flag",
     "update_contact_details",
 ]

@@ -14,6 +14,6 @@ class ScoutState(TypedDict):
 
     # --- output ---
     promoted_count: int
-    maybe_count: int
-    dropped_count: int
+    unsure_count: int
+    no_fit_count: int
     summary: str

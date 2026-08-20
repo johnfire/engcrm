@@ -116,7 +116,8 @@ def get_all_city_scan_status() -> list[dict]:
             LEFT JOIN (
                 SELECT lower(city) AS city_lower, scan_level, COUNT(*) AS cnt
                 FROM contacts
-                WHERE status IN ('contacted', 'meeting', 'proposal', 'accepted')
+                WHERE status IN ('contacted', 'meeting', 'proposal')
+                   OR pipeline_stage IN ('prospect', 'opportunity', 'customer')
                   AND scan_level IS NOT NULL
                 GROUP BY lower(city), scan_level
             ) emailed ON lower(ci.city) = emailed.city_lower

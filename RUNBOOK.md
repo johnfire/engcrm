@@ -99,8 +99,8 @@ uv run python -m gcrm.supervisor.run
 
 Run order:
 1. **Research** — once per target in `gcrm/supervisor/targets.py`
-2. **Scout** — scores all `status=candidate` contacts
-3. **Outreach** — drafts emails for `status=cold` contacts, queues for approval
+2. **Scout** — scores all contacts at the `candidate` stage
+3. **Outreach** — drafts emails for `status=ready` contacts, queues for approval
 4. **Follow-up** — reads inbox, classifies replies, sends follow-ups to overdue contacts
 
 Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
@@ -126,7 +126,7 @@ Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
 **Approval actions:**
 - **Approve** — sends via Proton Bridge SMTP, logs interaction, contact → `status=contacted`
 - **Edit + Approve** — edit subject/body first, then sends
-- **Reject** — discards draft, contact stays `status=cold` for next run
+- **Reject** — discards draft, contact stays `status=ready` for next run
 
 If Proton Bridge is not running, status shows `approved_unsent`. Re-trigger by running the outreach agent again.
 
@@ -137,9 +137,9 @@ If Proton Bridge is not running, status shows `approved_unsent`. Re-trigger by r
 ```
 targets.py — define cities and industries to research
   ↓
-research_agent  →  status=candidate
+research_agent  →  candidate / none
   ↓
-scout_agent     →  status=cold (score≥60) or status=dropped
+scout_agent     →  suspect / ready (fit) or not_in_pipeline / dropped (no fit)
   ↓
 outreach_agent  →  approval_queue (status=pending)
   ↓
@@ -164,7 +164,7 @@ If you already have venue research as markdown files, import them directly inste
 uv run python scripts/import_studies.py
 ```
 
-This reads the 6 city markdown files in `~/ai-workzone/art-marketing-by-city/`, uses the LLM to extract every venue, and saves them as `status=candidate`. Safe to re-run — duplicates (same name + city) are silently skipped.
+This reads the 6 city markdown files in `~/ai-workzone/art-marketing-by-city/`, uses the LLM to extract every venue, and saves them at the `candidate` stage. Safe to re-run — duplicates (same name + city) are silently skipped.
 
 After import, run the supervisor normally. The scout agent will score and promote them; the research step will find nothing new to add for the same cities (also harmless).
 
@@ -180,7 +180,7 @@ To add new cities later, add entries back.
 
 ## Scout Threshold — Controlling Outreach Volume
 
-The scout agent scores each candidate 0–100 for mission fit. The threshold controls which ones are promoted to `status=cold` for outreach.
+The scout agent scores each candidate 0–100 for mission fit. The threshold controls which ones are promoted to `suspect` / `ready` for outreach.
 
 Set it in `.env`:
 
@@ -190,7 +190,7 @@ SCOUT_THRESHOLD=60   # lower when you want more volume
 SCOUT_THRESHOLD=50   # cast a wide net
 ```
 
-Default is `75`. Contacts that score below the threshold are set to `status=dropped` and won't be contacted. They remain in the database — if you lower the threshold later and re-run the scout agent against a fresh import, they can be re-evaluated.
+Default is `75`. Contacts that score below the threshold are moved to `not_in_pipeline` / `dropped` and won't be contacted. They remain in the database — if you lower the threshold later and re-run the scout agent against a fresh import, they can be re-evaluated.
 
 ---
 

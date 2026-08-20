@@ -43,7 +43,11 @@ const BASE_CONTACT = {
   city: "Berlin",
   country: "DE",
   type: "salon",
-  status: "cold",
+  pipeline_stage: "suspect",
+  status: "ready",
+  do_not_contact: false,
+  email_bounced: false,
+  research_exhausted: false,
   email: null,
   website: null,
   phone: null,
@@ -176,5 +180,38 @@ describe("contact detail — website link", () => {
 
     fireEvent.press(screen.getByText("javascript:alert(1)"));
     expect(openURL).not.toHaveBeenCalled();
+  });
+});
+
+describe("contact detail — state", () => {
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockGetRole.mockReset().mockResolvedValue("admin");
+  });
+
+  it("shows the pipeline stage and the current status as separate facts", async () => {
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Suspect")).toBeTruthy());
+    expect(screen.getByText("Ready to contact")).toBeTruthy();
+  });
+
+  it("shows suppression flags without disturbing stage or status", async () => {
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      pipeline_stage: "opportunity",
+      status: "meeting",
+      do_not_contact: true,
+      email_bounced: true,
+    });
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Meeting")).toBeTruthy());
+    // The whole point of the split: a bounce does not cost you the meeting.
+    expect(screen.getByText("Opportunity")).toBeTruthy();
+    expect(screen.getByText("Do not contact")).toBeTruthy();
+    expect(screen.getByText("Email bounced")).toBeTruthy();
+    expect(screen.queryByText("No more data findable")).toBeNull();
   });
 });

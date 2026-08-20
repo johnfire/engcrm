@@ -171,7 +171,7 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
     """For each extracted contact with a website but no email, fetch the page
     and regex-extract an email, skipping noise/builder domains. Contacts with
     no website (or where no usable email turns up) are flagged _no_data=True so
-    save_contacts records them as cannot_find_more_data."""
+    save_contacts records them with the research_exhausted flag raised."""
     contacts = state.get("contacts_to_save", [])
     if not contacts:
         return {}
@@ -219,7 +219,7 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
         logger.info("research: fetched emails for %d contact(s) in %s", found, state["city"])
     if no_data:
         logger.info(
-            "research: %d contact(s) have no web presence in %s — will save as cannot_find_more_data",
+            "research: %d contact(s) have no web presence in %s — saving with research_exhausted",
             no_data,
             state["city"],
         )
@@ -232,7 +232,7 @@ def save_contacts(state: ResearchState, dependencies) -> dict:
     saved_ids = []
     for contact in state.get("contacts_to_save", []):
         try:
-            status = "cannot_find_more_data" if contact.get("_no_data") else "candidate"
+            research_exhausted = bool(contact.get("_no_data"))
             google = google_by_name.get((contact.get("name") or "").strip().lower())
             contact_id = dependencies.save_contact(
                 name=contact.get("name", ""),
@@ -245,7 +245,7 @@ def save_contacts(state: ResearchState, dependencies) -> dict:
                 notes=contact.get("notes", ""),
                 scan_level=level,
                 neighborhood=contact.get("neighborhood", ""),
-                status=status,
+                research_exhausted=research_exhausted,
                 google=google,
             )
             if contact_id:
