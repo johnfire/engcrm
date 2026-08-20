@@ -16,6 +16,9 @@ import { scanArea } from "../../services/api";
 import { useTranslation } from "../../i18n/I18nContext";
 
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+// Matches pipeline.py's _MAX_AREA_LEVELS — the backend rejects a scan over this,
+// so the default selection must already fit under it.
+const MAX_LEVELS_PER_SCAN = 6;
 const MIN_RADIUS_M = 100;
 const MAX_RADIUS_M = 2000;
 const DEFAULT_CENTER = { latitude: 48.3705, longitude: 10.8978 }; // Augsburg — used only until GPS resolves
@@ -28,7 +31,7 @@ export default function AreaScanScreen() {
   const [center, setCenter] = useState(DEFAULT_CENTER);
   const [radiusM, setRadiusM] = useState(500);
   const [label, setLabel] = useState("");
-  const [selectedLevels, setSelectedLevels] = useState<number[]>(LEVELS);
+  const [selectedLevels, setSelectedLevels] = useState<number[]>(LEVELS.slice(0, MAX_LEVELS_PER_SCAN));
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(true);
 
@@ -60,9 +63,14 @@ export default function AreaScanScreen() {
   );
 
   function toggleLevel(level: number) {
-    setSelectedLevels((current) =>
-      current.includes(level) ? current.filter((value) => value !== level) : [...current, level],
-    );
+    setSelectedLevels((current) => {
+      if (current.includes(level)) return current.filter((value) => value !== level);
+      if (current.length >= MAX_LEVELS_PER_SCAN) {
+        Alert.alert(t("areaScan.tooManyLevelsTitle"), t("areaScan.tooManyLevelsMessage", { max: MAX_LEVELS_PER_SCAN }));
+        return current;
+      }
+      return [...current, level];
+    });
   }
 
   function onMapClick(event: { coordinates: { latitude?: number; longitude?: number } }) {

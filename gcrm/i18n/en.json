@@ -425,5 +425,6 @@
   "areas.viewResults": "View results",
   "areas.backToPicking": "Back to picking",
   "areas.resultsError": "couldn't load results",
-  "research.organizations": "Organizations"
+  "research.organizations": "Organizations",
+  "areas.tooManyLevels": "Area scans are capped at 6 levels per run — deselect one first."
 }

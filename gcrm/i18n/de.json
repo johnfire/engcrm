@@ -425,5 +425,6 @@
   "areas.viewResults": "Ergebnisse ansehen",
   "areas.backToPicking": "Zurück zur Auswahl",
   "areas.resultsError": "Ergebnisse konnten nicht geladen werden",
-  "research.organizations": "Organisationen"
+  "research.organizations": "Organisationen",
+  "areas.tooManyLevels": "Gebietsscans sind auf 6 Level pro Durchlauf begrenzt — zuerst eines abwählen."
 }

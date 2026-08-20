@@ -318,5 +318,7 @@
   "areaScan.queuedTitle": "Queued",
   "areaScan.queuedMessage": "Area scan queued — watch Activity for progress.",
   "areaScan.couldntStartTitle": "Couldn't start scan",
-  "areaResults.empty": "No businesses found in this area yet."
+  "areaResults.empty": "No businesses found in this area yet.",
+  "areaScan.tooManyLevelsTitle": "Too many levels",
+  "areaScan.tooManyLevelsMessage": "Area scans are capped at {{max}} levels per run — deselect one first."
 }

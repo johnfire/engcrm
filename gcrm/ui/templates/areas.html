@@ -27,8 +27,10 @@
     <input type="range" id="radius-input" min="100" max="2000" step="50" value="500" />
   </label>
   <input type="text" name="label" placeholder="{{ t('areas.labelPlaceholder') }}" />
+  {# Area scans are capped at MAX_LEVELS_PER_SCAN (see pipeline.py) — only pre-select
+     that many so the default selection doesn't immediately trip the server-side cap. #}
   <select name="levels" multiple aria-label="{{ t('research.level') }}" size="4">
-    {% for lvl in levels %}<option value="{{ lvl }}" selected>L{{ lvl }} — {{ level_labels[lvl] }}</option>{% endfor %}
+    {% for lvl in levels %}<option value="{{ lvl }}" {% if loop.index <= 6 %}selected{% endif %}>L{{ lvl }} — {{ level_labels[lvl] }}</option>{% endfor %}
   </select>
   <button type="submit" class="primary">{{ t('areas.scan') }}</button>
 </form>
@@ -155,6 +157,10 @@
     const levels = Array.from(form.levels.selectedOptions).map((option) => parseInt(option.value, 10));
     if (!levels.length) {
       banner.innerHTML = '<div class="run-banner err">{{ t("areas.levelRequired") }}</div>';
+      return;
+    }
+    if (levels.length > 6) {
+      banner.innerHTML = '<div class="run-banner err">{{ t("areas.tooManyLevels") }}</div>';
       return;
     }
     const body = {

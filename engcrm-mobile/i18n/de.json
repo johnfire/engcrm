@@ -318,5 +318,7 @@
   "areaScan.queuedTitle": "In Warteschlange",
   "areaScan.queuedMessage": "Gebietsscan in die Warteschlange gestellt — Fortschritt in Aktivitäten verfolgen.",
   "areaScan.couldntStartTitle": "Scan konnte nicht gestartet werden",
-  "areaResults.empty": "Noch keine Unternehmen in diesem Gebiet gefunden."
+  "areaResults.empty": "Noch keine Unternehmen in diesem Gebiet gefunden.",
+  "areaScan.tooManyLevelsTitle": "Zu viele Level",
+  "areaScan.tooManyLevelsMessage": "Gebietsscans sind auf {{max}} Level pro Durchlauf begrenzt — zuerst eines abwählen."
 }
