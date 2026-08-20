@@ -432,7 +432,7 @@ code {
 /* Wide page variant — for data-table views that need the full screen width
    instead of the default 960px reading column. */
 main.main-wide {
-  max-width: 1600px;
+  max-width: none;
 }
 
 /* Contact editor: use the full work area without compromising narrow screens. */
