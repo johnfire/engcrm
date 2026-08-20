@@ -28,6 +28,7 @@ def test_opportunity_agent_persists_structured_assessment():
         fetch_organizations=lambda limit: [{"id": 7, "name": "Example", "city": "Augsburg", "website": "https://example.test"}],
         fetch_interactions=lambda contact_id: [{"summary": "Uses spreadsheets"}],
         fetch_page=lambda url: "Manual quote process described here.",
+        get_or_create_dossier=None,
         save_analysis=lambda contact_id, analysis, model_name: saved.append((contact_id, analysis, model_name)),
         start_run=lambda name, data: 1,
         finish_run=lambda run_id, status, summary, output: None,
