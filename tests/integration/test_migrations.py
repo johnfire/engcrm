@@ -6,7 +6,7 @@ from subprocess import run
 import pytest
 
 from gcrm.db.connection import db
-from gcrm.tools.db import get_contacts_ready_for_outreach, save_contact
+from gcrm.tools.db import get_organizations_ready_for_outreach, save_organization
 from gcrm.tools.db_agent_runs import finish_run, start_run
 from gcrm.tools.db_personal_priorities import (
     get_personal_priority,
@@ -31,9 +31,9 @@ def test_all_migrations_apply_and_are_idempotent(migrated_database):
     assert {migration.name for migration in migration_files} <= applied_migrations
 
 
-def test_contact_repository_persists_and_hides_soft_deleted_records(clean_database):
+def test_organization_repository_persists_and_hides_soft_deleted_records(clean_database):
     """Repository queries operate against the migrated PostgreSQL schema."""
-    contact_id = save_contact(
+    contact_id = save_organization(
         "Integration Cafe",
         "Munich",
         type="cafe",
@@ -42,12 +42,12 @@ def test_contact_repository_persists_and_hides_soft_deleted_records(clean_databa
         status="ready",
     )
 
-    assert [contact["id"] for contact in get_contacts_ready_for_outreach()] == [contact_id]
+    assert [organization["id"] for organization in get_organizations_ready_for_outreach()] == [contact_id]
 
     with db() as connection:
         connection.cursor().execute("UPDATE contacts SET deleted_at = NOW() WHERE id = %s", (contact_id,))
 
-    assert get_contacts_ready_for_outreach() == []
+    assert get_organizations_ready_for_outreach() == []
 
 
 def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database):
@@ -125,9 +125,9 @@ def test_personal_priorities_are_private_per_user(clean_database):
         assert cursor.fetchone()["count"] == 0
 
 
-def test_retention_erases_a_contact_and_all_linked_records_at_three_years(clean_database):
+def test_retention_erases_a_organization_and_all_linked_records_at_three_years(clean_database):
     """A contact expires from creation time with its contact-linked data."""
-    contact_id = save_contact("Expired Cafe", "Munich", type="cafe", status="cold")
+    contact_id = save_organization("Expired Cafe", "Munich", type="cafe", status="cold")
 
     with db() as connection:
         cursor = connection.cursor()

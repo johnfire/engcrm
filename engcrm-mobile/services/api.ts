@@ -1,7 +1,7 @@
 import axios from "axios";
 import { router } from "expo-router";
 import { clearToken, getToken } from "./auth";
-import { ContactStatus, PipelineStage } from "./contactState";
+import { OrganizationStatus, PipelineStage } from "./organizationState";
 
 export const API_BASE = "https://engcrm.christopherrehm.de";
 
@@ -151,21 +151,21 @@ export async function classifyMessage(
 }
 
 // --- Contacts ---
-export type ContactSortKey = "created_at" | "name" | "type" | "personal_priority";
+export type OrganizationSortKey = "created_at" | "name" | "type" | "personal_priority";
 
-export async function fetchContacts(params: {
+export async function fetchOrganizations(params: {
   search?: string;
   stage?: string;
   status?: string;
   page?: number;
-  sort?: ContactSortKey;
+  sort?: OrganizationSortKey;
   dir?: "asc" | "desc";
   personal_priority?: string;
-}): Promise<Contact[]> {
+}): Promise<Organization[]> {
   const resp = await client.get("/api/contacts", { params });
   return resp.data;
 }
-export async function fetchContact(id: number): Promise<ContactDetail> {
+export async function fetchOrganization(id: number): Promise<OrganizationDetail> {
   const resp = await client.get(`/api/contacts/${id}`);
   return resp.data;
 }
@@ -180,7 +180,7 @@ export async function updatePersonalPriority(
   return response.data.personal_priority ?? null;
 }
 
-// Run a fresh opportunity assessment for one contact (admin only, 403
+// Run a fresh opportunity assessment for one organization (admin only, 403
 // otherwise). Synchronous server-side — it fetches the company website and
 // runs the LLM — so allow a generous timeout. Returns the stored analysis.
 export async function runOpportunityAnalysis(
@@ -255,7 +255,7 @@ export interface ResearchOverview {
   total: number;
   level1_done: number;
   unscanned: number;
-  totals: { contacts: number; emailed: number };
+  totals: { organizations: number; emailed: number };
 }
 
 // --- Card capture ---
@@ -357,14 +357,14 @@ export interface InboxMessage {
   city: string | null;
 }
 
-export interface Contact {
+export interface Organization {
   id: number;
   name: string;
   city: string;
   country: string;
   type: string;
   pipeline_stage: PipelineStage;
-  status: ContactStatus;
+  status: OrganizationStatus;
   do_not_contact: boolean;
   email_bounced: boolean;
   research_exhausted: boolean;
@@ -378,7 +378,7 @@ export interface Contact {
   created_at: string;
 }
 
-export interface ContactDetail extends Contact {
+export interface OrganizationDetail extends Organization {
   phone: string | null;
   notes: string | null;
   interactions: Interaction[];
@@ -392,7 +392,7 @@ export interface RecommendedService {
 }
 
 // The explainable AI/software opportunity assessment produced by the
-// opportunity agent. Scores are 0–100. Mirrors the web contact-detail render.
+// opportunity agent. Scores are 0–100. Mirrors the web organization-detail render.
 export interface OpportunityAnalysis {
   opportunity_score: number | null;
   confidence_score: number | null;
@@ -486,7 +486,7 @@ export interface SignFields {
 }
 
 // A Google Place resolved from the sign's business name + GPS. The confirm
-// screen shows this and lets the user accept or reject it before a contact
+// screen shows this and lets the user accept or reject it before a organization
 // is created — a wrong match otherwise pollutes the CRM (see api_signs.py).
 export interface SignPlace {
   name: string;
@@ -545,7 +545,7 @@ export interface VoiceResult {
   candidates: VoiceCandidate[];
 }
 
-// --- People (individuals on scanned cards, linked to their company contact) ---
+// --- People (individuals on scanned cards, linked to their company organization) ---
 export type PersonSortKey = "created_at" | "name";
 
 export async function fetchPeople(params: {
@@ -579,7 +579,7 @@ export interface Person {
   created_at: string;
 }
 
-// --- Recon (nearby contacts for on-foot field visits) ---
+// --- Recon (nearby organizations for on-foot field visits) ---
 export async function fetchRecon(
   lat: number,
   lng: number,
@@ -603,7 +603,7 @@ export interface ReconContact {
   user_ratings: number | null;
   business_status: string | null;
   pipeline_stage: PipelineStage | null;
-  status: ContactStatus | null;
+  status: OrganizationStatus | null;
   do_not_contact: boolean;
   fit_score: number | null;
   phone: string | null;

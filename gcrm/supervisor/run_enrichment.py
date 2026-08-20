@@ -28,24 +28,24 @@ def main():
     from gcrm.tools import (
         fetch_page,
         finish_run,
-        get_contacts_needing_enrichment,
         get_llm,
+        get_organizations_needing_enrichment,
         start_run,
-        update_contact_details,
+        update_organization_details,
         web_search,
     )
 
     fetch_fn = (
-        functools.partial(get_contacts_needing_enrichment, city=args.city)
-        if args.city else get_contacts_needing_enrichment
+        functools.partial(get_organizations_needing_enrichment, city=args.city)
+        if args.city else get_organizations_needing_enrichment
     )
 
     agent = create_enrichment_agent(
         llm=get_llm(CHEAP_LLM),
         web_search=web_search,
         fetch_page=fetch_page,
-        fetch_contacts=fetch_fn,
-        update_contact=update_contact_details,
+        fetch_organizations=fetch_fn,
+        update_organization=update_organization_details,
         start_run=start_run,
         finish_run=finish_run,
     )

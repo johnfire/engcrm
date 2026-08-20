@@ -1,7 +1,7 @@
 <section
   class="personal-priority"
   data-personal-priority
-  data-contact-id="{{ contact.id }}"
+  data-organization-id="{{ organization.id }}"
 >
   <div>
     <h2>{{ t('personalPriority.title') }}</h2>
@@ -22,9 +22,9 @@
     ] %}
     <button
       type="button"
-      class="personal-priority__button{% if contact.personal_priority == value %} selected{% endif %}"
+      class="personal-priority__button{% if organization.personal_priority == value %} selected{% endif %}"
       data-priority-value="{{ value }}"
-      aria-pressed="{{ 'true' if contact.personal_priority == value else 'false' }}"
+      aria-pressed="{{ 'true' if organization.personal_priority == value else 'false' }}"
     >
       {{ value }} {{ t(label_key) }}
     </button>
@@ -33,7 +33,7 @@
       type="button"
       class="personal-priority__clear"
       data-priority-value=""
-      {% if contact.personal_priority is none %}disabled{% endif %}
+      {% if organization.personal_priority is none %}disabled{% endif %}
     >
       {{ t('personalPriority.clear') }}
     </button>

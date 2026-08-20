@@ -25,17 +25,17 @@ def main():
     from gcrm.tools import (
         fetch_page,
         finish_run,
-        get_contact_interactions,
-        get_contacts_needing_opportunity_analysis,
         get_llm,
+        get_organization_interactions,
+        get_organizations_needing_opportunity_analysis,
         save_opportunity_analysis,
         start_run,
     )
 
     agent = create_opportunity_agent(
         llm=get_llm(CHEAP_LLM),
-        fetch_contacts=get_contacts_needing_opportunity_analysis,
-        fetch_interactions=get_contact_interactions,
+        fetch_organizations=get_organizations_needing_opportunity_analysis,
+        fetch_interactions=get_organization_interactions,
         fetch_page=fetch_page,
         get_or_create_dossier=get_or_create_dossier if RESEARCH_DOSSIER_ENABLED else None,
         save_analysis=save_opportunity_analysis,

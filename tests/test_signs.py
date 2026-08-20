@@ -86,9 +86,9 @@ class TestResolveBusiness:
         assert place["place_id"] == "1"
 
 
-class TestBuildContactFields:
+class TestBuildOrganizationFields:
     def test_uses_place_when_accepted(self):
-        fields = signs.build_contact_fields(
+        fields = signs.build_organization_fields(
             "Bäckerei Roth",
             {"business_type": "bakery", "tagline": "Frisch seit 1980"},
             {"name": "Bäckerei Roth", "city": "Augsburg", "website": "https://roth.de",
@@ -101,7 +101,7 @@ class TestBuildContactFields:
         assert fields["note"] == "Frisch seit 1980"
 
     def test_falls_back_to_sign_fields_when_no_place(self):
-        fields = signs.build_contact_fields(
+        fields = signs.build_organization_fields(
             "Bäckerei Roth", {"phone": "+49 821 1", "website": "https://roth.de"}, None,
         )
         assert fields["company"] == "Bäckerei Roth"
@@ -199,7 +199,7 @@ class TestConfirmEndpoint:
                    "extracted": {"business_name": "Bäckerei Roth"}, "place_json": None}
         conn, cur = make_mock_conn(rows=[cap_row])
         with patch("gcrm.api.routers.api_signs.db") as mock_db, \
-             patch("gcrm.tools.cards.promote_to_contact", return_value=42) as mpromote, \
+             patch("gcrm.tools.cards.promote_to_organization", return_value=42) as mpromote, \
              patch("gcrm.tools.cards.delete_card_image") as mdelete, \
              patch("gcrm.tools.signs.research_business") as mresearch:
             mock_db.return_value.__enter__.return_value = conn

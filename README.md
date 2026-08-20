@@ -20,7 +20,7 @@ Research → Enrich → Scout → Outreach → Follow-up
 
 2. **Enrich** — For every contact missing a website or email, searches the web and uses an LLM to fill in the gaps. Runs automatically on each pipeline invocation.
 
-3. **Scout** — Scores each new contact for mission fit. Contacts above a configurable threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review. Your `vertical.py` defines what signals make a good or bad fit.
+3. **Scout** — Scores each new organization for mission fit. Organizations above a configurable threshold are promoted to outreach. Below it, they're dropped with a reason saved so you can review. Your `vertical.py` defines what signals make a good or bad fit.
 
 4. **Outreach** — Drafts a personalised first-contact email for each contact ready to be reached. Each draft goes into an approval queue — you review and send, or reject. Nothing is sent without a human in the loop.
 
@@ -234,18 +234,35 @@ If Proton Bridge isn't running, approved emails are marked `approved_unsent` rat
 
 ---
 
+## Organizations, people, and the `contacts` table
+
+The businesses this CRM sells to are **organizations**; the humans who work at
+them are **people** (a separate table). The UI, the routes and the code all use
+that word.
+
+Three places still say "contact", each for a reason:
+
+| Where | Why |
+| ----- | --- |
+| The `contacts` table and every `contact_id` column | Renaming a live schema buys nothing and risks everything. The database keeps its name. |
+| `/api/contacts` on the mobile API | Installed Android apps cannot be asked to update on our schedule. |
+| "first contact", "last contact", "contacted", "do not contact" | Here *contact* is the act of reaching out, not the entity. |
+
+`/contacts/...` in the web UI redirects to `/organizations/...`, so old
+bookmarks and printed briefs keep working.
+
 ## The UI Pages
 
 | Page           | URL           | What it shows                                      |
 | -------------- | ------------- | -------------------------------------------------- |
 | Approval Queue | `/approvals/` | Email drafts waiting for review                    |
-| Contacts       | `/contacts/`  | All contacts with stage, status and suppression filters |
+| Organizations       | `/organizations/`  | Every organization, with stage, status and suppression filters |
 | Research       | `/research/`  | Cities and scan levels with email counts per level |
 | Activity       | `/activity/`  | Agent run log with status, duration, summary       |
 
 ---
 
-## Contact Pipeline
+## The Pipeline
 
 ```
 cities table → research_agent → candidate / none
@@ -371,9 +388,9 @@ To configure as a persistent MCP server in Claude Code, add it to your `~/.claud
 
 The system has a built-in compliance layer. Before drafting any email, the outreach agent calls `check_compliance()` which blocks:
 
-- Contacts who have opted out (replied "unsubscribe" or equivalent)
-- Contacts whose data has been erased
-- Contacts with the `do_not_contact` flag
+- Organizations who have opted out (replied "unsubscribe" or equivalent)
+- Organizations whose data has been erased
+- Organizations with the `do_not_contact` flag
 
 Opt-out detection is automatic — the followup agent classifies incoming replies and sets the flag without human intervention. All consent events are logged to `consent_log`.
 

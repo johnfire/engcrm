@@ -19,7 +19,7 @@ describe("root index auth gate", () => {
     render(<Index />);
     await waitFor(() => expect(redirectMock).toHaveBeenCalled());
     expect(redirectMock.mock.calls[0][0]).toEqual(
-      expect.objectContaining({ href: "/(drawer)/contacts" }),
+      expect.objectContaining({ href: "/(drawer)/organizations" }),
     );
   });
 

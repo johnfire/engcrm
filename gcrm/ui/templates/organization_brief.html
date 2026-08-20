@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Brief — {{ contact.name }}</title>
+    <title>Brief — {{ organization.name }}</title>
     <link rel="stylesheet" href="/static/style.css" />
     <style>
       body {
@@ -137,81 +137,81 @@
   </head>
   <body>
     <div class="brief-header">
-      <h1>{{ contact.name }}</h1>
+      <h1>{{ organization.name }}</h1>
       <div class="brief-meta">
-        {{ contact.city }}{% if contact.country %} · {{ contact.country }}{%
-        endif %} {% if contact.type %} · {{ contact.type }}{% endif %}
+        {{ organization.city }}{% if organization.country %} · {{ organization.country }}{%
+        endif %} {% if organization.type %} · {{ organization.type }}{% endif %}
         <span
-          class="badge badge-{{ contact.status }}"
+          class="badge badge-{{ organization.status }}"
           style="margin-left: 0.5rem"
-          >{{ t('status.' ~ contact.status) }}</span
+          >{{ t('status.' ~ organization.status) }}</span
         >
-        {% if contact.fit_score is not none %}<span class="fit-score"
-          >{{ contact.fit_score }}/100</span
+        {% if organization.fit_score is not none %}<span class="fit-score"
+          >{{ organization.fit_score }}/100</span
         >{% endif %}
       </div>
     </div>
 
     <div class="brief-section">
-      <h2>{{ t('contactBrief.atAGlance') }}</h2>
-      {% if contact.decision_maker %}
+      <h2>{{ t('organizationBrief.atAGlance') }}</h2>
+      {% if organization.decision_maker %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.decisionMaker') }}</span>
-        <span class="brief-val">{{ contact.decision_maker }}</span>
+        <span class="brief-label">{{ t('organizationBrief.decisionMaker') }}</span>
+        <span class="brief-val">{{ organization.decision_maker }}</span>
       </div>
-      {% endif %} {% if contact.best_visit_time %}
+      {% endif %} {% if organization.best_visit_time %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.bestTime') }}</span>
-        <span class="brief-val">{{ contact.best_visit_time }}</span>
+        <span class="brief-label">{{ t('organizationBrief.bestTime') }}</span>
+        <span class="brief-val">{{ organization.best_visit_time }}</span>
       </div>
-      {% endif %} {% if contact.visit_duration %}
+      {% endif %} {% if organization.visit_duration %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.duration') }}</span>
-        <span class="brief-val">{{ contact.visit_duration }}</span>
+        <span class="brief-label">{{ t('organizationBrief.duration') }}</span>
+        <span class="brief-val">{{ organization.visit_duration }}</span>
       </div>
-      {% endif %} {% if contact.phone %}
+      {% endif %} {% if organization.phone %}
       <div class="brief-row">
         <span class="brief-label">{{ t('common.phone') }}</span>
         <span class="brief-val"
-          ><a href="tel:{{ contact.phone }}">{{ contact.phone }}</a></span
+          ><a href="tel:{{ organization.phone }}">{{ organization.phone }}</a></span
         >
       </div>
-      {% endif %} {% if contact.email %}
+      {% endif %} {% if organization.email %}
       <div class="brief-row">
         <span class="brief-label">{{ t('common.email') }}</span>
         <span class="brief-val"
-          ><a href="mailto:{{ contact.email }}">{{ contact.email }}</a></span
+          ><a href="mailto:{{ organization.email }}">{{ organization.email }}</a></span
         >
       </div>
-      {% endif %} {% if contact.website %}
+      {% endif %} {% if organization.website %}
       <div class="brief-row">
         <span class="brief-label">{{ t('common.website') }}</span>
-        {% set contact_website_url = contact.website | browsable_url %}
+        {% set organization_website_url = organization.website | browsable_url %}
         <span class="brief-val"
-          >{% if contact_website_url %}<a href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
-            >{{ contact.website }}</a
-          >{% else %}{{ contact.website }}{% endif %}</span
+          >{% if organization_website_url %}<a href="{{ organization_website_url }}" target="_blank" rel="noopener noreferrer"
+            >{{ organization.website }}</a
+          >{% else %}{{ organization.website }}{% endif %}</span
         >
       </div>
-      {% endif %} {% if contact.address %}
+      {% endif %} {% if organization.address %}
       <div class="brief-row">
         <span class="brief-label">{{ t('common.address') }}</span>
         <span class="brief-val">
           <a
-            href="https://www.google.com/maps/search/{{ (contact.address ~ ' ' ~ (contact.city or '')) | urlencode }}"
+            href="https://www.google.com/maps/search/{{ (organization.address ~ ' ' ~ (organization.city or '')) | urlencode }}"
             target="_blank"
-            >{{ contact.address }}</a
+            >{{ organization.address }}</a
           >
         </span>
       </div>
-      {% elif contact.city %}
+      {% elif organization.city %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.maps') }}</span>
+        <span class="brief-label">{{ t('organizationBrief.maps') }}</span>
         <span class="brief-val">
           <a
-            href="https://www.google.com/maps/search/{{ (contact.name ~ ' ' ~ (contact.city or '')) | urlencode }}"
+            href="https://www.google.com/maps/search/{{ (organization.name ~ ' ' ~ (organization.city or '')) | urlencode }}"
             target="_blank"
-            >{{ t('contactBrief.searchInMaps', name=contact.name) }}</a
+            >{{ t('organizationBrief.searchInMaps', name=organization.name) }}</a
           >
         </span>
       </div>
@@ -219,31 +219,31 @@
     </div>
 
     <div class="brief-section">
-      <h2>{{ t('contactBrief.yourHistory') }}</h2>
-      {% if contact.last_visited_at %}
+      <h2>{{ t('organizationBrief.yourHistory') }}</h2>
+      {% if organization.last_visited_at %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.lastVisited') }}</span>
-        <span class="brief-val">{{ contact.last_visited_at }}</span>
+        <span class="brief-label">{{ t('organizationBrief.lastVisited') }}</span>
+        <span class="brief-val">{{ organization.last_visited_at }}</span>
       </div>
-      {% endif %} {% if contact.first_impression %}
+      {% endif %} {% if organization.first_impression %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.firstImpression') }}</span>
-        <span class="brief-val">{{ contact.first_impression }}</span>
+        <span class="brief-label">{{ t('organizationBrief.firstImpression') }}</span>
+        <span class="brief-val">{{ organization.first_impression }}</span>
       </div>
-      {% endif %} {% if contact.last_impression %}
+      {% endif %} {% if organization.last_impression %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.lastImpression') }}</span>
-        <span class="brief-val">{{ contact.last_impression }}</span>
+        <span class="brief-label">{{ t('organizationBrief.lastImpression') }}</span>
+        <span class="brief-val">{{ organization.last_impression }}</span>
       </div>
-      {% endif %} {% if contact.materials_left %}
+      {% endif %} {% if organization.materials_left %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.materialsLeft') }}</span>
-        <span class="brief-val">{{ contact.materials_left }}</span>
+        <span class="brief-label">{{ t('organizationBrief.materialsLeft') }}</span>
+        <span class="brief-val">{{ organization.materials_left }}</span>
       </div>
-      {% endif %} {% if contact.followup_promised %}
+      {% endif %} {% if organization.followup_promised %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.followupPromised') }}</span>
-        <span class="brief-val">{{ contact.followup_promised }}</span>
+        <span class="brief-label">{{ t('organizationBrief.followupPromised') }}</span>
+        <span class="brief-val">{{ organization.followup_promised }}</span>
       </div>
       {% endif %} {% if interactions %}
       <ul class="interaction-list" style="margin-top: 0.75rem">
@@ -270,57 +270,57 @@
       </ul>
       {% else %}
       <p class="no-data" style="margin-top: 0.5rem">
-        {{ t('contactBrief.noInteractions') }}
+        {{ t('organizationBrief.noInteractions') }}
       </p>
       {% endif %}
     </div>
 
     <div class="brief-section">
-      <h2>{{ t('contactBrief.venueIntel') }}</h2>
-      {% if contact.space_notes %}
+      <h2>{{ t('organizationBrief.venueIntel') }}</h2>
+      {% if organization.space_notes %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.space') }}</span>
-        <span class="brief-val">{{ contact.space_notes }}</span>
+        <span class="brief-label">{{ t('organizationBrief.space') }}</span>
+        <span class="brief-val">{{ organization.space_notes }}</span>
       </div>
-      {% endif %} {% if contact.access_notes %}
+      {% endif %} {% if organization.access_notes %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.access') }}</span>
-        <span class="brief-val">{{ contact.access_notes }}</span>
+        <span class="brief-label">{{ t('organizationBrief.access') }}</span>
+        <span class="brief-val">{{ organization.access_notes }}</span>
       </div>
-      {% endif %} {% if contact.price_sensitivity %}
+      {% endif %} {% if organization.price_sensitivity %}
       <div class="brief-row">
-        <span class="brief-label">{{ t('contactBrief.priceSensitivity') }}</span>
-        <span class="brief-val">{{ contact.price_sensitivity }}</span>
+        <span class="brief-label">{{ t('organizationBrief.priceSensitivity') }}</span>
+        <span class="brief-val">{{ organization.price_sensitivity }}</span>
       </div>
-      {% endif %} {% if not contact.space_notes and not contact.access_notes and
-      not contact.price_sensitivity %}
-      <p class="no-data">{{ t('contactBrief.noVenueNotes') }}</p>
+      {% endif %} {% if not organization.space_notes and not organization.access_notes and
+      not organization.price_sensitivity %}
+      <p class="no-data">{{ t('organizationBrief.noVenueNotes') }}</p>
       {% endif %}
     </div>
 
-    {% if contact.notes %}
+    {% if organization.notes %}
     <div class="brief-section">
       <h2>{{ t('common.notes') }}</h2>
       <p style="font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap">
-        {{ contact.notes }}
+        {{ organization.notes }}
       </p>
     </div>
     {% endif %}
 
     <div class="interview-box">
-      <h2>{{ t('contactBrief.afterMeeting') }}</h2>
+      <h2>{{ t('organizationBrief.afterMeeting') }}</h2>
       <p style="font-size: 0.85rem; margin: 0 0 0.25rem">
-        {{ t('contactBrief.runDebrief') }}
+        {{ t('organizationBrief.runDebrief') }}
       </p>
       <code>engcrm-interview</code>
       <p style="font-size: 0.8rem; color: #888; margin: 0.5rem 0 0">
-        {{ t('contactBrief.searchCompanyHint', name=contact.name) }}
+        {{ t('organizationBrief.searchCompanyHint', name=organization.name) }}
       </p>
     </div>
 
     <div class="brief-actions">
-      <a href="/contacts/{{ contact.id }}" class="btn-edit">{{ t('contactBrief.editRecord') }}</a>
-      <a href="/contacts/" class="btn-back">{{ t('contactBrief.allContacts') }}</a>
+      <a href="/organizations/{{ organization.id }}" class="btn-edit">{{ t('organizationBrief.editRecord') }}</a>
+      <a href="/organizations/" class="btn-back">{{ t('organizationBrief.allContacts') }}</a>
     </div>
   </body>
 </html>

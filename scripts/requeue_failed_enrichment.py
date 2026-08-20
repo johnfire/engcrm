@@ -6,7 +6,7 @@ list rather than raising (fixed in 8fe8829 by moving to `ddgs`). Both agents tha
 depend on it recorded that silence as a fact about the contact:
 
   * the enrichment agent raises research_exhausted when it finds no
-    website, email or phone — and get_contacts_needing_enrichment() excludes that
+    website, email or phone — and get_organizations_needing_enrichment() excludes that
     status, so the contact is parked permanently rather than merely skipped;
   * the research agent saves a venue with the same status when it finds no web
     presence for it.

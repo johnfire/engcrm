@@ -6,7 +6,8 @@ import re
 
 from psycopg2.extras import Json
 
-from gcrm.contact_state import (
+from gcrm.db.connection import db, serialize_row
+from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
     SUPPRESSION_FLAGS,
@@ -14,7 +15,6 @@ from gcrm.contact_state import (
     coerce_status,
     is_typical,
 )
-from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
@@ -71,7 +71,7 @@ def _google_columns(google: dict) -> dict:
     }
 
 
-def save_contact(
+def save_organization(
     name: str,
     city: str,
     *,
@@ -118,7 +118,7 @@ def save_contact(
         cur = conn.cursor()
         # Skip names matching the ignored-chains blocklist
         if _is_ignored_chain(name, _load_ignored_chains(cur)):
-            logger.info("save_contact: ignored chain skipped — %s / %s", name, city)
+            logger.info("save_organization: ignored chain skipped — %s / %s", name, city)
             return 0
 
         # Email dedup — already have an active contact with this email
@@ -128,7 +128,7 @@ def save_contact(
                 (email,),
             )
             if cur.fetchone():
-                logger.debug("save_contact: email duplicate skipped — %s (%s)", name, email)
+                logger.debug("save_organization: email duplicate skipped — %s (%s)", name, email)
                 return 0
 
         # Name+city dedup
@@ -137,7 +137,7 @@ def save_contact(
             (name, city),
         )
         if cur.fetchone():
-            logger.debug("save_contact: duplicate skipped — %s / %s", name, city)
+            logger.debug("save_organization: duplicate skipped — %s / %s", name, city)
             return 0
 
         cur.execute(
@@ -178,12 +178,12 @@ def save_contact(
         )
         contact_id = cur.fetchone()["id"]
         ensure_consent_log(contact_id, conn=conn)
-        logger.info("save_contact: created id=%d  %s / %s", contact_id, name, city)
+        logger.info("save_organization: created id=%d  %s / %s", contact_id, name, city)
     log_audit(None, None, "contact.created", f"contact:{contact_id}", "created")
     return contact_id
 
 
-def get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
+def get_existing_organization_names(city: str, country: str = "DE") -> set[str]:
     """Lowercased names of contacts already saved for a city — the research
     agent's 'already scanned' set, so each scan only processes new businesses."""
     with db() as conn:
@@ -194,7 +194,7 @@ def get_existing_contact_names(city: str, country: str = "DE") -> set[str]:
         return {row["name"] for row in cur.fetchall()}
 
 
-def update_contact_google_data(contact_id: int, google: dict) -> None:
+def update_organization_google_data(contact_id: int, google: dict) -> None:
     """Attach Google Places data (coords + status/rating + full payload) to an
     existing contact — used by the backfill for contacts saved before geo capture."""
     cols = _google_columns(google)
@@ -229,7 +229,7 @@ def get_candidates(limit: int = 50) -> list[dict]:
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def get_contacts_ready_for_outreach(
+def get_organizations_ready_for_outreach(
     limit: int = 20,
     city: str | None = None,
     scan_level: int | None = None,
@@ -281,7 +281,7 @@ def get_contacts_ready_for_outreach(
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def set_contact_state(
+def set_organization_state(
     contact_id: int,
     *,
     pipeline_stage: str,
@@ -349,7 +349,7 @@ def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None
     log_audit(None, None, f"contact.{flag}", f"contact:{contact_id}", str(value).lower())
 
 
-def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
+def get_organizations_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
     """Return contacts missing an email, never-enriched first, skipping dead-ends."""
     with db() as conn:
         cur = conn.cursor()
@@ -372,13 +372,13 @@ def get_contacts_needing_enrichment(limit: int = 50, city: str | None = None) ->
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def update_contact_details(contact_id: int, **kwargs) -> None:
+def update_organization_details(contact_id: int, **kwargs) -> None:
     """
     Update contact detail fields (website, email, phone). Ignores unknown keys.
     Always stamps enriched_at so the contact counts as processed by enrichment,
     even when no field changed.
 
-    Pipeline position is not a detail: use set_contact_state. Suppression is not
+    Pipeline position is not a detail: use set_organization_state. Suppression is not
     a detail either: use set_suppression_flag.
     """
     allowed = {"website", "email", "phone"}
@@ -398,7 +398,7 @@ def update_contact_details(contact_id: int, **kwargs) -> None:
     log_audit(None, None, "contact.enriched", f"contact:{contact_id}", "updated")
 
 
-def match_contact_by_email(from_email: str) -> dict | None:
+def match_organization_by_email(from_email: str) -> dict | None:
     """Find a contact by email, with a corporate-domain fallback. None if not found.
 
     The result carries `_match_type`: "exact" when the address matches a contact
@@ -414,9 +414,9 @@ def match_contact_by_email(from_email: str) -> dict | None:
         )
         row = cur.fetchone()
         if row:
-            contact = serialize_row(dict(row))
-            contact["_match_type"] = "exact"
-            return contact
+            organization = serialize_row(dict(row))
+            organization["_match_type"] = "exact"
+            return organization
         # Fallback: match any contact at the same corporate domain (not freemail)
         domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
         if domain and domain not in FREEMAIL_DOMAINS:
@@ -426,13 +426,13 @@ def match_contact_by_email(from_email: str) -> dict | None:
             )
             row = cur.fetchone()
             if row:
-                contact = serialize_row(dict(row))
-                contact["_match_type"] = "domain"
-                return contact
+                organization = serialize_row(dict(row))
+                organization["_match_type"] = "domain"
+                return organization
         return None
 
 
-def get_contact(contact_id: int) -> dict | None:
+def get_organization(contact_id: int) -> dict | None:
     """Return a single contact by id (serialized), or None if not found."""
     with db() as conn:
         cur = conn.cursor()

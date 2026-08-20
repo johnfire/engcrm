@@ -28,11 +28,11 @@ def main():
         can_run_level,
         fetch_page,
         finish_run,
-        get_existing_contact_names,
+        get_existing_organization_names,
         get_llm,
         google_maps_search,
         record_scan_result,
-        save_contact,
+        save_organization,
         start_run,
         web_search,
     )
@@ -51,11 +51,11 @@ def main():
         web_search=web_search,
         geo_search=google_maps_search,
         fetch_page=fetch_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
-        get_existing_names=get_existing_contact_names,
+        get_existing_names=get_existing_organization_names,
         cutoff=SCAN_CUTOFF,
     )
 
@@ -66,15 +66,15 @@ def main():
     })
 
     summary = result.get("summary", "")
-    contacts_found = len(result.get("saved_ids", []))
+    organizations_found = len(result.get("saved_ids", []))
     complete = bool(result.get("scan_complete", False))
-    record_scan_result(args.city, args.country, args.level, contacts_found, complete=complete)
+    record_scan_result(args.city, args.country, args.level, organizations_found, complete=complete)
 
-    if contacts_found > 0:
+    if organizations_found > 0:
         from gcrm.tools.memory import capture_thought
         capture_thought(
             f"gcrm city scan: {args.city} (level {args.level}). "
-            f"Found {contacts_found} new contacts. {summary}"
+            f"Found {organizations_found} new contacts. {summary}"
         )
         logger.info("memory: captured city observation for %s", args.city)
 

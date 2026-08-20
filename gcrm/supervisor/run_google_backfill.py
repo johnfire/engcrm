@@ -30,7 +30,7 @@ def main():
     args = parser.parse_args()
 
     from gcrm.db.connection import db
-    from gcrm.tools.db import update_contact_google_data
+    from gcrm.tools.db import update_organization_google_data
     from gcrm.tools.search import google_maps_search
 
     with db() as conn:
@@ -53,7 +53,7 @@ def main():
             logger.warning("google backfill: lookup failed for %s — %s", row["name"], error)
             matches = []
         if matches and _similar(row["name"], matches[0].get("name", "")) >= 0.5:
-            update_contact_google_data(row["id"], matches[0])
+            update_organization_google_data(row["id"], matches[0])
             updated += 1
         if index % 25 == 0:
             logger.info("  ... %d/%d processed, %d updated", index, len(rows), updated)

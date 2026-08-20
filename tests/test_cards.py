@@ -96,10 +96,10 @@ class TestDedup:
 class TestPromote:
     def test_maps_company_and_decision_maker(self):
         conn, cur = make_mock_conn()
-        with patch("gcrm.tools.db.save_contact", return_value=42) as msave, \
+        with patch("gcrm.tools.db.save_organization", return_value=42) as msave, \
              patch("gcrm.db.connection.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            cid = cards.promote_to_contact({
+            cid = cards.promote_to_organization({
                 "company": "ACME GmbH", "name": "Anna Roth", "title": "CTO",
                 "email": "anna@acme.de", "city": "Augsburg", "country": "DE",
                 "address": "Hauptstr 1", "industry": "Software",
@@ -114,28 +114,28 @@ class TestPromote:
 
     def test_source_param_overrides_default(self):
         conn, cur = make_mock_conn()
-        with patch("gcrm.tools.db.save_contact", return_value=9), \
+        with patch("gcrm.tools.db.save_organization", return_value=9), \
              patch("gcrm.db.connection.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            cid = cards.promote_to_contact({"company": "Sign Co", "city": "Munich"}, source="sign_scan")
+            cid = cards.promote_to_organization({"company": "Sign Co", "city": "Munich"}, source="sign_scan")
         assert cid == 9
         upd_params = cur.execute.call_args_list[-1].args[1]
         assert upd_params[2] == "sign_scan"
 
     def test_falls_back_to_person_name(self):
         conn, cur = make_mock_conn()
-        with patch("gcrm.tools.db.save_contact", return_value=1) as msave, \
+        with patch("gcrm.tools.db.save_organization", return_value=1) as msave, \
              patch("gcrm.db.connection.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            cards.promote_to_contact({"name": "Freelancer Bob", "city": "Munich"})
+            cards.promote_to_organization({"name": "Freelancer Bob", "city": "Munich"})
         assert msave.call_args.kwargs["name"] == "Freelancer Bob"
 
     def test_duplicate_returns_zero(self):
         conn, _ = make_mock_conn()
-        with patch("gcrm.tools.db.save_contact", return_value=0), \
+        with patch("gcrm.tools.db.save_organization", return_value=0), \
              patch("gcrm.db.connection.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            assert cards.promote_to_contact({"company": "Dup"}) == 0
+            assert cards.promote_to_organization({"company": "Dup"}) == 0
 
 
 class TestCaptureEndpoint:

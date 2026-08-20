@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from gcrm.contact_state import (
+from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
     PIPELINE_STAGES,
@@ -17,7 +17,7 @@ from gcrm.contact_state import (
     is_typical,
 )
 
-MOBILE_VOCABULARY = Path(__file__).parents[1] / "engcrm-mobile" / "services" / "contactState.ts"
+MOBILE_VOCABULARY = Path(__file__).parents[1] / "engcrm-mobile" / "services" / "organizationState.ts"
 
 
 def read_mobile_list(name: str) -> tuple[str, ...]:

@@ -120,7 +120,7 @@ Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
 | Page | URL | What it shows |
 |---|---|---|
 | Approval Queue | `/approvals/` | Email drafts pending review. Approve sends immediately. |
-| Contacts | `/contacts/` | All contacts with status filter and name/city search. |
+| Organizations | `/organizations/` | Every organization, with stage/status filters and name/city search. |
 | Activity Feed | `/activity/` | Agent run log with status, duration, and summary. |
 
 **Approval actions:**
@@ -190,7 +190,7 @@ SCOUT_THRESHOLD=60   # lower when you want more volume
 SCOUT_THRESHOLD=50   # cast a wide net
 ```
 
-Default is `75`. Contacts that score below the threshold are moved to `not_in_pipeline` / `dropped` and won't be contacted. They remain in the database — if you lower the threshold later and re-run the scout agent against a fresh import, they can be re-evaluated.
+Default is `75`. Organizations that score below the threshold are moved to `not_in_pipeline` / `dropped` and won't be contacted. They remain in the database — if you lower the threshold later and re-run the scout agent against a fresh import, they can be re-evaluated.
 
 ---
 

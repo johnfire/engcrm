@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
-from gcrm.supervisor import contact_opportunity_analysis
+from gcrm.supervisor import organization_opportunity_analysis
 
 client = TestClient(main.app)
 
@@ -21,23 +21,23 @@ def admin_access():
     main.app.dependency_overrides.pop(require_admin, None)
 
 
-def test_selected_contact_analysis_redirects_with_summary(admin_access):
-    with patch("gcrm.api.routers.contacts.analyse_contact_opportunity", return_value={"summary": "saved"}) as analyse:
-        response = client.post("/contacts/42/opportunity-analysis", follow_redirects=False)
+def test_selected_organization_analysis_redirects_with_summary(admin_access):
+    with patch("gcrm.api.routers.organizations.analyse_organization_opportunity", return_value={"summary": "saved"}) as analyse:
+        response = client.post("/organizations/42/opportunity-analysis", follow_redirects=False)
     assert response.status_code == 303
-    assert response.headers["location"] == "/contacts/42"
+    assert response.headers["location"] == "/organizations/42"
     analyse.assert_called_once_with(42)
 
 
-def test_single_contact_runner_injects_only_selected_contact():
+def test_single_organization_runner_injects_only_selected_organization():
     # autospec so the stub enforces the real create_opportunity_agent signature —
     # a permissive **kwargs mock let a missing required dependency ship.
     captured = {}
-    contact = {"id": 42, "name": "Acme", "deleted_at": None}
+    organization = {"id": 42, "name": "Acme", "deleted_at": None}
 
     class Agent:
         def invoke(self, state):
-            captured["contacts"] = dependencies["fetch_contacts"](state["limit"])
+            captured["contacts"] = dependencies["fetch_organizations"](state["limit"])
             return {"summary": "saved"}
 
     dependencies = {}
@@ -46,18 +46,18 @@ def test_single_contact_runner_injects_only_selected_contact():
         dependencies.update(kwargs)
         return Agent()
 
-    with patch.object(contact_opportunity_analysis, "get_contact", return_value=contact), \
-         patch.object(contact_opportunity_analysis, "get_llm"), \
+    with patch.object(organization_opportunity_analysis, "get_organization", return_value=organization), \
+         patch.object(organization_opportunity_analysis, "get_llm"), \
          patch("gcrm_opportunity_agent.create_opportunity_agent",
                autospec=True, side_effect=create_agent):
-        result = contact_opportunity_analysis.analyse_contact_opportunity(42)
+        result = organization_opportunity_analysis.analyse_organization_opportunity(42)
 
     assert result["summary"] == "saved"
-    assert captured["contacts"] == [contact]
+    assert captured["contacts"] == [organization]
 
 
-def test_contact_template_has_accessible_analysis_progress_feedback():
-    template = (Path(__file__).parents[1] / "gcrm/ui/templates/contact_detail.html").read_text()
+def test_organization_template_has_accessible_analysis_progress_feedback():
+    template = (Path(__file__).parents[1] / "gcrm/ui/templates/organization_detail.html").read_text()
     assert "data-opportunity-form" in template
     assert "data-opportunity-status" in template
     assert "aria-busy" in template

@@ -11,7 +11,7 @@ class ResearchState(TypedDict):
     run_id: int
     maps_terms: list[str]  # fixed terms for this level
     raw_results: list[dict]  # from Google Maps + web search + fetched pages
-    contacts_to_save: list[dict]
+    organizations_to_save: list[dict]
     saved_ids: list[int]
     errors: list[str]
 

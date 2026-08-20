@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from ._utils import parse_json_response
 from .graph import _candidate_urls
-from .prompts import build_search_query, enrich_contact_prompt
+from .prompts import build_search_query, enrich_organization_prompt
 from .state import EnrichmentState
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ def init(state: EnrichmentState, dependencies) -> dict:
     return {
         "run_id": run_id,
         "limit": state.get("limit", 50),
-        "contacts": [],
+        "organizations": [],
         "results": [],
         "errors": [],
         "enriched_count": 0,
@@ -28,26 +28,26 @@ def init(state: EnrichmentState, dependencies) -> dict:
 
 def fetch(state: EnrichmentState, dependencies) -> dict:
     try:
-        contacts = dependencies.fetch_contacts(limit=state["limit"])
+        organizations = dependencies.fetch_organizations(limit=state["limit"])
     except Exception as error:
-        return {"errors": state["errors"] + [f"fetch failed: {error}"], "contacts": []}
-    logger.info("enrichment: fetched %d contacts needing enrichment", len(contacts))
-    return {"contacts": contacts}
+        return {"errors": state["errors"] + [f"fetch failed: {error}"], "organizations": []}
+    logger.info("enrichment: fetched %d contacts needing enrichment", len(organizations))
+    return {"organizations": organizations}
 
 
 def enrich_all(state: EnrichmentState, dependencies) -> dict:
-    if not state.get("contacts"):
+    if not state.get("organizations"):
         return {"results": []}
     results = []
-    for contact in state["contacts"]:
-        name = contact["name"]
-        city = contact["city"]
-        contact_id = contact["id"]
-        missing_website = not contact.get("website")
-        missing_email = not contact.get("email")
-        missing_phone = not contact.get("phone")
-        query = build_search_query(contact)
-        known_website = (contact.get("website") or "").strip()
+    for organization in state["organizations"]:
+        name = organization["name"]
+        city = organization["city"]
+        contact_id = organization["id"]
+        missing_website = not organization.get("website")
+        missing_email = not organization.get("email")
+        missing_phone = not organization.get("phone")
+        query = build_search_query(organization)
+        known_website = (organization.get("website") or "").strip()
         try:
             search_results = dependencies.web_search(query=query)
         except Exception as error:
@@ -66,7 +66,7 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
                     page_texts.append(f"[Page: {url}]\n{text[:2000]}")
             except Exception:
                 pass
-        system, user = enrich_contact_prompt(contact, search_results, page_texts)
+        system, user = enrich_organization_prompt(organization, search_results, page_texts)
         try:
             response = dependencies.llm.invoke(
                 [SystemMessage(content=system), HumanMessage(content=user)]
@@ -119,7 +119,7 @@ def apply_results(state: EnrichmentState, dependencies) -> dict:
             updates["phone"] = result["phone"]
         try:
             if updates:
-                dependencies.update_contact(contact_id=contact_id, **updates)
+                dependencies.update_organization(contact_id=contact_id, **updates)
                 enriched += 1
             else:
                 not_found += 1
@@ -132,7 +132,7 @@ def apply_results(state: EnrichmentState, dependencies) -> dict:
 def generate_report(state: EnrichmentState, dependencies) -> dict:
     enriched = state.get("enriched_count", 0)
     not_found = state.get("not_found_count", 0)
-    total = len(state.get("contacts", []))
+    total = len(state.get("organizations", []))
     errs = state.get("errors", [])
     summary = (
         f"enrichment_agent: processed {total} contacts — {enriched} enriched, {not_found} not found"

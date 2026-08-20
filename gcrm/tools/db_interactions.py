@@ -18,7 +18,7 @@ def log_interaction(
     log_audit(None, None, "interaction.logged", f"contact:{contact_id}", outcome)
 
 
-def get_contact_interactions(contact_id: int) -> list[dict]:
+def get_organization_interactions(contact_id: int) -> list[dict]:
     """Return interactions newest first."""
     with db() as conn:
         cursor = conn.cursor()

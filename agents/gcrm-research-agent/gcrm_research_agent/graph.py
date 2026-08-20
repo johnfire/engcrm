@@ -4,9 +4,9 @@ from langgraph.graph import END, StateGraph
 
 from .protocols import (
     AgentMission,
-    ContactSaver,
     GeoSearcher,
     LanguageModel,
+    OrganizationSaver,
     PageFetcher,
     RunFinisher,
     RunStarter,
@@ -22,7 +22,7 @@ def create_research_agent(
     web_search: WebSearcher,
     geo_search: GeoSearcher,
     fetch_page: PageFetcher,
-    save_contact: ContactSaver,
+    save_organization: OrganizationSaver,
     start_run: RunStarter,
     finish_run: RunFinisher,
     mission: AgentMission,
@@ -40,7 +40,7 @@ def create_research_agent(
         web_search=web_search,
         geo_search=geo_search,
         fetch_page=fetch_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=mission,
@@ -53,9 +53,9 @@ def create_research_agent(
         "select_new_chunk",
         "run_web_search",
         "fetch_pages",
-        "extract_contacts",
+        "extract_organizations",
         "fetch_missing_emails",
-        "save_contacts",
+        "save_organizations",
         "generate_report",
     )
     graph = StateGraph(ResearchState)

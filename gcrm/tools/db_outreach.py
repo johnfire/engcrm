@@ -73,7 +73,7 @@ def get_outreach_outcomes(days: int = 90) -> list[dict]:
             SELECT
                 oo.id, oo.contact_id, oo.warm, oo.word_count, oo.created_at,
                 aq.draft_subject, aq.draft_body,
-                c.name AS contact_name, c.city, c.type AS contact_type
+                c.name AS contact_name, c.city, c.type AS organization_type
             FROM outreach_outcomes oo
             JOIN contacts c ON c.id = oo.contact_id
             LEFT JOIN LATERAL (

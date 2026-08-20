@@ -49,7 +49,7 @@ def make_tools(candidates=None):
     def fetch_candidates(limit=50):
         return [SAMPLE_CANDIDATE] if candidates is None else candidates
 
-    def set_contact_state(contact_id, *, pipeline_stage, status, fit_score=None, notes=""):
+    def set_organization_state(contact_id, *, pipeline_stage, status, fit_score=None, notes=""):
         updates.append(
             {"id": contact_id, "stage": pipeline_stage, "status": status, "score": fit_score}
         )
@@ -62,7 +62,7 @@ def make_tools(candidates=None):
     def finish_run(run_id, status, summary, output_data):
         runs[run_id]["status"] = status
 
-    return fetch_candidates, set_contact_state, start_run, finish_run, updates, runs
+    return fetch_candidates, set_organization_state, start_run, finish_run, updates, runs
 
 
 def test_agent_promotes_high_score():
@@ -70,7 +70,7 @@ def test_agent_promotes_high_score():
     llm = FakeLLM(['{"outcome": "fit", "reasoning": "Good contemporary focus"}'])
 
     agent = create_scout_agent(
-        llm=llm, fetch_candidates=fetch, set_contact_state=update,
+        llm=llm, fetch_candidates=fetch, set_organization_state=update,
         fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
@@ -88,7 +88,7 @@ def test_agent_drops_low_score():
     llm = FakeLLM(['{"outcome": "no_fit", "reasoning": "Wrong style"}'])
 
     agent = create_scout_agent(
-        llm=llm, fetch_candidates=fetch, set_contact_state=update,
+        llm=llm, fetch_candidates=fetch, set_organization_state=update,
         fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
@@ -105,7 +105,7 @@ def test_agent_handles_empty_candidates():
     llm = FakeLLM(["{}"])
 
     agent = create_scout_agent(
-        llm=llm, fetch_candidates=fetch, set_contact_state=update,
+        llm=llm, fetch_candidates=fetch, set_organization_state=update,
         fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )
@@ -126,7 +126,7 @@ def test_agent_continues_on_score_parse_error():
     llm = FakeLLM(["not json", '{"outcome": "fit", "reasoning": "Good fit"}'])
 
     agent = create_scout_agent(
-        llm=llm, fetch_candidates=fetch, set_contact_state=update,
+        llm=llm, fetch_candidates=fetch, set_organization_state=update,
         fetch_page=_no_page, fetch_city_context=_no_city_context,
         start_run=start_run, finish_run=finish_run, mission=DummyMission(),
     )

@@ -7,12 +7,12 @@ from .protocols import (
     AgentMission,
     ApprovalQueuer,
     BounceHandler,
-    ContactMatcher,
     InboxClassificationSaver,
     InboxFetcher,
     InteractionLogger,
     LanguageModel,
     OptOutSetter,
+    OrganizationMatcher,
     OverdueFetcher,
     RunFinisher,
     RunStarter,
@@ -68,26 +68,26 @@ def _extract_recipient_emails(msg: dict) -> list[str]:
     return list(dict.fromkeys(_EMAIL_RE.findall(msg.get("body", ""))))
 
 
-def _is_exact_match(contact: dict) -> bool:
+def _is_exact_match(organization: dict) -> bool:
     """Whether the contact was matched by exact email rather than a corporate-
     domain fallback. An absent tag means the matcher doesn't distinguish, so we
     treat it as exact and preserve prior behavior."""
-    return contact.get("_match_type") != "domain"
+    return organization.get("_match_type") != "domain"
 
 
-def _reply_entry(msg: dict, contact: dict, classification: str, reasoning: str) -> dict:
+def _reply_entry(msg: dict, organization: dict, classification: str, reasoning: str) -> dict:
     """The audit/result record for one classified reply. Per-action helpers
     annotate it further (flags, queued state, error notes)."""
     return {
         "inbox_message_id": msg["id"],
-        "contact_id": contact["id"],
+        "contact_id": organization["id"],
         "from_email": msg["from_email"],
         "classification": classification,
         "reasoning": reasoning,
     }
 
 
-def create_followup_agent(llm: LanguageModel, fetch_inbox: InboxFetcher, match_contact: ContactMatcher, log_interaction: InteractionLogger, set_opt_out: OptOutSetter, handle_bounce: BounceHandler, set_visit_when_nearby: VisitFlagSetter, save_classification: InboxClassificationSaver, fetch_overdue: OverdueFetcher, queue_for_approval: ApprovalQueuer, record_warm_outcome: WarmOutcomeRecorder, start_run: RunStarter, finish_run: RunFinisher, mission: AgentMission, overdue_days: int = 90):
+def create_followup_agent(llm: LanguageModel, fetch_inbox: InboxFetcher, match_organization: OrganizationMatcher, log_interaction: InteractionLogger, set_opt_out: OptOutSetter, handle_bounce: BounceHandler, set_visit_when_nearby: VisitFlagSetter, save_classification: InboxClassificationSaver, fetch_overdue: OverdueFetcher, queue_for_approval: ApprovalQueuer, record_warm_outcome: WarmOutcomeRecorder, start_run: RunStarter, finish_run: RunFinisher, mission: AgentMission, overdue_days: int = 90):
     """Build the follow-up graph from module-level dependency-injected nodes."""
     from functools import partial
     from types import SimpleNamespace

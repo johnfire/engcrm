@@ -35,30 +35,30 @@ from gcrm.tools import (
     finish_run,
     get_candidates,
     get_city_market_context,
-    get_contact_interactions,
-    get_contacts_needing_enrichment,
-    get_contacts_needing_opportunity_analysis,
-    get_contacts_ready_for_outreach,
-    get_existing_contact_names,
+    get_existing_organization_names,
     get_llm,
+    get_organization_interactions,
+    get_organizations_needing_enrichment,
+    get_organizations_needing_opportunity_analysis,
+    get_organizations_ready_for_outreach,
     get_overdue_contacts,
     google_maps_search,
     log_interaction,
     mark_bad_email,
-    match_contact_by_email,
+    match_organization_by_email,
     queue_for_approval,
     read_inbox,
     record_scan_result,
     record_warm_outcome,
-    save_contact,
     save_inbox_classification,
     save_opportunity_analysis,
+    save_organization,
     search_gcrm_thoughts,
-    set_contact_state,
     set_opt_out,
+    set_organization_state,
     set_visit_when_nearby,
     start_run,
-    update_contact_details,
+    update_organization_details,
     web_search,
 )
 
@@ -84,11 +84,11 @@ def _build_research_agent(llm):
         web_search=web_search,
         geo_search=google_maps_search,
         fetch_page=fetch_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
-        get_existing_names=get_existing_contact_names,
+        get_existing_names=get_existing_organization_names,
         cutoff=SCAN_CUTOFF,
     )
 
@@ -98,8 +98,8 @@ def _build_enrichment_agent(llm):
         llm=llm,
         web_search=web_search,
         fetch_page=fetch_page,
-        fetch_contacts=get_contacts_needing_enrichment,
-        update_contact=update_contact_details,
+        fetch_organizations=get_organizations_needing_enrichment,
+        update_organization=update_organization_details,
         start_run=start_run,
         finish_run=finish_run,
     )
@@ -108,8 +108,8 @@ def _build_enrichment_agent(llm):
 def _build_opportunity_agent(llm):
     return create_opportunity_agent(
         llm=llm,
-        fetch_contacts=get_contacts_needing_opportunity_analysis,
-        fetch_interactions=get_contact_interactions,
+        fetch_organizations=get_organizations_needing_opportunity_analysis,
+        fetch_interactions=get_organization_interactions,
         fetch_page=fetch_page,
         get_or_create_dossier=get_or_create_dossier if RESEARCH_DOSSIER_ENABLED else None,
         save_analysis=save_opportunity_analysis,
@@ -124,7 +124,7 @@ def _build_scout_agent(llm):
     return create_scout_agent(
         llm=llm,
         fetch_candidates=get_candidates,
-        set_contact_state=set_contact_state,
+        set_organization_state=set_organization_state,
         fetch_page=fetch_page,
         fetch_city_context=get_city_market_context,
         start_run=start_run,
@@ -137,8 +137,8 @@ def _build_scout_agent(llm):
 def _build_outreach_agent(llm):
     return create_outreach_agent(
         llm=llm,
-        fetch_ready_contacts=get_contacts_ready_for_outreach,
-        fetch_interactions=get_contact_interactions,
+        fetch_ready_organizations=get_organizations_ready_for_outreach,
+        fetch_interactions=get_organization_interactions,
         fetch_page=fetch_page,
         check_compliance=check_compliance,
         queue_for_approval=queue_for_approval,
@@ -152,7 +152,7 @@ def _build_followup_agent(llm):
     return create_followup_agent(
         llm=llm,
         fetch_inbox=read_inbox,
-        match_contact=match_contact_by_email,
+        match_organization=match_organization_by_email,
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,
         handle_bounce=mark_bad_email,
@@ -218,11 +218,11 @@ def _run_research_node(state: SupervisorState, research_agent) -> dict:
                 "level": level,
             })
             summary = result.get("summary", "")
-            contacts_found = len(result.get("saved_ids", []))
+            organizations_found = len(result.get("saved_ids", []))
             complete = bool(result.get("scan_complete", False))
             summaries.append(summary)
             logger.info("research: %s", summary)
-            record_scan_result(city, country, level, contacts_found, complete=complete)
+            record_scan_result(city, country, level, organizations_found, complete=complete)
         except Exception as error:
             msg = f"research failed for {city} level {level}: {error}"
             logger.error(msg)

@@ -2,13 +2,13 @@ import { translate, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, isSupportedLanguage }
 
 describe("translate", () => {
   it("resolves a key per language", () => {
-    expect(translate("drawer.contacts", "en")).toBe("Contacts");
-    expect(translate("drawer.contacts", "de")).toBe("Kontakte");
+    expect(translate("drawer.organizations", "en")).toBe("Organizations");
+    expect(translate("drawer.organizations", "de")).toBe("Organisationen");
   });
 
   it("interpolates {{var}} placeholders", () => {
-    expect(translate("contactDetail.score", "en", { score: 80 })).toBe("Score: 80");
-    expect(translate("contactDetail.score", "de", { score: 80 })).toBe("Score: 80");
+    expect(translate("organizationDetail.score", "en", { score: 80 })).toBe("Score: 80");
+    expect(translate("organizationDetail.score", "de", { score: 80 })).toBe("Score: 80");
   });
 
   it("picks the _one/_other pluralized variant from a count param", () => {

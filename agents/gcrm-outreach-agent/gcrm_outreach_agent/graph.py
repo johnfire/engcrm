@@ -12,7 +12,7 @@ from .protocols import (
     InteractionFetcher,
     LanguageModel,
     PageFetcher,
-    ReadyContactFetcher,
+    ReadyOrganizationFetcher,
     RunFinisher,
     RunStarter,
 )
@@ -25,7 +25,7 @@ def initialize(state: OutreachState, start_run: RunStarter) -> dict:
         "run_id": start_run("outreach_agent", {"limit": limit}),
         "limit": limit,
         "learnings": state.get("learnings", []),
-        "contacts": [],
+        "organizations": [],
         "drafts": [],
         "errors": [],
         "queued_count": 0,
@@ -34,14 +34,14 @@ def initialize(state: OutreachState, start_run: RunStarter) -> dict:
     }
 
 
-def fetch_contacts(state: OutreachState, fetch_ready_contacts: ReadyContactFetcher) -> dict:
+def fetch_organizations(state: OutreachState, fetch_ready_organizations: ReadyOrganizationFetcher) -> dict:
     try:
-        return {"contacts": fetch_ready_contacts(limit=state["limit"])}
+        return {"organizations": fetch_ready_organizations(limit=state["limit"])}
     except Exception as error:
-        return {"errors": state["errors"] + [f"fetch_ready_contacts: {error}"], "contacts": []}
+        return {"errors": state["errors"] + [f"fetch_ready_organizations: {error}"], "organizations": []}
 
 
-def draft_contacts(
+def draft_organizations(
     state: OutreachState,
     llm: LanguageModel,
     fetch_interactions: InteractionFetcher,
@@ -50,10 +50,10 @@ def draft_contacts(
     mission: AgentMission,
 ) -> dict:
     drafts = []
-    for contact in state.get("contacts", []):
+    for organization in state.get("organizations", []):
         drafts.append(
-            _draft_contact(
-                contact,
+            _draft_organization(
+                organization,
                 state.get("learnings", []),
                 llm,
                 fetch_interactions,
@@ -65,8 +65,8 @@ def draft_contacts(
     return {"drafts": drafts}
 
 
-def _draft_contact(
-    contact: dict,
+def _draft_organization(
+    organization: dict,
     learnings: list[str],
     llm: LanguageModel,
     fetch_interactions: InteractionFetcher,
@@ -74,18 +74,18 @@ def _draft_contact(
     check_compliance: ComplianceChecker,
     mission: AgentMission,
 ) -> dict:
-    contact_id = contact["id"]
+    contact_id = organization["id"]
     try:
         if not check_compliance(contact_id):
             return {"contact_id": contact_id, "blocked_reason": "opt-out or erasure flag set"}
     except Exception as error:
         return {"contact_id": contact_id, "blocked_reason": f"compliance check error: {error}"}
     interactions = _load_interactions(contact_id, fetch_interactions)
-    website_content = _load_website(contact, fetch_page)
+    website_content = _load_website(organization, fetch_page)
     system, user = draft_email_prompt(
         mission,
-        contact,
-        contact.get("preferred_language") or mission.language_default,
+        organization,
+        organization.get("preferred_language") or mission.language_default,
         interactions=interactions,
         website_content=website_content,
         learnings=learnings,
@@ -109,9 +109,9 @@ def _load_interactions(contact_id: int, fetch_interactions: InteractionFetcher) 
         return []
 
 
-def _load_website(contact: dict, fetch_page: PageFetcher) -> str:
+def _load_website(organization: dict, fetch_page: PageFetcher) -> str:
     try:
-        return fetch_page(contact["website"]) if contact.get("website") else ""
+        return fetch_page(organization["website"]) if organization.get("website") else ""
     except Exception:
         return ""
 
@@ -137,7 +137,7 @@ def queue_drafts(state: OutreachState, queue_for_approval: ApprovalQueuer) -> di
 
 def generate_report(state: OutreachState, finish_run: RunFinisher) -> dict:
     queued, blocked = state.get("queued_count", 0), state.get("blocked_count", 0)
-    total, errors = len(state.get("contacts", [])), state.get("errors", [])
+    total, errors = len(state.get("organizations", [])), state.get("errors", [])
     summary = f"outreach_agent: processed {total} contacts — {queued} queued for approval, {blocked} blocked"
     if errors:
         summary += f", {len(errors)} error(s)"
@@ -152,7 +152,7 @@ def generate_report(state: OutreachState, finish_run: RunFinisher) -> dict:
 
 def create_outreach_agent(
     llm: LanguageModel,
-    fetch_ready_contacts: ReadyContactFetcher,
+    fetch_ready_organizations: ReadyOrganizationFetcher,
     fetch_interactions: InteractionFetcher,
     fetch_page: PageFetcher,
     check_compliance: ComplianceChecker,
@@ -164,11 +164,11 @@ def create_outreach_agent(
     """Build an outreach graph from small dependency-injected node functions."""
     graph = StateGraph(OutreachState)
     graph.add_node("init", partial(initialize, start_run=start_run))
-    graph.add_node("fetch", partial(fetch_contacts, fetch_ready_contacts=fetch_ready_contacts))
+    graph.add_node("fetch", partial(fetch_organizations, fetch_ready_organizations=fetch_ready_organizations))
     graph.add_node(
         "draft_all",
         partial(
-            draft_contacts,
+            draft_organizations,
             llm=llm,
             fetch_interactions=fetch_interactions,
             fetch_page=fetch_page,

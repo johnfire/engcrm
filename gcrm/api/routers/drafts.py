@@ -25,7 +25,7 @@ def _fetch_held_drafts(conn) -> list[dict]:
             c.name        AS contact_name,
             c.city,
             c.country,
-            c.type        AS contact_type,
+            c.type        AS organization_type,
             c.email,
             c.website,
             c.notes       AS contact_notes

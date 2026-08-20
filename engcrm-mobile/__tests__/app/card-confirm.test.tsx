@@ -26,7 +26,7 @@ function card(company: string, captureId: number) {
   return {
     capture_id: captureId,
     is_card: true,
-    fields: { company, name: `${company} contact` },
+    fields: { company, name: `${company} organization` },
   };
 }
 

@@ -42,7 +42,7 @@ class GeoSearcher(Protocol):
     def __call__(self, query: str, city: str, country: str = "DE") -> list[dict]: ...
 
 
-class ContactSaver(Protocol):
+class OrganizationSaver(Protocol):
     """Save a contact to the database. Returns contact_id, or 0 on duplicate."""
 
     def __call__(

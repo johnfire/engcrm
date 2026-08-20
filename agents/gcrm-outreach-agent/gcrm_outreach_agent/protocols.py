@@ -21,7 +21,7 @@ class LanguageModel(Protocol):
         ...
 
 
-class ReadyContactFetcher(Protocol):
+class ReadyOrganizationFetcher(Protocol):
     """Fetch contacts with status='cold' that are ready for first outreach."""
     def __call__(self, limit: int = 20) -> list[dict]: ...
 

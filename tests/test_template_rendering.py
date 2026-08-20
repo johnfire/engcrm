@@ -111,7 +111,7 @@ class TestDroppedPage:
             clear_login_session()
 
 
-class TestContactsPage:
+class TestOrganizationsPage:
     def test_renders_empty_and_populated(self):
         with_login_session()
         try:
@@ -125,27 +125,27 @@ class TestContactsPage:
                     [{"type": "Handwerksbetrieb"}],  # distinct types
                     fetchone_sequence=[{"cnt": 1}],
                 )
-                with patch("gcrm.api.routers.contacts.db") as mock_db:
+                with patch("gcrm.api.routers.organizations.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
-                    r = client.get(f"/contacts/?lang={lang}")
+                    r = client.get(f"/organizations/?lang={lang}")
                 assert r.status_code == 200, r.text
         finally:
             clear_login_session()
 
-    def test_flagged_contact_renders_delete_confirm(self):
+    def test_flagged_organization_renders_delete_confirm(self):
         with_login_session()
         try:
             flagged = {**CONTACT_ROW, "flagged": True}
             conn, cur = make_mock_conn([flagged], [], [], fetchone_sequence=[{"cnt": 1}])
-            with patch("gcrm.api.routers.contacts.db") as mock_db:
+            with patch("gcrm.api.routers.organizations.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                r = client.get("/contacts/")
+                r = client.get("/organizations/")
             assert r.status_code == 200
             assert "Acme GmbH" in r.text
         finally:
             clear_login_session()
 
-    def test_starred_sort_orders_starred_contacts_first(self):
+    def test_starred_sort_orders_starred_organizations_first(self):
         with_login_session()
         try:
             conn, cur = make_mock_conn(
@@ -154,37 +154,37 @@ class TestContactsPage:
                 [{"type": "Handwerksbetrieb"}],
                 fetchone_sequence=[{"cnt": 1}],
             )
-            with patch("gcrm.api.routers.contacts.db") as mock_db:
+            with patch("gcrm.api.routers.organizations.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                response = client.get("/contacts/?sort=starred&dir=desc&lang=en")
+                response = client.get("/organizations/?sort=starred&dir=desc&lang=en")
 
             assert response.status_code == 200, response.text
             assert '<option value="starred" selected>Starred</option>' in response.text
-            contact_query = cur.execute.call_args_list[1].args[0]
-            assert "ORDER BY c.starred DESC NULLS LAST, c.id ASC" in contact_query
+            organization_query = cur.execute.call_args_list[1].args[0]
+            assert "ORDER BY c.starred DESC NULLS LAST, c.id ASC" in organization_query
         finally:
             clear_login_session()
 
 
-class TestContactsPrintPage:
+class TestOrganizationsPrintPage:
     def test_renders(self):
         with_login_session()
         try:
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn([CONTACT_ROW])
-                with patch("gcrm.api.routers.contacts.db") as mock_db:
+                with patch("gcrm.api.routers.organizations.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
-                    r = client.get(f"/contacts/print?lang={lang}")
+                    r = client.get(f"/organizations/print?lang={lang}")
                 assert r.status_code == 200, r.text
         finally:
             clear_login_session()
 
 
-class TestContactBriefPage:
+class TestOrganizationBriefPage:
     def test_renders_full_and_minimal(self):
         with_login_session()
         try:
-            full_contact = {
+            full_organization = {
                 **CONTACT_ROW, "decision_maker": "Anna Roth", "best_visit_time": "Tue afternoons",
                 "visit_duration": "20 min", "phone": "+49 821 1", "address": "Hauptstr 1",
                 "last_visited_at": "2026-01-01", "first_impression": "warm", "last_impression": "warm",
@@ -192,14 +192,14 @@ class TestContactBriefPage:
                 "access_notes": "bus", "price_sensitivity": "low",
             }
             for lang in ("en", "de"):
-                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_contact])
-                with patch("gcrm.api.routers.contacts.db") as mock_db:
+                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_organization])
+                with patch("gcrm.api.routers.organizations.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
-                    r = client.get(f"/contacts/1/brief?lang={lang}")
+                    r = client.get(f"/organizations/1/brief?lang={lang}")
                 assert r.status_code == 200, r.text
 
             # minimal contact — no optional fields, no interactions (exercises the "no data" branches)
-            minimal_contact = {
+            minimal_organization = {
                 "id": 1, "name": "Bare Co", "city": None, "country": None, "type": None, "status": "candidate",
                 "fit_score": None, "decision_maker": None, "best_visit_time": None, "visit_duration": None,
                 "phone": None, "email": None, "website": None, "address": None, "last_visited_at": None,
@@ -207,20 +207,20 @@ class TestContactBriefPage:
                 "followup_promised": None, "space_notes": None, "access_notes": None,
                 "price_sensitivity": None, "notes": None,
             }
-            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_contact])
-            with patch("gcrm.api.routers.contacts.db") as mock_db:
+            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_organization])
+            with patch("gcrm.api.routers.organizations.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                r = client.get("/contacts/1/brief")
+                r = client.get("/organizations/1/brief")
             assert r.status_code == 200, r.text
         finally:
             clear_login_session()
 
 
-class TestContactDetailPage:
-    def test_renders_full_and_minimal_contact_details(self):
+class TestOrganizationDetailPage:
+    def test_renders_full_and_minimal_organization_details(self):
         with_login_session()
         try:
-            full_contact = {
+            full_organization = {
                 **CONTACT_ROW,
                 "decision_maker": "Anna Roth",
                 "preferred_contact_method": "email",
@@ -247,21 +247,21 @@ class TestContactDetailPage:
                 "analysis_date": None,
             }
             for lang in ("en", "de"):
-                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_contact, opportunity_analysis])
-                with patch("gcrm.api.routers.contacts.db") as mock_db:
+                conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_organization, opportunity_analysis])
+                with patch("gcrm.api.routers.organizations.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
-                    response = client.get(f"/contacts/1?lang={lang}")
+                    response = client.get(f"/organizations/1?lang={lang}")
                 assert response.status_code == 200, response.text
                 assert re.search(r'value="candidate"\s+selected', response.text)
                 assert re.search(r'value="email"\s+selected', response.text)
                 assert len(re.findall(r'value="warm"\s+selected', response.text)) == 2
-                assert 'class="contact-edit-form"' in response.text
-                assert 'class="contact-detail-page"' in response.text
-                assert 'for="contact-name"' in response.text
-                assert 'id="contact-name"' in response.text
+                assert 'class="organization-edit-form"' in response.text
+                assert 'class="organization-detail-page"' in response.text
+                assert 'for="organization-name"' in response.text
+                assert 'id="organization-name"' in response.text
                 assert "Quote assistant" in response.text
 
-            minimal_contact = {
+            minimal_organization = {
                 **CONTACT_ROW,
                 "city": None,
                 "country": None,
@@ -284,10 +284,10 @@ class TestContactDetailPage:
                 "access_notes": None,
                 "price_sensitivity": None,
             }
-            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_contact, None])
-            with patch("gcrm.api.routers.contacts.db") as mock_db:
+            conn, cur = make_mock_conn([], fetchone_sequence=[minimal_organization, None])
+            with patch("gcrm.api.routers.organizations.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                response = client.get("/contacts/1")
+                response = client.get("/organizations/1")
             assert response.status_code == 200, response.text
         finally:
             clear_login_session()
@@ -318,7 +318,7 @@ class TestResearchPage:
             overview = {
                 "cities": [{
                     "city": "Augsburg", "region": "Bayern", "country": "DE",
-                    "levels": [{"level": 1, "scan": {"complete": True, "last_run_at": "2026-01-01", "contacts_found": 5}, "emailed": 2}],
+                    "levels": [{"level": 1, "scan": {"complete": True, "last_run_at": "2026-01-01", "organizations_found": 5}, "emailed": 2}],
                     "emailed_total": 2, "total_contacts": 5, "scanned_levels": 1,
                 }],
                 "levels": [1],
@@ -372,7 +372,7 @@ class TestDraftsPage:
             draft = {
                 "id": 1, "draft_subject": "Hi", "draft_body": "Body", "created_at": __import__("datetime").datetime.now(),
                 "reviewer_note": None, "contact_id": 1, "contact_name": "Acme", "city": "Augsburg",
-                "country": "DE", "contact_type": "Handwerksbetrieb", "email": "a@acme.de",
+                "country": "DE", "organization_type": "Handwerksbetrieb", "email": "a@acme.de",
                 "website": "https://acme.de", "contact_notes": "x" * 150,
             }
             for lang in ("en", "de"):

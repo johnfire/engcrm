@@ -7,18 +7,18 @@ function formatDistance(meters: number): string {
   return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
 }
 
-type Props = { contact: ReconContact; onCall: () => void; onNavigate: () => void; onScan: () => void };
+type Props = { organization: ReconContact; onCall: () => void; onNavigate: () => void; onScan: () => void };
 
-export function ReconContactCard({ contact, onCall, onNavigate, onScan }: Props) {
+export function ReconContactCard({ organization, onCall, onNavigate, onScan }: Props) {
   const { t } = useTranslation();
-  const meta = [contact.type, contact.city].filter(Boolean).join(" · ");
+  const meta = [organization.type, organization.city].filter(Boolean).join(" · ");
   return <View style={styles.row}>
-    <View style={styles.rowHead}><Text style={styles.name}>{contact.name}</Text><Text style={styles.distance}>{formatDistance(contact.distance_m)}</Text></View>
+    <View style={styles.rowHead}><Text style={styles.name}>{organization.name}</Text><Text style={styles.distance}>{formatDistance(organization.distance_m)}</Text></View>
     <View style={styles.metaRow}>
       {!!meta && <Text style={styles.meta}>{meta}</Text>}
-      {contact.rating != null && <Text style={styles.rating}>★ {contact.rating}</Text>}
-      {contact.fit_score != null && <Text style={styles.fit}>{t("recon.fitScore", { score: contact.fit_score })}</Text>}
-      {!!contact.status && <Text style={styles.status}>{contact.status}</Text>}
+      {organization.rating != null && <Text style={styles.rating}>★ {organization.rating}</Text>}
+      {organization.fit_score != null && <Text style={styles.fit}>{t("recon.fitScore", { score: organization.fit_score })}</Text>}
+      {!!organization.status && <Text style={styles.status}>{organization.status}</Text>}
     </View>
     <View style={styles.actions}>
       <Button label={t("recon.call")} onPress={onCall} /><Button label={t("recon.navigate")} onPress={onNavigate} /><Button label={t("recon.scanCard")} onPress={onScan} />

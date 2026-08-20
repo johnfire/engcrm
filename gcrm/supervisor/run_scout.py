@@ -39,7 +39,7 @@ def main():
         get_candidates,
         get_city_market_context,
         get_llm,
-        set_contact_state,
+        set_organization_state,
         start_run,
     )
 
@@ -54,14 +54,14 @@ def main():
     if args.city:
         def fetch_candidates(limit):
             rows = get_candidates(limit=limit)
-            return [contact for contact in rows if (contact.get("city") or "").lower() == args.city.lower()]
+            return [organization for organization in rows if (organization.get("city") or "").lower() == args.city.lower()]
     else:
         fetch_candidates = get_candidates
 
     agent = create_scout_agent(
         llm=get_llm(CHEAP_LLM),
         fetch_candidates=fetch_candidates,
-        set_contact_state=set_contact_state,
+        set_organization_state=set_organization_state,
         fetch_page=fetch_page,
         fetch_city_context=get_city_market_context,
         start_run=start_run,

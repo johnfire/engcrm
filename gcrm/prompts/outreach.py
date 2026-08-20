@@ -21,7 +21,7 @@ REPLY_CLASSIFICATIONS = ("interested", "warm", "not_interested", "not_possible",
 
 def draft_email_prompt(
     mission,
-    contact: dict,
+    organization: dict,
     language: str,
     interactions: list[dict],
     website_content: str,
@@ -53,7 +53,7 @@ def draft_email_prompt(
         f"A generic email will be ignored. A specific, warm, direct email might open a door."
     )
 
-    contact_section = json.dumps(contact, ensure_ascii=False, indent=2)
+    organization_section = json.dumps(organization, ensure_ascii=False, indent=2)
 
     if interactions:
         lines = []
@@ -75,11 +75,11 @@ def draft_email_prompt(
         website_section = "Website content: not available — rely on the notes and contact details."
 
     user = (
-        f"Write a first-contact email to {contact.get('name')} "
-        f"({contact.get('type', 'contact')} in {contact.get('city')}).\n"
+        f"Write a first-contact email to {organization.get('name')} "
+        f"({organization.get('type', 'contact')} in {organization.get('city')}).\n"
         f"Write entirely in language: {language}\n\n"
         f"--- CONTACT DETAILS & RESEARCH NOTES ---\n"
-        f"{contact_section}\n\n"
+        f"{organization_section}\n\n"
         f"--- {interaction_section} ---\n\n"
         f"--- {website_section} ---\n\n"
         f"The email must:\n"
@@ -138,7 +138,7 @@ def classify_reply_prompt(mission, message: dict) -> tuple[str, str]:
     return system, user
 
 
-def draft_reply_prompt(mission, contact: dict, message: dict, language: str) -> tuple[str, str]:
+def draft_reply_prompt(mission, organization: dict, message: dict, language: str) -> tuple[str, str]:
     """Draft an enthusiastic reply to a clearly INTERESTED message."""
     opt_out = OPT_OUT_LINE.get(language, OPT_OUT_LINE["en"])
     system = (
@@ -146,8 +146,8 @@ def draft_reply_prompt(mission, contact: dict, message: dict, language: str) -> 
         f"Outreach style: {mission.outreach_style}"
     )
     user = (
-        f"Write a warm, enthusiastic reply to this clearly interested message from {contact.get('name')} "
-        f"({contact.get('city')}).\n"
+        f"Write a warm, enthusiastic reply to this clearly interested message from {organization.get('name')} "
+        f"({organization.get('city')}).\n"
         f"Write entirely in language code: {language}\n\n"
         f"Their message:\nSubject: {message.get('subject')}\n{message.get('body', '')}\n\n"
         f"The reply should:\n"
@@ -162,7 +162,7 @@ def draft_reply_prompt(mission, contact: dict, message: dict, language: str) -> 
     return system, user
 
 
-def draft_warm_reply_prompt(mission, contact: dict, message: dict, language: str) -> tuple[str, str]:
+def draft_warm_reply_prompt(mission, organization: dict, message: dict, language: str) -> tuple[str, str]:
     """Draft a gentle, low-pressure reply to a friendly-but-uncommitted (WARM) message."""
     opt_out = OPT_OUT_LINE.get(language, OPT_OUT_LINE["en"])
     system = (
@@ -170,8 +170,8 @@ def draft_warm_reply_prompt(mission, contact: dict, message: dict, language: str
         f"Outreach style: {mission.outreach_style}"
     )
     user = (
-        f"Write a gentle, low-pressure reply to this friendly-but-uncommitted message from {contact.get('name')} "
-        f"({contact.get('city')}).\n"
+        f"Write a gentle, low-pressure reply to this friendly-but-uncommitted message from {organization.get('name')} "
+        f"({organization.get('city')}).\n"
         f"Write entirely in language code: {language}\n\n"
         f"Their message:\nSubject: {message.get('subject')}\n{message.get('body', '')}\n\n"
         f"The reply should:\n"
@@ -188,7 +188,7 @@ def draft_warm_reply_prompt(mission, contact: dict, message: dict, language: str
 
 def draft_followup_prompt(
     mission,
-    contact: dict,
+    organization: dict,
     days_since: int,
     language: str,
     original_subject: str = "",
@@ -200,8 +200,8 @@ def draft_followup_prompt(
     )
     original_ref = f"\nOriginal outreach: {original_subject}" if original_subject else ""
     user = (
-        f"Write a brief, non-pushy follow-up email to {contact.get('name')} "
-        f"({contact.get('type', 'contact')} in {contact.get('city')}).\n"
+        f"Write a brief, non-pushy follow-up email to {organization.get('name')} "
+        f"({organization.get('type', 'contact')} in {organization.get('city')}).\n"
         f"You haven't heard back in {days_since} days.{original_ref}\n"
         f"Write entirely in language code: {language}\n\n"
         f"The email should:\n"

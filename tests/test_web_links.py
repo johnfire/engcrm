@@ -41,11 +41,11 @@ def admin_web():
     main.app.dependency_overrides.pop(require_admin, None)
 
 
-def mock_contact_page(contact):
+def mock_organization_page(organization):
     """A cursor that answers the contact detail route: the contact row, then
     its (absent) opportunity analysis, then an empty interaction list."""
     cur = MagicMock()
-    cur.fetchone.side_effect = [contact, None]
+    cur.fetchone.side_effect = [organization, None]
     cur.fetchall.return_value = []
     conn = MagicMock()
     conn.cursor.return_value = cur
@@ -105,19 +105,19 @@ class TestPersonDetailWebsiteLink:
         assert "field-open-link" not in response.text
 
 
-class TestContactDetailWebsiteLink:
+class TestOrganizationDetailWebsiteLink:
     def test_links_a_scheme_less_website(self, admin_web):
-        with patch("gcrm.api.routers.contacts.db") as mock_db:
-            mock_db.return_value.__enter__.return_value = mock_contact_page(CONTACT_ROW)
-            response = client.get("/contacts/1")
+        with patch("gcrm.api.routers.organizations.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = mock_organization_page(CONTACT_ROW)
+            response = client.get("/organizations/1")
         assert response.status_code == 200
         assert 'href="https://acme.de" target="_blank" rel="noopener noreferrer"' in response.text
 
     def test_offers_no_link_for_an_unusable_website(self, admin_web):
-        with patch("gcrm.api.routers.contacts.db") as mock_db:
-            mock_db.return_value.__enter__.return_value = mock_contact_page(
+        with patch("gcrm.api.routers.organizations.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = mock_organization_page(
                 {**CONTACT_ROW, "website": "javascript:alert(1)"}
             )
-            response = client.get("/contacts/1")
+            response = client.get("/organizations/1")
         assert response.status_code == 200
         assert "field-open-link" not in response.text

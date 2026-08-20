@@ -2,8 +2,8 @@ from .graph import create_scout_agent
 from .protocols import (
     AgentMission,
     CandidateFetcher,
-    ContactStateSetter,
     LanguageModel,
+    OrganizationStateSetter,
     RunFinisher,
     RunStarter,
 )
@@ -14,7 +14,7 @@ __all__ = [
     "AgentMission",
     "LanguageModel",
     "CandidateFetcher",
-    "ContactStateSetter",
+    "OrganizationStateSetter",
     "RunStarter",
     "RunFinisher",
     "ScoutState",

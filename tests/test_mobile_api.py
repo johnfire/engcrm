@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
 from gcrm.api.jwt_auth import create_token, decode_token
-from gcrm.api.routers import api_contacts
+from gcrm.api.routers import api_organizations
 
 client = TestClient(main.app)
 
@@ -91,8 +91,8 @@ class TestOpportunityAnalysis:
         assert client.post("/api/contacts/42/opportunity-analysis", headers=self.SPECTATOR).status_code == 403
 
     def test_admin_runs_analysis_and_gets_result(self):
-        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", return_value={"summary": "saved"}) as run, \
-             patch("gcrm.api.routers.api_contacts.get_latest_opportunity_analysis", return_value=dict(self.STORED)):
+        with patch("gcrm.api.routers.api_organizations.analyse_organization_opportunity", return_value={"summary": "saved"}) as run, \
+             patch("gcrm.api.routers.api_organizations.get_latest_opportunity_analysis", return_value=dict(self.STORED)):
             r = client.post("/api/contacts/42/opportunity-analysis", headers=self.ADMIN)
         run.assert_called_once_with(42)
         assert r.status_code == 200
@@ -100,13 +100,13 @@ class TestOpportunityAnalysis:
         assert payload["opportunity_score"] == 80
         assert payload["recommended_services"][0]["service"] == "Booking bot"
 
-    def test_missing_contact_returns_404(self):
-        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", side_effect=LookupError):
+    def test_missing_organization_returns_404(self):
+        with patch("gcrm.api.routers.api_organizations.analyse_organization_opportunity", side_effect=LookupError):
             r = client.post("/api/contacts/999/opportunity-analysis", headers=self.ADMIN)
         assert r.status_code == 404
 
     def test_analysis_failure_returns_502(self):
-        with patch("gcrm.api.routers.api_contacts.analyse_contact_opportunity", side_effect=RuntimeError("llm down")):
+        with patch("gcrm.api.routers.api_organizations.analyse_organization_opportunity", side_effect=RuntimeError("llm down")):
             r = client.post("/api/contacts/42/opportunity-analysis", headers=self.ADMIN)
         assert r.status_code == 502
 
@@ -124,15 +124,15 @@ class TestPersonalPriority:
 
     def test_spectator_can_set_personal_priority(self):
         with patch(
-            "gcrm.api.routers.api_contacts.get_user_by_id",
+            "gcrm.api.routers.api_organizations.get_user_by_id",
             return_value=self.USER,
         ), patch(
-            "gcrm.api.routers.api_contacts.set_personal_priority",
+            "gcrm.api.routers.api_organizations.set_personal_priority",
             return_value=(True, 1),
-        ) as save_priority, patch("gcrm.api.routers.api_contacts.log_audit"):
-            response = api_contacts.update_personal_priority(
+        ) as save_priority, patch("gcrm.api.routers.api_organizations.log_audit"):
+            response = api_organizations.update_personal_priority(
                 42,
-                api_contacts.PersonalPriorityBody(priority=1),
+                api_organizations.PersonalPriorityBody(priority=1),
                 self.PAYLOAD,
             )
 
@@ -141,15 +141,15 @@ class TestPersonalPriority:
 
     def test_spectator_can_clear_personal_priority(self):
         with patch(
-            "gcrm.api.routers.api_contacts.get_user_by_id",
+            "gcrm.api.routers.api_organizations.get_user_by_id",
             return_value=self.USER,
         ), patch(
-            "gcrm.api.routers.api_contacts.set_personal_priority",
+            "gcrm.api.routers.api_organizations.set_personal_priority",
             return_value=(True, None),
-        ), patch("gcrm.api.routers.api_contacts.log_audit"):
-            response = api_contacts.update_personal_priority(
+        ), patch("gcrm.api.routers.api_organizations.log_audit"):
+            response = api_organizations.update_personal_priority(
                 42,
-                api_contacts.PersonalPriorityBody(priority=None),
+                api_organizations.PersonalPriorityBody(priority=None),
                 self.PAYLOAD,
             )
 
@@ -157,38 +157,38 @@ class TestPersonalPriority:
 
     def test_rejects_out_of_range_priority(self):
         with patch(
-            "gcrm.api.routers.api_contacts.get_user_by_id",
+            "gcrm.api.routers.api_organizations.get_user_by_id",
             return_value=self.USER,
-        ), pytest.raises(api_contacts.HTTPException) as error:
-            api_contacts.update_personal_priority(
+        ), pytest.raises(api_organizations.HTTPException) as error:
+            api_organizations.update_personal_priority(
                 42,
-                api_contacts.PersonalPriorityBody(priority=6),
+                api_organizations.PersonalPriorityBody(priority=6),
                 self.PAYLOAD,
             )
 
         assert error.value.status_code == 400
 
     def test_shared_admin_cannot_own_personal_priority(self):
-        with pytest.raises(api_contacts.HTTPException) as error:
-            api_contacts.update_personal_priority(
+        with pytest.raises(api_organizations.HTTPException) as error:
+            api_organizations.update_personal_priority(
                 42,
-                api_contacts.PersonalPriorityBody(priority=1),
+                api_organizations.PersonalPriorityBody(priority=1),
                 {"sub": "admin"},
             )
         assert error.value.status_code == 403
 
-    def test_cross_workspace_contact_is_hidden(self):
+    def test_cross_workspace_organization_is_hidden(self):
         with patch(
-            "gcrm.api.routers.api_contacts.get_user_by_id",
+            "gcrm.api.routers.api_organizations.get_user_by_id",
             return_value=self.USER,
         ), patch(
-            "gcrm.api.routers.api_contacts.set_personal_priority",
+            "gcrm.api.routers.api_organizations.set_personal_priority",
             return_value=(False, None),
         ):
-            with pytest.raises(api_contacts.HTTPException) as error:
-                api_contacts.update_personal_priority(
+            with pytest.raises(api_organizations.HTTPException) as error:
+                api_organizations.update_personal_priority(
                     42,
-                    api_contacts.PersonalPriorityBody(priority=1),
+                    api_organizations.PersonalPriorityBody(priority=1),
                     self.PAYLOAD,
                 )
 

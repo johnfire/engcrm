@@ -226,7 +226,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 contacted)
 ```
 
-`maybe` contacts sit until you review them manually. Use `manual_promote` or `manual_drop` MCP tools, or review them at `/contacts/?status=maybe`.
+Organizations the scout was unsure about stay at the `candidate` stage until you review them. Use `manual_promote` or `manual_drop` MCP tools, or review them at `/organizations/?stage=candidate`.
 
 ---
 

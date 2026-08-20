@@ -45,12 +45,12 @@ SAMPLE_CONTACT = {
 DRAFT_RESPONSE = '{"subject": "Anfrage zur Ausstellung", "body": "Sehr geehrte Damen und Herren..."}'
 
 
-def make_tools(contacts=None, compliance_result=True):
+def make_tools(organizations=None, compliance_result=True):
     queued = []
     runs = {}
 
-    def fetch_ready_contacts(limit=20):
-        return [SAMPLE_CONTACT] if contacts is None else contacts
+    def fetch_ready_organizations(limit=20):
+        return [SAMPLE_CONTACT] if organizations is None else organizations
 
     def check_compliance(contact_id):
         return compliance_result
@@ -67,15 +67,15 @@ def make_tools(contacts=None, compliance_result=True):
     def finish_run(run_id, status, summary, output_data):
         runs[run_id]["status"] = status
 
-    return fetch_ready_contacts, check_compliance, queue_for_approval, start_run, finish_run, queued, runs
+    return fetch_ready_organizations, check_compliance, queue_for_approval, start_run, finish_run, queued, runs
 
 
-def test_agent_queues_compliant_contact():
+def test_agent_queues_compliant_organization():
     fetch, check, queue, start_run, finish_run, queued, runs = make_tools()
     llm = FakeLLM([DRAFT_RESPONSE])
 
     agent = create_outreach_agent(
-        llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        llm=llm, fetch_ready_organizations=fetch, check_compliance=check,
         fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
@@ -87,7 +87,7 @@ def test_agent_queues_compliant_contact():
     assert queued[0]["subject"] == "Anfrage zur Ausstellung"
 
 
-def test_agent_blocks_opted_out_contact():
+def test_agent_blocks_opted_out_organization():
     fetch, _, queue, start_run, finish_run, queued, runs = make_tools(compliance_result=False)
     llm = FakeLLM([DRAFT_RESPONSE])
 
@@ -95,7 +95,7 @@ def test_agent_blocks_opted_out_contact():
         return False
 
     agent = create_outreach_agent(
-        llm=llm, fetch_ready_contacts=fetch, check_compliance=check_compliance_false,
+        llm=llm, fetch_ready_organizations=fetch, check_compliance=check_compliance_false,
         fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
@@ -112,7 +112,7 @@ def test_agent_handles_draft_parse_error():
     llm = FakeLLM(["not valid json"])
 
     agent = create_outreach_agent(
-        llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        llm=llm, fetch_ready_organizations=fetch, check_compliance=check,
         fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),
@@ -124,12 +124,12 @@ def test_agent_handles_draft_parse_error():
     assert queued == []
 
 
-def test_agent_handles_empty_contacts():
-    fetch, check, queue, start_run, finish_run, queued, runs = make_tools(contacts=[])
+def test_agent_handles_empty_organizations():
+    fetch, check, queue, start_run, finish_run, queued, runs = make_tools(organizations=[])
     llm = FakeLLM([DRAFT_RESPONSE])
 
     agent = create_outreach_agent(
-        llm=llm, fetch_ready_contacts=fetch, check_compliance=check,
+        llm=llm, fetch_ready_organizations=fetch, check_compliance=check,
         fetch_interactions=_no_interactions, fetch_page=_no_page,
         queue_for_approval=queue, start_run=start_run, finish_run=finish_run,
         mission=DummyMission(),

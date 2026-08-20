@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.db.connection import db
-from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
+from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_personal_priorities import set_personal_priority
@@ -78,7 +78,7 @@ def _opportunity_payload(row: dict | None) -> dict | None:
 
 
 @router.get("")
-def list_contacts(
+def list_organizations(
     search: str = Query(""),
     status: str = Query(""),
     stage: str = Query(""),
@@ -137,7 +137,7 @@ def list_contacts(
 
 
 @router.get("/{contact_id}")
-def get_contact(contact_id: int, payload: dict = Depends(require_jwt_payload)) -> dict:
+def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payload)) -> dict:
     user_id, workspace_id = _personal_identity(payload)
     priority_join, priority_params = _priority_join(user_id)
     workspace_filter = "AND c.workspace_id = %s" if workspace_id is not None else ""
@@ -162,7 +162,7 @@ def get_contact(contact_id: int, payload: dict = Depends(require_jwt_payload)) -
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Contact not found")
-        contact = _serialize(dict(row))
+        organization = _serialize(dict(row))
 
         cur.execute(
             """
@@ -174,15 +174,15 @@ def get_contact(contact_id: int, payload: dict = Depends(require_jwt_payload)) -
             """,
             [contact_id],
         )
-        contact["interactions"] = [
+        organization["interactions"] = [
             {**dict(row), "interaction_date": row["interaction_date"].isoformat() if row["interaction_date"] else None}
             for row in cur.fetchall()
         ]
 
-    contact["opportunity_analysis"] = _opportunity_payload(
+    organization["opportunity_analysis"] = _opportunity_payload(
         get_latest_opportunity_analysis(contact_id)
     )
-    return contact
+    return organization
 
 
 @router.put("/{contact_id}/personal-priority")
@@ -197,13 +197,13 @@ def update_personal_priority(
     if body.priority is not None and body.priority not in range(1, 6):
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
 
-    contact_found, stored_priority = set_personal_priority(
+    organization_found, stored_priority = set_personal_priority(
         user_id,
         workspace_id,
         contact_id,
         body.priority,
     )
-    if not contact_found:
+    if not organization_found:
         raise HTTPException(status_code=404, detail="Contact not found")
     outcome = "cleared" if stored_priority is None else f"set:{stored_priority}"
     log_audit(
@@ -228,7 +228,7 @@ def run_opportunity_analysis(
     generous client timeout. It never sends outreach."""
     log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "started")
     try:
-        analyse_contact_opportunity(contact_id)
+        analyse_organization_opportunity(contact_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Contact not found")
     except Exception as error:

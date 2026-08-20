@@ -5,7 +5,7 @@ class LanguageModel(Protocol):
     def invoke(self, messages: list) -> Any: ...
 
 
-class ContactFetcher(Protocol):
+class OrganizationFetcher(Protocol):
     def __call__(self, limit: int) -> list[dict]: ...
 
 

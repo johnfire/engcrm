@@ -50,7 +50,7 @@ def main():
         subject = o.get("draft_subject") or ""
         words = o.get("word_count") or "?"
         city = o.get("city") or "?"
-        ctype = o.get("contact_type") or "?"
+        ctype = o.get("organization_type") or "?"
         return f"[{ctype} / {city} / {words} words]\nSubject: {subject}\n{body}"
 
     warm_block = "\n\n---\n\n".join(_fmt(outcome) for outcome in warm[:20])

@@ -73,7 +73,7 @@ def get_city_scan_status(city: str, country: str = "DE") -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT cs.level, cs.last_run_at, cs.contacts_found, cs.run_count, cs.due_for_rerun
+            SELECT cs.level, cs.last_run_at, cs.organizations_found, cs.run_count, cs.due_for_rerun
             FROM city_scans cs
             JOIN cities ci ON ci.id = cs.city_id
             WHERE LOWER(ci.city) = LOWER(%s) AND ci.country = %s
@@ -97,7 +97,7 @@ def get_all_city_scan_status() -> list[dict]:
                         json_build_object(
                             'level', cs.level,
                             'last_run_at', cs.last_run_at,
-                            'contacts_found', cs.contacts_found,
+                            'organizations_found', cs.organizations_found,
                             'run_count', cs.run_count,
                             'due_for_rerun', cs.due_for_rerun,
                             'complete', cs.complete
@@ -174,7 +174,7 @@ def build_research_overview() -> dict:
     }
 
 
-def record_scan_result(city: str, country: str, level: int, contacts_found: int, complete: bool = False) -> None:
+def record_scan_result(city: str, country: str, level: int, organizations_found: int, complete: bool = False) -> None:
     """Record the result of a completed scan. Creates or updates the city_scans row.
     `complete` is True once a scan turns up no new businesses for the level."""
     with db() as conn:
@@ -190,16 +190,16 @@ def record_scan_result(city: str, country: str, level: int, contacts_found: int,
         city_id = row["id"]
         cur.execute(
             """
-            INSERT INTO city_scans (city_id, level, last_run_at, contacts_found, run_count, complete)
+            INSERT INTO city_scans (city_id, level, last_run_at, organizations_found, run_count, complete)
             VALUES (%s, %s, NOW(), %s, 1, %s)
             ON CONFLICT (city_id, level) DO UPDATE
                 SET last_run_at = NOW(),
-                    contacts_found = city_scans.contacts_found + EXCLUDED.contacts_found,
+                    organizations_found = city_scans.organizations_found + EXCLUDED.organizations_found,
                     run_count = city_scans.run_count + 1,
                     due_for_rerun = FALSE,
                     complete = EXCLUDED.complete
             """,
-            (city_id, level, contacts_found, complete),
+            (city_id, level, organizations_found, complete),
         )
 
 

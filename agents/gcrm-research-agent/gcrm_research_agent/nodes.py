@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from gcrm.vertical import SCAN_LEVELS
 
 from ._utils import parse_json_response
-from .prompts import extract_contacts_prompt
+from .prompts import extract_organizations_prompt
 from .state import ResearchState
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ def init(state: ResearchState, dependencies) -> dict:
         "level": level,
         "maps_terms": SCAN_LEVELS.get(level, SCAN_LEVELS.get(1, {})).get("maps_terms", []),
         "raw_results": [],
-        "contacts_to_save": [],
+        "organizations_to_save": [],
         "saved_ids": [],
         "errors": [],
         "summary": "",
@@ -145,26 +145,26 @@ def fetch_pages(state: ResearchState, dependencies) -> dict:
     return {}
 
 
-def extract_contacts(state: ResearchState, dependencies) -> dict:
+def extract_organizations(state: ResearchState, dependencies) -> dict:
     if not state.get("raw_results"):
-        return {"contacts_to_save": []}
+        return {"organizations_to_save": []}
     level = state.get("level", 1)
-    system, user = extract_contacts_prompt(
+    system, user = extract_organizations_prompt(
         dependencies.mission, state["city"], level, state["raw_results"]
     )
     try:
         response = dependencies.llm.invoke(
             [SystemMessage(content=system), HumanMessage(content=user)]
         )
-        contacts = parse_json_response(response.content)
-        if not isinstance(contacts, list):
+        organizations = parse_json_response(response.content)
+        if not isinstance(organizations, list):
             raise ValueError("Expected a JSON array")
     except Exception as error:
         return {
-            "errors": state.get("errors", []) + [f"extract_contacts: {error}"],
-            "contacts_to_save": [],
+            "errors": state.get("errors", []) + [f"extract_organizations: {error}"],
+            "organizations_to_save": [],
         }
-    return {"contacts_to_save": contacts}
+    return {"organizations_to_save": organizations}
 
 
 def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
@@ -172,8 +172,8 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
     and regex-extract an email, skipping noise/builder domains. Contacts with
     no website (or where no usable email turns up) are flagged _no_data=True so
     save_contacts records them with the research_exhausted flag raised."""
-    contacts = state.get("contacts_to_save", [])
-    if not contacts:
+    organizations = state.get("organizations_to_save", [])
+    if not organizations:
         return {}
     email_re = re.compile("[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}")
     noise_domains = {
@@ -188,32 +188,32 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
     }
     found = 0
     no_data = 0
-    for contact in contacts:
-        if contact.get("email"):
+    for organization in organizations:
+        if organization.get("email"):
             continue
-        if not contact.get("website"):
-            contact["_no_data"] = True
+        if not organization.get("website"):
+            organization["_no_data"] = True
             no_data += 1
             continue
         try:
-            text = dependencies.fetch_page(contact["website"])
+            text = dependencies.fetch_page(organization["website"])
             if not text:
-                contact["_no_data"] = True
+                organization["_no_data"] = True
                 no_data += 1
                 continue
             for match in email_re.finditer(text):
                 email = match.group(0).lower()
                 domain = email.split("@")[1]
                 if domain not in noise_domains:
-                    contact["email"] = email
+                    organization["email"] = email
                     found += 1
-                    logger.info("research: email found for %s — %s", contact.get("name", ""), email)
+                    logger.info("research: email found for %s — %s", organization.get("name", ""), email)
                     break
             else:
-                contact["_no_data"] = True
+                organization["_no_data"] = True
                 no_data += 1
         except Exception:
-            contact["_no_data"] = True
+            organization["_no_data"] = True
             no_data += 1
     if found:
         logger.info("research: fetched emails for %d contact(s) in %s", found, state["city"])
@@ -223,35 +223,35 @@ def fetch_missing_emails(state: ResearchState, dependencies) -> dict:
             no_data,
             state["city"],
         )
-    return {"contacts_to_save": contacts}
+    return {"organizations_to_save": organizations}
 
 
-def save_contacts(state: ResearchState, dependencies) -> dict:
+def save_organizations(state: ResearchState, dependencies) -> dict:
     level = state.get("level", 1)
     google_by_name = state.get("google_by_name", {})
     saved_ids = []
-    for contact in state.get("contacts_to_save", []):
+    for organization in state.get("organizations_to_save", []):
         try:
-            research_exhausted = bool(contact.get("_no_data"))
-            google = google_by_name.get((contact.get("name") or "").strip().lower())
-            contact_id = dependencies.save_contact(
-                name=contact.get("name", ""),
-                city=contact.get("city", state["city"]),
-                country=contact.get("country", state.get("country", "DE")),
-                type=contact.get("type", ""),
-                website=contact.get("website", ""),
-                email=contact.get("email", ""),
-                phone=contact.get("phone", ""),
-                notes=contact.get("notes", ""),
+            research_exhausted = bool(organization.get("_no_data"))
+            google = google_by_name.get((organization.get("name") or "").strip().lower())
+            contact_id = dependencies.save_organization(
+                name=organization.get("name", ""),
+                city=organization.get("city", state["city"]),
+                country=organization.get("country", state.get("country", "DE")),
+                type=organization.get("type", ""),
+                website=organization.get("website", ""),
+                email=organization.get("email", ""),
+                phone=organization.get("phone", ""),
+                notes=organization.get("notes", ""),
                 scan_level=level,
-                neighborhood=contact.get("neighborhood", ""),
+                neighborhood=organization.get("neighborhood", ""),
                 research_exhausted=research_exhausted,
                 google=google,
             )
             if contact_id:
                 saved_ids.append(contact_id)
         except Exception as error:
-            logger.warning("save_contact failed for '%s': %s", contact.get("name", ""), error)
+            logger.warning("save_organization failed for '%s': %s", organization.get("name", ""), error)
     return {"saved_ids": saved_ids}
 
 

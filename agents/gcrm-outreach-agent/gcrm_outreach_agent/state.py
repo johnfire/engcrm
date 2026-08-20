@@ -8,7 +8,7 @@ class OutreachState(TypedDict):
 
     # --- working state ---
     run_id: int
-    contacts: list[dict]
+    organizations: list[dict]
     drafts: list[dict]  # [{contact_id, subject, body, blocked_reason}]
     errors: list[str]
 

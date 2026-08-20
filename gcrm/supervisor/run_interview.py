@@ -12,8 +12,8 @@ Voice input tip (Ubuntu):
 import sys
 from datetime import date
 
-from gcrm.contact_state import PIPELINE_STAGES, STATUSES
 from gcrm.db.connection import db
+from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ def multi_menu(prompt, options):
 
 # ── contact search ────────────────────────────────────────────────────────────
 
-def search_contacts(query: str) -> list[dict]:
+def search_organizations(query: str) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -87,22 +87,22 @@ def search_contacts(query: str) -> list[dict]:
         return [dict(row) for row in cur.fetchall()]
 
 
-def pick_contact() -> dict | None:
+def pick_organization() -> dict | None:
     """Search for a contact and let the user select one. Returns contact dict or None."""
     while True:
         query = input("\n  Search business name or city (or Enter to finish): ").strip()
         if not query:
             return None
 
-        results = search_contacts(query)
+        results = search_organizations(query)
         if not results:
             print("  No matches. Try again or Enter to finish.")
             continue
 
         print(f"\n  Found {len(results)} match(es):")
-        for index, contact in enumerate(results, 1):
-            location = f"{contact['city']}, {contact['country']}" if contact.get("country") else contact.get("city", "")
-            print(f"    {index}. {contact['name']}  [{location}]  {contact['status']}")
+        for index, organization in enumerate(results, 1):
+            location = f"{organization['city']}, {organization['country']}" if organization.get("country") else organization.get("city", "")
+            print(f"    {index}. {organization['name']}  [{location}]  {organization['status']}")
         print("    0. search again")
 
         raw = input("  Select: ").strip()
@@ -146,7 +146,7 @@ def append_notes(contact_id: int, new_text: str):
 
 # ── interview ─────────────────────────────────────────────────────────────────
 
-def _resolve_impression(contact: dict) -> dict:
+def _resolve_impression(organization: dict) -> dict:
     """Ask how the visit went. Always records last_impression; sets first_impression
     only if the contact doesn't already have one. Returns fields to update."""
     impression = menu(
@@ -159,14 +159,14 @@ def _resolve_impression(contact: dict) -> dict:
     fields = {"last_impression": impression}
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (contact["id"],))
+        cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (organization["id"],))
         row = cur.fetchone()
         if not row["first_impression"]:
             fields["first_impression"] = impression
     return fields
 
 
-def _prompt_visit_outcome(contact: dict) -> dict:
+def _prompt_visit_outcome(organization: dict) -> dict:
     """Ask what happened on the visit — date, status, who was seen, impression,
     materials, and any promise. Returns fields to update."""
     updates = {}
@@ -177,7 +177,7 @@ def _prompt_visit_outcome(contact: dict) -> dict:
         updates["last_visited_at"] = visited
 
     # Where the relationship stands, and what is going on right now.
-    current_stage = contact.get("pipeline_stage", "")
+    current_stage = organization.get("pipeline_stage", "")
     new_stage = menu(
         f"Move pipeline stage? (current: {current_stage})",
         list(PIPELINE_STAGES),
@@ -185,7 +185,7 @@ def _prompt_visit_outcome(contact: dict) -> dict:
     if new_stage:
         updates["pipeline_stage"] = new_stage
 
-    current_status = contact.get("status", "")
+    current_status = organization.get("status", "")
     new_status = menu(
         f"Update status? (current: {current_status})",
         list(STATUSES),
@@ -199,7 +199,7 @@ def _prompt_visit_outcome(contact: dict) -> dict:
         updates["decision_maker"] = dm
 
     # Impressions (first_impression only set once)
-    updates.update(_resolve_impression(contact))
+    updates.update(_resolve_impression(organization))
 
     # Materials left
     materials = multi_menu(
@@ -248,10 +248,10 @@ def _prompt_site_notes() -> dict:
     return updates
 
 
-def _prompt_visit_updates(contact: dict) -> tuple[dict, str | None]:
+def _prompt_visit_updates(organization: dict) -> tuple[dict, str | None]:
     """Run the full debrief Q&A for one contact. Returns (field updates, notes)."""
     updates = {}
-    updates.update(_prompt_visit_outcome(contact))
+    updates.update(_prompt_visit_outcome(organization))
     updates.update(_prompt_site_notes())
 
     # Free notes — appended, not overwritten
@@ -260,16 +260,16 @@ def _prompt_visit_updates(contact: dict) -> tuple[dict, str | None]:
     return updates, free_notes
 
 
-def interview_contact(contact: dict) -> None:
+def interview_organization(organization: dict) -> None:
     hr()
-    loc = f"{contact['city']}" if contact.get("city") else ""
-    print(f"\n  Business: {contact['name']}  {loc}  [{contact['status']}]")
+    loc = f"{organization['city']}" if organization.get("city") else ""
+    print(f"\n  Business: {organization['name']}  {loc}  [{organization['status']}]")
 
-    updates, free_notes = _prompt_visit_updates(contact)
+    updates, free_notes = _prompt_visit_updates(organization)
 
-    save_updates(contact["id"], updates)
+    save_updates(organization["id"], updates)
     if free_notes:
-        append_notes(contact["id"], free_notes)
+        append_notes(organization["id"], free_notes)
 
     changed = list(updates.keys()) + (["notes"] if free_notes else [])
     print(f"\n  Saved: {', '.join(changed)}")
@@ -285,10 +285,10 @@ def main():
 
     count = 0
     while True:
-        contact = pick_contact()
-        if contact is None:
+        organization = pick_organization()
+        if organization is None:
             break
-        interview_contact(contact)
+        interview_organization(organization)
         count += 1
 
     hr()

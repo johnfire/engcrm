@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.config import MAX_UPLOAD_BYTES
-from gcrm.tools.db import log_voice_interaction, save_contact, search_contacts_by_name
+from gcrm.tools.db import log_voice_interaction, save_organization, search_organizations_by_name
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.transcribe import transcribe
 from gcrm.tools.voice import structure_transcript
@@ -55,7 +55,7 @@ def process_voice(
         raise HTTPException(status_code=422, detail="Couldn't make out any speech — try again.")
 
     structured = structure_transcript(transcript, date.today().isoformat())
-    candidates = search_contacts_by_name(structured.get("contact_query") or "")
+    candidates = search_organizations_by_name(structured.get("contact_query") or "")
     return {
         "transcript": transcript,
         "summary": structured.get("summary") or transcript,
@@ -69,7 +69,7 @@ def process_voice(
 
 class VoiceConfirm(BaseModel):
     contact_id: int | None = None
-    new_contact_name: str | None = None
+    new_organization_name: str | None = None
     summary: str
     follow_up_date: str | None = None
     follow_up_text: str | None = None
@@ -79,12 +79,12 @@ class VoiceConfirm(BaseModel):
 def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt_admin)) -> dict:
     contact_id = body.contact_id
     if not contact_id:
-        name = (body.new_contact_name or "").strip()
+        name = (body.new_organization_name or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Pick a contact or give a new name.")
-        contact_id = save_contact(name=name, city="", status="candidate")
-        if contact_id == 0:  # save_contact deduped — link to the existing match
-            match = search_contacts_by_name(name, limit=1)
+        contact_id = save_organization(name=name, city="", status="candidate")
+        if contact_id == 0:  # save_organization deduped — link to the existing match
+            match = search_organizations_by_name(name, limit=1)
             if not match:
                 raise HTTPException(status_code=409, detail="Duplicate contact, no match resolved.")
             contact_id = match[0]["id"]

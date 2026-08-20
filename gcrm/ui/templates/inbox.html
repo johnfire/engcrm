@@ -47,7 +47,7 @@
   <thead>
     <tr>
       <th class="nowrap">{{ t('common.date') }}</th>
-      <th>{{ t('inbox.contact') }}</th>
+      <th>{{ t('inbox.organization') }}</th>
       <th>{{ t('inbox.classification') }}</th>
       <th>{{ t('common.subject') }}</th>
       <th>{{ t('inbox.snippet') }}</th>
@@ -60,7 +60,7 @@
       <td class="muted small nowrap">{{ m.received_at.strftime('%Y-%m-%d %H:%M') if m.received_at else '—' }}</td>
       <td>
         {% if m.contact_id %}
-        <a href="/contacts/{{ m.contact_id }}"><strong>{{ m.contact_name }}</strong></a>
+        <a href="/organizations/{{ m.contact_id }}"><strong>{{ m.contact_name }}</strong></a>
         <div class="muted small">{{ m.city or '' }} · <span class="badge badge-{{ m.contact_status }}">{{ m.contact_status }}</span></div>
         {% else %}
         <span class="muted">{{ m.from_email }}</span>

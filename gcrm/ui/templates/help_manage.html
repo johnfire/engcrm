@@ -6,7 +6,7 @@
 <section class="card"><h2>{{ t('help.newArticle') }}</h2>
 <form method="post" action="/help/manage" class="help-editor">
   <label>{{ t('help.slug') }}<input name="slug" required pattern="[a-z0-9][a-z0-9-]{1,79}" placeholder="research-basics" /></label>
-  <label>{{ t('help.category') }}<select name="category">{% for category in ['getting-started', 'research', 'outreach', 'contacts', 'capture', 'inbox', 'account', 'general'] %}<option>{{ category }}</option>{% endfor %}</select></label>
+  <label>{{ t('help.category') }}<select name="category">{% for category in ['getting-started', 'research', 'outreach', 'organizations', 'capture', 'inbox', 'account', 'general'] %}<option>{{ category }}</option>{% endfor %}</select></label>
   <label>{{ t('help.status') }}<select name="status"><option value="draft">{{ t('help.draft') }}</option><option value="published">{{ t('help.published') }}</option></select></label>
   <fieldset><legend>{{ t('help.surfaces') }}</legend><label><input type="checkbox" name="surface_web" checked /> Web</label><label><input type="checkbox" name="surface_mobile" checked /> Android</label></fieldset>
   <label>{{ t('help.titleEn') }}<input name="title_en" required /></label><label>{{ t('help.titleDe') }}<input name="title_de" required /></label>

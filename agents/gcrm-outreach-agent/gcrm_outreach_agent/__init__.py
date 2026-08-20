@@ -4,7 +4,7 @@ from .protocols import (
     ApprovalQueuer,
     ComplianceChecker,
     LanguageModel,
-    ReadyContactFetcher,
+    ReadyOrganizationFetcher,
     RunFinisher,
     RunStarter,
 )
@@ -14,7 +14,7 @@ __all__ = [
     "create_outreach_agent",
     "AgentMission",
     "LanguageModel",
-    "ReadyContactFetcher",
+    "ReadyOrganizationFetcher",
     "ComplianceChecker",
     "ApprovalQueuer",
     "RunStarter",

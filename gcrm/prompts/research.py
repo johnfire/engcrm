@@ -3,7 +3,7 @@ import json
 from gcrm.vertical import SCAN_LEVELS
 
 
-def extract_contacts_prompt(
+def extract_organizations_prompt(
     mission,
     city: str,
     level: int,

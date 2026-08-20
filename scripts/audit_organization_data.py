@@ -30,8 +30,8 @@ from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from gcrm.contact_state import is_typical  # noqa: E402
 from gcrm.db.connection import db  # noqa: E402
+from gcrm.organization_state import is_typical  # noqa: E402
 
 UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 LEGAL = {"gmbh", "ag", "kg", "ohg", "gbr", "mbh", "ug", "eg", "ek", "co", "und",
@@ -105,10 +105,10 @@ def main() -> int:
         cur = conn.cursor()
         cur.execute("SELECT id, name, website, email, pipeline_stage, status "
                     "FROM contacts WHERE deleted_at IS NULL ORDER BY id")
-        contacts = [dict(r) for r in cur.fetchall()]
+        organizations = [dict(r) for r in cur.fetchall()]
 
-    with_site = [c for c in contacts if (c["website"] or "").strip()]
-    print(f"contacts: {len(contacts)}   with a website: {len(with_site)}")
+    with_site = [c for c in organizations if (c["website"] or "").strip()]
+    print(f"contacts: {len(organizations)}   with a website: {len(with_site)}")
 
     unfetchable = [
         f"[{c['id']:>4}] {(c['name'] or '')[:30]:<30} {c['website']!r}"
@@ -136,7 +136,7 @@ def main() -> int:
 
     odd_state = [
         f"[{c['id']:>4}] {(c['name'] or '')[:30]:<30} {c['pipeline_stage']} / {c['status']}"
-        for c in contacts if not is_typical(c["pipeline_stage"], c["status"])
+        for c in organizations if not is_typical(c["pipeline_stage"], c["status"])
     ]
     section("UNUSUAL STAGE / STATUS COMBINATION", odd_state,
             "allowed, but rarely what you meant — check the ones you did not set by hand")

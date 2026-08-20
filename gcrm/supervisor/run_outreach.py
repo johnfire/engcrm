@@ -32,9 +32,9 @@ def main():
         check_compliance,
         fetch_page,
         finish_run,
-        get_contact_interactions,
-        get_contacts_ready_for_outreach,
         get_llm,
+        get_organization_interactions,
+        get_organizations_ready_for_outreach,
         queue_for_approval,
         start_run,
     )
@@ -50,15 +50,15 @@ def main():
     if args.min_tier:
         fetch_kwargs["min_tier"] = args.min_tier
     fetch_fn = (
-        functools.partial(get_contacts_ready_for_outreach, **fetch_kwargs)
+        functools.partial(get_organizations_ready_for_outreach, **fetch_kwargs)
         if fetch_kwargs
-        else get_contacts_ready_for_outreach
+        else get_organizations_ready_for_outreach
     )
 
     agent = create_outreach_agent(
         llm=get_llm(SMART_LLM),
-        fetch_ready_contacts=fetch_fn,
-        fetch_interactions=get_contact_interactions,
+        fetch_ready_organizations=fetch_fn,
+        fetch_interactions=get_organization_interactions,
         fetch_page=fetch_page,
         check_compliance=check_compliance,
         queue_for_approval=queue_for_approval,

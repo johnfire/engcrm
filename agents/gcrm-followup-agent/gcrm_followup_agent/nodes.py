@@ -59,19 +59,19 @@ def _extract_recipient_emails(msg: dict) -> list[str]:
     return list(dict.fromkeys(_EMAIL_RE.findall(msg.get("body", ""))))
 
 
-def _is_exact_match(contact: dict) -> bool:
+def _is_exact_match(organization: dict) -> bool:
     """Whether the contact was matched by exact email rather than a corporate-
     domain fallback. An absent tag means the matcher doesn't distinguish, so we
     treat it as exact and preserve prior behavior."""
-    return contact.get("_match_type") != "domain"
+    return organization.get("_match_type") != "domain"
 
 
-def _reply_entry(msg: dict, contact: dict, classification: str, reasoning: str) -> dict:
+def _reply_entry(msg: dict, organization: dict, classification: str, reasoning: str) -> dict:
     """The audit/result record for one classified reply. Per-action helpers
     annotate it further (flags, queued state, error notes)."""
     return {
         "inbox_message_id": msg["id"],
-        "contact_id": contact["id"],
+        "contact_id": organization["id"],
         "from_email": msg["from_email"],
         "classification": classification,
         "reasoning": reasoning,
@@ -93,22 +93,22 @@ def fetch_inbox_messages(state: FollowupState, dependencies) -> dict:
 
 def _handle_bounce_message(msg: dict, dependencies) -> int:
     """Process a bounce notification. Returns 1 if a contact was marked bad_email, else 0."""
-    bounced_contact = None
+    bounced_organization = None
     for email in _extract_recipient_emails(msg):
         try:
-            c = dependencies.match_contact(email)
+            c = dependencies.match_organization(email)
             if c and c.get('status') in POST_OUTREACH_STATUSES and _is_exact_match(c):
-                bounced_contact = c
+                bounced_organization = c
                 break
         except Exception:
             pass
-    if bounced_contact:
+    if bounced_organization:
         try:
-            dependencies.handle_bounce(bounced_contact['id'])
+            dependencies.handle_bounce(bounced_organization['id'])
         except Exception as error:
-            logger.warning('handle_bounce failed: contact_id=%s error=%s', bounced_contact.get('id'), error)
+            logger.warning('handle_bounce failed: contact_id=%s error=%s', bounced_organization.get('id'), error)
         try:
-            dependencies.save_classification(msg['id'], bounced_contact['id'], 'bounce', f"Delivery failure for {bounced_contact.get('email', '')}")
+            dependencies.save_classification(msg['id'], bounced_organization['id'], 'bounce', f"Delivery failure for {bounced_organization.get('email', '')}")
         except Exception:
             pass
         return 1
@@ -118,28 +118,28 @@ def _handle_bounce_message(msg: dict, dependencies) -> int:
         pass
     return 0
 
-def _match_post_outreach_contact(msg: dict, dependencies):
+def _match_post_outreach_organization(msg: dict, dependencies):
     """Match a reply to a known post-outreach contact. Records a 'skipped'
         classification and returns None for unmatched or pre-outreach senders —
         replies from those are noise and not worth an LLM classification."""
-    contact = None
+    organization = None
     try:
-        contact = dependencies.match_contact(msg['from_email'])
+        organization = dependencies.match_organization(msg['from_email'])
     except Exception:
         pass
-    if contact is None:
+    if organization is None:
         try:
             dependencies.save_classification(msg['id'], None, 'skipped', 'no matching contact')
         except Exception:
             pass
         return None
-    if contact.get('status') not in POST_OUTREACH_STATUSES:
+    if organization.get('status') not in POST_OUTREACH_STATUSES:
         try:
-            dependencies.save_classification(msg['id'], contact['id'], 'skipped', f"contact status '{contact.get('status')}' is pre-outreach")
+            dependencies.save_classification(msg['id'], organization['id'], 'skipped', f"contact status '{organization.get('status')}' is pre-outreach")
         except Exception:
             pass
         return None
-    return contact
+    return organization
 
 def _classify_reply(msg: dict, dependencies) -> tuple[str, str]:
     """Run the LLM reply classifier. Returns (classification, reasoning);
@@ -152,7 +152,7 @@ def _classify_reply(msg: dict, dependencies) -> tuple[str, str]:
     except Exception as error:
         return ('other', f'classification error: {error}')
 
-def _apply_auto_actions(msg: dict, contact: dict, classification: str, entry: dict, dependencies) -> tuple[int, int]:
+def _apply_auto_actions(msg: dict, organization: dict, classification: str, entry: dict, dependencies) -> tuple[int, int]:
     """Apply immediate opt-out / visit-when-nearby flags — exact-email matches
         only; a domain-only match may be a colleague and is left for human review.
         Returns (opt_out_delta, warm_delta) and annotates entry."""
@@ -160,9 +160,9 @@ def _apply_auto_actions(msg: dict, contact: dict, classification: str, entry: di
     warm_delta = 0
     is_authenticated = bool(msg.get('authenticated'))
     if classification == 'opt_out':
-        if _is_exact_match(contact) and is_authenticated:
+        if _is_exact_match(organization) and is_authenticated:
             try:
-                dependencies.set_opt_out(contact['id'])
+                dependencies.set_opt_out(organization['id'])
                 opt_out_delta = 1
             except Exception as error:
                 entry['error'] = f'set_opt_out: {error}'
@@ -171,9 +171,9 @@ def _apply_auto_actions(msg: dict, contact: dict, classification: str, entry: di
         else:
             entry['auto_action_skipped'] = 'opt_out: domain-only match, needs human review'
     if classification == 'warm':
-        if _is_exact_match(contact) and is_authenticated:
+        if _is_exact_match(organization) and is_authenticated:
             try:
-                dependencies.set_visit_when_nearby(contact['id'])
+                dependencies.set_visit_when_nearby(organization['id'])
                 warm_delta = 1
                 entry['visit_flagged'] = True
             except Exception as error:
@@ -184,35 +184,35 @@ def _apply_auto_actions(msg: dict, contact: dict, classification: str, entry: di
             entry['auto_action_skipped'] = 'visit_flag: domain-only match, needs human review'
     return (opt_out_delta, warm_delta)
 
-def _log_reply_and_signal(contact: dict, classification: str, msg: dict, dependencies) -> None:
+def _log_reply_and_signal(organization: dict, classification: str, msg: dict, dependencies) -> None:
     """Log the inbound interaction; then, only if that committed and the reply
         is warm/interested, record the warm signal for the outreach quality loop."""
     try:
-        dependencies.log_interaction(contact_id=contact['id'], method='email', direction='inbound', summary=f"{classification}: {msg.get('subject', '')}", outcome=_OUTCOME_MAP.get(classification, 'no_reply'))
+        dependencies.log_interaction(contact_id=organization['id'], method='email', direction='inbound', summary=f"{classification}: {msg.get('subject', '')}", outcome=_OUTCOME_MAP.get(classification, 'no_reply'))
     except Exception as error:
-        logger.warning('log_interaction failed: contact_id=%s error=%s', contact.get('id'), error)
+        logger.warning('log_interaction failed: contact_id=%s error=%s', organization.get('id'), error)
         return
     if classification in ('interested', 'warm'):
         try:
-            dependencies.record_warm_outcome(contact['id'])
+            dependencies.record_warm_outcome(organization['id'])
         except Exception as error:
-            logger.warning('record_warm_outcome failed: contact_id=%s error=%s', contact.get('id'), error)
+            logger.warning('record_warm_outcome failed: contact_id=%s error=%s', organization.get('id'), error)
 
-def _queue_reply_draft(contact: dict, classification: str, msg: dict, run_id: int, entry: dict, dependencies) -> int:
+def _queue_reply_draft(organization: dict, classification: str, msg: dict, run_id: int, entry: dict, dependencies) -> int:
     """Draft and queue an approval reply for an interested/warm contact —
         interested gets an enthusiastic reply, warm a gentle one. Nothing is sent
         autonomously. Returns 1 if queued, else 0; annotates entry."""
-    if not contact.get('email'):
+    if not organization.get('email'):
         return 0
-    language = contact.get('preferred_language') or dependencies.mission.language_default
+    language = organization.get('preferred_language') or dependencies.mission.language_default
     if classification == 'interested':
-        sys_p, usr_p = draft_reply_prompt(dependencies.mission, contact, msg, language)
+        sys_p, usr_p = draft_reply_prompt(dependencies.mission, organization, msg, language)
     else:
-        sys_p, usr_p = draft_warm_reply_prompt(dependencies.mission, contact, msg, language)
+        sys_p, usr_p = draft_warm_reply_prompt(dependencies.mission, organization, msg, language)
     try:
         draft_resp = dependencies.llm.invoke([SystemMessage(content=sys_p), HumanMessage(content=usr_p)])
         draft = parse_json_response(draft_resp.content)
-        dependencies.queue_for_approval(contact_id=contact['id'], run_id=run_id, subject=draft.get('subject', ''), body=draft.get('body', ''))
+        dependencies.queue_for_approval(contact_id=organization['id'], run_id=run_id, subject=draft.get('subject', ''), body=draft.get('body', ''))
         entry['reply_queued'] = True
         return 1
     except Exception as error:
@@ -232,19 +232,19 @@ def classify_replies(state: FollowupState, dependencies) -> dict:
         if _is_bounce(msg):
             bounce_count += _handle_bounce_message(msg, dependencies=dependencies)
             continue
-        contact = _match_post_outreach_contact(msg, dependencies=dependencies)
-        if contact is None:
+        organization = _match_post_outreach_organization(msg, dependencies=dependencies)
+        if organization is None:
             continue
         classification, reasoning = _classify_reply(msg, dependencies=dependencies)
-        entry = _reply_entry(msg, contact, classification, reasoning)
-        opt_out_delta, warm_delta = _apply_auto_actions(msg, contact, classification, entry, dependencies=dependencies)
+        entry = _reply_entry(msg, organization, classification, reasoning)
+        opt_out_delta, warm_delta = _apply_auto_actions(msg, organization, classification, entry, dependencies=dependencies)
         opt_out_count += opt_out_delta
         warm_count += warm_delta
-        _log_reply_and_signal(contact, classification, msg, dependencies=dependencies)
+        _log_reply_and_signal(organization, classification, msg, dependencies=dependencies)
         if classification in ('interested', 'warm'):
-            queued += _queue_reply_draft(contact, classification, msg, run_id, entry, dependencies=dependencies)
+            queued += _queue_reply_draft(organization, classification, msg, run_id, entry, dependencies=dependencies)
         try:
-            dependencies.save_classification(msg['id'], contact['id'], classification, reasoning)
+            dependencies.save_classification(msg['id'], organization['id'], classification, reasoning)
         except Exception:
             pass
         classified.append(entry)
@@ -264,20 +264,20 @@ def queue_followup_drafts(state: FollowupState, dependencies) -> dict:
         """
     run_id = state.get('run_id', 0)
     queued = state.get('queued_count', 0)
-    for contact in state.get('overdue_contacts', []):
-        if not contact.get('email'):
+    for organization in state.get('overdue_contacts', []):
+        if not organization.get('email'):
             continue
-        language = contact.get('preferred_language') or dependencies.mission.language_default
-        days_since = contact.get('days_since_contact', dependencies.overdue_days)
-        original_subject = contact.get('last_subject', '')
-        system, user = draft_followup_prompt(dependencies.mission, contact, days_since, language, original_subject)
+        language = organization.get('preferred_language') or dependencies.mission.language_default
+        days_since = organization.get('days_since_contact', dependencies.overdue_days)
+        original_subject = organization.get('last_subject', '')
+        system, user = draft_followup_prompt(dependencies.mission, organization, days_since, language, original_subject)
         try:
             response = dependencies.llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
             draft = parse_json_response(response.content)
-            dependencies.queue_for_approval(contact_id=contact['id'], run_id=run_id, subject=draft.get('subject', ''), body=draft.get('body', ''))
+            dependencies.queue_for_approval(contact_id=organization['id'], run_id=run_id, subject=draft.get('subject', ''), body=draft.get('body', ''))
             queued += 1
         except Exception as error:
-            logger.warning('overdue follow-up draft failed for contact %s: %s', contact.get('id'), error)
+            logger.warning('overdue follow-up draft failed for contact %s: %s', organization.get('id'), error)
     return {'queued_count': queued}
 
 def generate_report(state: FollowupState, dependencies) -> dict:

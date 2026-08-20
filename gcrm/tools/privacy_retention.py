@@ -27,7 +27,7 @@ def _remove_card_images(image_paths: list[str]) -> int:
     return deleted_count
 
 
-def _delete_contact_rows(cursor, contact_id: int) -> list[str]:
+def _delete_organization_rows(cursor, contact_id: int) -> list[str]:
     """Remove data linked to one contact and return its card-image filenames."""
     cursor.execute(
         "DELETE FROM card_captures WHERE contact_id = %s OR dup_contact_id = %s RETURNING image_path",
@@ -44,14 +44,14 @@ def _delete_contact_rows(cursor, contact_id: int) -> list[str]:
     return image_paths
 
 
-def erase_contact(contact_id: int) -> bool:
+def erase_organization(contact_id: int) -> bool:
     """Permanently erase a contact and all directly linked personal data."""
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute("SELECT id FROM contacts WHERE id = %s", (contact_id,))
         if cursor.fetchone() is None:
             return False
-        image_paths = _delete_contact_rows(cursor, contact_id)
+        image_paths = _delete_organization_rows(cursor, contact_id)
     removed_images = _remove_card_images(image_paths)
     log_audit(None, None, "contact.erased", f"contact:{contact_id}", f"images_removed:{removed_images}")
     return True
@@ -85,7 +85,7 @@ def purge_expired_data() -> dict[str, int]:
         expired_contact_ids = [row["id"] for row in cursor.fetchall()]
 
     contact_ids = list(dict.fromkeys([*erasure_ids, *expired_contact_ids]))
-    erased_contact_ids = {contact_id for contact_id in contact_ids if erase_contact(contact_id)}
+    erased_contact_ids = {contact_id for contact_id in contact_ids if erase_organization(contact_id)}
     with db() as connection:
         cursor = connection.cursor()
         counts = {

@@ -71,7 +71,7 @@ def pipeline_status() -> str:
 # =============================================================================
 
 @server.tool()
-def contacts_list(status: str = "", limit: int = 200) -> str:
+def organizations_list(status: str = "", limit: int = 200) -> str:
     """
     List contacts from the database. Optionally filter by status
     (candidate, cold, contacted, dormant, dropped).
@@ -110,7 +110,7 @@ def contacts_list(status: str = "", limit: int = 200) -> str:
 
         return json.dumps(rows, indent=2)
     except Exception as error:
-        logger.error("contacts_list failed: %s", error)
+        logger.error("organizations_list failed: %s", error)
         return json.dumps({"error": str(error)})
 
 
@@ -367,7 +367,7 @@ def research_status(country: str = "", region: str = "") -> str:
             query = """
                 SELECT ci.city, ci.country, ci.region,
                     json_agg(
-                        json_build_object('level', cs.level, 'contacts_found', cs.contacts_found,
+                        json_build_object('level', cs.level, 'organizations_found', cs.organizations_found,
                                           'last_run_at', cs.last_run_at::text, 'run_count', cs.run_count)
                         ORDER BY cs.level
                     ) FILTER (WHERE cs.level IS NOT NULL) AS scans
@@ -408,7 +408,7 @@ def research_status(country: str = "", region: str = "") -> str:
             else:
                 level_parts = []
                 for scan in scans:
-                    level_parts.append(f"L{scan['level']}:{scan['contacts_found']}✓")
+                    level_parts.append(f"L{scan['level']}:{scan['organizations_found']}✓")
                 unrun = [level for level in range(1, 6) if level not in {scan['level'] for scan in scans}]
                 unrun_str = f"  (L{','.join(map(str,unrun))} pending)" if unrun else ""
                 lines.append(f"  {row['city']:30} — {' '.join(level_parts)}{unrun_str}")

@@ -26,7 +26,7 @@ class CandidateFetcher(Protocol):
     def __call__(self, limit: int = 50) -> list[dict]: ...
 
 
-class ContactStateSetter(Protocol):
+class OrganizationStateSetter(Protocol):
     """Place a contact on a pipeline stage and a current status, with its score."""
     def __call__(
         self,

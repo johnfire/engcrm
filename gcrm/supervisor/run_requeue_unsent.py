@@ -34,7 +34,7 @@ def get_cities_with_unsent() -> list[str]:
         return [row["city"] for row in cur.fetchall()]
 
 
-def requeue_contacts_with_email(dry_run: bool = False) -> int:
+def requeue_organizations_with_email(dry_run: bool = False) -> int:
     from gcrm.db.connection import db
     with db() as conn:
         cur = conn.cursor()
@@ -77,21 +77,21 @@ def main():
     from gcrm.tools import (
         fetch_page,
         finish_run,
-        get_contacts_needing_enrichment,
         get_llm,
+        get_organizations_needing_enrichment,
         start_run,
-        update_contact_details,
+        update_organization_details,
         web_search,
     )
 
     for city in cities:
-        fetch_fn = functools.partial(get_contacts_needing_enrichment, city=city)
+        fetch_fn = functools.partial(get_organizations_needing_enrichment, city=city)
         agent = create_enrichment_agent(
             llm=get_llm(CHEAP_LLM),
             web_search=web_search,
             fetch_page=fetch_page,
-            fetch_contacts=fetch_fn,
-            update_contact=update_contact_details,
+            fetch_organizations=fetch_fn,
+            update_organization=update_organization_details,
             start_run=start_run,
             finish_run=finish_run,
         )
@@ -99,7 +99,7 @@ def main():
         result = agent.invoke({"limit": 100})
         logger.info("enrichment %s: %s", city, result.get("summary", ""))
 
-    count = requeue_contacts_with_email(dry_run=args.dry_run)
+    count = requeue_organizations_with_email(dry_run=args.dry_run)
     if args.dry_run:
         logger.info("dry-run: would requeue %d items", count)
     else:

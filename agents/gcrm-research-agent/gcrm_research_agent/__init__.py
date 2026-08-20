@@ -1,9 +1,9 @@
 from .graph import create_research_agent
 from .protocols import (
     AgentMission,
-    ContactSaver,
     GeoSearcher,
     LanguageModel,
+    OrganizationSaver,
     RunFinisher,
     RunStarter,
     WebSearcher,
@@ -16,7 +16,7 @@ __all__ = [
     "LanguageModel",
     "WebSearcher",
     "GeoSearcher",
-    "ContactSaver",
+    "OrganizationSaver",
     "RunStarter",
     "RunFinisher",
     "ResearchState",

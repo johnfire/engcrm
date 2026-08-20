@@ -18,7 +18,7 @@ class FakeLLM:
         return AIMessage(content=response)
 
 
-def make_tools(contacts, llm_responses, search_results=None, search_error=None):
+def make_tools(organizations, llm_responses, search_results=None, search_error=None):
     """Build a full set of dummy tools; capture searches, fetches, and updates.
 
     `search_results` overrides what web_search returns (pass [] for an outage);
@@ -47,10 +47,10 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
         state["fetched"].append(url)
         return "Kontakt: info@realbusiness.de"
 
-    def fetch_contacts(limit: int) -> list[dict]:
-        return contacts
+    def fetch_organizations(limit: int) -> list[dict]:
+        return organizations
 
-    def update_contact(contact_id: int, **kwargs) -> None:
+    def update_organization(contact_id: int, **kwargs) -> None:
         state["updates"][contact_id] = kwargs
 
     def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None:
@@ -68,8 +68,8 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
         llm=FakeLLM(llm_responses),
         web_search=web_search,
         fetch_page=fetch_page,
-        fetch_contacts=fetch_contacts,
-        update_contact=update_contact,
+        fetch_organizations=fetch_organizations,
+        update_organization=update_organization,
         set_suppression_flag=set_suppression_flag,
         start_run=start_run,
         finish_run=finish_run,
@@ -78,8 +78,8 @@ def make_tools(contacts, llm_responses, search_results=None, search_error=None):
 
 
 def test_fetches_pages_and_skips_directory_domains():
-    contacts = [{"id": 1, "name": "Real Business", "city": "Munich", "country": "DE"}]
-    agent, state = make_tools(contacts, ['{"website": "https://realbusiness.de", "email": "info@realbusiness.de", "phone": null}'])
+    organizations = [{"id": 1, "name": "Real Business", "city": "Munich", "country": "DE"}]
+    agent, state = make_tools(organizations, ['{"website": "https://realbusiness.de", "email": "info@realbusiness.de", "phone": null}'])
 
     agent.invoke({"limit": 10})
 
@@ -88,8 +88,8 @@ def test_fetches_pages_and_skips_directory_domains():
 
 
 def test_german_query_targets_impressum_kontakt():
-    contacts = [{"id": 1, "name": "Real Business", "city": "Munich", "country": "DE"}]
-    agent, state = make_tools(contacts, ['{"website": null, "email": null, "phone": null}'])
+    organizations = [{"id": 1, "name": "Real Business", "city": "Munich", "country": "DE"}]
+    agent, state = make_tools(organizations, ['{"website": null, "email": null, "phone": null}'])
 
     agent.invoke({"limit": 10})
 
@@ -97,8 +97,8 @@ def test_german_query_targets_impressum_kontakt():
 
 
 def test_non_german_query_is_generic_english():
-    contacts = [{"id": 1, "name": "Real Business", "city": "London", "country": "GB"}]
-    agent, state = make_tools(contacts, ['{"website": null, "email": null, "phone": null}'])
+    organizations = [{"id": 1, "name": "Real Business", "city": "London", "country": "GB"}]
+    agent, state = make_tools(organizations, ['{"website": null, "email": null, "phone": null}'])
 
     agent.invoke({"limit": 10})
 
@@ -107,12 +107,12 @@ def test_non_german_query_is_generic_english():
 
 def test_never_overwrites_existing_data():
     # Website already present; LLM returns a different website + a new email.
-    contacts = [{
+    organizations = [{
         "id": 1, "name": "Real Business", "city": "Munich", "country": "DE",
         "website": "https://existing.de", "email": "",
     }]
     agent, state = make_tools(
-        contacts,
+        organizations,
         ['{"website": "https://guess.de", "email": "info@realbusiness.de", "phone": null}'],
     )
 
@@ -125,8 +125,8 @@ def test_never_overwrites_existing_data():
 
 
 def test_nothing_found_raises_research_exhausted():
-    contacts = [{"id": 1, "name": "Ghost Co", "city": "Munich", "country": "DE"}]
-    agent, state = make_tools(contacts, ['{"website": null, "email": null, "phone": null}'])
+    organizations = [{"id": 1, "name": "Ghost Co", "city": "Munich", "country": "DE"}]
+    agent, state = make_tools(organizations, ['{"website": null, "email": null, "phone": null}'])
 
     result = agent.invoke({"limit": 10})
 
@@ -140,12 +140,12 @@ def test_nothing_found_raises_research_exhausted():
 # behaviour that stops a search outage deciding a contact is unreachable.
 
 def test_known_website_is_read_when_search_finds_nothing():
-    contacts = [{
+    organizations = [{
         "id": 1, "name": "Elektro Schneider", "city": "Landsberg", "country": "DE",
         "website": "https://schneider-landsberg.de", "email": "",
     }]
     agent, state = make_tools(
-        contacts,
+        organizations,
         ['{"website": null, "email": "info@schneider-landsberg.de", "phone": null}'],
         search_results=[],
     )
@@ -161,12 +161,12 @@ def test_known_website_is_read_when_search_finds_nothing():
 
 
 def test_known_website_is_read_when_search_raises():
-    contacts = [{
+    organizations = [{
         "id": 1, "name": "Elektro Schneider", "city": "Landsberg", "country": "DE",
         "website": "https://schneider-landsberg.de", "email": "",
     }]
     agent, state = make_tools(
-        contacts,
+        organizations,
         ['{"website": null, "email": "info@schneider-landsberg.de", "phone": null}'],
         search_error=RuntimeError("search backend down"),
     )
@@ -178,12 +178,12 @@ def test_known_website_is_read_when_search_raises():
 
 
 def test_known_website_is_read_before_search_hits():
-    contacts = [{
+    organizations = [{
         "id": 1, "name": "Real Business", "city": "Munich", "country": "DE",
         "website": "https://ownsite.de", "email": "",
     }]
     agent, state = make_tools(
-        contacts, ['{"website": null, "email": "info@ownsite.de", "phone": null}'],
+        organizations, ['{"website": null, "email": "info@ownsite.de", "phone": null}'],
     )
 
     agent.invoke({"limit": 10})
@@ -195,9 +195,9 @@ def test_known_website_is_read_before_search_hits():
 
 
 def test_no_website_and_no_search_results_is_still_a_dead_end():
-    contacts = [{"id": 1, "name": "Ghost Co", "city": "Munich", "country": "DE"}]
+    organizations = [{"id": 1, "name": "Ghost Co", "city": "Munich", "country": "DE"}]
     agent, state = make_tools(
-        contacts, ['{"website": null, "email": null, "phone": null}'], search_results=[],
+        organizations, ['{"website": null, "email": null, "phone": null}'], search_results=[],
     )
 
     result = agent.invoke({"limit": 10})

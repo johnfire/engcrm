@@ -150,8 +150,8 @@ def confirm_capture(
     if body.link_to_contact_id:
         contact_id = body.link_to_contact_id
     else:
-        contact_id = cards.promote_to_contact(body.fields)
-        if contact_id == 0:  # save_contact deduped — link to the existing match
+        contact_id = cards.promote_to_organization(body.fields)
+        if contact_id == 0:  # save_organization deduped — link to the existing match
             dup = cards.find_possible_duplicate(body.fields)
             if not dup:
                 raise HTTPException(status_code=409, detail="Duplicate contact, no match resolved")

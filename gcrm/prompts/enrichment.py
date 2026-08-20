@@ -7,7 +7,7 @@ shim) and any other caller share exactly one source of truth.
 """
 
 
-def build_search_query(contact: dict) -> str:
+def build_search_query(organization: dict) -> str:
     """
     Build a language-aware web-search query for a contact.
 
@@ -15,17 +15,17 @@ def build_search_query(contact: dict) -> str:
     pages, because that is where a business's real contact email lives. Every
     other country falls back to a generic English query.
     """
-    name = contact["name"]
-    city = contact["city"]
-    country = contact.get("country", "DE")
+    name = organization["name"]
+    city = organization["city"]
+    country = organization.get("country", "DE")
 
     if country in ("DE", "AT", "CH"):
         return f"{name} {city} Impressum Kontakt"
     return f"{name} {city} contact website email"
 
 
-def enrich_contact_prompt(
-    contact: dict,
+def enrich_organization_prompt(
+    organization: dict,
     search_results: list[dict],
     page_texts: list[str] | None = None,
 ) -> tuple[str, str]:
@@ -53,10 +53,10 @@ def enrich_contact_prompt(
     ) or "No results found."
 
     user = (
-        f"Business: {contact['name']}\n"
-        f"City: {contact['city']}\n"
-        f"Country: {contact.get('country', 'DE')}\n"
-        f"Type: {contact.get('type', '')}\n\n"
+        f"Business: {organization['name']}\n"
+        f"City: {organization['city']}\n"
+        f"Country: {organization.get('country', 'DE')}\n"
+        f"Type: {organization.get('type', '')}\n\n"
         f"Search snippets:\n{snippets}"
     )
 
@@ -67,14 +67,14 @@ def enrich_contact_prompt(
 
 
 def find_people_prompt(
-    contact: dict,
+    organization: dict,
     search_results: list[dict],
     page_texts: list[str] | None = None,
 ) -> tuple[str, str]:
     """
     Prompt the LLM to extract key people (owners, managers, decision-makers) for
     a business from web search results and fetched page content. Companion to
-    enrich_contact_prompt — same inputs, different extraction target.
+    enrich_organization_prompt — same inputs, different extraction target.
     """
     system = (
         "You are extracting key people (owners, managers, decision-makers) for a "
@@ -94,9 +94,9 @@ def find_people_prompt(
     ) or "No results found."
 
     user = (
-        f"Business: {contact.get('name', '')}\n"
-        f"City: {contact.get('city', '')}\n"
-        f"Country: {contact.get('country', 'DE')}\n\n"
+        f"Business: {organization.get('name', '')}\n"
+        f"City: {organization.get('city', '')}\n"
+        f"Country: {organization.get('country', 'DE')}\n\n"
         f"Search snippets:\n{snippets}"
     )
 

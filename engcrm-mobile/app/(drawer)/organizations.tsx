@@ -9,29 +9,29 @@ import {
   RefreshControl,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { fetchContacts, Contact, ContactSortKey } from "../../services/api";
-import { ContactListControls } from "../../components/ContactListControls";
-import { ContactRow } from "../../components/ContactRow";
+import { fetchOrganizations, Organization, OrganizationSortKey } from "../../services/api";
+import { OrganizationListControls } from "../../components/OrganizationListControls";
+import { OrganizationRow } from "../../components/OrganizationRow";
 import { useTranslation } from "../../i18n/I18nContext";
 
-export default function ContactsScreen() {
+export default function OrganizationsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [items, setItems] = useState<Contact[]>([]);
+  const [items, setItems] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
   const [status, setStatus] = useState("");
   const [personalPriority, setPersonalPriority] = useState("");
-  const [sort, setSort] = useState<ContactSortKey>("created_at");
+  const [sort, setSort] = useState<OrganizationSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       setItems(
-        await fetchContacts({
+        await fetchOrganizations({
           search,
           stage,
           status,
@@ -58,14 +58,14 @@ export default function ContactsScreen() {
     <View style={styles.container}>
       <TextInput
         style={styles.search}
-        placeholder={t("contacts.searchPlaceholder")}
+        placeholder={t("organizations.searchPlaceholder")}
         placeholderTextColor="#555"
         value={search}
         onChangeText={setSearch}
         onSubmitEditing={load}
         returnKeyType="search"
       />
-      <ContactListControls
+      <OrganizationListControls
         stage={stage}
         status={status}
         personalPriority={personalPriority}
@@ -86,13 +86,13 @@ export default function ContactsScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(contact) => String(contact.id)}
+          keyExtractor={(organization) => String(organization.id)}
           renderItem={({ item }) => (
-            <ContactRow
+            <OrganizationRow
               item={item}
               onPress={(id) =>
                 router.push({
-                  pathname: "/(drawer)/contact-detail",
+                  pathname: "/(drawer)/organization-detail",
                   params: { id },
                 })
               }
@@ -108,7 +108,7 @@ export default function ContactsScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={styles.empty}>
-              {loadError ? t("common.couldntLoadRefresh") : t("contacts.notFound")}
+              {loadError ? t("common.couldntLoadRefresh") : t("organizations.notFound")}
             </Text>
           }
         />

@@ -7,22 +7,22 @@ from pydantic import BaseModel
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
-from gcrm.contact_state import (
+from gcrm.db.connection import db
+from gcrm.organization_state import (
     PIPELINE_STAGES,
     STATUSES,
     SUPPRESSION_FLAGS,
     coerce_stage,
     coerce_status,
 )
-from gcrm.db.connection import db
-from gcrm.supervisor.contact_opportunity_analysis import analyse_contact_opportunity
+from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_personal_priorities import set_personal_priority
-from gcrm.tools.privacy_retention import erase_contact
+from gcrm.tools.privacy_retention import erase_organization
 
-router = APIRouter(prefix="/contacts", tags=["contacts"], dependencies=[Depends(require_login)])
+router = APIRouter(prefix="/organizations", tags=["organizations"], dependencies=[Depends(require_login)])
 
-# The vocabulary lives in gcrm/contact_state.py — every picker and filter on
+# The vocabulary lives in gcrm/organization_state.py — every picker and filter on
 # the site reads it from there so they cannot drift apart again.
 
 PAGE_SIZE = 100
@@ -55,7 +55,7 @@ def _priority_join(user_id: int | None) -> tuple[str, list]:
     )
 
 
-def _build_contact_filters(
+def _build_organization_filters(
     status, type, q, has_contact, personal_priority="", workspace_id=None, stage="", suppressed="",
 ):
     """Build the WHERE clause + bound params for the contact list from the query
@@ -94,7 +94,7 @@ def _build_contact_filters(
     return where, params
 
 
-def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None):
+def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None):
     """Run the count + page queries for the given filters, and gather the option
     lists for the filter bar. Returns (contacts, status_counts, stage_counts,
     types, total).
@@ -134,7 +134,7 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None
             """,
             query_params,
         )
-        contacts = [dict(row) for row in cur.fetchall()]
+        organizations = [dict(row) for row in cur.fetchall()]
 
         workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""
         workspace_params = [workspace_id] if workspace_id is not None else []
@@ -159,11 +159,11 @@ def _fetch_contacts_page(where, params, sort_col, sort_dir, offset, user_id=None
         )
         types = [row["type"] for row in cur.fetchall()]
 
-    return contacts, status_counts, stage_counts, types, total
+    return organizations, status_counts, stage_counts, types, total
 
 
 @router.get("/", response_class=HTMLResponse)
-def contact_list(
+def organization_list(
     request: Request,
     status: str = Query(default=""),
     stage: str = Query(default=""),
@@ -182,18 +182,18 @@ def contact_list(
 
     user_id = request.session.get("user_id")
     workspace_id = request.session.get("workspace_id")
-    where, params = _build_contact_filters(
+    where, params = _build_organization_filters(
         status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed,
     )
-    contacts, status_counts, stage_counts, types, total = _fetch_contacts_page(
+    organizations, status_counts, stage_counts, types, total = _fetch_organizations_page(
         where, params, sort_col, sort_dir, offset, user_id, workspace_id,
     )
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
 
-    return templates.TemplateResponse("contacts.html", {
+    return templates.TemplateResponse("organizations.html", {
         "request": request,
-        "contacts": contacts,
+        "organizations": organizations,
         "status_counts": status_counts,
         "stage_counts": stage_counts,
         "suppression_flags": SUPPRESSION_FLAGS,
@@ -214,7 +214,7 @@ def contact_list(
 
 
 @router.get("/print", response_class=HTMLResponse)
-def contact_print(
+def organization_print(
     request: Request,
     status: str = Query(default=""),
     type: str = Query(default=""),
@@ -230,7 +230,7 @@ def contact_print(
     user_id = request.session.get("user_id")
     workspace_id = request.session.get("workspace_id")
     priority_join, priority_params = _priority_join(user_id)
-    where, params = _build_contact_filters(
+    where, params = _build_organization_filters(
         status, type, q, "", personal_priority, workspace_id,
     )
 
@@ -254,7 +254,7 @@ def contact_print(
             """,
             priority_params + params,
         )
-        contacts = [dict(row) for row in cur.fetchall()]
+        organizations = [dict(row) for row in cur.fetchall()]
 
     from datetime import date
     active_filters = []
@@ -267,38 +267,38 @@ def contact_print(
     if personal_priority:
         active_filters.append(f"personal priority: {personal_priority}")
 
-    return templates.TemplateResponse("contacts_print.html", {
+    return templates.TemplateResponse("organizations_print.html", {
         "request": request,
-        "contacts": contacts,
+        "organizations": organizations,
         "active_filters": active_filters,
-        "total": len(contacts),
+        "total": len(organizations),
         "now": date.today().isoformat(),
     })
 
 
 @router.get("/{contact_id}/brief", response_class=HTMLResponse)
-def contact_brief(contact_id: int, request: Request):
+def organization_brief(contact_id: int, request: Request):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT * FROM contacts WHERE id = %s AND deleted_at IS NULL", (contact_id,))
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Contact not found")
-        contact = dict(row)
+        organization = dict(row)
         cur.execute(
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 5",
             (contact_id,),
         )
         interactions = [dict(row) for row in cur.fetchall()]
-    return templates.TemplateResponse("contact_brief.html", {
+    return templates.TemplateResponse("organization_brief.html", {
         "request": request,
-        "contact": contact,
+        "organization": organization,
         "interactions": interactions,
     })
 
 
 @router.get("/{contact_id}", response_class=HTMLResponse)
-def contact_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
+def organization_detail(contact_id: int, request: Request, saved: bool = Query(default=False)):
     with db() as conn:
         cur = conn.cursor()
         user_id = request.session.get("user_id")
@@ -319,7 +319,7 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Contact not found")
-        contact = dict(row)
+        organization = dict(row)
         cur.execute(
             "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
             (contact_id,),
@@ -338,9 +338,9 @@ def contact_detail(contact_id: int, request: Request, saved: bool = Query(defaul
             (contact_id,),
         )
         opportunity_analysis = cur.fetchone()
-    return templates.TemplateResponse("contact_detail.html", {
+    return templates.TemplateResponse("organization_detail.html", {
         "request": request,
-        "contact": contact,
+        "organization": organization,
         "interactions": interactions,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "pipeline_stages": PIPELINE_STAGES,
@@ -365,13 +365,13 @@ def update_personal_priority(
     if body.priority is not None and body.priority not in range(1, 6):
         raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
 
-    contact_found, stored_priority = set_personal_priority(
+    organization_found, stored_priority = set_personal_priority(
         user_id,
         workspace_id,
         contact_id,
         body.priority,
     )
-    if not contact_found:
+    if not organization_found:
         raise HTTPException(status_code=404, detail="Contact not found")
 
     outcome = "cleared" if stored_priority is None else f"set:{stored_priority}"
@@ -386,7 +386,7 @@ def update_personal_priority(
 
 
 @router.post("/{contact_id}/opportunity-analysis")
-def analyse_selected_contact(
+def analyse_selected_organization(
     contact_id: int,
     request: Request,
     _admin: str = Depends(require_admin),
@@ -394,19 +394,19 @@ def analyse_selected_contact(
     """Run a fresh analysis for exactly one contact; it never sends outreach."""
     log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "started")
     try:
-        result = analyse_contact_opportunity(contact_id)
+        result = analyse_organization_opportunity(contact_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Contact not found")
     except Exception as error:
         log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "failed")
         request.session["opportunity_flash"] = {"error": str(error)}
-        return local_redirect(f"/contacts/{contact_id}")
+        return local_redirect(f"/organizations/{contact_id}")
     log_audit(None, None, "contact.opportunity_analysis_requested", f"contact:{contact_id}", "completed")
     request.session["opportunity_flash"] = {"summary": result.get("summary", "Analysis complete")}
-    return local_redirect(f"/contacts/{contact_id}")
+    return local_redirect(f"/organizations/{contact_id}")
 
 
-def _persist_contact_edit(contact_id, text_fields, fit_score, flags=None):
+def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None):
     """Normalize blank strings to NULL, parse the numeric fit_score, and write the
     contact row. text_fields maps column name -> submitted string; flags maps
     suppression column -> bool, written as-is since a false flag is meaningful."""
@@ -436,7 +436,7 @@ def _persist_contact_edit(contact_id, text_fields, fit_score, flags=None):
 
 
 @router.post("/{contact_id}/edit")
-def contact_edit(
+def organization_edit(
     contact_id: int,
     request: Request,
     name: str = Form(""),
@@ -445,7 +445,7 @@ def contact_edit(
     type: str = Form(""),
     pipeline_stage: str = Form(""),
     status: str = Form(""),
-    do_not_contact: bool = Form(False),
+    do_not_organization: bool = Form(False),
     email_bounced: bool = Form(False),
     research_exhausted: bool = Form(False),
     fit_score: Optional[str] = Form(None),
@@ -479,31 +479,31 @@ def contact_edit(
         "space_notes": space_notes, "price_sensitivity": price_sensitivity, "notes": notes,
     }
     flags = {
-        "do_not_contact": do_not_contact,
+        "do_not_contact": do_not_organization,
         "email_bounced": email_bounced,
         "research_exhausted": research_exhausted,
     }
-    _persist_contact_edit(contact_id, text_fields, fit_score, flags)
+    _persist_organization_edit(contact_id, text_fields, fit_score, flags)
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
-    return local_redirect(f"/contacts/{contact_id}", saved="1")
+    return local_redirect(f"/organizations/{contact_id}", saved="1")
 
 
 @router.post("/{contact_id}/delete")
-def delete_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
-    if not erase_contact(contact_id):
+def delete_organization(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
+    if not erase_organization(contact_id):
         raise HTTPException(status_code=404, detail="Contact not found")
     # Bounce back to whichever list the admin deleted from — but only if the
     # Referer is one of our own paths; see gcrm/api/redirects.py.
-    return local_redirect(request.headers.get("referer", ""), fallback="/contacts/")
+    return local_redirect(request.headers.get("referer", ""), fallback="/organizations/")
 
 
 @router.post("/{contact_id}/unflag")
-def unflag_contact(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
+def unflag_organization(contact_id: int, request: Request, _admin: str = Depends(require_admin)):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("UPDATE contacts SET flagged = FALSE WHERE id = %s", (contact_id,))
     log_audit(None, None, "contact.unflagged", f"contact:{contact_id}", "updated")
-    return local_redirect(request.headers.get("referer", ""), fallback="/contacts/")
+    return local_redirect(request.headers.get("referer", ""), fallback="/organizations/")
 
 
 @router.post("/{contact_id}/star", response_class=HTMLResponse)

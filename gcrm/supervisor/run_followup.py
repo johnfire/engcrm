@@ -30,7 +30,7 @@ def main():
         get_unprocessed_inbox,
         log_interaction,
         mark_bad_email,
-        match_contact_by_email,
+        match_organization_by_email,
         queue_for_approval,
         read_inbox,
         record_warm_outcome,
@@ -52,7 +52,7 @@ def main():
     agent = create_followup_agent(
         llm=get_llm(SMART_LLM),
         fetch_inbox=fetch_inbox_with_backlog,
-        match_contact=match_contact_by_email,
+        match_organization=match_organization_by_email,
         log_interaction=log_interaction,
         set_opt_out=set_opt_out,
         handle_bounce=mark_bad_email,

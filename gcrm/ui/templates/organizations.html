@@ -1,21 +1,21 @@
-{% extends "base.html" %} {% block title %}{{ t('contacts.title') }} — {{ t('nav.brand') }}{%
+{% extends "base.html" %} {% block title %}{{ t('organizations.title') }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
-  <h1>{{ t('contacts.title') }}</h1>
+  <h1>{{ t('organizations.title') }}</h1>
   <span class="muted"
-    >{{ t('contacts.totalPage', total=total, page=page, totalPages=total_pages) }}</span
+    >{{ t('organizations.totalPage', total=total, page=page, totalPages=total_pages) }}</span
   >
 </div>
 
-<form class="filter-bar" method="get" action="/contacts/">
+<form class="filter-bar" method="get" action="/organizations/">
   <input
     type="text"
     name="q"
     value="{{ query }}"
-    placeholder="{{ t('contacts.searchPlaceholder') }}"
+    placeholder="{{ t('organizations.searchPlaceholder') }}"
   />
   <select name="stage" aria-label="{{ t('common.pipelineStage') }}">
-    <option value="">{{ t('contacts.allStages') }}</option>
+    <option value="">{{ t('organizations.allStages') }}</option>
     {% for stage_value, stage_count in stage_counts.items() %}
     <option value="{{ stage_value }}" {% if stage_value == active_stage %}selected{% endif %}>
       {{ t('stage.' ~ stage_value) }} ({{ stage_count }})
@@ -23,15 +23,15 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     {% endfor %}
   </select>
   <select name="status" aria-label="{{ t('common.status') }}">
-    <option value="">{{ t('contacts.allStatuses') }}</option>
+    <option value="">{{ t('organizations.allStatuses') }}</option>
     {% for status_value, status_count in status_counts.items() %}
     <option value="{{ status_value }}" {% if status_value == active_status %}selected{% endif %}>
       {{ t('status.' ~ status_value) }} ({{ status_count }})
     </option>
     {% endfor %}
   </select>
-  <select name="suppressed" aria-label="{{ t('contacts.suppression') }}">
-    <option value="">{{ t('contacts.anySuppression') }}</option>
+  <select name="suppressed" aria-label="{{ t('organizations.suppression') }}">
+    <option value="">{{ t('organizations.anySuppression') }}</option>
     {% for flag in suppression_flags %}
     <option value="{{ flag }}" {% if flag == active_suppressed %}selected{% endif %}>
       {{ t('flag.' ~ flag) }}
@@ -39,7 +39,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     {% endfor %}
   </select>
   <select name="type">
-    <option value="">{{ t('contacts.allTypes') }}</option>
+    <option value="">{{ t('organizations.allTypes') }}</option>
     {% for t_ in types %}
     <option value="{{ t_ }}" {% if t_ == active_type %}selected{% endif %}>
       {{ t_ }}
@@ -59,13 +59,13 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   </select>
   <select name="has_contact">
     <option value="" {% if has_contact == "" %}selected{% endif %}>
-      {{ t('contacts.anyContactDate') }}
+      {{ t('organizations.anyContactDate') }}
     </option>
     <option value="1" {% if has_contact == "1" %}selected{% endif %}>
-      {{ t('contacts.hasContactDate') }}
+      {{ t('organizations.hasContactDate') }}
     </option>
     <option value="0" {% if has_contact == "0" %}selected{% endif %}>
-      {{ t('contacts.noContactDate') }}
+      {{ t('organizations.noContactDate') }}
     </option>
   </select>
   <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
@@ -75,11 +75,11 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
     <option value="type" {% if sort == "type" %}selected{% endif %}>{{ t('common.type') }}</option>
     <option value="status" {% if sort == "status" %}selected{% endif %}>{{ t('common.status') }}</option>
-    <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('contacts.colFit') }}</option>
+    <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('organizations.colFit') }}</option>
     <option value="personal_priority" {% if sort == "personal_priority" %}selected{% endif %}>{{ t('personalPriority.title') }}</option>
-    <option value="starred" {% if sort == "starred" %}selected{% endif %}>{{ t('contacts.colStarred') }}</option>
-    <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('contacts.colLastContact') }}</option>
-    <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('contacts.colId') }}</option>
+    <option value="starred" {% if sort == "starred" %}selected{% endif %}>{{ t('organizations.colStarred') }}</option>
+    <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('organizations.colLastContact') }}</option>
+    <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('organizations.colId') }}</option>
   </select>
   <select name="dir">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
@@ -87,14 +87,14 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
   {% if query or active_status or active_stage or active_suppressed or active_type or has_contact or personal_priority %}
-  <a href="/contacts/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
+  <a href="/organizations/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
   {% endif %}
   <a
-    href="/contacts/print?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}"
+    href="/organizations/print?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}"
     target="_blank"
     class="btn-secondary"
     style="padding: 0.35rem 0.8rem; text-decoration: none"
-    >{{ t('contacts.printPdf') }}</a
+    >{{ t('organizations.printPdf') }}</a
   >
 </form>
 
@@ -107,20 +107,20 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   class="sort-link"
   >{{ label }}{{ arrow }}</a
 >
-{% endmacro %} {% if contacts %}
+{% endmacro %} {% if organizations %}
 <table>
   <thead>
     <tr>
       <th class="star-col">{{ sort_link('starred', '★', 'desc') }}</th>
-      <th>{{ sort_link('id', t('contacts.colId')) }}</th>
+      <th>{{ sort_link('id', t('organizations.colId')) }}</th>
       <th>{{ sort_link('name', t('common.name')) }}</th>
       <th>{{ sort_link('city', t('common.city')) }}</th>
       <th>{{ sort_link('type', t('common.type')) }}</th>
       <th>{{ t('common.pipelineStage') }}</th>
       <th>{{ sort_link('status', t('common.status')) }}</th>
-      <th>{{ sort_link('fit', t('contacts.colFit')) }}</th>
+      <th>{{ sort_link('fit', t('organizations.colFit')) }}</th>
       <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>
-      <th>{{ sort_link('last_contact', t('contacts.colLastContact')) }}</th>
+      <th>{{ sort_link('last_contact', t('organizations.colLastContact')) }}</th>
       <th>{{ sort_link('created_at', t('common.added'), 'desc') }}</th>
       <th>{{ t('common.email') }}</th>
       <th>{{ t('common.website') }}</th>
@@ -129,12 +129,12 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
     </tr>
   </thead>
   <tbody>
-    {% for c in contacts %}
+    {% for c in organizations %}
     <tr>
       <td class="star-col">{% include 'partials/star_button.html' %}</td>
       <td class="muted small">{{ c.id }}</td>
       <td>
-        <strong><a href="/contacts/{{ c.id }}">{{ c.name }}</a></strong>
+        <strong><a href="/organizations/{{ c.id }}">{{ c.name }}</a></strong>
       </td>
       <td>
         {{ c.city }}{% if c.country %}
@@ -169,8 +169,8 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       </td>
       <td class="muted small">{{ c.email or '—' }}</td>
       <td class="muted small">
-        {% set contact_website_url = c.website | browsable_url %}
-        {% if contact_website_url %}<a href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
+        {% set organization_website_url = c.website | browsable_url %}
+        {% if organization_website_url %}<a href="{{ organization_website_url }}" target="_blank" rel="noopener noreferrer"
           >{{ c.website }}</a
         >{% else %}{{ c.website or '—' }}{% endif %}
       </td>
@@ -182,18 +182,18 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         <span class="flag-dot" title="Flagged for review">●</span>
         <form
           method="post"
-          action="/contacts/{{ c.id }}/delete"
+          action="/organizations/{{ c.id }}/delete"
           style="display: inline"
-          onsubmit="return confirm('{{ t('contacts.deleteConfirm', name=c.name) }}')"
+          onsubmit="return confirm('{{ t('organizations.deleteConfirm', name=c.name) }}')"
         >
-          <button class="btn-danger btn-tiny">{{ t('contacts.del') }}</button>
+          <button class="btn-danger btn-tiny">{{ t('organizations.del') }}</button>
         </form>
         <form
           method="post"
-          action="/contacts/{{ c.id }}/unflag"
+          action="/organizations/{{ c.id }}/unflag"
           style="display: inline"
         >
-          <button class="btn-tiny">{{ t('contacts.keep') }}</button>
+          <button class="btn-tiny">{{ t('organizations.keep') }}</button>
         </form>
         {% endif %}
       </td>
@@ -202,7 +202,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   </tbody>
 </table>
 {% else %}
-<p class="empty">{{ t('contacts.noContactsFound') }}</p>
+<p class="empty">{{ t('organizations.noContactsFound') }}</p>
 {% endif %} {% if total_pages > 1 %}
 <div class="pagination">
   {% if page > 1 %}

@@ -15,13 +15,13 @@ class PageFetcher(Protocol):
     def __call__(self, url: str) -> str: ...
 
 
-class ContactFetcher(Protocol):
+class OrganizationFetcher(Protocol):
     """Fetch contacts that need enrichment (missing website or email)."""
 
     def __call__(self, limit: int) -> list[dict]: ...
 
 
-class ContactUpdater(Protocol):
+class OrganizationUpdater(Protocol):
     """Update a contact's website, email, and/or phone."""
 
     def __call__(self, contact_id: int, **kwargs) -> None: ...

@@ -122,9 +122,9 @@ def resolve_business(name: str, gps: tuple[float, float] | None = None, country:
     }
 
 
-def build_contact_fields(business_name: str, extracted: dict, place: dict | None) -> dict:
+def build_organization_fields(business_name: str, extracted: dict, place: dict | None) -> dict:
     """
-    Shape confirmed sign data into the fields dict cards.promote_to_contact()
+    Shape confirmed sign data into the fields dict cards.promote_to_organization()
     expects (company/city/website/phone/note/address/industry). `place` is the
     resolved Google Place iff the user accepted it on the confirm screen —
     otherwise fall back to whatever the vision extraction found on the sign.
@@ -153,7 +153,7 @@ def build_contact_fields(business_name: str, extracted: dict, place: dict | None
 # ---------------------------------------------------------------------------
 # Key-people lookup
 # ---------------------------------------------------------------------------
-def find_key_people(contact: dict, max_people: int = 5) -> list[dict]:
+def find_key_people(organization: dict, max_people: int = 5) -> list[dict]:
     """
     Search the web for key people at a business (owner, manager, decision-
     makers) and ask the cheap LLM to extract them. Best-effort: any failure
@@ -167,11 +167,11 @@ def find_key_people(contact: dict, max_people: int = 5) -> list[dict]:
     from gcrm.tools import fetch_page, web_search
     from gcrm.tools.llm import get_llm
 
-    name = (contact.get("name") or "").strip()
+    name = (organization.get("name") or "").strip()
     if not name:
         return []
-    city = contact.get("city") or ""
-    country = contact.get("country") or "DE"
+    city = organization.get("city") or ""
+    country = organization.get("country") or "DE"
     query = (
         f"{name} {city} Team Ansprechpartner Impressum"
         if country in ("DE", "AT", "CH")
@@ -197,7 +197,7 @@ def find_key_people(contact: dict, max_people: int = 5) -> list[dict]:
         except Exception:
             pass
 
-    system, user = find_people_prompt(contact, results, pages)
+    system, user = find_people_prompt(organization, results, pages)
     try:
         response = get_llm(CHEAP_LLM).invoke([SystemMessage(content=system), HumanMessage(content=user)])
         data = parse_llm_json(_content_to_text(response.content))
@@ -247,7 +247,7 @@ def research_business(contact_id: int) -> None:
     the final notification.
     """
     from gcrm.tools.cards import _run_enrichment_agent
-    from gcrm.tools.db import get_contact
+    from gcrm.tools.db import get_organization
 
     try:
         _run_enrichment_agent(contact_id)
@@ -256,15 +256,15 @@ def research_business(contact_id: int) -> None:
 
     people_found = 0
     try:
-        contact = get_contact(contact_id)
-        people = find_key_people(contact) if contact else []
+        organization = get_organization(contact_id)
+        people = find_key_people(organization) if organization else []
         people_found = len(promote_people(contact_id, people))
     except Exception:
         logger.exception("research_business: people lookup failed for contact %s", contact_id)
 
     try:
         from gcrm.api.push import send_push_to_all
-        c = get_contact(contact_id) or {}
+        c = get_organization(contact_id) or {}
         body = f"{c.get('name', 'Business')} researched"
         if people_found:
             body += f" — {people_found} key {'person' if people_found == 1 else 'people'} found"

@@ -10,10 +10,10 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import {
-  fetchContact,
+  fetchOrganization,
   runOpportunityAnalysis,
   updatePersonalPriority,
-  ContactDetail,
+  OrganizationDetail,
   OpportunityAnalysis,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
@@ -22,15 +22,15 @@ import {
   flagLabelKey,
   stageLabelKey,
   statusLabelKey,
-} from "../../services/contactState";
+} from "../../services/organizationState";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 
-export default function ContactDetailScreen() {
+export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [contact, setContact] = useState<ContactDetail | null>(null);
+  const [organization, setContact] = useState<OrganizationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -43,7 +43,7 @@ export default function ContactDetailScreen() {
   }, []);
 
   useEffect(() => {
-    fetchContact(Number(id))
+    fetchOrganization(Number(id))
       .then((loaded) => {
         setContact(loaded);
         setAnalysis(loaded.opportunity_analysis);
@@ -78,31 +78,31 @@ export default function ContactDetailScreen() {
         <ActivityIndicator color="#7c6fff" />
       </View>
     );
-  if (!contact)
+  if (!organization)
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>
-          {loadError ? t("contactDetail.couldntLoad") : t("contactDetail.notFound")}
+          {loadError ? t("organizationDetail.couldntLoad") : t("organizationDetail.notFound")}
         </Text>
       </View>
     );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.name}>{contact.name}</Text>
+      <Text style={styles.name}>{organization.name}</Text>
       <Text style={styles.sub}>
-        {contact.city}, {contact.country} · {contact.type}
+        {organization.city}, {organization.country} · {organization.type}
       </Text>
       <View style={styles.statusRow}>
-        <Text style={styles.stageBadge}>{t(stageLabelKey(contact.pipeline_stage))}</Text>
-        <Text style={styles.statusBadge}>{t(statusLabelKey(contact.status))}</Text>
-        {contact.fit_score !== null && (
-          <Text style={styles.score}>{t("contactDetail.score", { score: contact.fit_score })}</Text>
+        <Text style={styles.stageBadge}>{t(stageLabelKey(organization.pipeline_stage))}</Text>
+        <Text style={styles.statusBadge}>{t(statusLabelKey(organization.status))}</Text>
+        {organization.fit_score !== null && (
+          <Text style={styles.score}>{t("organizationDetail.score", { score: organization.fit_score })}</Text>
         )}
       </View>
-      {SUPPRESSION_FLAGS.some((flag) => contact[flag]) && (
+      {SUPPRESSION_FLAGS.some((flag) => organization[flag]) && (
         <View style={styles.statusRow}>
-          {SUPPRESSION_FLAGS.filter((flag) => contact[flag]).map((flag) => (
+          {SUPPRESSION_FLAGS.filter((flag) => organization[flag]).map((flag) => (
             <Text key={flag} style={styles.flagBadge}>
               {t(flagLabelKey(flag))}
             </Text>
@@ -111,34 +111,34 @@ export default function ContactDetailScreen() {
       )}
 
       <PersonalPrioritySelector
-        key={contact.id}
-        priority={contact.personal_priority}
+        key={organization.id}
+        priority={organization.personal_priority}
         onSave={handlePrioritySave}
       />
 
-      {contact.email && (
+      {organization.email && (
         <TouchableOpacity
-          onPress={() => Linking.openURL(`mailto:${contact.email}`)}
+          onPress={() => Linking.openURL(`mailto:${organization.email}`)}
         >
-          <Text style={styles.link}>{contact.email}</Text>
+          <Text style={styles.link}>{organization.email}</Text>
         </TouchableOpacity>
       )}
-      {contact.website &&
-        (browsableUrl(contact.website) ? (
+      {organization.website &&
+        (browsableUrl(organization.website) ? (
           <TouchableOpacity
             accessibilityRole="link"
-            onPress={() => openWebsite(contact.website)}
+            onPress={() => openWebsite(organization.website)}
           >
-            <Text style={styles.link}>{contact.website}</Text>
+            <Text style={styles.link}>{organization.website}</Text>
           </TouchableOpacity>
         ) : (
-          <Text style={styles.field}>{contact.website}</Text>
+          <Text style={styles.field}>{organization.website}</Text>
         ))}
-      {contact.phone && <Text style={styles.field}>{contact.phone}</Text>}
-      {contact.notes && (
+      {organization.phone && <Text style={styles.field}>{organization.phone}</Text>}
+      {organization.notes && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
-          <Text style={styles.fieldText}>{contact.notes}</Text>
+          <Text style={styles.fieldText}>{organization.notes}</Text>
         </View>
       )}
 
@@ -150,15 +150,15 @@ export default function ContactDetailScreen() {
         onRun={handleRunAnalysis}
       />
 
-      {contact.interactions.length > 0 && (
+      {organization.interactions.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("contactDetail.history")}</Text>
-          {contact.interactions.map((interaction, index) => (
+          <Text style={styles.sectionTitle}>{t("organizationDetail.history")}</Text>
+          {organization.interactions.map((interaction, index) => (
             <View key={index} style={styles.interaction}>
               <Text style={styles.interactionType}>
                 {[interaction.method, interaction.direction]
                   .filter(Boolean)
-                  .join(" · ") || t("contactDetail.interaction")}
+                  .join(" · ") || t("organizationDetail.interaction")}
               </Text>
               <Text style={styles.interactionDate}>
                 {new Date(interaction.interaction_date).toLocaleDateString()}
@@ -179,7 +179,7 @@ export default function ContactDetailScreen() {
 
 // The explainable opportunity assessment: scores, reasoning, recommended
 // services, evidence, discovery questions, and the suggested first step —
-// display parity with the web contact-detail page. Admins get a button to
+// display parity with the web organization-detail page. Admins get a button to
 // run (or re-run) the analysis; it's synchronous and can take a moment.
 function OpportunityAnalysisSection({
   analysis,
@@ -198,20 +198,20 @@ function OpportunityAnalysisSection({
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{t("contactDetail.opportunityAnalysis")}</Text>
+      <Text style={styles.sectionTitle}>{t("organizationDetail.opportunityAnalysis")}</Text>
 
       {analysis ? (
         <View style={styles.analysisCard}>
           {analysis.analysis_date && (
             <Text style={styles.analysisDate}>
-              {t("contactDetail.analyzedOn")}{" "}
+              {t("organizationDetail.analyzedOn")}{" "}
               {new Date(analysis.analysis_date).toLocaleDateString()}
             </Text>
           )}
           <View style={styles.scoreGrid}>
-            <ScoreChip label={t("contactDetail.opportunityScore")} value={analysis.opportunity_score} />
-            <ScoreChip label={t("contactDetail.confidenceScore")} value={analysis.confidence_score} />
-            <ScoreChip label={t("contactDetail.outreachPriority")} value={analysis.priority_score} />
+            <ScoreChip label={t("organizationDetail.opportunityScore")} value={analysis.opportunity_score} />
+            <ScoreChip label={t("organizationDetail.confidenceScore")} value={analysis.confidence_score} />
+            <ScoreChip label={t("organizationDetail.outreachPriority")} value={analysis.priority_score} />
           </View>
 
           {!!analysis.fit_reasoning && (
@@ -221,7 +221,7 @@ function OpportunityAnalysisSection({
           {analysis.recommended_services.length > 0 && (
             <View style={styles.analysisBlock}>
               <Text style={styles.analysisHeading}>
-                {t("contactDetail.recommendedServices")}
+                {t("organizationDetail.recommendedServices")}
               </Text>
               {analysis.recommended_services.map((service, index) => (
                 <View key={index} style={styles.serviceCard}>
@@ -238,11 +238,11 @@ function OpportunityAnalysisSection({
           )}
 
           {analysis.evidence.length > 0 && (
-            <BulletBlock title={t("contactDetail.evidence")} items={analysis.evidence} />
+            <BulletBlock title={t("organizationDetail.evidence")} items={analysis.evidence} />
           )}
           {analysis.discovery_questions.length > 0 && (
             <BulletBlock
-              title={t("contactDetail.discoveryQuestions")}
+              title={t("organizationDetail.discoveryQuestions")}
               items={analysis.discovery_questions}
             />
           )}
@@ -250,7 +250,7 @@ function OpportunityAnalysisSection({
           {!!analysis.suggested_approach && (
             <View style={styles.analysisBlock}>
               <Text style={styles.analysisHeading}>
-                {t("contactDetail.suggestedApproach")}
+                {t("organizationDetail.suggestedApproach")}
               </Text>
               <Text style={styles.analysisBody}>{analysis.suggested_approach}</Text>
             </View>
@@ -258,14 +258,14 @@ function OpportunityAnalysisSection({
         </View>
       ) : (
         <Text style={styles.analysisEmpty}>
-          {t("contactDetail.noOpportunityAnalysis")}
+          {t("organizationDetail.noOpportunityAnalysis")}
         </Text>
       )}
 
       {isAdmin && (
         <>
           <Text style={styles.analysisHint}>
-            {t("contactDetail.analyseThisContactHint")}
+            {t("organizationDetail.analyseThisContactHint")}
           </Text>
           <TouchableOpacity
             style={[styles.analyseButton, analyzing && styles.analyseButtonDisabled]}
@@ -277,15 +277,15 @@ function OpportunityAnalysisSection({
             {analyzing && <ActivityIndicator color="#fff" size="small" />}
             <Text style={styles.analyseButtonText}>
               {analyzing
-                ? t("contactDetail.opportunityAnalysisWorking")
+                ? t("organizationDetail.opportunityAnalysisWorking")
                 : analysis
-                  ? t("contactDetail.reRunOpportunityAnalysis")
-                  : t("contactDetail.runOpportunityAnalysis")}
+                  ? t("organizationDetail.reRunOpportunityAnalysis")
+                  : t("organizationDetail.runOpportunityAnalysis")}
             </Text>
           </TouchableOpacity>
           {analysisError && (
             <Text style={styles.analysisErrorText}>
-              {t("contactDetail.opportunityAnalysisFailed")}
+              {t("organizationDetail.opportunityAnalysisFailed")}
             </Text>
           )}
         </>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>
-      {{ t('contacts.title') }}{% if active_filters %} — {{ active_filters | join(', ') }}{%
+      {{ t('organizations.title') }}{% if active_filters %} — {{ active_filters | join(', ') }}{%
       endif %}
     </title>
     <style>
@@ -103,10 +103,10 @@
   </head>
   <body>
     <h1>
-      {{ t('contacts.title') }}{% if active_filters %} — {{ active_filters | join(' · ') }}{%
+      {{ t('organizations.title') }}{% if active_filters %} — {{ active_filters | join(' · ') }}{%
       endif %}
     </h1>
-    <p class="meta">{{ t('contactsPrint.totalContacts', total=total, date=now) }}</p>
+    <p class="meta">{{ t('organizationsPrint.totalContacts', total=total, date=now) }}</p>
 
     <table>
       <colgroup>
@@ -126,7 +126,7 @@
           <th>{{ t('common.city') }}</th>
           <th>{{ t('common.type') }}</th>
           <th>{{ t('common.status') }}</th>
-          <th>{{ t('contactsPrint.colFit') }}</th>
+          <th>{{ t('organizationsPrint.colFit') }}</th>
           <th>{{ t('personalPriority.short') }}</th>
           <th>{{ t('common.email') }}</th>
           <th>{{ t('common.website') }}</th>
@@ -134,7 +134,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for c in contacts %}
+        {% for c in organizations %}
         <tr>
           <td><strong>{{ c.name }}</strong></td>
           <td>{{ c.city }}{% if c.country %} {{ c.country }}{% endif %}</td>

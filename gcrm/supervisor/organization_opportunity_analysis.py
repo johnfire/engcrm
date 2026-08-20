@@ -3,18 +3,18 @@ from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, RESEARCH_DOSSIER_ENABLED
 from gcrm.tools import (
     fetch_page,
     finish_run,
-    get_contact_interactions,
     get_llm,
+    get_organization_interactions,
     save_opportunity_analysis,
     start_run,
 )
-from gcrm.tools.db_contacts import get_contact
+from gcrm.tools.db_organizations import get_organization
 
 
-def analyse_contact_opportunity(contact_id: int) -> dict:
+def analyse_organization_opportunity(contact_id: int) -> dict:
     """Analyse one active contact, including contacts assessed in an earlier run."""
-    contact = get_contact(contact_id)
-    if not contact or contact.get("deleted_at"):
+    organization = get_organization(contact_id)
+    if not organization or organization.get("deleted_at"):
         raise LookupError("Contact not found")
 
     from gcrm_opportunity_agent import create_opportunity_agent
@@ -23,8 +23,8 @@ def analyse_contact_opportunity(contact_id: int) -> dict:
 
     agent = create_opportunity_agent(
         llm=get_llm(CHEAP_LLM),
-        fetch_contacts=lambda limit: [contact],
-        fetch_interactions=get_contact_interactions,
+        fetch_organizations=lambda limit: [organization],
+        fetch_interactions=get_organization_interactions,
         fetch_page=fetch_page,
         get_or_create_dossier=get_or_create_dossier if RESEARCH_DOSSIER_ENABLED else None,
         save_analysis=save_opportunity_analysis,

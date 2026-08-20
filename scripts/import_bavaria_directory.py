@@ -32,7 +32,7 @@ from data.bavaria_directory import SOURCE, all_rows  # noqa: E402
 
 from gcrm.db.connection import db  # noqa: E402
 from gcrm.tools.db_audit import log_audit  # noqa: E402
-from gcrm.tools.db_contacts import save_contact  # noqa: E402
+from gcrm.tools.db_organizations import save_organization  # noqa: E402
 from gcrm.tools.db_people import save_person  # noqa: E402
 
 
@@ -44,7 +44,7 @@ def normalise_website(raw: str) -> str:
     return raw if raw.startswith(("http://", "https://")) else f"https://{raw}"
 
 
-def find_contact(name: str, city: str) -> dict | None:
+def find_organization(name: str, city: str) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -83,7 +83,7 @@ def fill_blanks(contact_id: int, row: dict, kind: str, existing: dict) -> list[s
 
 
 def stamp_extras(contact_id: int, row: dict, source: str) -> None:
-    """save_contact() has no source/address parameters; set them after insert."""
+    """save_organization() has no source/address parameters; set them after insert."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -97,7 +97,7 @@ def import_orgs(apply: bool) -> None:
     created = linked = filled = unchanged = 0
     people_made = 0
     for kind, row in all_rows():
-        existing = find_contact(row["name"], row["city"])
+        existing = find_organization(row["name"], row["city"])
         if existing:
             changed = fill_blanks(existing["id"], row, kind, existing) if apply else []
             if apply and changed:
@@ -115,7 +115,7 @@ def import_orgs(apply: bool) -> None:
             print(f"  new    {kind:<20} {row['name'][:40]:<40} {site}")
             contact_id = 0
         else:
-            contact_id = save_contact(
+            contact_id = save_organization(
                 name=row["name"], city=row["city"], country="DE", type=kind,
                 website=normalise_website(row.get("website", "")),
                 email=row.get("email", ""), phone=row.get("phone", ""),
@@ -208,7 +208,7 @@ def find_websites(apply: bool) -> None:
     was enough to accept a perfume retailer as "Areal Digital". Rows with no
     contact address are reported for a human to resolve instead of guessed at.
     """
-    from gcrm.tools.db_contacts import update_contact_details
+    from gcrm.tools.db_organizations import update_organization_details
 
     with db() as conn:
         cur = conn.cursor()
@@ -241,7 +241,7 @@ def find_websites(apply: bool) -> None:
         domain, how, evidence = accepted
         found += 1
         if apply:
-            update_contact_details(target["id"], website=f"https://{domain}")
+            update_organization_details(target["id"], website=f"https://{domain}")
             log_audit(None, None, "contact.website_found", f"contact:{target['id']}", "updated")
         print(f"  ok     [{target['id']:>4}] {target['name'][:42]:<42} https://{domain}")
         print(f"         via {how}; {evidence}")

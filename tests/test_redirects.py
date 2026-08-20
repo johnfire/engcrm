@@ -1,6 +1,6 @@
 """Same-origin guarantee for every 303 the web UI issues.
 
-The case that motivated gcrm/api/redirects.py: /contacts/{id}/delete used to
+The case that motivated gcrm/api/redirects.py: /organizations/{id}/delete used to
 redirect to the raw Referer header, so a phishing page could POST at us and
 bounce the logged-in admin onto a look-alike login screen.
 """
@@ -20,13 +20,13 @@ from gcrm.api.redirects import local_path, local_redirect
     "",
 ])
 def test_off_origin_targets_fall_back(candidate):
-    assert local_path(candidate, "/contacts/") == "/contacts/"
+    assert local_path(candidate, "/organizations/") == "/organizations/"
 
 
 @pytest.mark.parametrize("candidate,expected", [
-    ("/contacts/", "/contacts/"),
-    ("/contacts/42", "/contacts/42"),
-    ("/contacts/?page=2&sort=name", "/contacts/?page=2&sort=name"),
+    ("/organizations/", "/organizations/"),
+    ("/organizations/42", "/organizations/42"),
+    ("/organizations/?page=2&sort=name", "/organizations/?page=2&sort=name"),
     ("/research/?city=M%C3%BCnchen", "/research/?city=M%C3%BCnchen"),
 ])
 def test_in_app_paths_pass_through(candidate, expected):
@@ -52,5 +52,5 @@ def test_param_cannot_redirect_off_origin():
 
 
 def test_off_origin_path_with_params_still_falls_back():
-    response = local_redirect("https://evil.test/x", fallback="/contacts/", saved="1")
-    assert response.headers["location"] == "/contacts/?saved=1"
+    response = local_redirect("https://evil.test/x", fallback="/organizations/", saved="1")
+    assert response.headers["location"] == "/organizations/?saved=1"

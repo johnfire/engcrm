@@ -62,7 +62,7 @@ def fetch_sent_recipients(imap_host: str, imap_port: int, username: str, passwor
     return recipients
 
 
-def get_contacts(city: str | None) -> list[dict]:
+def get_organizations(city: str | None) -> list[dict]:
     from gcrm.db.connection import db
     with db() as conn:
         cur = conn.cursor()
@@ -110,39 +110,39 @@ def main():
         password=PROTON_PASSWORD,
     )
 
-    contacts = get_contacts(args.city)
+    organizations = get_organizations(args.city)
     label = args.city or "all cities"
-    logger.info("Checking %d contacts with emails in %s", len(contacts), label)
+    logger.info("Checking %d contacts with emails in %s", len(organizations), label)
 
     to_fix = []
     already_ok = []
     not_found = []
 
-    for contact in contacts:
-        addr = contact["email"].lower().strip()
+    for organization in organizations:
+        addr = organization["email"].lower().strip()
         if addr in sent_recipients:
-            if contact["status"] in ACTIVE_STATUSES:
-                already_ok.append(contact)
-            elif contact["status"] in UPGRADEABLE_STATUSES:
-                to_fix.append(contact)
+            if organization["status"] in ACTIVE_STATUSES:
+                already_ok.append(organization)
+            elif organization["status"] in UPGRADEABLE_STATUSES:
+                to_fix.append(organization)
             # 'dropped' and anything suppressed — leave alone
         else:
-            not_found.append(contact)
+            not_found.append(organization)
 
     print(f"\n── Sent Folder Audit — {label} ──────────────────────")
     print(f"  Sent folder recipients : {len(sent_recipients)}")
-    print(f"  Contacts checked       : {len(contacts)}")
+    print(f"  Contacts checked       : {len(organizations)}")
     print(f"  Already correctly marked : {len(already_ok)}")
     print(f"  Need fixing (emailed but wrong status) : {len(to_fix)}")
     print(f"  No sent email found    : {len(not_found)}")
 
     if to_fix:
         print(f"\n── Contacts to fix ({'will auto-apply' if args.fix else 'dry run — use --fix to apply'}) ──")
-        for contact in to_fix:
-            print(f"  [{contact['status']:20s}] → contacted   {contact['name']} ({contact['city']})  <{contact['email']}>")
+        for organization in to_fix:
+            print(f"  [{organization['status']:20s}] → contacted   {organization['name']} ({organization['city']})  <{organization['email']}>")
 
         if args.fix:
-            ids = [contact["id"] for contact in to_fix]
+            ids = [organization["id"] for organization in to_fix]
             mark_contacted(ids)
             print(f"\n  Fixed {len(ids)} contact(s).")
         else:

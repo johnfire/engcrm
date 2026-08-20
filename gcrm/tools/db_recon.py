@@ -8,7 +8,7 @@ _WORKED_STAGES = ("prospect", "opportunity", "customer", "not_in_pipeline")
 _WORKED_STATUSES = ("contacted", "meeting", "proposal", "dropped")
 
 
-def get_contacts_near(lat: float, lng: float, not_contacted: bool = False, limit: int = 50) -> list[dict]:
+def get_organizations_near(lat: float, lng: float, not_contacted: bool = False, limit: int = 50) -> list[dict]:
     """Contacts that have coordinates, nearest the given point first, each with a
     distance_m. Skips soft-deleted and permanently/temporarily closed businesses."""
     clauses = [

@@ -80,7 +80,7 @@ export default function VoiceConfirmScreen() {
         <Text style={styles.label}>{t("voiceConfirm.heard")}</Text>
         <Text style={styles.transcript}>{result.transcript}</Text>
 
-        <Text style={styles.label}>{t("voiceConfirm.contact")}</Text>
+        <Text style={styles.label}>{t("voiceConfirm.organization")}</Text>
         {candidates.map((candidate) => (
           <TouchableOpacity
             key={candidate.id}

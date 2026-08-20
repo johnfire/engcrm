@@ -26,7 +26,7 @@ class InboxFetcher(Protocol):
     def __call__(self) -> list[dict]: ...
 
 
-class ContactMatcher(Protocol):
+class OrganizationMatcher(Protocol):
     """
     Given a sender email address, find the matching contact in the database.
     Returns contact dict or None if no match found.

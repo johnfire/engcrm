@@ -53,8 +53,8 @@ export default function DrawerLayout() {
       }}
     >
       <Drawer.Screen
-        name="contacts"
-        options={{ title: t("drawer.contacts"), drawerLabel: t("drawer.contacts") }}
+        name="organizations"
+        options={{ title: t("drawer.organizations"), drawerLabel: t("drawer.organizations") }}
       />
       <Drawer.Screen
         name="approvals"
@@ -105,11 +105,11 @@ export default function DrawerLayout() {
         options={{ title: t("drawer.helpTitle"), drawerLabel: t("drawer.help") }}
       />
       <Drawer.Screen
-        name="contact-detail"
+        name="organization-detail"
         options={{
           drawerItemStyle: { display: "none" },
-          title: t("drawer.contact"),
-          headerLeft: () => <HeaderBack to="/(drawer)/contacts" />,
+          title: t("drawer.organization"),
+          headerLeft: () => <HeaderBack to="/(drawer)/organizations" />,
         }}
       />
       <Drawer.Screen

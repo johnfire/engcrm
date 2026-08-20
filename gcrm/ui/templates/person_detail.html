@@ -9,7 +9,7 @@
     {%- if person.title %}{{ person.title }}{% endif -%}
     {%- if person.title and person.company %} · {% endif -%}
     {%- if person.company %}
-    <a href="/contacts/{{ person.contact_id }}">{{ person.company }}</a>
+    <a href="/organizations/{{ person.contact_id }}">{{ person.company }}</a>
     {%- endif -%}
   </span>
 </div>
@@ -77,7 +77,7 @@
         <dt>{{ t('personDetail.company') }}</dt>
         <dd>
           {%- if person.company -%}
-          <a href="/contacts/{{ person.contact_id }}">{{ person.company }}</a>
+          <a href="/organizations/{{ person.contact_id }}">{{ person.company }}</a>
           {%- else -%}—{%- endif -%}
         </dd>
         <dt>{{ t('personDetail.source') }}</dt>

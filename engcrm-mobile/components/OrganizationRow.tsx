@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Contact } from "../services/api";
+import { Organization } from "../services/api";
 
 interface Props {
-  item: Contact;
+  item: Organization;
   onPress: (id: number) => void;
 }
 
@@ -13,7 +13,7 @@ function scoreBadgeColor(score: number | null) {
   return "#888";
 }
 
-export function ContactRow({ item, onPress }: Props) {
+export function OrganizationRow({ item, onPress }: Props) {
   const color = scoreBadgeColor(item.fit_score);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(item.id)}>

@@ -8,7 +8,7 @@ from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
 
 
-def get_contacts_needing_opportunity_analysis(limit: int = 50) -> list[dict]:
+def get_organizations_needing_opportunity_analysis(limit: int = 50) -> list[dict]:
     """Return active contacts without a current opportunity assessment."""
     with db() as conn:
         cursor = conn.cursor()

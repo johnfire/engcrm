@@ -7,7 +7,7 @@ class EnrichmentState(TypedDict):
 
     # working state
     run_id: int
-    contacts: list[dict]  # contacts fetched for enrichment
+    organizations: list[dict]  # contacts fetched for enrichment
     results: list[dict]  # [{contact_id, website, email, phone, found}]
     errors: list[str]
 

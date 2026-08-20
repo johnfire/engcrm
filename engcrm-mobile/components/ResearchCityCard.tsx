@@ -8,8 +8,8 @@ type TFunction = (key: string, params?: Record<string, unknown>) => string;
  * One city's scan-status row on the Research screen — the mobile equivalent of a
  * single row in the web Research table. Shows the city, its region, a chip per
  * scan level (green = complete, amber = partial, dim = not run), and the
- * emailed/contacts totals. Tapping a level chip reveals the same detail the web
- * page exposes as a hover tooltip (last run date, contacts found, emailed).
+ * emailed/organizations totals. Tapping a level chip reveals the same detail the web
+ * page exposes as a hover tooltip (last run date, organizations found, emailed).
  *
  * Every field is treated as possibly missing so a malformed row renders a
  * placeholder instead of crashing the screen.
@@ -106,7 +106,7 @@ export function ResearchCityCard({
           <Text style={styles.footerNum}>{city.emailed_total ?? 0}</Text> {t("researchCity.sent")}
         </Text>
         <Text style={styles.footerItem}>
-          <Text style={styles.footerNum}>{city.total_contacts ?? 0}</Text> {t("researchCity.contacts")}
+          <Text style={styles.footerNum}>{city.total_contacts ?? 0}</Text> {t("researchCity.organizations")}
         </Text>
       </View>
     </View>

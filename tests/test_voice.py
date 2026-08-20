@@ -65,7 +65,7 @@ class TestVoiceEndpoints:
              patch("gcrm.api.routers.api_voice.structure_transcript", return_value={
                  "summary": "Met Anna at Acme", "contact_query": "Acme",
                  "follow_up_date": "2026-07-07", "follow_up_text": "follow up", "is_new_lead": False}), \
-             patch("gcrm.api.routers.api_voice.search_contacts_by_name",
+             patch("gcrm.api.routers.api_voice.search_organizations_by_name",
                    return_value=[{"id": 9, "name": "Acme", "city": "Augsburg",
                                   "email": None, "phone": None, "decision_maker": None}]):
             r = client.post("/api/voice", headers=AUTH,
@@ -76,7 +76,7 @@ class TestVoiceEndpoints:
         assert body["follow_up_date"] == "2026-07-07"
         assert body["candidates"][0]["id"] == 9
 
-    def test_confirm_existing_contact_passes_followup(self):
+    def test_confirm_existing_organization_passes_followup(self):
         with patch("gcrm.api.routers.api_voice.log_voice_interaction") as mlog:
             r = client.post("/api/voice/confirm", headers=AUTH, json={
                 "contact_id": 9, "summary": "Met Anna",
@@ -85,11 +85,11 @@ class TestVoiceEndpoints:
         assert r.json()["contact_id"] == 9
         assert mlog.call_args.kwargs["next_action_date"] == "2026-07-07"
 
-    def test_confirm_new_contact_creates(self):
-        with patch("gcrm.api.routers.api_voice.save_contact", return_value=42) as msave, \
+    def test_confirm_new_organization_creates(self):
+        with patch("gcrm.api.routers.api_voice.save_organization", return_value=42) as msave, \
              patch("gcrm.api.routers.api_voice.log_voice_interaction"):
             r = client.post("/api/voice/confirm", headers=AUTH,
-                            json={"new_contact_name": "New Co", "summary": "cold intro"})
+                            json={"new_organization_name": "New Co", "summary": "cold intro"})
         assert r.status_code == 200
         assert r.json()["contact_id"] == 42
         assert msave.called

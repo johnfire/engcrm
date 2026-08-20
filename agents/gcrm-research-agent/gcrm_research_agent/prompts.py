@@ -1,3 +1,3 @@
-from gcrm.prompts.research import extract_contacts_prompt
+from gcrm.prompts.research import extract_organizations_prompt
 
-__all__ = ["extract_contacts_prompt"]
+__all__ = ["extract_organizations_prompt"]

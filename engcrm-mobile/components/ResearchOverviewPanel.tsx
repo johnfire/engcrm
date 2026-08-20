@@ -36,7 +36,7 @@ export function ResearchOverviewPanel({ error, loading, overview }: Props) {
       {cities.length === 0 ? <Text style={styles.empty}>{t("researchOverview.empty")}</Text> : cities.map((city) => (
         <ResearchCityCard key={city.id ?? city.city} city={city} levels={overview.levels ?? []} levelLabels={overview.level_labels ?? {}} />
       ))}
-      {cities.length > 0 && <Text style={styles.totalsLine}>{t("researchOverview.total")} <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text> {t("researchOverview.emailed")} · <Text style={styles.totalsNum}>{overview.totals?.contacts ?? 0}</Text> {t("researchOverview.contacts")}</Text>}
+      {cities.length > 0 && <Text style={styles.totalsLine}>{t("researchOverview.total")} <Text style={styles.totalsNum}>{overview.totals?.emailed ?? 0}</Text> {t("researchOverview.emailed")} · <Text style={styles.totalsNum}>{overview.totals?.organizations ?? 0}</Text> {t("researchOverview.organizations")}</Text>}
       <View style={styles.legend}>
         <Text style={styles.legendLine}>{t("researchOverview.legend")}</Text>
         {(overview.levels ?? []).map((level) => <Text key={level} style={styles.legendLabel}>L{level}: {overview.level_labels?.[String(level)] ?? "—"}</Text>)}

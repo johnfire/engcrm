@@ -178,21 +178,21 @@ def _country_code(raw) -> str:
     return c if len(c) == 2 and c.isalpha() else "DE"
 
 
-def promote_to_contact(fields: dict, source: str = "card_capture") -> int:
+def promote_to_organization(fields: dict, source: str = "card_capture") -> int:
     """
     Create a contact (status 'candidate') from card (or sign) fields. company →
     name, person+title → decision_maker. Returns the new contact id, or 0 if
-    save_contact deduped it (email or name+city already exists).
+    save_organization deduped it (email or name+city already exists).
     """
     from gcrm.db.connection import db
-    from gcrm.tools.db import save_contact
+    from gcrm.tools.db import save_organization
 
     company = (fields.get("company") or "").strip()
     person = (fields.get("name") or "").strip()
     title = (fields.get("title") or "").strip()
     name = company or person or "Unknown"
 
-    cid = save_contact(
+    cid = save_organization(
         name=name,
         city=(fields.get("city") or "").strip(),
         country=_country_code(fields.get("country")),
@@ -264,21 +264,21 @@ def _run_enrichment_agent(contact_id: int) -> None:
         finish_run,
         get_llm,
         start_run,
-        update_contact_details,
+        update_organization_details,
         web_search,
     )
-    from gcrm.tools.db import get_contact
+    from gcrm.tools.db import get_organization
 
     def fetch_one(limit: int = 1, city: str | None = None) -> list[dict]:
-        c = get_contact(contact_id)
+        c = get_organization(contact_id)
         return [c] if c else []
 
     agent = create_enrichment_agent(
         llm=get_llm(CHEAP_LLM),
         web_search=web_search,
         fetch_page=fetch_page,
-        fetch_contacts=fetch_one,
-        update_contact=update_contact_details,
+        fetch_organizations=fetch_one,
+        update_organization=update_organization_details,
         start_run=start_run,
         finish_run=finish_run,
     )
@@ -295,8 +295,8 @@ def enrich_one(contact_id: int) -> None:
 
     try:
         from gcrm.api.push import send_push_to_all
-        from gcrm.tools.db import get_contact
-        c = get_contact(contact_id) or {}
+        from gcrm.tools.db import get_organization
+        c = get_organization(contact_id) or {}
         send_push_to_all(
             title="Lead ready",
             body=f"{c.get('name', 'New lead')} enriched & ready",

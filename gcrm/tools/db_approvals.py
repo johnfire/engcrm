@@ -43,9 +43,9 @@ def check_compliance(contact_id: int) -> bool:
         if consent and (consent["opt_out"] or consent["erasure_requested"]):
             return False
         cursor.execute("SELECT name, do_not_contact FROM contacts WHERE id = %s", (contact_id,))
-        contact = cursor.fetchone()
+        organization = cursor.fetchone()
         return bool(
-            contact and contact["name"] != "[removed]" and not contact["do_not_contact"]
+            organization and organization["name"] != "[removed]" and not organization["do_not_contact"]
         )
 
 

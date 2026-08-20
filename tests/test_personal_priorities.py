@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from gcrm.api.routers import contacts
-from gcrm.api.routers.contacts import PersonalPriorityBody, update_personal_priority
+from gcrm.api.routers import organizations
+from gcrm.api.routers.organizations import PersonalPriorityBody, update_personal_priority
 from gcrm.api.templates import templates
 from gcrm.i18n import translate
 from gcrm.tools import db_personal_priorities
@@ -56,7 +56,7 @@ def test_set_personal_priority_rejects_out_of_range_values():
         db_personal_priorities.set_personal_priority(7, 3, 42, 6)
 
 
-def test_set_personal_priority_hides_cross_workspace_contacts():
+def test_set_personal_priority_hides_cross_workspace_organizations():
     context, _cursor = _mock_database(None)
     with patch.object(db_personal_priorities, "db", return_value=context):
         stored = db_personal_priorities.set_personal_priority(7, 3, 42, 1)
@@ -68,10 +68,10 @@ def test_web_spectator_can_set_own_priority_and_action_is_audited():
     request = SimpleNamespace(session={"user_id": 7, "workspace_id": 3})
     with (
         patch(
-            "gcrm.api.routers.contacts.set_personal_priority",
+            "gcrm.api.routers.organizations.set_personal_priority",
             return_value=(True, 2),
         ) as save_priority,
-        patch("gcrm.api.routers.contacts.log_audit") as log_audit,
+        patch("gcrm.api.routers.organizations.log_audit") as log_audit,
     ):
         response = update_personal_priority(
             42,
@@ -88,8 +88,8 @@ def test_web_spectator_can_set_own_priority_and_action_is_audited():
     )
 
 
-def test_contact_filters_scope_and_filter_the_current_users_priority():
-    where, params = contacts._build_contact_filters(
+def test_organization_filters_scope_and_filter_the_current_users_priority():
+    where, params = organizations._build_organization_filters(
         "cold",
         "",
         "",
@@ -104,7 +104,7 @@ def test_contact_filters_scope_and_filter_the_current_users_priority():
 
 
 def test_unrated_filter_uses_the_current_users_missing_row():
-    where, params = contacts._build_contact_filters(
+    where, params = organizations._build_organization_filters(
         "",
         "",
         "",
@@ -119,7 +119,7 @@ def test_unrated_filter_uses_the_current_users_missing_row():
 def test_personal_priority_partial_marks_only_the_users_selected_value():
     template = templates.env.get_template("partials/personal_priority.html")
     rendered = template.render(
-        contact={"id": 42, "personal_priority": 1},
+        organization={"id": 42, "personal_priority": 1},
         request=SimpleNamespace(session={"user_id": 7}),
         t=lambda key: translate(key, "en"),
     )
@@ -131,7 +131,7 @@ def test_personal_priority_partial_marks_only_the_users_selected_value():
 
 def test_web_shared_admin_cannot_own_personal_priority():
     request = SimpleNamespace(session={"user_id": None, "workspace_id": None})
-    with pytest.raises(contacts.HTTPException) as error:
+    with pytest.raises(organizations.HTTPException) as error:
         update_personal_priority(
             42,
             PersonalPriorityBody(priority=1),

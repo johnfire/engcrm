@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from gcrm.api.jwt_auth import require_jwt
-from gcrm.tools.db_recon import get_contacts_near
+from gcrm.tools.db_recon import get_organizations_near
 
 router = APIRouter(prefix="/api/recon", tags=["mobile-recon"])
 
@@ -15,4 +15,4 @@ def recon(
     limit: int = 50,
     _role: str = Depends(require_jwt),
 ) -> list[dict]:
-    return get_contacts_near(lat, lng, not_contacted=not_contacted, limit=min(limit, 200))
+    return get_organizations_near(lat, lng, not_contacted=not_contacted, limit=min(limit, 200))

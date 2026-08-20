@@ -16,7 +16,7 @@
     {% for d in drafts %}
     <tr id="draft-{{ d.id }}">
       <td>
-        <strong><a href="/contacts/{{ d.contact_id }}">{{ d.contact_name }}</a></strong>
+        <strong><a href="/organizations/{{ d.contact_id }}">{{ d.contact_name }}</a></strong>
         {% if d.contact_notes %}
         <div class="muted small notes-cell-inner" style="max-width:200px">{{ d.contact_notes[:120] }}{% if d.contact_notes|length > 120 %}…{% endif %}</div>
         {% endif %}

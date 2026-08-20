@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from gcrm.api.main import app
 from gcrm.api.security import hash_password
 from gcrm.db.connection import db
-from gcrm.tools.db import create_user, queue_for_approval, save_contact
+from gcrm.tools.db import create_user, queue_for_approval, save_organization
 
 pytestmark = pytest.mark.e2e
 
@@ -22,7 +22,7 @@ def _seed_approval_flow() -> tuple[int, int, str]:
     admin_password = "correct-horse-battery-staple"
     create_user("admin@example.test", hash_password(admin_password), "admin")
     create_user("spectator@example.test", hash_password("spectator-password"), "spectator")
-    contact_id = save_contact(
+    contact_id = save_organization(
         "E2E Venue",
         "Munich",
         email="venue@example.test",
@@ -56,7 +56,7 @@ def test_admin_can_approve_unsent_draft_and_mobile_roles_are_enforced(clean_data
     )
     admin_token = _mobile_token(client, "admin@example.test", admin_password)
     spectator_token = _mobile_token(client, "spectator@example.test", "spectator-password")
-    contacts_response = client.get(
+    organizations_response = client.get(
         "/api/contacts",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
@@ -78,12 +78,12 @@ def test_admin_can_approve_unsent_draft_and_mobile_roles_are_enforced(clean_data
     assert interaction["outcome"] == "no_reply"
     assert audit_event["actor"] == "admin@example.test"
     assert audit_event["correlation_id"] == "e2e-web-approval"
-    assert contacts_response.status_code == 200
-    assert contacts_response.json()[0]["id"] == contact_id
+    assert organizations_response.status_code == 200
+    assert organizations_response.json()[0]["id"] == contact_id
     assert spectator_response.status_code == 403
 
 
-def test_users_rate_the_same_contact_independently_on_web_and_mobile(clean_database):
+def test_users_rate_the_same_organization_independently_on_web_and_mobile(clean_database):
     """A web save and mobile save never expose or replace another user's value."""
     password_one = "spectator-one-password"
     password_two = "spectator-two-password"
@@ -97,7 +97,7 @@ def test_users_rate_the_same_contact_independently_on_web_and_mobile(clean_datab
         hash_password(password_two),
         "spectator",
     )
-    contact_id = save_contact("Priority E2E Venue", "Munich", status="cold")
+    contact_id = save_organization("Priority E2E Venue", "Munich", status="cold")
 
     web_client = TestClient(app)
     login_response = web_client.post(

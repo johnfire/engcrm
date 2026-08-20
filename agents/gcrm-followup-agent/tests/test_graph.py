@@ -89,7 +89,7 @@ FOLLOWUP_DRAFT = '{"subject": "Kurze Nachfrage", "body": "Ich wollte kurz nachfr
 
 def make_tools(
     inbox=None,
-    contact_for_email=None,
+    organization_for_email=None,
     overdue=None,
 ):
     opt_outs = []
@@ -104,8 +104,8 @@ def make_tools(
     def fetch_inbox():
         return inbox if inbox is not None else [SAMPLE_MESSAGE]
 
-    def match_contact(from_email):
-        return contact_for_email
+    def match_organization(from_email):
+        return organization_for_email
 
     def log_interaction(contact_id, method, direction, summary, outcome):
         interactions.append({"contact_id": contact_id, "direction": direction, "outcome": outcome})
@@ -142,7 +142,7 @@ def make_tools(
 
     return {
         "fetch_inbox": fetch_inbox,
-        "match_contact": match_contact,
+        "match_organization": match_organization,
         "log_interaction": log_interaction,
         "set_opt_out": set_opt_out,
         "handle_bounce": handle_bounce,
@@ -170,7 +170,7 @@ def make_agent(llm, **tool_overrides):
     agent = create_followup_agent(
         llm=llm,
         fetch_inbox=t["fetch_inbox"],
-        match_contact=t["match_contact"],
+        match_organization=t["match_organization"],
         log_interaction=t["log_interaction"],
         set_opt_out=t["set_opt_out"],
         handle_bounce=t["handle_bounce"],
@@ -191,7 +191,7 @@ def test_interested_reply_logs_and_queues():
         '{"classification": "interested", "reasoning": "They want to meet"}',
         DRAFT,   # draft_reply response
     ])
-    agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
+    agent, t = make_agent(llm=llm, organization_for_email=SAMPLE_CONTACT)
 
     result = agent.invoke({})
 
@@ -216,7 +216,7 @@ def test_warm_reply_flags_visit_and_queues_gentle_reply():
         '{"classification": "warm", "reasoning": "Friendly but no commitment"}',
         DRAFT,   # draft_warm_reply response
     ])
-    agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
+    agent, t = make_agent(llm=llm, organization_for_email=SAMPLE_CONTACT)
 
     result = agent.invoke({})
 
@@ -236,7 +236,7 @@ def test_warm_reply_flags_visit_and_queues_gentle_reply():
 
 def test_opt_out_reply_sets_flag_and_does_not_queue():
     llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
-    agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
+    agent, t = make_agent(llm=llm, organization_for_email=SAMPLE_CONTACT)
 
     result = agent.invoke({})
 
@@ -252,7 +252,7 @@ def test_unauthenticated_opt_out_needs_human_review():
     agent, t = make_agent(
         llm=llm,
         inbox=[{**SAMPLE_MESSAGE, "authenticated": False}],
-        contact_for_email=SAMPLE_CONTACT,
+        organization_for_email=SAMPLE_CONTACT,
     )
 
     result = agent.invoke({})
@@ -268,8 +268,8 @@ def test_domain_only_match_does_not_auto_opt_out():
     must not auto-apply the irreversible opt-out — it's classified and recorded
     for human review instead."""
     llm = FakeLLM(['{"classification": "opt_out", "reasoning": "Asked to be removed"}'])
-    domain_contact = {**SAMPLE_CONTACT, "_match_type": "domain"}
-    agent, t = make_agent(llm=llm, contact_for_email=domain_contact)
+    domain_organization = {**SAMPLE_CONTACT, "_match_type": "domain"}
+    agent, t = make_agent(llm=llm, organization_for_email=domain_organization)
 
     result = agent.invoke({})
 
@@ -281,7 +281,7 @@ def test_domain_only_match_does_not_auto_opt_out():
 
 def test_not_interested_reply_logs_and_does_not_queue():
     llm = FakeLLM(['{"classification": "not_interested", "reasoning": "Not interested"}'])
-    agent, t = make_agent(llm=llm, contact_for_email=SAMPLE_CONTACT)
+    agent, t = make_agent(llm=llm, organization_for_email=SAMPLE_CONTACT)
 
     result = agent.invoke({})
 
@@ -293,7 +293,7 @@ def test_not_interested_reply_logs_and_does_not_queue():
     assert t["visit_flagged"] == []
 
 
-def test_bounce_marks_contact_bad_email_before_classification():
+def test_bounce_marks_organization_bad_email_before_classification():
     """A delivery-failure bounce marks the failed contact bad_email and never hits the LLM."""
 
     def llm_should_not_run(messages):
@@ -303,7 +303,7 @@ def test_bounce_marks_contact_bad_email_before_classification():
         invoke = staticmethod(llm_should_not_run)
 
     # Contact resolves for the recipient address pulled from the bounce body.
-    agent, t = make_agent(llm=GuardLLM(), inbox=[BOUNCE_MESSAGE], contact_for_email=SAMPLE_CONTACT)
+    agent, t = make_agent(llm=GuardLLM(), inbox=[BOUNCE_MESSAGE], organization_for_email=SAMPLE_CONTACT)
 
     result = agent.invoke({})
 
@@ -351,7 +351,7 @@ def test_unmatched_inbox_message_recorded_and_skipped():
     class GuardLLM:
         invoke = staticmethod(llm_should_not_run)
 
-    agent, t = make_agent(llm=GuardLLM(), contact_for_email=None)  # no contact match
+    agent, t = make_agent(llm=GuardLLM(), organization_for_email=None)  # no contact match
 
     result = agent.invoke({})
 
@@ -364,7 +364,7 @@ def test_unmatched_inbox_message_recorded_and_skipped():
     assert (1, None, "skipped", "no matching contact") in t["classifications"]
 
 
-def test_pre_outreach_contact_reply_is_skipped():
+def test_pre_outreach_organization_reply_is_skipped():
     """A reply from a contact we haven't reached out to yet is skipped, not classified."""
 
     def llm_should_not_run(messages):
@@ -374,7 +374,7 @@ def test_pre_outreach_contact_reply_is_skipped():
         invoke = staticmethod(llm_should_not_run)
 
     pre_outreach = {**SAMPLE_CONTACT, "status": "new"}
-    agent, t = make_agent(llm=GuardLLM(), contact_for_email=pre_outreach)
+    agent, t = make_agent(llm=GuardLLM(), organization_for_email=pre_outreach)
 
     result = agent.invoke({})
 
@@ -399,7 +399,7 @@ def test_queue_failure_does_not_crash():
     agent = create_followup_agent(
         llm=llm,
         fetch_inbox=lambda: [SAMPLE_MESSAGE],
-        match_contact=lambda from_email: SAMPLE_CONTACT,
+        match_organization=lambda from_email: SAMPLE_CONTACT,
         log_interaction=lambda **kwargs: None,
         set_opt_out=lambda contact_id: None,
         handle_bounce=lambda contact_id: None,
@@ -433,7 +433,7 @@ def test_log_interaction_failure_does_not_crash():
     agent = create_followup_agent(
         llm=llm,
         fetch_inbox=lambda: [SAMPLE_MESSAGE],
-        match_contact=lambda from_email: SAMPLE_CONTACT,
+        match_organization=lambda from_email: SAMPLE_CONTACT,
         log_interaction=boom,
         set_opt_out=lambda contact_id: None,
         handle_bounce=lambda contact_id: None,

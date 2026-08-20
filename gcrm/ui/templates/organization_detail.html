@@ -1,55 +1,55 @@
-{% extends "base.html" %} {% block title %}{{ contact.name }} — {{ t('nav.brand') }}{%
-endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block content %}
+{% extends "base.html" %} {% block title %}{{ organization.name }} — {{ t('nav.brand') }}{%
+endblock %} {% block main_class %}organization-detail-page{% endblock %} {% block content %}
 <div class="page-header">
-  <h1>{{ contact.name }}</h1>
+  <h1>{{ organization.name }}</h1>
   <span class="muted"
-    >{{ contact.city }}{% if contact.country %} · {{ contact.country }}{% endif
+    >{{ organization.city }}{% if organization.country %} · {{ organization.country }}{% endif
     %} ·
-    <span class="badge badge-{{ contact.status }}"
-      >{{ contact.status }}</span
+    <span class="badge badge-{{ organization.status }}"
+      >{{ organization.status }}</span
     ></span
   >
 </div>
 
 {% if saved %}
-<div class="flash-success">{{ t('contactDetail.saved') }}</div>
+<div class="flash-success">{{ t('organizationDetail.saved') }}</div>
 {% endif %}
 
 {% include 'partials/personal_priority.html' %}
 
-<form method="post" action="/contacts/{{ contact.id }}/edit" class="contact-edit-form">
+<form method="post" action="/organizations/{{ organization.id }}/edit" class="organization-edit-form">
   <div class="detail-grid">
     <section class="detail-section">
-      <h2>{{ t('contactDetail.basicInfo') }}</h2>
+      <h2>{{ t('organizationDetail.basicInfo') }}</h2>
       <div class="field-row field-row--wide">
-        <label for="contact-name">{{ t('common.name') }}</label>
-        <input id="contact-name" type="text" name="name" value="{{ contact.name or '' }}" />
+        <label for="organization-name">{{ t('common.name') }}</label>
+        <input id="organization-name" type="text" name="name" value="{{ organization.name or '' }}" />
       </div>
       <div class="field-row">
-        <label for="contact-city">{{ t('common.city') }}</label>
-        <input id="contact-city" type="text" name="city" value="{{ contact.city or '' }}" />
+        <label for="organization-city">{{ t('common.city') }}</label>
+        <input id="organization-city" type="text" name="city" value="{{ organization.city or '' }}" />
       </div>
       <div class="field-row">
-        <label for="contact-country">{{ t('research.country') }}</label>
+        <label for="organization-country">{{ t('research.country') }}</label>
         <input
-          id="contact-country"
+          id="organization-country"
           type="text"
           name="country"
-          value="{{ contact.country or '' }}"
+          value="{{ organization.country or '' }}"
           maxlength="2"
         />
       </div>
       <div class="field-row">
-        <label for="contact-type">{{ t('common.type') }}</label>
-        <input id="contact-type" type="text" name="type" value="{{ contact.type or '' }}" />
+        <label for="organization-type">{{ t('common.type') }}</label>
+        <input id="organization-type" type="text" name="type" value="{{ organization.type or '' }}" />
       </div>
       <div class="field-row">
-        <label for="contact-pipeline-stage">{{ t('common.pipelineStage') }}</label>
-        <select id="contact-pipeline-stage" name="pipeline_stage">
+        <label for="organization-pipeline-stage">{{ t('common.pipelineStage') }}</label>
+        <select id="organization-pipeline-stage" name="pipeline_stage">
           {% for stage_value in pipeline_stages %}
           <option
             value="{{ stage_value }}"
-            {% if stage_value == contact.pipeline_stage %}selected{% endif %}
+            {% if stage_value == organization.pipeline_stage %}selected{% endif %}
           >
             {{ t('stage.' ~ stage_value) }}
           </option>
@@ -57,12 +57,12 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </select>
       </div>
       <div class="field-row">
-        <label for="contact-status">{{ t('common.status') }}</label>
-        <select id="contact-status" name="status">
+        <label for="organization-status">{{ t('common.status') }}</label>
+        <select id="organization-status" name="status">
           {% for status_value in statuses %}
           <option
             value="{{ status_value }}"
-            {% if status_value == contact.status %}selected{% endif %}
+            {% if status_value == organization.status %}selected{% endif %}
           >
             {{ t('status.' ~ status_value) }}
           </option>
@@ -70,16 +70,16 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </select>
       </div>
       <div class="field-row field-row--wide">
-        <span class="field-group-label">{{ t('contacts.suppression') }}</span>
+        <span class="field-group-label">{{ t('organizations.suppression') }}</span>
         <div class="flag-row">
           {% for flag in suppression_flags %}
-          <label class="flag-check" for="contact-{{ flag }}">
+          <label class="flag-check" for="organization-{{ flag }}">
             <input
-              id="contact-{{ flag }}"
+              id="organization-{{ flag }}"
               type="checkbox"
               name="{{ flag }}"
               value="true"
-              {% if contact[flag] %}checked{% endif %}
+              {% if organization[flag] %}checked{% endif %}
             />
             {{ t('flag.' ~ flag) }}
           </label>
@@ -87,43 +87,43 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </div>
       </div>
       <div class="field-row">
-        <label for="contact-fit-score">{{ t('contactDetail.fitScore') }}</label>
+        <label for="organization-fit-score">{{ t('organizationDetail.fitScore') }}</label>
         <input
-          id="contact-fit-score"
+          id="organization-fit-score"
           type="number"
           name="fit_score"
-          value="{{ contact.fit_score or '' }}"
+          value="{{ organization.fit_score or '' }}"
           min="0"
           max="100"
         />
       </div>
       <div class="field-row field-row--wide">
-        <label for="contact-email">{{ t('common.email') }}</label>
-        <input id="contact-email" type="email" name="email" value="{{ contact.email or '' }}" />
+        <label for="organization-email">{{ t('common.email') }}</label>
+        <input id="organization-email" type="email" name="email" value="{{ organization.email or '' }}" />
       </div>
       <div class="field-row">
-        <label for="contact-phone">{{ t('common.phone') }}</label>
-        <input id="contact-phone" type="tel" name="phone" value="{{ contact.phone or '' }}" />
+        <label for="organization-phone">{{ t('common.phone') }}</label>
+        <input id="organization-phone" type="tel" name="phone" value="{{ organization.phone or '' }}" />
       </div>
       <div class="field-row field-row--wide">
-        <label for="contact-website">{{ t('common.website') }}</label>
-        <input id="contact-website" type="url" name="website" value="{{ contact.website or '' }}" />
-        {% set contact_website_url = contact.website | browsable_url %}
-        {% if contact_website_url %}
-        <a class="field-open-link" href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
-           title="{{ contact_website_url }}"
-           aria-label="{{ t('common.website') }}: {{ contact_website_url }}">{{ t('common.openInNewTab') }}</a>
+        <label for="organization-website">{{ t('common.website') }}</label>
+        <input id="organization-website" type="url" name="website" value="{{ organization.website or '' }}" />
+        {% set organization_website_url = organization.website | browsable_url %}
+        {% if organization_website_url %}
+        <a class="field-open-link" href="{{ organization_website_url }}" target="_blank" rel="noopener noreferrer"
+           title="{{ organization_website_url }}"
+           aria-label="{{ t('common.website') }}: {{ organization_website_url }}">{{ t('common.openInNewTab') }}</a>
         {% endif %}
       </div>
       <div class="field-row">
-        <label for="contact-preferred-method">{{ t('contactDetail.preferredContact') }}</label>
-        <select id="contact-preferred-method" name="preferred_contact_method">
+        <label for="organization-preferred-method">{{ t('organizationDetail.preferredContact') }}</label>
+        <select id="organization-preferred-method" name="preferred_contact_method">
           <option value="">—</option>
-          {% for m in ['email', 'phone', 'drop in', 'Instagram DM', 'contact
+          {% for m in ['email', 'phone', 'drop in', 'Instagram DM', 'organization
           form'] %}
           <option
             value="{{ m }}"
-            {% if contact.preferred_contact_method == m %}selected{% endif %}
+            {% if organization.preferred_contact_method == m %}selected{% endif %}
           >
             {{ m }}
           </option>
@@ -131,56 +131,56 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </select>
       </div>
       <div class="field-row field-row--wide">
-        <label for="contact-decision-maker">{{ t('contactBrief.decisionMaker') }}</label>
+        <label for="organization-decision-maker">{{ t('organizationBrief.decisionMaker') }}</label>
         <input
-          id="contact-decision-maker"
+          id="organization-decision-maker"
           type="text"
           name="decision_maker"
-          value="{{ contact.decision_maker or '' }}"
-          placeholder="{{ t('contactDetail.decisionMakerPlaceholder') }}"
+          value="{{ organization.decision_maker or '' }}"
+          placeholder="{{ t('organizationDetail.decisionMakerPlaceholder') }}"
         />
       </div>
     </section>
 
     <section class="detail-section">
-      <h2>{{ t('contactDetail.visitInfo') }}</h2>
+      <h2>{{ t('organizationDetail.visitInfo') }}</h2>
       <div class="field-row">
-        <label for="contact-last-visited">{{ t('contactBrief.lastVisited') }}</label>
+        <label for="organization-last-visited">{{ t('organizationBrief.lastVisited') }}</label>
         <input
-          id="contact-last-visited"
+          id="organization-last-visited"
           type="date"
           name="last_visited_at"
-          value="{{ contact.last_visited_at or '' }}"
+          value="{{ organization.last_visited_at or '' }}"
         />
       </div>
       <div class="field-row">
-        <label for="contact-best-visit-time">{{ t('contactDetail.bestTimeToVisit') }}</label>
+        <label for="organization-best-visit-time">{{ t('organizationDetail.bestTimeToVisit') }}</label>
         <input
-          id="contact-best-visit-time"
+          id="organization-best-visit-time"
           type="text"
           name="best_visit_time"
-          value="{{ contact.best_visit_time or '' }}"
-          placeholder="{{ t('contactDetail.bestTimePlaceholder') }}"
+          value="{{ organization.best_visit_time or '' }}"
+          placeholder="{{ t('organizationDetail.bestTimePlaceholder') }}"
         />
       </div>
       <div class="field-row">
-        <label for="contact-visit-duration">{{ t('contactDetail.visitDuration') }}</label>
+        <label for="organization-visit-duration">{{ t('organizationDetail.visitDuration') }}</label>
         <input
-          id="contact-visit-duration"
+          id="organization-visit-duration"
           type="text"
           name="visit_duration"
-          value="{{ contact.visit_duration or '' }}"
-          placeholder="{{ t('contactDetail.visitDurationPlaceholder') }}"
+          value="{{ organization.visit_duration or '' }}"
+          placeholder="{{ t('organizationDetail.visitDurationPlaceholder') }}"
         />
       </div>
       <div class="field-row">
-        <label for="contact-first-impression">{{ t('contactBrief.firstImpression') }}</label>
-        <select id="contact-first-impression" name="first_impression">
+        <label for="organization-first-impression">{{ t('organizationBrief.firstImpression') }}</label>
+        <select id="organization-first-impression" name="first_impression">
           <option value="">—</option>
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
           <option
             value="{{ v }}"
-            {% if contact.first_impression == v %}selected{% endif %}
+            {% if organization.first_impression == v %}selected{% endif %}
           >
             {{ v }}
           </option>
@@ -188,13 +188,13 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </select>
       </div>
       <div class="field-row">
-        <label for="contact-last-impression">{{ t('contactBrief.lastImpression') }}</label>
-        <select id="contact-last-impression" name="last_impression">
+        <label for="organization-last-impression">{{ t('organizationBrief.lastImpression') }}</label>
+        <select id="organization-last-impression" name="last_impression">
           <option value="">—</option>
           {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
           <option
             value="{{ v }}"
-            {% if contact.last_impression == v %}selected{% endif %}
+            {% if organization.last_impression == v %}selected{% endif %}
           >
             {{ v }}
           </option>
@@ -202,89 +202,89 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         </select>
       </div>
       <div class="field-row field-row--wide">
-        <label for="contact-materials-left">{{ t('contactBrief.materialsLeft') }}</label>
+        <label for="organization-materials-left">{{ t('organizationBrief.materialsLeft') }}</label>
         <input
-          id="contact-materials-left"
+          id="organization-materials-left"
           type="text"
           name="materials_left"
-          value="{{ contact.materials_left or '' }}"
-          placeholder="{{ t('contactDetail.materialsLeftPlaceholder') }}"
+          value="{{ organization.materials_left or '' }}"
+          placeholder="{{ t('organizationDetail.materialsLeftPlaceholder') }}"
         />
       </div>
       <div class="field-row field-row--wide">
-        <label for="contact-followup-promised">{{ t('contactBrief.followupPromised') }}</label>
+        <label for="organization-followup-promised">{{ t('organizationBrief.followupPromised') }}</label>
         <input
-          id="contact-followup-promised"
+          id="organization-followup-promised"
           type="text"
           name="followup_promised"
-          value="{{ contact.followup_promised or '' }}"
-          placeholder="{{ t('contactDetail.followupPromisedPlaceholder') }}"
+          value="{{ organization.followup_promised or '' }}"
+          placeholder="{{ t('organizationDetail.followupPromisedPlaceholder') }}"
         />
       </div>
     </section>
 
     <section class="detail-section">
-      <h2>{{ t('contactDetail.venueNotes') }}</h2>
+      <h2>{{ t('organizationDetail.venueNotes') }}</h2>
       <div class="field-row field-row--tall">
-        <label for="contact-access-notes">{{ t('contactDetail.accessLogistics') }}</label>
+        <label for="organization-access-notes">{{ t('organizationDetail.accessLogistics') }}</label>
         <textarea
-          id="contact-access-notes"
+          id="organization-access-notes"
           name="access_notes"
           rows="3"
-          placeholder="{{ t('contactDetail.accessPlaceholder') }}"
+          placeholder="{{ t('organizationDetail.accessPlaceholder') }}"
         >
-{{ contact.access_notes or '' }}</textarea
+{{ organization.access_notes or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label for="contact-space-notes">{{ t('contactDetail.spaceNotes') }}</label>
+        <label for="organization-space-notes">{{ t('organizationDetail.spaceNotes') }}</label>
         <textarea
-          id="contact-space-notes"
+          id="organization-space-notes"
           name="space_notes"
           rows="3"
-          placeholder="{{ t('contactDetail.spacePlaceholder') }}"
+          placeholder="{{ t('organizationDetail.spacePlaceholder') }}"
         >
-{{ contact.space_notes or '' }}</textarea
+{{ organization.space_notes or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label for="contact-price-sensitivity">{{ t('contactBrief.priceSensitivity') }}</label>
+        <label for="organization-price-sensitivity">{{ t('organizationBrief.priceSensitivity') }}</label>
         <textarea
-          id="contact-price-sensitivity"
+          id="organization-price-sensitivity"
           name="price_sensitivity"
           rows="2"
-          placeholder="{{ t('contactDetail.priceSensitivityPlaceholder') }}"
+          placeholder="{{ t('organizationDetail.priceSensitivityPlaceholder') }}"
         >
-{{ contact.price_sensitivity or '' }}</textarea
+{{ organization.price_sensitivity or '' }}</textarea
         >
       </div>
       <div class="field-row field-row--tall">
-        <label for="contact-notes">{{ t('contactDetail.generalNotes') }}</label>
-        <textarea id="contact-notes" name="notes" rows="5">{{ contact.notes or '' }}</textarea>
+        <label for="organization-notes">{{ t('organizationDetail.generalNotes') }}</label>
+        <textarea id="organization-notes" name="notes" rows="5">{{ organization.notes or '' }}</textarea>
       </div>
     </section>
   </div>
 
   <div class="detail-actions">
     <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
-    <a href="/contacts/{{ contact.id }}/brief" class="btn-secondary"
-      >{{ t('contactDetail.previsitBrief') }}</a
+    <a href="/organizations/{{ organization.id }}/brief" class="btn-secondary"
+      >{{ t('organizationDetail.previsitBrief') }}</a
     >
-    <a href="/contacts/" class="btn-secondary">{{ t('contactDetail.backToList') }}</a>
+    <a href="/organizations/" class="btn-secondary">{{ t('organizationDetail.backToList') }}</a>
   </div>
 </form>
 
 {% if request.session.get('role') == 'admin' %}
 <section class="context-help opportunity-action">
-  <strong>{{ t('contactDetail.analyseThisContact') }}</strong>
-  <p>{{ t('contactDetail.analyseThisContactHint') }}</p>
-  <form method="post" action="/contacts/{{ contact.id }}/opportunity-analysis" data-opportunity-form>
+  <strong>{{ t('organizationDetail.analyseThisContact') }}</strong>
+  <p>{{ t('organizationDetail.analyseThisContactHint') }}</p>
+  <form method="post" action="/organizations/{{ organization.id }}/opportunity-analysis" data-opportunity-form>
     <button type="submit" class="btn-secondary" data-opportunity-button>
       <span class="opportunity-spinner" data-opportunity-spinner hidden aria-hidden="true"></span>
-      <span data-opportunity-label>{{ t('contactDetail.runOpportunityAnalysis') }}</span>
+      <span data-opportunity-label>{{ t('organizationDetail.runOpportunityAnalysis') }}</span>
     </button>
     <p class="muted small" data-opportunity-status role="status" aria-live="polite" hidden>
-      {{ t('contactDetail.opportunityAnalysisRunning') }}
+      {{ t('organizationDetail.opportunityAnalysisRunning') }}
     </p>
   </form>
 </section>
@@ -296,18 +296,18 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
 {% if opportunity_analysis %}
 <section class="opportunity-analysis">
   <div class="opportunity-analysis__heading">
-    <h2>{{ t('contactDetail.opportunityAnalysis') }}</h2>
+    <h2>{{ t('organizationDetail.opportunityAnalysis') }}</h2>
     <span class="muted small">
-      {{ t('contactDetail.analyzedOn') }} {{ opportunity_analysis.analysis_date.strftime('%Y-%m-%d') if opportunity_analysis.analysis_date else '—' }}
+      {{ t('organizationDetail.analyzedOn') }} {{ opportunity_analysis.analysis_date.strftime('%Y-%m-%d') if opportunity_analysis.analysis_date else '—' }}
     </span>
   </div>
   <div class="opportunity-analysis__scores">
-    <div><span>{{ t('contactDetail.opportunityScore') }}</span><strong>{{ opportunity_analysis.opportunity_score }}/100</strong></div>
-    <div><span>{{ t('contactDetail.confidenceScore') }}</span><strong>{{ opportunity_analysis.confidence_score }}/100</strong></div>
-    <div><span>{{ t('contactDetail.outreachPriority') }}</span><strong>{{ opportunity_analysis.priority_score }}/100</strong></div>
+    <div><span>{{ t('organizationDetail.opportunityScore') }}</span><strong>{{ opportunity_analysis.opportunity_score }}/100</strong></div>
+    <div><span>{{ t('organizationDetail.confidenceScore') }}</span><strong>{{ opportunity_analysis.confidence_score }}/100</strong></div>
+    <div><span>{{ t('organizationDetail.outreachPriority') }}</span><strong>{{ opportunity_analysis.priority_score }}/100</strong></div>
   </div>
   <p>{{ opportunity_analysis.fit_reasoning }}</p>
-  <h3>{{ t('contactDetail.recommendedServices') }}</h3>
+  <h3>{{ t('organizationDetail.recommendedServices') }}</h3>
   <div class="opportunity-analysis__services">
     {% for service in opportunity_analysis.recommended_services %}
     <article>
@@ -319,15 +319,15 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
   </div>
   <div class="opportunity-analysis__details">
     <div>
-      <h3>{{ t('contactDetail.evidence') }}</h3>
+      <h3>{{ t('organizationDetail.evidence') }}</h3>
       <ul>{% for observation in opportunity_analysis.evidence %}<li>{{ observation }}</li>{% endfor %}</ul>
     </div>
     <div>
-      <h3>{{ t('contactDetail.discoveryQuestions') }}</h3>
+      <h3>{{ t('organizationDetail.discoveryQuestions') }}</h3>
       <ul>{% for question in opportunity_analysis.discovery_questions %}<li>{{ question }}</li>{% endfor %}</ul>
     </div>
   </div>
-  <h3>{{ t('contactDetail.suggestedApproach') }}</h3>
+  <h3>{{ t('organizationDetail.suggestedApproach') }}</h3>
   <p>{{ opportunity_analysis.suggested_approach }}</p>
 </section>
 {% endif %}
@@ -345,7 +345,7 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
       button.setAttribute("aria-busy", "true");
       spinner.hidden = false;
       status.hidden = false;
-      label.textContent = "{{ t('contactDetail.opportunityAnalysisWorking') }}";
+      label.textContent = "{{ t('organizationDetail.opportunityAnalysisWorking') }}";
     });
   })();
 
@@ -380,7 +380,7 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
         status.textContent = "{{ t('personalPriority.saving') }}";
         try {
           const response = await fetch(
-            `/contacts/${panel.dataset.contactId}/personal-priority`,
+            `/organizations/${panel.dataset.contactId}/personal-priority`,
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -409,16 +409,16 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
 
 {% if interactions %}
 <section class="detail-section" style="margin-top: 2rem">
-  <h2>{{ t('contactDetail.interactionHistory') }}</h2>
+  <h2>{{ t('organizationDetail.interactionHistory') }}</h2>
   <table>
     <thead>
       <tr>
         <th>{{ t('common.date') }}</th>
-        <th>{{ t('contactDetail.method') }}</th>
-        <th>{{ t('contactDetail.direction') }}</th>
+        <th>{{ t('organizationDetail.method') }}</th>
+        <th>{{ t('organizationDetail.direction') }}</th>
         <th>{{ t('common.summary') }}</th>
-        <th>{{ t('contactDetail.outcome') }}</th>
-        <th>{{ t('contactDetail.nextAction') }}</th>
+        <th>{{ t('organizationDetail.outcome') }}</th>
+        <th>{{ t('organizationDetail.nextAction') }}</th>
       </tr>
     </thead>
     <tbody>

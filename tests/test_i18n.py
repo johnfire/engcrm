@@ -26,14 +26,14 @@ def make_mock_conn(rows=None):
 
 class TestTranslateEngine:
     def test_resolves_key_per_language(self):
-        assert translate("nav.contacts", "en") == "Contacts"
-        assert translate("nav.contacts", "de") == "Kontakte"
+        assert translate("nav.contacts", "en") == "Organizations"
+        assert translate("nav.contacts", "de") == "Organisationen"
         assert translate("personalPriority.title", "en") == "Personal priority"
         assert translate("personalPriority.title", "de") == "Persönliche Priorität"
 
     def test_interpolation(self):
-        assert translate("contacts.deleteConfirm", "en", name="Acme") == "Delete Acme?"
-        assert translate("contacts.deleteConfirm", "de", name="Acme") == "Acme löschen?"
+        assert translate("organizations.deleteConfirm", "en", name="Acme") == "Delete Acme?"
+        assert translate("organizations.deleteConfirm", "de", name="Acme") == "Acme löschen?"
 
     def test_pluralization_one_vs_other(self):
         assert translate("drafts.onHold", "en", count=1) == "1 email on hold"
@@ -41,7 +41,7 @@ class TestTranslateEngine:
 
     def test_falls_back_to_english_when_missing_in_language(self):
         with patch.dict("gcrm.i18n.translate._catalogs", {"de": {}}, clear=False):
-            assert translate("nav.contacts", "de") == "Contacts"
+            assert translate("nav.contacts", "de") == "Organizations"
 
     def test_missing_key_shows_visible_marker(self):
         assert translate("totally.made.up.key", "en") == "[totally.made.up.key]"

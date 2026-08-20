@@ -7,13 +7,13 @@ from langgraph.graph import END, StateGraph
 from gcrm.vertical import SCORED_TYPES
 
 from ._utils import parse_json_response
-from .prompts import score_contact_prompt
+from .prompts import score_organization_prompt
 from .protocols import (
     AgentMission,
     CandidateFetcher,
     CityContextFetcher,
-    ContactStateSetter,
     LanguageModel,
+    OrganizationStateSetter,
     PageFetcher,
     RunFinisher,
     RunStarter,
@@ -21,7 +21,7 @@ from .protocols import (
 from .state import ScoutState
 
 logger = logging.getLogger(__name__)
-SCORED_TYPES_LC = {contact_type.lower() for contact_type in SCORED_TYPES}
+SCORED_TYPES_LC = {organization_type.lower() for organization_type in SCORED_TYPES}
 
 # What the LLM is allowed to answer, and where each answer puts the contact.
 # 'unsure' deliberately leaves it a candidate: an unclear verdict is a request
@@ -58,15 +58,15 @@ def fetch(state: ScoutState, fetch_candidates: CandidateFetcher) -> dict:
         return {"errors": state["errors"] + [f"fetch_candidates: {error}"], "candidates": []}
 
 
-def split_and_promote(state: ScoutState, set_contact_state: ContactStateSetter) -> dict:
+def split_and_promote(state: ScoutState, set_organization_state: OrganizationStateSetter) -> dict:
     promoted, to_score = 0, []
-    for contact in state.get("candidates", []):
-        if (contact.get("type") or "").lower() in SCORED_TYPES_LC:
-            to_score.append(contact)
+    for organization in state.get("candidates", []):
+        if (organization.get("type") or "").lower() in SCORED_TYPES_LC:
+            to_score.append(organization)
             continue
         try:
-            set_contact_state(
-                contact_id=contact["id"],
+            set_organization_state(
+                contact_id=organization["id"],
                 pipeline_stage="suspect",
                 status="ready",
                 fit_score=50,
@@ -74,7 +74,7 @@ def split_and_promote(state: ScoutState, set_contact_state: ContactStateSetter) 
             )
             promoted += 1
         except Exception as error:
-            logger.warning("auto-promote failed for contact %s: %s", contact.get("id"), error)
+            logger.warning("auto-promote failed for contact %s: %s", organization.get("id"), error)
     return {"scored_candidates": to_score, "promoted_count": promoted}
 
 
@@ -85,23 +85,23 @@ def fetch_scored_websites(
 ) -> dict:
     enriched = []
     for candidate in state.get("scored_candidates", []):
-        contact, content = dict(candidate), ""
-        if contact.get("website"):
+        organization, content = dict(candidate), ""
+        if organization.get("website"):
             try:
-                content = fetch_page(contact["website"])[:4000]
+                content = fetch_page(organization["website"])[:4000]
             except Exception:
                 pass
-        contact["website_content"] = content
+        organization["website_content"] = content
         # Enrich with research dossier when available (feature-flagged).
-        if get_or_create_dossier and contact.get("website"):
+        if get_or_create_dossier and organization.get("website"):
             try:
-                dossier = get_or_create_dossier(contact["id"])
+                dossier = get_or_create_dossier(organization["id"])
                 if dossier:
-                    contact["dossier"] = dossier
-                    logger.debug("scout: dossier available for contact %s", contact["id"])
+                    organization["dossier"] = dossier
+                    logger.debug("scout: dossier available for contact %s", organization["id"])
             except Exception as exc:
-                logger.debug("scout: dossier fetch skipped for %s: %s", contact["id"], exc)
-        enriched.append(contact)
+                logger.debug("scout: dossier fetch skipped for %s: %s", organization["id"], exc)
+        enriched.append(organization)
     return {"scored_candidates": enriched}
 
 
@@ -112,13 +112,13 @@ def score_candidates(
     mission: AgentMission,
 ) -> dict:
     contexts, scores = {}, []
-    for contact in state.get("scored_candidates", []):
-        scores.append(_score_contact(contact, contexts, llm, fetch_city_context, mission))
+    for organization in state.get("scored_candidates", []):
+        scores.append(_score_organization(organization, contexts, llm, fetch_city_context, mission))
     return {"scores": scores}
 
 
-def _score_contact(contact, contexts, llm, fetch_city_context, mission) -> dict:
-    city, country = contact.get("city", ""), contact.get("country", "DE")
+def _score_organization(organization, contexts, llm, fetch_city_context, mission) -> dict:
+    city, country = organization.get("city", ""), organization.get("country", "DE")
     key = f"{city}:{country}"
     if key not in contexts:
         try:
@@ -126,7 +126,7 @@ def _score_contact(contact, contexts, llm, fetch_city_context, mission) -> dict:
         except Exception:
             contexts[key] = {}
     try:
-        system, user = score_contact_prompt(mission, contact, contexts[key])
+        system, user = score_organization_prompt(mission, organization, contexts[key])
         result = parse_json_response(
             llm.invoke(
                 [
@@ -137,25 +137,25 @@ def _score_contact(contact, contexts, llm, fetch_city_context, mission) -> dict:
         )
         outcome = result.get("outcome", "unsure")
         return {
-            "contact_id": contact["id"],
+            "contact_id": organization["id"],
             "outcome": outcome if outcome in FIT_VERDICTS else "unsure",
             "reasoning": result.get("reasoning", ""),
         }
     except Exception as error:
         return {
-            "contact_id": contact["id"],
+            "contact_id": organization["id"],
             "outcome": "unsure",
             "reasoning": f"Scoring error — flagged for manual review: {error}",
         }
 
 
-def apply_scores(state: ScoutState, set_contact_state: ContactStateSetter) -> dict:
+def apply_scores(state: ScoutState, set_organization_state: OrganizationStateSetter) -> dict:
     counts = {"fit": state.get("promoted_count", 0), "unsure": 0, "no_fit": 0}
     for score in state.get("scores", []):
         verdict = score["outcome"]
         stage, status = STATE_BY_VERDICT[verdict]
         try:
-            set_contact_state(
+            set_organization_state(
                 contact_id=score["contact_id"],
                 pipeline_stage=stage,
                 status=status,
@@ -200,7 +200,7 @@ def generate_report(state: ScoutState, finish_run: RunFinisher) -> dict:
 def create_scout_agent(
     llm: LanguageModel,
     fetch_candidates: CandidateFetcher,
-    set_contact_state: ContactStateSetter,
+    set_organization_state: OrganizationStateSetter,
     fetch_page: PageFetcher,
     fetch_city_context: CityContextFetcher,
     start_run: RunStarter,
@@ -213,7 +213,7 @@ def create_scout_agent(
     graph.add_node("init", partial(initialize, start_run=start_run))
     graph.add_node("fetch", partial(fetch, fetch_candidates=fetch_candidates))
     graph.add_node(
-        "split_and_promote", partial(split_and_promote, set_contact_state=set_contact_state)
+        "split_and_promote", partial(split_and_promote, set_organization_state=set_organization_state)
     )
     graph.add_node(
         "fetch_scored_websites",
@@ -223,7 +223,7 @@ def create_scout_agent(
         "score_candidates",
         partial(score_candidates, llm=llm, fetch_city_context=fetch_city_context, mission=mission),
     )
-    graph.add_node("apply_scores", partial(apply_scores, set_contact_state=set_contact_state))
+    graph.add_node("apply_scores", partial(apply_scores, set_organization_state=set_organization_state))
     graph.add_node("generate_report", partial(generate_report, finish_run=finish_run))
     graph.set_entry_point("init")
     graph.add_edge("init", "fetch")

@@ -17,7 +17,7 @@ def initialize(state, dependencies) -> dict:
     return {
         "run_id": dependencies.start_run("opportunity_agent", {"limit": limit}),
         "limit": limit,
-        "contacts": [],
+        "organizations": [],
         "analyses": [],
         "errors": [],
         "analyzed_count": 0,
@@ -25,50 +25,50 @@ def initialize(state, dependencies) -> dict:
     }
 
 
-def fetch_contacts(state, dependencies) -> dict:
+def fetch_organizations(state, dependencies) -> dict:
     try:
-        return {"contacts": dependencies.fetch_contacts(limit=state["limit"])}
+        return {"organizations": dependencies.fetch_organizations(limit=state["limit"])}
     except Exception as error:
-        return {"contacts": [], "errors": state["errors"] + [f"fetch failed: {error}"]}
+        return {"organizations": [], "errors": state["errors"] + [f"fetch failed: {error}"]}
 
 
-def analyse_contacts(state, dependencies) -> dict:
+def analyse_organizations(state, dependencies) -> dict:
     analyses, errors = [], list(state["errors"])
-    for contact in state.get("contacts", []):
+    for organization in state.get("organizations", []):
         try:
-            analyses.append(_analyse_contact(contact, dependencies))
+            analyses.append(_analyse_organization(organization, dependencies))
         except Exception as error:
-            contact_id = contact.get("id", "unknown")
+            contact_id = organization.get("id", "unknown")
             logger.warning("opportunity analysis failed for %s: %s", contact_id, error)
             errors.append(f"contact {contact_id}: {error}")
     return {"analyses": analyses, "errors": errors}
 
 
-def _analyse_contact(contact, dependencies) -> dict:
-    interactions = dependencies.fetch_interactions(contact["id"])
-    dossier = _get_dossier(contact, dependencies)
+def _analyse_organization(organization, dependencies) -> dict:
+    interactions = dependencies.fetch_interactions(organization["id"])
+    dossier = _get_dossier(organization, dependencies)
     system, user = build_opportunity_prompt(
         dependencies.mission,
-        contact,
+        organization,
         interactions,
         dossier,
     )
     response = dependencies.llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
     analysis = _validate_analysis(parse_llm_json(response.content))
-    return {"contact_id": contact["id"], "analysis": analysis}
+    return {"contact_id": organization["id"], "analysis": analysis}
 
 
-def _get_dossier(contact, dependencies) -> dict | None:
+def _get_dossier(organization, dependencies) -> dict | None:
     """Fetch or create a research dossier for the contact.
     Uses the injected get_or_create_dossier tool if available,
     falls back to legacy website fetch for backward compatibility."""
     if hasattr(dependencies, "get_or_create_dossier") and dependencies.get_or_create_dossier:
         try:
-            return dependencies.get_or_create_dossier(contact["id"])
+            return dependencies.get_or_create_dossier(organization["id"])
         except Exception as error:
-            logger.info("dossier generation failed for %s: %s — falling back", contact["id"], error)
+            logger.info("dossier generation failed for %s: %s — falling back", organization["id"], error)
     # Legacy fallback: raw website fetch.
-    website_content = _fetch_website_content(contact, dependencies)
+    website_content = _fetch_website_content(organization, dependencies)
     if website_content:
         return {
             "research_status": "legacy_fallback",
@@ -81,14 +81,14 @@ def _get_dossier(contact, dependencies) -> dict | None:
     return None
 
 
-def _fetch_website_content(contact, dependencies) -> str:
-    website = contact.get("website")
+def _fetch_website_content(organization, dependencies) -> str:
+    website = organization.get("website")
     if not website:
         return "No website was available."
     try:
         return dependencies.fetch_page(website)[:4000]
     except Exception as error:
-        logger.info("opportunity analysis could not fetch %s: %s", contact["id"], error)
+        logger.info("opportunity analysis could not fetch %s: %s", organization["id"], error)
         return "Website content could not be fetched."
 
 
@@ -147,7 +147,7 @@ def save_analyses(state, dependencies) -> dict:
 
 
 def generate_report(state, dependencies) -> dict:
-    total = len(state.get("contacts", []))
+    total = len(state.get("organizations", []))
     saved = state.get("analyzed_count", 0)
     errors = state.get("errors", [])
     summary = f"opportunity_agent: processed {total} contacts — {saved} analyses saved"

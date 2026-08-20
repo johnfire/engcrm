@@ -4,7 +4,7 @@ const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
 jest.mock("../../services/api", () => ({
-  fetchContact: (...args: any[]) => mockFetchContact(...args),
+  fetchOrganization: (...args: any[]) => mockFetchContact(...args),
   runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
   updatePersonalPriority: (...args: any[]) => mockUpdatePersonalPriority(...args),
 }));
@@ -20,7 +20,7 @@ jest.mock("expo-router", () => ({
 
 import { Linking } from "react-native";
 
-import ContactDetailScreen from "../../app/(drawer)/contact-detail";
+import OrganizationDetailScreen from "../../app/(drawer)/organization-detail";
 
 const ANALYSIS = {
   opportunity_score: 82,
@@ -62,7 +62,7 @@ const BASE_CONTACT = {
   opportunity_analysis: null,
 };
 
-describe("contact detail — opportunity analysis", () => {
+describe("organization detail — opportunity analysis", () => {
   beforeEach(() => {
     mockFetchContact.mockReset();
     mockRunAnalysis.mockReset();
@@ -77,7 +77,7 @@ describe("contact detail — opportunity analysis", () => {
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(null);
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
 
     fireEvent.press(screen.getByText("1 Best"));
@@ -96,7 +96,7 @@ describe("contact detail — opportunity analysis", () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, personal_priority: 2 });
     mockUpdatePersonalPriority.mockRejectedValue(new Error("offline"));
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
     fireEvent.press(screen.getByText("1 Best"));
 
@@ -114,7 +114,7 @@ describe("contact detail — opportunity analysis", () => {
     mockGetRole.mockResolvedValue("spectator");
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, opportunity_analysis: ANALYSIS });
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Runs a busy salon with manual booking.")).toBeTruthy());
     expect(screen.getByText("82/100")).toBeTruthy();
     expect(screen.getByText("Booking bot")).toBeTruthy();
@@ -128,7 +128,7 @@ describe("contact detail — opportunity analysis", () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
     mockRunAnalysis.mockResolvedValue(ANALYSIS);
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Run opportunity analysis")).toBeTruthy());
     expect(screen.getByText("No opportunity analysis yet.")).toBeTruthy();
 
@@ -144,7 +144,7 @@ describe("contact detail — opportunity analysis", () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
     mockRunAnalysis.mockRejectedValue(new Error("boom"));
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Run opportunity analysis")).toBeTruthy());
     fireEvent.press(screen.getByText("Run opportunity analysis"));
     await waitFor(() =>
@@ -153,7 +153,7 @@ describe("contact detail — opportunity analysis", () => {
   });
 });
 
-describe("contact detail — website link", () => {
+describe("organization detail — website link", () => {
   const openURL = jest.spyOn(Linking, "openURL");
 
   beforeEach(() => {
@@ -165,7 +165,7 @@ describe("contact detail — website link", () => {
   it("opens the stored website in the device browser, adding the missing scheme", async () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, website: "acme-salon.de" });
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("acme-salon.de")).toBeTruthy());
 
     fireEvent.press(screen.getByText("acme-salon.de"));
@@ -175,7 +175,7 @@ describe("contact detail — website link", () => {
   it("shows an unusable website as plain text without opening anything", async () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, website: "javascript:alert(1)" });
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("javascript:alert(1)")).toBeTruthy());
 
     fireEvent.press(screen.getByText("javascript:alert(1)"));
@@ -183,7 +183,7 @@ describe("contact detail — website link", () => {
   });
 });
 
-describe("contact detail — state", () => {
+describe("organization detail — state", () => {
   beforeEach(() => {
     mockFetchContact.mockReset();
     mockGetRole.mockReset().mockResolvedValue("admin");
@@ -192,7 +192,7 @@ describe("contact detail — state", () => {
   it("shows the pipeline stage and the current status as separate facts", async () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Suspect")).toBeTruthy());
     expect(screen.getByText("Ready to contact")).toBeTruthy();
   });
@@ -206,7 +206,7 @@ describe("contact detail — state", () => {
       email_bounced: true,
     });
 
-    const screen = render(<ContactDetailScreen />);
+    const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Meeting")).toBeTruthy());
     // The whole point of the split: a bounce does not cost you the meeting.
     expect(screen.getByText("Opportunity")).toBeTruthy();

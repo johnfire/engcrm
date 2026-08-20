@@ -1,9 +1,9 @@
 <button
   type="button"
   class="star-btn{% if c.starred %} starred{% endif %}"
-  hx-post="/contacts/{{ c.id }}/star"
+  hx-post="/organizations/{{ c.id }}/star"
   hx-swap="outerHTML"
-  title="{{ t('contacts.unstar') if c.starred else t('contacts.star') }}"
-  aria-label="{{ t('contacts.unstar') if c.starred else t('contacts.star') }}"
+  title="{{ t('organizations.unstar') if c.starred else t('organizations.star') }}"
+  aria-label="{{ t('organizations.unstar') if c.starred else t('organizations.star') }}"
   aria-pressed="{{ 'true' if c.starred else 'false' }}"
 >{{ '★' if c.starred else '☆' }}</button>

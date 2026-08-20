@@ -34,7 +34,7 @@ def _format_dossier(dossier: dict | None) -> str:
 
 
 def build_opportunity_prompt(
-    mission, contact: dict, interactions: list[dict], dossier: dict | None
+    mission, organization: dict, interactions: list[dict], dossier: dict | None
 ) -> tuple[str, str]:
     system = (
         f"You are a careful business analyst for {mission.identity}.\n"
@@ -51,7 +51,7 @@ def build_opportunity_prompt(
     dossier_text = _format_dossier(dossier)
     user = (
         "Analyse the following evidence.\n\n"
-        f"CONTACT RECORD:\n{json.dumps(contact, ensure_ascii=False, default=str)}\n\n"
+        f"CONTACT RECORD:\n{json.dumps(organization, ensure_ascii=False, default=str)}\n\n"
         f"INTERACTIONS:\n{json.dumps(interactions, ensure_ascii=False, default=str)}\n\n"
         f"{dossier_text}\n\n"
         "Return only JSON with these exact keys:\n"

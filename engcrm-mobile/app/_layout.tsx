@@ -42,7 +42,7 @@ function InnerLayout() {
         if (!loggedIn && inDrawer) {
           router.replace("/login");
         } else if (loggedIn && !inDrawer) {
-          router.replace("/(drawer)/contacts");
+          router.replace("/(drawer)/organizations");
         }
         if (loggedIn) {
           syncLanguage();

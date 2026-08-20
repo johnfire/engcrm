@@ -8,7 +8,7 @@ background research (enrichment agent + key-people lookup) via signs.research_bu
 
 Shares the card_captures table with business cards (kind='sign') — see
 migration 034_sign_capture_kind.sql — and reuses cards.save_card_image /
-find_possible_duplicate / promote_to_contact / delete_card_image throughout.
+find_possible_duplicate / promote_to_organization / delete_card_image throughout.
 """
 import logging
 
@@ -149,10 +149,10 @@ def confirm_sign(
         contact_id = body.link_to_contact_id
     else:
         place = cap["place_json"] if body.accept_place else None
-        contact_fields = signs.build_contact_fields(name, cap["extracted"] or {}, place)
-        contact_id = cards.promote_to_contact(contact_fields, source="sign_scan")
-        if contact_id == 0:  # save_contact deduped — link to the existing match
-            dup = cards.find_possible_duplicate(contact_fields)
+        organization_fields = signs.build_organization_fields(name, cap["extracted"] or {}, place)
+        contact_id = cards.promote_to_organization(organization_fields, source="sign_scan")
+        if contact_id == 0:  # save_organization deduped — link to the existing match
+            dup = cards.find_possible_duplicate(organization_fields)
             if not dup:
                 raise HTTPException(status_code=409, detail="Duplicate contact, no match resolved")
             contact_id = dup["id"]

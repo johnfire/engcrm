@@ -83,17 +83,17 @@ def main():
 
     # Group by city
     by_city: dict[str, list] = {}
-    for blocked_contact in blocked:
-        by_city.setdefault(blocked_contact["city"], []).append(blocked_contact)
+    for blocked_organization in blocked:
+        by_city.setdefault(blocked_organization["city"], []).append(blocked_organization)
 
     total = len(blocked)
     print(f"Blocked prospects: {total}\n")
 
-    for city, contacts in sorted(by_city.items()):
-        print(f"── {city} ({len(contacts)})")
-        for contact in contacts:
-            reasons_str = ", ".join(contact["reasons"])
-            print(f"   [{contact['id']}] {contact['name']} ({contact['type']}) — {reasons_str}")
+    for city, organizations in sorted(by_city.items()):
+        print(f"── {city} ({len(organizations)})")
+        for organization in organizations:
+            reasons_str = ", ".join(organization["reasons"])
+            print(f"   [{organization['id']}] {organization['name']} ({organization['type']}) — {reasons_str}")
         print()
 
 

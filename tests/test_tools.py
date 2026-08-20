@@ -19,28 +19,28 @@ def make_mock_conn(rows=None, rowcount=1):
     return conn, cur
 
 
-class TestSaveContact:
-    def test_inserts_new_contact(self):
-        from gcrm.tools.db import save_contact
+class TestSaveOrganization:
+    def test_inserts_new_organization(self):
+        from gcrm.tools.db import save_organization
         conn, cur = make_mock_conn()
         # First fetchone = no duplicate; second = RETURNING id; third = no existing consent_log
         cur.fetchone.side_effect = [None, {"id": 42}, None]
 
         with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            result = save_contact("Galerie Nord", "Munich", country="DE", type="gallery")
+            result = save_organization("Galerie Nord", "Munich", country="DE", type="gallery")
 
         assert result == 42
         assert cur.execute.call_count >= 2
 
     def test_returns_zero_on_duplicate(self):
-        from gcrm.tools.db import save_contact
+        from gcrm.tools.db import save_organization
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"id": 7}  # duplicate found
 
         with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            result = save_contact("Galerie Nord", "Munich")
+            result = save_organization("Galerie Nord", "Munich")
 
         # 0 = "not newly created". The research agent and import_studies both rely
         # on a falsy return to skip/count duplicates instead of re-processing them.
@@ -48,7 +48,7 @@ class TestSaveContact:
 
 
 class TestCheckCompliance:
-    def test_blocks_opted_out_contact(self):
+    def test_blocks_opted_out_organization(self):
         from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.return_value = {"opt_out": True, "erasure_requested": False}
@@ -59,7 +59,7 @@ class TestCheckCompliance:
 
         assert result is False
 
-    def test_blocks_erased_contact(self):
+    def test_blocks_erased_organization(self):
         from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
@@ -73,7 +73,7 @@ class TestCheckCompliance:
 
         assert result is False
 
-    def test_allows_clean_contact(self):
+    def test_allows_clean_organization(self):
         from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [
@@ -87,7 +87,7 @@ class TestCheckCompliance:
 
         assert result is True
 
-    def test_allows_contact_with_no_consent_log(self):
+    def test_allows_organization_with_no_consent_log(self):
         from gcrm.tools.db import check_compliance
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [

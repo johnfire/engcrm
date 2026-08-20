@@ -3,7 +3,7 @@ import json
 from gcrm.vertical import ANTI_SIGNALS, FIT_SIGNALS
 
 
-def score_contact_prompt(mission, contact: dict, city_context: dict | None = None) -> tuple[str, str]:
+def score_organization_prompt(mission, organization: dict, city_context: dict | None = None) -> tuple[str, str]:
     """
     Evaluate a contact for mission fit based on website content and notes.
     Reads FIT_SIGNALS and ANTI_SIGNALS from vertical.py.
@@ -30,10 +30,10 @@ def score_contact_prompt(mission, contact: dict, city_context: dict | None = Non
         f"Be specific in your reasoning — quote language from the website or notes, "
         f"name specific details that tipped the decision."
     )
-    contact_json = json.dumps(contact, ensure_ascii=False, indent=2)
+    organization_json = json.dumps(organization, ensure_ascii=False, indent=2)
     user = (
         f"Evaluate this contact:\n\n"
-        f"{contact_json}\n\n"
+        f"{organization_json}\n\n"
         f"Return a JSON object with EXACTLY these keys:\n"
         f"- outcome: one of 'fit' | 'unsure' | 'no_fit'\n"
         f"  fit = realistic outreach target\n"

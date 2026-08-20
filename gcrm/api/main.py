@@ -17,9 +17,9 @@ from gcrm.api.routers import (
     api_approvals,
     api_auth,
     api_cards,
-    api_contacts,
     api_help,
     api_inbox,
+    api_organizations,
     api_people,
     api_pipeline,
     api_push,
@@ -28,12 +28,12 @@ from gcrm.api.routers import (
     api_signs,
     api_voice,
     approval,
-    contacts,
     drafts,
     help,
     inbox,
     legal,
     marketing,
+    organizations,
     people,
     research,
     users,
@@ -98,7 +98,7 @@ app.include_router(legal.router)
 app.include_router(account.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
-app.include_router(contacts.router)
+app.include_router(organizations.router)
 app.include_router(people.router)
 app.include_router(research.router)
 app.include_router(inbox.router)
@@ -113,7 +113,7 @@ app.include_router(api_account.router)
 app.include_router(api_push.router)
 app.include_router(api_approvals.router)
 app.include_router(api_inbox.router)
-app.include_router(api_contacts.router)
+app.include_router(api_organizations.router)
 app.include_router(api_activity.router)
 app.include_router(api_research.router)
 app.include_router(api_cards.router)
@@ -123,6 +123,17 @@ app.include_router(api_people.router)
 app.include_router(api_pipeline.router)
 app.include_router(api_recon.router)
 app.include_router(api_help.router)
+
+
+@app.get("/contacts/{rest:path}", include_in_schema=False)
+def contacts_moved_to_organizations(rest: str, request: Request):
+    """Keep every /contacts link working: bookmarks, the printed briefs people
+    carry to visits, and any page still open in a browser tab when this shipped.
+
+    Only the web UI moved. The mobile API stays on /api/contacts, because
+    installed apps cannot be asked to update on our schedule."""
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(url=f"/organizations/{rest}{query}", status_code=301)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -49,15 +49,15 @@ export default function ReconScreen() {
     }, [locate]),
   );
 
-  function navigate(contact: ReconContact) {
+  function navigate(organization: ReconContact) {
     const url =
-      contact.maps_uri ||
-      `https://www.google.com/maps/search/?api=1&query=${contact.latitude},${contact.longitude}`;
+      organization.maps_uri ||
+      `https://www.google.com/maps/search/?api=1&query=${organization.latitude},${organization.longitude}`;
     Linking.openURL(url);
   }
 
-  function call(contact: ReconContact) {
-    if (contact.phone) Linking.openURL(`tel:${contact.phone}`);
+  function call(organization: ReconContact) {
+    if (organization.phone) Linking.openURL(`tel:${organization.phone}`);
     else Alert.alert(t("recon.noPhoneTitle"), t("recon.noPhoneMessage"));
   }
 
@@ -88,8 +88,8 @@ export default function ReconScreen() {
 
       <FlatList
         data={items}
-        keyExtractor={(contact) => String(contact.id)}
-        renderItem={({ item }) => <ReconContactCard contact={item} onCall={() => call(item)} onNavigate={() => navigate(item)} onScan={() => router.push("/(drawer)/capture")} />}
+        keyExtractor={(organization) => String(organization.id)}
+        renderItem={({ item }) => <ReconContactCard organization={item} onCall={() => call(item)} onNavigate={() => navigate(item)} onScan={() => router.push("/(drawer)/capture")} />}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={locate} tintColor="#7c6fff" />
         }

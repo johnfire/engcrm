@@ -39,7 +39,7 @@ export default function LoginScreen() {
       } catch {
         // ignore — falls back to whatever's already cached/active
       }
-      router.replace("/(drawer)/contacts");
+      router.replace("/(drawer)/organizations");
     } catch {
       Alert.alert(t("login.failedTitle"), t("login.failedMessage"));
     } finally {

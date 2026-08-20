@@ -15,9 +15,9 @@ import re
 from langgraph.graph import END, StateGraph
 
 from .protocols import (
-    ContactFetcher,
-    ContactUpdater,
     LanguageModel,
+    OrganizationFetcher,
+    OrganizationUpdater,
     PageFetcher,
     RunFinisher,
     RunStarter,
@@ -76,8 +76,8 @@ def create_enrichment_agent(
     llm: LanguageModel,
     web_search: WebSearcher,
     fetch_page: PageFetcher,
-    fetch_contacts: ContactFetcher,
-    update_contact: ContactUpdater,
+    fetch_organizations: OrganizationFetcher,
+    update_organization: OrganizationUpdater,
     set_suppression_flag: SuppressionFlagSetter,
     start_run: RunStarter,
     finish_run: RunFinisher,
@@ -92,8 +92,8 @@ def create_enrichment_agent(
         llm=llm,
         web_search=web_search,
         fetch_page=fetch_page,
-        fetch_contacts=fetch_contacts,
-        update_contact=update_contact,
+        fetch_organizations=fetch_organizations,
+        update_organization=update_organization,
         set_suppression_flag=set_suppression_flag,
         start_run=start_run,
         finish_run=finish_run,

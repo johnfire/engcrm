@@ -8,7 +8,7 @@ agent to score.
 Usage:
     uv run python scripts/import_studies.py
 
-Safe to run multiple times — save_contact deduplicates by name+city.
+Safe to run multiple times — save_organization deduplicates by name+city.
 """
 import json
 import logging
@@ -81,7 +81,7 @@ def extract_venues(llm, markdown_text: str, filepath: str) -> list[dict]:
         return []
 
 
-def import_file(llm, filepath: pathlib.Path, save_contact) -> tuple[int, int]:
+def import_file(llm, filepath: pathlib.Path, save_organization) -> tuple[int, int]:
     """Returns (saved, skipped) counts."""
     if not filepath.exists():
         logger.warning("File not found: %s", filepath)
@@ -109,7 +109,7 @@ def import_file(llm, filepath: pathlib.Path, save_contact) -> tuple[int, int]:
             notes_parts.append(v["notes"])
         notes = " | ".join(notes_parts)
 
-        contact_id = save_contact(
+        contact_id = save_organization(
             name=name,
             city=city,
             country=v.get("country") or "DE",
@@ -129,7 +129,7 @@ def import_file(llm, filepath: pathlib.Path, save_contact) -> tuple[int, int]:
 
 def main():
     from gcrm.config import CHEAP_LLM
-    from gcrm.tools.db import save_contact
+    from gcrm.tools.db import save_organization
     from gcrm.tools.llm import get_llm
 
     llm = get_llm(CHEAP_LLM)
@@ -138,7 +138,7 @@ def main():
     total_skipped = 0
 
     for filepath in STUDY_FILES:
-        saved, skipped = import_file(llm, filepath, save_contact)
+        saved, skipped = import_file(llm, filepath, save_organization)
         total_saved += saved
         total_skipped += skipped
         logger.info("%s: %d saved, %d skipped", filepath.name, saved, skipped)

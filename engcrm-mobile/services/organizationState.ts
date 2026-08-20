@@ -1,4 +1,4 @@
-// The contact state vocabulary, mirroring gcrm/contact_state.py.
+// The organization state vocabulary, mirroring gcrm/contact_state.py.
 //
 // Three independent axes: where the organization sits in the pipeline, what is
 // going on with it right now, and which suppression facts are true of it.
@@ -34,7 +34,7 @@ export const SUPPRESSION_FLAGS = [
 ] as const;
 
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
-export type ContactStatus = (typeof STATUSES)[number];
+export type OrganizationStatus = (typeof STATUSES)[number];
 export type SuppressionFlag = (typeof SUPPRESSION_FLAGS)[number];
 
 /** i18n key for a stage, status or flag value — one naming rule, no lookup tables. */

@@ -43,7 +43,7 @@ def make_tools():
     def geo_search(query: str, city: str, country: str = "DE") -> list[dict]:
         return [{"name": "Test Gallery", "address": "Main St 1", "city": city, "country": country}]
 
-    def save_contact(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
+    def save_organization(name, city, *, country="DE", type="", website="", email="", phone="", notes="",
                      scan_level=None, neighborhood="", research_exhausted=False,
                      latitude=None, longitude=None, google=None) -> int:
         saved.append({"name": name, "city": city, "scan_level": scan_level,
@@ -60,14 +60,14 @@ def make_tools():
         runs[run_id]["status"] = status
         runs[run_id]["summary"] = summary
 
-    return web_search, geo_search, save_contact, start_run, finish_run, saved, runs
+    return web_search, geo_search, save_organization, start_run, finish_run, saved, runs
 
 
-def test_agent_saves_contacts():
-    web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
+def test_agent_saves_organizations():
+    web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM([
-        '[{"name": "Galerie Nord", "city": "Munich", "country": "DE", "type": "gallery"}]',  # extract_contacts (only LLM call)
+        '[{"name": "Galerie Nord", "city": "Munich", "country": "DE", "type": "gallery"}]',  # extract_organizations (only LLM call)
     ])
 
     agent = create_research_agent(
@@ -75,7 +75,7 @@ def test_agent_saves_contacts():
         web_search=web_search,
         geo_search=geo_search,
         fetch_page=_no_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=DummyMission(),
@@ -90,7 +90,7 @@ def test_agent_saves_contacts():
 
 
 def test_agent_handles_empty_search_results():
-    web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
+    web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
     def empty_geo_search(query, city, country="DE"):
         return []
@@ -100,7 +100,7 @@ def test_agent_handles_empty_search_results():
 
     llm = FakeLLM([
         '["galleries Munich"]',  # plan_queries
-        '[]',                    # extract_contacts — nothing found
+        '[]',                    # extract_organizations — nothing found
     ])
 
     agent = create_research_agent(
@@ -108,7 +108,7 @@ def test_agent_handles_empty_search_results():
         web_search=empty_web_search,
         geo_search=empty_geo_search,
         fetch_page=_no_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=DummyMission(),
@@ -122,7 +122,7 @@ def test_agent_handles_empty_search_results():
 
 
 def test_agent_handles_llm_json_error():
-    web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
+    web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM(["this is not json"])  # will fail parse in plan_queries
 
@@ -131,7 +131,7 @@ def test_agent_handles_llm_json_error():
         web_search=web_search,
         geo_search=geo_search,
         fetch_page=_no_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=DummyMission(),
@@ -140,15 +140,15 @@ def test_agent_handles_llm_json_error():
     result = agent.invoke({"city": "Munich", "industry": "gallery"})
 
     assert len(result["errors"]) > 0
-    assert "extract_contacts" in result["errors"][0]
+    assert "extract_organizations" in result["errors"][0]
     assert result["saved_ids"] == []
 
 
 def test_agent_handles_markdown_wrapped_json():
-    web_search, geo_search, save_contact, start_run, finish_run, saved, runs = make_tools()
+    web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM([
-        '```json\n[{"name": "Galerie Süd", "city": "Munich"}]\n```',  # extract_contacts (only LLM call)
+        '```json\n[{"name": "Galerie Süd", "city": "Munich"}]\n```',  # extract_organizations (only LLM call)
     ])
 
     agent = create_research_agent(
@@ -156,7 +156,7 @@ def test_agent_handles_markdown_wrapped_json():
         web_search=web_search,
         geo_search=geo_search,
         fetch_page=_no_page,
-        save_contact=save_contact,
+        save_organization=save_organization,
         start_run=start_run,
         finish_run=finish_run,
         mission=DummyMission(),

@@ -193,8 +193,8 @@ def is_questionable(name: str, city: str, notes_raw: str) -> tuple[bool, list[st
     return bool(reasons), reasons
 
 
-def extract_contacts(ws) -> list[dict]:
-    contacts = []
+def extract_organizations(ws) -> list[dict]:
+    organizations = []
     current_city = ""
     current_section = ""
     for i, row in enumerate(ws.iter_rows(values_only=True)):
@@ -251,7 +251,7 @@ def extract_contacts(ws) -> list[dict]:
             city = sub_city.title()
 
         # Type from current section
-        contact_type = infer_type(current_section)
+        organization_type = infer_type(current_section)
 
         # Status
         reply = str(col_i).strip() if col_i else ""
@@ -285,10 +285,10 @@ def extract_contacts(ws) -> list[dict]:
             reason_str = ", ".join(q_reasons) if q_reasons else "uncertain status"
             final_notes = f"[NEEDS REVIEW: {reason_str}] {raw_notes}".strip()
 
-        contacts.append({
+        organizations.append({
             "name": name,
             "city": city or "Unknown",
-            "type": contact_type,
+            "type": organization_type,
             "pipeline_stage": pipeline_stage,
             "status": status,
             "best_visit_time": visit_time,
@@ -297,15 +297,15 @@ def extract_contacts(ws) -> list[dict]:
             "source_row": i + 1,
         })
 
-    return contacts
+    return organizations
 
 
-def import_contacts(contacts: list[dict], dry_run: bool = True):
+def import_organizations(organizations: list[dict], dry_run: bool = True):
     created = skipped_dup = needs_review = 0
 
     with db() as conn:
         cur = conn.cursor()
-        for c in contacts:
+        for c in organizations:
             # Check duplicate by (name, city) case-insensitive
             cur.execute(
                 "SELECT id FROM contacts WHERE lower(name) = lower(%s) AND lower(city) = lower(%s)",
@@ -348,13 +348,13 @@ def main():
     wb = openpyxl.load_workbook(WORKBOOK_PATH, read_only=True)
     ws = wb[SHEET_NAME]
 
-    contacts = extract_contacts(ws)
-    print(f"\nExtracted {len(contacts)} contacts from sheet\n")
+    organizations = extract_organizations(ws)
+    print(f"\nExtracted {len(organizations)} contacts from sheet\n")
 
     # Status breakdown
     from collections import Counter
-    status_counts = Counter(f"{c['pipeline_stage']}/{c['status']}" for c in contacts)
-    review_count = sum(1 for c in contacts if c["needs_review"])
+    status_counts = Counter(f"{c['pipeline_stage']}/{c['status']}" for c in organizations)
+    review_count = sum(1 for c in organizations if c["needs_review"])
     print("Status breakdown:")
     for s, n in sorted(status_counts.items()):
         print(f"  {s}: {n}")
@@ -362,14 +362,14 @@ def main():
 
     if args.dry_run:
         print("\n--- DRY RUN: first 40 contacts that would be imported ---")
-        for c in contacts[:40]:
+        for c in organizations[:40]:
             flag = " [REVIEW]" if c["needs_review"] else ""
             state = f"{c['pipeline_stage']}/{c['status']}"
             print(f"  row {c['source_row']:3d} | {state:24s} | {c['city']:20s} | {c['type']:18s} | {c['name']}{flag}")
         print("\nRe-run without --dry-run to actually import.")
         return
 
-    created, skipped, nr = import_contacts(contacts, dry_run=False)
+    created, skipped, nr = import_organizations(organizations, dry_run=False)
     print("\nImport complete:")
     print(f"  Created:       {created}")
     print(f"  Skipped (dup): {skipped}")
