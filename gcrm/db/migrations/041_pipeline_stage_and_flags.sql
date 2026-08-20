@@ -15,6 +15,11 @@
 -- is. Keeping the word next to a stage called 'suspect' would confuse the next
 -- reader as it confused this one.
 --
+-- Re-running this migration must change nothing: every UPDATE below matches
+-- only the legacy vocabulary. Without that guard a second run would read the
+-- new values, miss every CASE branch, and collapse the whole table to
+-- candidate/none.
+--
 -- No CHECK constraint on either column, deliberately: migration 026 records
 -- what happened the last time the database rejected what the agents write while
 -- their stderr went to /dev/null. gcrm/contact_state.py is the source of truth
@@ -37,7 +42,7 @@ UPDATE contacts SET research_exhausted = TRUE WHERE status = 'cannot_find_more_d
 -- any later pipeline move.
 UPDATE contacts c SET do_not_contact = TRUE
   FROM consent_log cl
- WHERE cl.contact_id = c.id AND cl.opt_out;
+ WHERE cl.contact_id = c.id AND cl.opt_out AND NOT c.do_not_contact;
 
 -- Then place every row on the two new axes.
 UPDATE contacts SET
@@ -74,11 +79,20 @@ UPDATE contacts SET
         ELSE 'none'
     END,
     updated_at = NOW()
-WHERE status IS NOT NULL;
+WHERE status IN (
+    'candidate', 'maybe', 'lead_unverified', 'cannot_find_more_data', 'cold',
+    'contacted', 'bad_email', 'networking_visit', 'dormant', 'on_hold',
+    'meeting', 'proposal', 'accepted', 'dropped', 'rejected', 'do_not_contact',
+    'opt_out'
+);
 
 -- Rows that never had a status at all still need to sit somewhere.
 UPDATE contacts SET status = 'none', pipeline_stage = 'candidate', updated_at = NOW()
  WHERE status IS NULL;
+
+-- Any value not named above — a status invented after this migration was
+-- written — is left exactly as it is rather than guessed at. It shows up in the
+-- data-quality audit as an unusual pair, which is a human's call to make.
 
 CREATE INDEX IF NOT EXISTS idx_contacts_pipeline_stage
     ON contacts(pipeline_stage) WHERE deleted_at IS NULL;
