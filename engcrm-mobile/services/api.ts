@@ -258,6 +258,71 @@ export interface ResearchOverview {
   totals: { organizations: number; emailed: number };
 }
 
+// --- Areas (map-pick / GPS-radius scans) — the area equivalent of the
+// research overview above; see /areas endpoints in gcrm/api/routers. ---
+export async function scanArea(body: {
+  lat: number;
+  lon: number;
+  radius_m: number;
+  levels: number[];
+  label?: string;
+}): Promise<{ status: string; area_id: number; levels: number[] }> {
+  const resp = await client.post("/api/areas/scan", body);
+  return resp.data;
+}
+
+export async function fetchAreaOverview(): Promise<AreaOverview> {
+  const resp = await client.get("/api/areas/");
+  return resp.data;
+}
+
+export async function fetchAreaOrganizations(areaId: number): Promise<AreaOrganization[]> {
+  const resp = await client.get(`/api/areas/${areaId}/organizations`);
+  return resp.data.organizations;
+}
+
+export interface AreaScan {
+  level: number;
+  last_run_at: string | null;
+  organizations_found: number;
+  run_count: number;
+  complete: boolean;
+}
+
+export interface Area {
+  id: number;
+  label: string | null;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  city_id: number | null;
+  city: string | null;
+  country: string | null;
+  created_at: string;
+  scans: AreaScan[];
+  scanned_levels: number[];
+  total_contacts: number;
+}
+
+export interface AreaOverview {
+  areas: Area[];
+  levels: number[];
+  level_labels: Record<string, string>;
+  total: number;
+}
+
+export interface AreaOrganization {
+  id: number;
+  name: string;
+  type: string | null;
+  pipeline_stage: PipelineStage;
+  status: OrganizationStatus;
+  latitude: number;
+  longitude: number;
+  website: string | null;
+  distance_m: number;
+}
+
 // --- Card capture ---
 // Upload a card photo (multipart). Don't set Content-Type — RN sets the
 // multipart boundary itself; overriding it drops the boundary and breaks parsing.

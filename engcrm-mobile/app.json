@@ -11,7 +11,12 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundColor": "#1a1a2e"
       },
-      "package": "de.christopherrehm.engcrm"
+      "package": "de.christopherrehm.engcrm",
+      "config": {
+        "googleMaps": {
+          "apiKey": "REPLACE_WITH_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "plugins": [
       "expo-router",
@@ -27,7 +32,8 @@
         {
           "locationWhenInUsePermission": "EngCRM uses your location to show nearby business leads for on-foot visits."
         }
-      ]
+      ],
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true

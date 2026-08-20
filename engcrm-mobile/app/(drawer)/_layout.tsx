@@ -136,6 +136,22 @@ export default function DrawerLayout() {
           headerLeft: () => <HeaderBack to="/(drawer)/scan-sign" />,
         }}
       />
+      <Drawer.Screen
+        name="area-scan"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("drawer.areaScanTitle"),
+          headerLeft: () => <HeaderBack to="/(drawer)/research" />,
+        }}
+      />
+      <Drawer.Screen
+        name="area-results"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("drawer.areaResultsTitle"),
+          headerLeft: () => <HeaderBack to="/(drawer)/research" />,
+        }}
+      />
     </Drawer>
   );
 }

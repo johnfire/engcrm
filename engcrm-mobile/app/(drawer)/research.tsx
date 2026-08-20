@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   runPipelineStage,
   fetchResearchOverview,
@@ -30,6 +30,7 @@ const STAGE_KEYS = [
 
 export default function PipelineScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const COUNTRIES = [
     { code: "DE", label: t("research.countryGermany") },
     { code: "AT", label: t("research.countryAustria") },
@@ -105,6 +106,15 @@ export default function PipelineScreen() {
     >
       <Text style={styles.sectionTitle}>{t("research.pipelineStatus")}</Text>
       <ResearchOverviewPanel error={overviewError} loading={loadingOverview} overview={overview} />
+
+      <View style={styles.divider} />
+
+      <TouchableOpacity
+        style={styles.areaScanBtn}
+        onPress={() => router.push("/(drawer)/area-scan")}
+      >
+        <Text style={styles.areaScanText}>{t("research.scanAnArea")}</Text>
+      </TouchableOpacity>
 
       <View style={styles.divider} />
 
@@ -229,6 +239,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff14",
     marginVertical: 24,
   },
+  areaScanBtn: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#7c6fff55",
+  },
+  areaScanText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   label: {
     color: "#888",
     fontSize: 12,
