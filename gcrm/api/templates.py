@@ -1,14 +1,28 @@
 """Single Jinja2Templates instance shared by every router and the web app, so
 the template directory and custom filters are configured in exactly one place."""
+import json
 from pathlib import Path
 from urllib.parse import quote_plus
 
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 
 from gcrm.api.web_links import browsable_url
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 
 UI_DIR = Path(__file__).parent.parent / "ui"
+
+
+def tojson_filter(value) -> Markup:
+    """Serialize a value for embedding in a <script> block. Escapes the
+    characters that would otherwise let embedded data break out of the tag
+    (</script>, HTML comments) — plain json.dumps does not."""
+    return Markup(
+        json.dumps(value)
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+    )
 
 
 class AppTemplates(Jinja2Templates):
@@ -35,3 +49,4 @@ class AppTemplates(Jinja2Templates):
 templates = AppTemplates(directory=str(UI_DIR / "templates"))
 templates.env.filters["urlenc"] = quote_plus
 templates.env.filters["browsable_url"] = browsable_url
+templates.env.filters["tojson"] = tojson_filter

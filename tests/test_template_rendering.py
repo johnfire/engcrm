@@ -10,8 +10,28 @@ from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
 from gcrm.api.auth import require_login
+from gcrm.api.templates import tojson_filter
 
 client = TestClient(main.app)
+
+
+class TestTojsonFilter:
+    """areas.html embeds server data into a <script> block via |tojson — this
+    pins the HTML-breakout escaping that a plain json.dumps would not do."""
+
+    def test_serializes_plain_data(self):
+        import json
+        assert json.loads(str(tojson_filter({"a": 1, "b": [1, 2]}))) == {"a": 1, "b": [1, 2]}
+
+    def test_escapes_script_close_tag(self):
+        rendered = str(tojson_filter({"label": "</script><script>alert(1)</script>"}))
+        assert "</script>" not in rendered
+        assert "\\u003c/script\\u003e" in rendered
+
+    def test_escapes_ampersand(self):
+        rendered = str(tojson_filter({"label": "A & B"}))
+        assert "\\u0026" in rendered
+        assert " & " not in rendered
 
 
 def make_mock_conn(*fetchall_sequences, fetchone_sequence=None):
@@ -339,6 +359,31 @@ class TestResearchPage:
                 with patch("gcrm.api.routers.research.build_research_overview", return_value=overview):
                     r = client.get(f"/research/?lang={lang}")
                 assert r.status_code == 200, r.text
+        finally:
+            clear_login_session()
+
+
+class TestAreasPage:
+    def test_renders_empty_and_populated(self):
+        with_login_session()
+        try:
+            populated = {
+                "areas": [{
+                    "id": 1, "label": "Test Gewerbegebiet", "latitude": 48.3705, "longitude": 10.8978,
+                    "radius_m": 500, "city_id": 1, "city": "Augsburg", "country": "DE",
+                    "created_at": "2026-08-20T13:00:00+00:00",
+                    "scans": [{"level": 1, "last_run_at": "2026-08-20T13:00:00+00:00",
+                               "organizations_found": 5, "run_count": 1, "complete": True}],
+                    "scanned_levels": [1], "total_contacts": 5,
+                }],
+                "levels": [1], "level_labels": {1: "Tier 1 — Handwerk"}, "total": 1,
+            }
+            empty = {"areas": [], "levels": [1], "level_labels": {1: "Tier 1 — Handwerk"}, "total": 0}
+            for lang in ("en", "de"):
+                for overview in (populated, empty):
+                    with patch("gcrm.api.routers.areas.build_area_overview", return_value=overview):
+                        r = client.get(f"/areas/?lang={lang}")
+                    assert r.status_code == 200, r.text
         finally:
             clear_login_session()
 

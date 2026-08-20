@@ -413,16 +413,17 @@
   "areas.statsLine": "{{total}} gespeicherte Gebiete",
   "areas.contextTitle": "Ein bestimmtes Gebiet scannen.",
   "areas.contextBody": "Wähle einen Punkt und einen Radius (ein Gewerbegebiet, oder wo du gerade stehst) statt eine ganze Stadt zu scannen.",
-  "areas.latPlaceholder": "Breitengrad",
-  "areas.lonPlaceholder": "Längengrad",
-  "areas.radiusPlaceholder": "Radius (m)",
   "areas.labelPlaceholder": "Bezeichnung (optional)",
   "areas.scan": "Gebiet scannen",
-  "areas.mapPickNote": "Kartenauswahl ist in der mobilen App verfügbar. Hier Koordinaten direkt eingeben (z. B. über \"Koordinaten kopieren\" bei Google Maps).",
   "areas.queued": "In die Warteschlange gestellt — Fortschritt auf der Aktivitäten-Seite verfolgen.",
   "areas.levelRequired": "Mindestens ein Level auswählen.",
   "areas.label": "Gebiet",
   "areas.radius": "Radius",
   "areas.scannedLevels": "Gescannte Level",
-  "areas.unnamed": "Unbenanntes Gebiet"
+  "areas.unnamed": "Unbenanntes Gebiet",
+  "areas.clickMapHint": "Auf die Karte klicken, um einen Scan-Mittelpunkt zu wählen.",
+  "areas.viewResults": "Ergebnisse ansehen",
+  "areas.backToPicking": "Zurück zur Auswahl",
+  "areas.resultsError": "Ergebnisse konnten nicht geladen werden",
+  "research.organizations": "Organisationen"
 }
