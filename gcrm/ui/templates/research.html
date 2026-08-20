@@ -136,13 +136,13 @@
       <td class="center">
         {% if l.scan and l.scan.complete %}
         <span
-          title="{{ t('research.completeTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.contacts_found) }}"
+          title="{{ t('research.completeTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.organizations_found) }}"
           style="color: var(--success); cursor: default"
           >●</span
         >
         {% elif l.scan %}
         <span
-          title="{{ t('research.partialTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.contacts_found) }}"
+          title="{{ t('research.partialTooltip', date=(l.scan.last_run_at[:10] if l.scan.last_run_at else '—'), count=l.scan.organizations_found) }}"
           style="color: #eab308; cursor: default"
           >◐</span
         >
