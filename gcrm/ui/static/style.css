@@ -465,6 +465,13 @@ main.person-detail-page {
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   outline-offset: 1px;
 }
+.contact-edit-form .field-open-link,
+.person-edit-form .field-open-link {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
 .contact-edit-form .detail-actions,
 .person-edit-form .detail-actions {
   display: flex;

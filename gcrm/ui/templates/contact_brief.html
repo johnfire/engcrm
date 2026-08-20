@@ -186,10 +186,11 @@
       {% endif %} {% if contact.website %}
       <div class="brief-row">
         <span class="brief-label">{{ t('common.website') }}</span>
+        {% set contact_website_url = contact.website | browsable_url %}
         <span class="brief-val"
-          ><a href="{{ contact.website }}" target="_blank"
+          >{% if contact_website_url %}<a href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
             >{{ contact.website }}</a
-          ></span
+          >{% else %}{{ contact.website }}{% endif %}</span
         >
       </div>
       {% endif %} {% if contact.address %}

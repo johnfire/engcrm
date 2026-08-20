@@ -45,6 +45,12 @@
       <div class="field-row field-row--wide">
         <label for="person-website">{{ t('common.website') }}</label>
         <input id="person-website" type="text" name="website" value="{{ person.website or '' }}" />
+        {% set person_website_url = person.website | browsable_url %}
+        {% if person_website_url %}
+        <a class="field-open-link" href="{{ person_website_url }}" target="_blank" rel="noopener noreferrer"
+           title="{{ person_website_url }}"
+           aria-label="{{ t('common.website') }}: {{ person_website_url }}">{{ t('common.openInNewTab') }}</a>
+        {% endif %}
       </div>
       <div class="field-row">
         <label for="person-city">{{ t('common.city') }}</label>

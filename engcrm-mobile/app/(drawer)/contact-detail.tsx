@@ -17,6 +17,7 @@ import {
   OpportunityAnalysis,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
+import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 
@@ -106,11 +107,17 @@ export default function ContactDetailScreen() {
           <Text style={styles.link}>{contact.email}</Text>
         </TouchableOpacity>
       )}
-      {contact.website && (
-        <TouchableOpacity onPress={() => Linking.openURL(contact.website!)}>
-          <Text style={styles.link}>{contact.website}</Text>
-        </TouchableOpacity>
-      )}
+      {contact.website &&
+        (browsableUrl(contact.website) ? (
+          <TouchableOpacity
+            accessibilityRole="link"
+            onPress={() => openWebsite(contact.website)}
+          >
+            <Text style={styles.link}>{contact.website}</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.field}>{contact.website}</Text>
+        ))}
       {contact.phone && <Text style={styles.field}>{contact.phone}</Text>}
       {contact.notes && (
         <View style={styles.section}>

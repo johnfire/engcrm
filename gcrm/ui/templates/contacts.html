@@ -144,9 +144,10 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       </td>
       <td class="muted small">{{ c.email or '—' }}</td>
       <td class="muted small">
-        {% if c.website %}<a href="{{ c.website }}" target="_blank"
+        {% set contact_website_url = c.website | browsable_url %}
+        {% if contact_website_url %}<a href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
           >{{ c.website }}</a
-        >{% else %}—{% endif %}
+        >{% else %}{{ c.website or '—' }}{% endif %}
       </td>
       <td class="muted small notes-cell">
         <div class="notes-cell-inner">{{ c.notes or '—' }}</div>

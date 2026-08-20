@@ -33,8 +33,9 @@
 
     <div class="actions">
       <span class="muted small" style="margin-right:0.5rem">{{ t('approval.contactHash', id=item.contact_id) }}</span>
-      {% if item.website %}
-      <a href="{{ item.website }}" target="_blank" rel="noopener" class="btn-secondary">{{ t('common.website') }}</a>
+      {% set contact_website_url = item.website | browsable_url %}
+      {% if contact_website_url %}
+      <a href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer" class="btn-secondary">{{ t('common.website') }}</a>
       {% endif %}
       <form hx-post="/approvals/{{ item.id }}/approve"
             hx-target="#approval-list"

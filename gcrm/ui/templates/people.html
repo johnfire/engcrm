@@ -48,7 +48,7 @@
       <td class="muted">{{ p.relationship or '—' }}</td>
       <td class="muted small">{{ p.email or '—' }}</td>
       <td class="muted small nowrap">{{ p.phone or '—' }}</td>
-      <td class="muted small">{% if p.website %}<a href="{{ p.website }}" target="_blank">{{ p.website }}</a>{% else %}—{% endif %}</td>
+      <td class="muted small">{% set person_website_url = p.website | browsable_url %}{% if person_website_url %}<a href="{{ person_website_url }}" target="_blank" rel="noopener noreferrer">{{ p.website }}</a>{% else %}{{ p.website or '—' }}{% endif %}</td>
       <td class="muted small">{{ p.met_at or '—' }}</td>
       <td class="muted small">{{ p.notes or '—' }}</td>
       <td class="muted nowrap">{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '—' }}</td>

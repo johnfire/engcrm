@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { fetchPerson, Person } from "../../services/api";
+import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 
 export default function PersonDetailScreen() {
@@ -65,11 +66,17 @@ export default function PersonDetailScreen() {
           <Text style={styles.link}>{person.phone}</Text>
         </TouchableOpacity>
       )}
-      {person.website && (
-        <TouchableOpacity onPress={() => Linking.openURL(person.website!)}>
-          <Text style={styles.link}>{person.website}</Text>
-        </TouchableOpacity>
-      )}
+      {person.website &&
+        (browsableUrl(person.website) ? (
+          <TouchableOpacity
+            accessibilityRole="link"
+            onPress={() => openWebsite(person.website)}
+          >
+            <Text style={styles.link}>{person.website}</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.fieldText}>{person.website}</Text>
+        ))}
 
       {person.met_at && (
         <View style={styles.section}>

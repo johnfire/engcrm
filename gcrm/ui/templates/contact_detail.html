@@ -78,6 +78,12 @@ endblock %} {% block main_class %}contact-detail-page{% endblock %} {% block con
       <div class="field-row field-row--wide">
         <label for="contact-website">{{ t('common.website') }}</label>
         <input id="contact-website" type="url" name="website" value="{{ contact.website or '' }}" />
+        {% set contact_website_url = contact.website | browsable_url %}
+        {% if contact_website_url %}
+        <a class="field-open-link" href="{{ contact_website_url }}" target="_blank" rel="noopener noreferrer"
+           title="{{ contact_website_url }}"
+           aria-label="{{ t('common.website') }}: {{ contact_website_url }}">{{ t('common.openInNewTab') }}</a>
+        {% endif %}
       </div>
       <div class="field-row">
         <label for="contact-preferred-method">{{ t('contactDetail.preferredContact') }}</label>

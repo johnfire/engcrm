@@ -18,6 +18,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "42" }),
 }));
 
+import { Linking } from "react-native";
+
 import ContactDetailScreen from "../../app/(drawer)/contact-detail";
 
 const ANALYSIS = {
@@ -144,5 +146,35 @@ describe("contact detail — opportunity analysis", () => {
     await waitFor(() =>
       expect(screen.getByText("Analysis failed — please try again.")).toBeTruthy(),
     );
+  });
+});
+
+describe("contact detail — website link", () => {
+  const openURL = jest.spyOn(Linking, "openURL");
+
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockGetRole.mockReset().mockResolvedValue("admin");
+    openURL.mockReset().mockResolvedValue(true);
+  });
+
+  it("opens the stored website in the device browser, adding the missing scheme", async () => {
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, website: "acme-salon.de" });
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("acme-salon.de")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("acme-salon.de"));
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("https://acme-salon.de"));
+  });
+
+  it("shows an unusable website as plain text without opening anything", async () => {
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, website: "javascript:alert(1)" });
+
+    const screen = render(<ContactDetailScreen />);
+    await waitFor(() => expect(screen.getByText("javascript:alert(1)")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("javascript:alert(1)"));
+    expect(openURL).not.toHaveBeenCalled();
   });
 });

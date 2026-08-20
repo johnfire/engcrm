@@ -5,6 +5,7 @@ from urllib.parse import quote_plus
 
 from fastapi.templating import Jinja2Templates
 
+from gcrm.api.web_links import browsable_url
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 
 UI_DIR = Path(__file__).parent.parent / "ui"
@@ -33,3 +34,4 @@ class AppTemplates(Jinja2Templates):
 
 templates = AppTemplates(directory=str(UI_DIR / "templates"))
 templates.env.filters["urlenc"] = quote_plus
+templates.env.filters["browsable_url"] = browsable_url
