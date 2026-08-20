@@ -14,7 +14,7 @@
       "package": "de.christopherrehm.engcrm",
       "config": {
         "googleMaps": {
-          "apiKey": "REPLACE_WITH_ANDROID_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyCZp74uJJrU5XdQXIT6smN9vXhqPLBvWB0"
         }
       }
     },
