@@ -6,6 +6,7 @@
 <div class="page-header">
   <h1>{{ t('people.title') }}</h1>
   <span class="muted">{{ t('people.shownCount', count=people|length) }}</span>
+  <a href="/people/new" class="btn-primary">{{ t('people.addPerson') }}</a>
 </div>
 
 <form class="filter-bar" method="get" action="/people/">

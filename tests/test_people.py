@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.jwt_auth import create_token
-from gcrm.tools import cards, db_people
+from gcrm.tools import cards, db_people, email_extract
 
 client = TestClient(main.app)
 AUTH = {"Authorization": f"Bearer {create_token('admin')}"}
@@ -111,6 +111,31 @@ class TestPromoteToPerson:
         with patch("gcrm.tools.db.save_person") as msave:
             assert cards.promote_to_person({"company": "ACME"}, contact_id=1) == 0
         msave.assert_not_called()
+
+
+class TestEmailExtraction:
+    def test_extract_parses_and_costs(self):
+        resp = MagicMock()
+        resp.content = '{"name": "Anna Roth", "email": "anna@acme.de", "company": "ACME"}'
+        resp.usage_metadata = {"input_tokens": 1000, "output_tokens": 100}
+        fake_llm = MagicMock()
+        fake_llm.invoke.return_value = resp
+        with patch("gcrm.tools.llm.get_llm", return_value=fake_llm):
+            out = email_extract.extract_person_from_email("From: Anna Roth <anna@acme.de>")
+        assert out["fields"]["name"] == "Anna Roth"
+        assert out["model"] == "claude-haiku-4-5-20251001"
+        # (1000*0.80 + 100*4.00) / 1e6 = 0.0012
+        assert abs(out["cost_usd"] - 0.0012) < 1e-6
+
+    def test_extract_handles_failure(self):
+        fake_llm = MagicMock()
+        fake_llm.invoke.side_effect = RuntimeError("boom")
+        with patch("gcrm.tools.llm.get_llm", return_value=fake_llm):
+            out = email_extract.extract_person_from_email("some text")
+        assert out["cost_usd"] == 0.0
+        # The upstream message is logged, never handed to the client.
+        assert out["fields"]["error"] == email_extract._EXTRACTION_FAILED
+        assert "boom" not in out["fields"]["error"]
 
 
 class TestPeopleEndpoint:
@@ -216,3 +241,57 @@ class TestPersonDetailPage:
         with patch("gcrm.api.routers.people.update_person", return_value=False):
             resp = client.post("/people/3/edit", data={"name": "Ghost"}, follow_redirects=False)
         assert resp.status_code == 404
+
+
+class TestExtractEmailEndpoint:
+    def test_requires_auth(self):
+        resp = client.post("/people/extract-email", json={"text": "hi"}, follow_redirects=False)
+        assert resp.status_code == 307
+
+    def test_blank_text_rejected(self, admin_web):
+        resp = client.post("/people/extract-email", json={"text": "  "})
+        assert resp.status_code == 400
+
+    def test_success_returns_fields(self, admin_web):
+        with patch(
+            "gcrm.api.routers.people.extract_person_from_email",
+            return_value={"fields": {"name": "Anna Roth", "email": "anna@acme.de"}},
+        ):
+            resp = client.post("/people/extract-email", json={"text": "From: Anna Roth"})
+        assert resp.status_code == 200
+        assert resp.json()["fields"]["name"] == "Anna Roth"
+
+    def test_extraction_failure_surfaces_fixed_string(self, admin_web):
+        with patch(
+            "gcrm.api.routers.people.extract_person_from_email",
+            return_value={"fields": {"error": email_extract._EXTRACTION_FAILED}},
+        ):
+            resp = client.post("/people/extract-email", json={"text": "garbled text"})
+        assert resp.status_code == 200
+        assert resp.json()["fields"]["error"] == email_extract._EXTRACTION_FAILED
+
+
+class TestPersonNewPage:
+    def test_form_renders(self, admin_web):
+        resp = client.get("/people/new")
+        assert resp.status_code == 200
+        assert 'action="/people/new"' in resp.text
+
+    def test_create_saves_and_redirects(self, admin_web):
+        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
+             patch("gcrm.api.routers.people.log_audit"):
+            resp = client.post(
+                "/people/new",
+                data={"name": "Anna Roth", "email": "anna@acme.de"},
+                follow_redirects=False,
+            )
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/people/42?saved=1"
+        assert msave.call_args.kwargs["name"] == "Anna Roth"
+        assert msave.call_args.kwargs["source"] == "manual"
+
+    def test_create_rejects_blank_name(self, admin_web):
+        with patch("gcrm.api.routers.people.save_person") as msave:
+            resp = client.post("/people/new", data={"name": "  "}, follow_redirects=False)
+        assert resp.status_code == 400
+        msave.assert_not_called()

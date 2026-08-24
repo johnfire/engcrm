@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ t('personNew.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}person-detail-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('personNew.title') }}</h1>
+</div>
+
+<section class="detail-section">
+  <label for="email-paste">{{ t('personNew.pasteEmailLabel') }}</label>
+  <textarea id="email-paste" rows="6" class="field-row--wide"></textarea>
+  <div class="detail-actions">
+    <button type="button" id="extract-btn" class="btn-secondary">{{ t('personNew.extractButton') }}</button>
+    <span id="extract-status" class="muted"></span>
+  </div>
+</section>
+
+<form method="post" action="/people/new" class="person-edit-form">
+  <div class="detail-grid">
+    <section class="detail-section">
+      <h2>{{ t('personDetail.details') }}</h2>
+      <div class="field-row field-row--wide">
+        <label for="person-name">{{ t('common.name') }}</label>
+        <input id="person-name" type="text" name="name" value="" required />
+      </div>
+      <div class="field-row">
+        <label for="person-title">{{ t('personDetail.jobTitle') }}</label>
+        <input id="person-title" type="text" name="title" value="" />
+      </div>
+      <div class="field-row">
+        <label for="person-relationship">{{ t('people.relationship') }}</label>
+        <input id="person-relationship" type="text" name="relationship" value="" />
+      </div>
+      <div class="field-row">
+        <label for="person-email">{{ t('common.email') }}</label>
+        <input id="person-email" type="email" name="email" value="" />
+      </div>
+      <div class="field-row">
+        <label for="person-phone">{{ t('common.phone') }}</label>
+        <input id="person-phone" type="text" name="phone" value="" />
+      </div>
+      <div class="field-row field-row--wide">
+        <label for="person-website">{{ t('common.website') }}</label>
+        <input id="person-website" type="text" name="website" value="" />
+      </div>
+      <div class="field-row">
+        <label for="person-city">{{ t('common.city') }}</label>
+        <input id="person-city" type="text" name="city" value="" />
+      </div>
+      <div class="field-row">
+        <label for="person-country">{{ t('common.country') }}</label>
+        <input id="person-country" type="text" name="country" value="" maxlength="2" />
+      </div>
+    </section>
+
+    <section class="detail-section">
+      <h2>{{ t('personDetail.context') }}</h2>
+      <div class="field-row field-row--wide">
+        <label for="person-met-at">{{ t('people.metAt') }}</label>
+        <input id="person-met-at" type="text" name="met_at" value=""
+               placeholder="{{ t('personDetail.metAtPlaceholder') }}" />
+      </div>
+      <div class="field-row field-row--wide field-row--tall">
+        <label for="person-notes">{{ t('common.notes') }}</label>
+        <textarea id="person-notes" name="notes" rows="6"></textarea>
+      </div>
+    </section>
+  </div>
+
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+    <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+  </div>
+</form>
+
+<script>
+  document.getElementById('extract-btn').addEventListener('click', async () => {
+    const text = document.getElementById('email-paste').value.trim();
+    const status = document.getElementById('extract-status');
+    if (!text) return;
+    status.textContent = '{{ t("personNew.extracting") }}';
+    try {
+      const response = await fetch('/people/extract-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(detail.detail || response.statusText);
+      }
+      const data = await response.json();
+      const fields = data.fields || {};
+      if (fields.error) {
+        status.textContent = fields.error;
+        return;
+      }
+      const map = {
+        name: 'person-name', title: 'person-title', email: 'person-email',
+        phone: 'person-phone', website: 'person-website', city: 'person-city',
+        country: 'person-country',
+      };
+      for (const [key, id] of Object.entries(map)) {
+        if (fields[key]) document.getElementById(id).value = fields[key];
+      }
+      if (fields.company) {
+        const notes = document.getElementById('person-notes');
+        const line = `Company: ${fields.company}`;
+        notes.value = notes.value ? `${notes.value}\n${line}` : line;
+      }
+      status.textContent = '';
+    } catch (error) {
+      status.textContent = error.message;
+    }
+  });
+</script>
+{% endblock %}

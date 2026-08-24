@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "engcrm-web",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "-m", "gcrm.api.main"],
+      "port": 8001
+    }
+  ]
+}

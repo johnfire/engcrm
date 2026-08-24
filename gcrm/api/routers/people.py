@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from gcrm.api.auth import require_admin, require_login
@@ -6,7 +6,8 @@ from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_people import get_person, update_person
+from gcrm.tools.db_people import get_person, save_person, update_person
+from gcrm.tools.email_extract import extract_person_from_email
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
@@ -48,6 +49,47 @@ def people_list(
         "sort": sort,
         "dir": dir,
     })
+
+
+@router.post("/people/extract-email")
+def extract_email(body: dict = Body(...), _admin: str = Depends(require_admin)) -> dict:
+    """Best-effort extraction, no DB write — the confirm form is the save step."""
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="No email text provided")
+    result = extract_person_from_email(text)
+    return {"fields": result["fields"]}
+
+
+@router.get("/people/new", response_class=HTMLResponse)
+def person_new(request: Request):
+    return templates.TemplateResponse("person_new.html", {"request": request})
+
+
+@router.post("/people/new")
+def person_create(
+    name: str = Form(""),
+    title: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    website: str = Form(""),
+    city: str = Form(""),
+    country: str = Form(""),
+    relationship: str = Form(""),
+    met_at: str = Form(""),
+    notes: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    if not name.strip():
+        raise HTTPException(status_code=400, detail="Name is required")
+    person_id = save_person(
+        name=name.strip(), title=title.strip(), email=email.strip(), phone=phone.strip(),
+        website=website.strip(), city=city.strip(), country=country.strip(),
+        relationship=relationship.strip(), notes=notes.strip(), met_at=met_at.strip(),
+        source="manual",
+    )
+    log_audit(None, None, "person.created", f"person:{person_id}", "created")
+    return local_redirect(f"/people/{person_id}", saved="1")
 
 
 @router.get("/people/{person_id}", response_class=HTMLResponse)
