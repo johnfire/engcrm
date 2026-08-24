@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pretest-commit.sh",
+            "if": "Bash(git commit*)",
+            "timeout": 300,
+            "statusMessage": "Running touched-package tests before commit..."
+          }
+        ]
+      }
+    ]
+  }
+}
