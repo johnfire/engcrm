@@ -13,6 +13,22 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/alert-task-reminder.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/prod-write-reminder.sh",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
