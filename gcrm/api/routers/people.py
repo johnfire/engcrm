@@ -1,13 +1,28 @@
-from fastapi import APIRouter, Body, Depends, Form, HTTPException, Query, Request
+import logging
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
+from gcrm.config import MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import get_person, save_person, update_person
+from gcrm.tools.db_people_interactions import (
+    delete_person_interaction,
+    get_person_interactions,
+    log_person_note,
+)
 from gcrm.tools.email_extract import extract_person_from_email
+from gcrm.tools.transcribe import transcribe
+
+logger = logging.getLogger(__name__)
+
+# What the browser is told when transcription fails. Deliberately free of
+# detail — the diagnosable version is in the server log.
+_TRANSCRIBE_FAILED = "Couldn't make out any speech — try again or type your note."
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
@@ -105,6 +120,7 @@ def person_detail(
         "request": request,
         "person": person,
         "saved": saved,
+        "interactions": get_person_interactions(person_id),
     })
 
 
@@ -134,4 +150,50 @@ def person_edit(
     if not updated:
         raise HTTPException(status_code=404, detail="Person not found")
     log_audit(None, None, "person.edited", f"person:{person_id}", "updated")
+    return local_redirect(f"/people/{person_id}", saved="1")
+
+
+@router.post("/people/{person_id}/notes/transcribe")
+def transcribe_note(
+    person_id: int,
+    audio: UploadFile = File(...),
+    _admin: str = Depends(require_admin),
+) -> dict:
+    """Transcribe a recorded note for review — no DB write. The Save button is the write."""
+    if get_person(person_id) is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    audio_bytes = audio.file.read(MAX_UPLOAD_BYTES + 1)
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio")
+    if len(audio_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Audio too large")
+    try:
+        transcript = transcribe(audio_bytes, audio.filename or "note.webm")
+    except Exception:
+        logger.exception("person note transcription failed")
+        raise HTTPException(status_code=502, detail="Transcription service unavailable")
+    if not transcript:
+        raise HTTPException(status_code=422, detail=_TRANSCRIBE_FAILED)
+    return {"transcript": transcript}
+
+
+@router.post("/people/{person_id}/notes")
+def add_note(
+    person_id: int,
+    note: str = Form(""),
+    method: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    if get_person(person_id) is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    if not note.strip():
+        raise HTTPException(status_code=400, detail="Note is required")
+    log_person_note(person_id, method.strip() or None, note.strip())
+    return local_redirect(f"/people/{person_id}", saved="1")
+
+
+@router.post("/people/{person_id}/notes/{note_id}/delete")
+def remove_note(person_id: int, note_id: int, _admin: str = Depends(require_admin)):
+    if not delete_person_interaction(person_id, note_id):
+        raise HTTPException(status_code=404, detail="Note not found")
     return local_redirect(f"/people/{person_id}", saved="1")

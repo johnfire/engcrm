@@ -12,6 +12,7 @@ import { useLocalSearchParams } from "expo-router";
 import { fetchPerson, Person } from "../../services/api";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
+import { PersonNotesLog } from "../../components/PersonNotesLog";
 
 export default function PersonDetailScreen() {
   const { t } = useTranslation();
@@ -91,6 +92,8 @@ export default function PersonDetailScreen() {
           <Text style={styles.fieldText}>{person.notes}</Text>
         </View>
       )}
+
+      <PersonNotesLog personId={person.id} />
     </ScrollView>
   );
 }

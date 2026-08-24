@@ -86,20 +86,23 @@ class TestBrowsableUrl:
 
 class TestPersonDetailWebsiteLink:
     def test_links_a_scheme_less_website(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW):
+        with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
             response = client.get("/people/3")
         assert response.status_code == 200
         assert 'href="https://galerie-nord.de" target="_blank" rel="noopener noreferrer"' in response.text
 
     def test_offers_no_link_for_an_unusable_website(self, admin_web):
         person = {**PERSON_ROW, "website": "javascript:alert(1)"}
-        with patch("gcrm.api.routers.people.get_person", return_value=person):
+        with patch("gcrm.api.routers.people.get_person", return_value=person), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
             response = client.get("/people/3")
         assert response.status_code == 200
         assert "field-open-link" not in response.text
 
     def test_offers_no_link_when_no_website_is_stored(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value={**PERSON_ROW, "website": None}):
+        with patch("gcrm.api.routers.people.get_person", return_value={**PERSON_ROW, "website": None}), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
             response = client.get("/people/3")
         assert response.status_code == 200
         assert "field-open-link" not in response.text

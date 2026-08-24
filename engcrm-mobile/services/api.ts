@@ -644,6 +644,38 @@ export interface Person {
   created_at: string;
 }
 
+export interface PersonInteraction {
+  id: number;
+  occurred_at: string;
+  method: string | null;
+  note: string;
+}
+
+export async function fetchPersonNotes(personId: number): Promise<PersonInteraction[]> {
+  const resp = await client.get(`/api/people/${personId}/notes`);
+  return resp.data;
+}
+
+export async function transcribePersonNote(personId: number, audioUri: string): Promise<{ transcript: string }> {
+  const form = new FormData();
+  form.append("audio", { uri: audioUri, name: "note.m4a", type: "audio/m4a" } as any);
+  const resp = await client.post(`/api/people/${personId}/notes/transcribe`, form, { timeout: 120000 });
+  return resp.data;
+}
+
+export async function addPersonNote(
+  personId: number,
+  note: string,
+  method: string | null,
+): Promise<{ id: number }> {
+  const resp = await client.post(`/api/people/${personId}/notes`, { note, method });
+  return resp.data;
+}
+
+export async function deletePersonNote(personId: number, noteId: number): Promise<void> {
+  await client.delete(`/api/people/${personId}/notes/${noteId}`);
+}
+
 // --- Recon (nearby organizations for on-foot field visits) ---
 export async function fetchRecon(
   lat: number,

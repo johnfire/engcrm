@@ -22,6 +22,7 @@ from gcrm.api.routers import (
     api_inbox,
     api_organizations,
     api_people,
+    api_people_interactions,
     api_pipeline,
     api_push,
     api_recon,
@@ -123,6 +124,7 @@ app.include_router(api_cards.router)
 app.include_router(api_signs.router)
 app.include_router(api_voice.router)
 app.include_router(api_people.router)
+app.include_router(api_people_interactions.router)
 app.include_router(api_pipeline.router)
 app.include_router(api_areas.router)
 app.include_router(api_recon.router)

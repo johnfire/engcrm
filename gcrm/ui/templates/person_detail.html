@@ -93,4 +93,128 @@
     <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
   </div>
 </form>
+
+<section class="detail-section" style="margin-top: 2rem">
+  <h2>{{ t('personDetail.notes.title') }}</h2>
+
+  <form method="post" action="/people/{{ person.id }}/notes" id="person-note-form">
+    <div class="field-row field-row--wide field-row--tall">
+      <label for="person-note-text">{{ t('personDetail.notes.noteLabel') }}</label>
+      <textarea id="person-note-text" name="note" rows="3" required
+                placeholder="{{ t('personDetail.notes.notePlaceholder') }}"></textarea>
+    </div>
+    <div class="field-row">
+      <label for="person-note-method">{{ t('personDetail.notes.methodLabel') }}</label>
+      <select id="person-note-method" name="method">
+        <option value="">{{ t('personDetail.notes.methodUnspecified') }}</option>
+        <option value="call">{{ t('personDetail.notes.methodCall') }}</option>
+        <option value="visit">{{ t('personDetail.notes.methodVisit') }}</option>
+        <option value="email">{{ t('personDetail.notes.methodEmail') }}</option>
+        <option value="other">{{ t('personDetail.notes.methodOther') }}</option>
+      </select>
+    </div>
+    <div class="detail-actions">
+      <button type="button" id="person-note-record" class="btn-secondary">🎙 {{ t('personDetail.notes.record') }}</button>
+      <button type="submit" class="btn-primary">{{ t('personDetail.notes.save') }}</button>
+    </div>
+    <p id="person-note-status" class="muted small" role="status"></p>
+  </form>
+
+  {% if interactions %}
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('common.date') }}</th>
+        <th>{{ t('personDetail.notes.methodLabel') }}</th>
+        <th>{{ t('common.summary') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in interactions %}
+      <tr>
+        <td class="muted small nowrap">
+          {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
+        </td>
+        <td class="muted">{{ entry.method or '—' }}</td>
+        <td>{{ entry.note }}</td>
+        <td>
+          <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"
+                style="display: inline"
+                onsubmit="return confirm('{{ t('personDetail.notes.deleteConfirm') }}')">
+            <button class="btn-danger btn-tiny">{{ t('personDetail.notes.delete') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{{ t('personDetail.notes.empty') }}</p>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  const recordButton = document.getElementById('person-note-record');
+  const textarea = document.getElementById('person-note-text');
+  const status = document.getElementById('person-note-status');
+  if (!recordButton) return;
+
+  const T_RECORD = {{ t('personDetail.notes.record') | tojson }};
+  const T_STOP = {{ t('personDetail.notes.stop') | tojson }};
+  const T_RECORDING = {{ t('personDetail.notes.recording') | tojson }};
+  const T_TRANSCRIBING = {{ t('personDetail.notes.transcribing') | tojson }};
+  const T_MIC_NEEDED = {{ t('personDetail.notes.micNeeded') | tojson }};
+
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    recordButton.style.display = 'none';
+    return;
+  }
+
+  let mediaRecorder = null;
+  let chunks = [];
+  let recording = false;
+
+  recordButton.addEventListener('click', async () => {
+    if (recording) {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (event) => chunks.push(event.data);
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        recording = false;
+        recordButton.textContent = `🎙 ${T_RECORD}`;
+        status.textContent = T_TRANSCRIBING;
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const body = new FormData();
+        body.append('audio', blob, 'note.webm');
+        try {
+          const response = await fetch('/people/{{ person.id }}/notes/transcribe', { method: 'POST', body });
+          if (!response.ok) {
+            const detail = await response.json().catch(() => ({}));
+            throw new Error(detail.detail || response.statusText);
+          }
+          const data = await response.json();
+          textarea.value = textarea.value ? `${textarea.value}\n${data.transcript}` : data.transcript;
+          status.textContent = '';
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      };
+      mediaRecorder.start();
+      recording = true;
+      recordButton.textContent = `⏹ ${T_STOP}`;
+      status.textContent = T_RECORDING;
+    } catch (error) {
+      status.textContent = T_MIC_NEEDED;
+    }
+  });
+})();
+</script>
 {% endblock %}
