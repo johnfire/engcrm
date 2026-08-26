@@ -7,11 +7,10 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES
-from gcrm.db.connection import db
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_people import get_person, save_person, update_person
+from gcrm.tools.db_people import get_people, get_person, save_person, update_person
 from gcrm.tools.db_people_interactions import (
     delete_person_interaction,
     get_person_interactions,
@@ -28,12 +27,6 @@ _TRANSCRIBE_FAILED = "Couldn't make out any speech — try again or type your no
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
-# Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
-SORT_COLUMNS = {
-    "created_at": "created_at",
-    "name":       "lower(name)",
-}
-
 
 @router.get("/people/", response_class=HTMLResponse)
 def people_list(
@@ -42,23 +35,7 @@ def people_list(
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
 ):
-    sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
-    sort_dir = "DESC" if dir == "desc" else "ASC"
-    with db() as conn:
-        cur = conn.cursor()
-        if q:
-            cur.execute(
-                f"""
-                SELECT * FROM people
-                WHERE name ILIKE %s OR email ILIKE %s OR city ILIKE %s
-                ORDER BY {sort_col} {sort_dir}
-                """,
-                (f"%{q}%", f"%{q}%", f"%{q}%"),
-            )
-        else:
-            cur.execute(f"SELECT * FROM people ORDER BY {sort_col} {sort_dir}")
-        people = [dict(row) for row in cur.fetchall()]
-
+    people = get_people(q, sort, dir)
     return templates.TemplateResponse("people.html", {
         "request": request,
         "people": people,

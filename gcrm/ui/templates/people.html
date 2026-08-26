@@ -31,6 +31,7 @@
   <thead>
     <tr>
       <th>{{ t('common.name') }}</th>
+      <th>{{ t('personDetail.company') }}</th>
       <th>{{ t('common.city') }}</th>
       <th>{{ t('people.relationship') }}</th>
       <th>{{ t('common.email') }}</th>
@@ -45,6 +46,7 @@
     {% for p in people %}
     <tr>
       <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong></td>
+      <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% else %}—{% endif %}</td>
       <td>{{ p.city or '—' }}</td>
       <td class="muted">{{ p.relationship or '—' }}</td>
       <td class="muted small">{{ p.email or '—' }}</td>
@@ -52,7 +54,7 @@
       <td class="muted small">{% set person_website_url = p.website | browsable_url %}{% if person_website_url %}<a href="{{ person_website_url }}" target="_blank" rel="noopener noreferrer">{{ p.website }}</a>{% else %}{{ p.website or '—' }}{% endif %}</td>
       <td class="muted small">{{ p.met_at or '—' }}</td>
       <td class="muted small">{{ p.notes or '—' }}</td>
-      <td class="muted nowrap">{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '—' }}</td>
+      <td class="muted nowrap">{{ p.created_at[:10] if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>

@@ -332,7 +332,7 @@ class TestPeoplePage:
             }
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn([person])
-                with patch("gcrm.api.routers.people.db") as mock_db:
+                with patch("gcrm.tools.db_people.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
                     r = client.get(f"/people/?lang={lang}")
                 assert r.status_code == 200, r.text
