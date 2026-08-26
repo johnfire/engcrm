@@ -7,9 +7,11 @@ import imaplib
 import logging
 import smtplib
 import ssl
+import time
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 
 from gcrm.config import (
     EMAIL_ENABLED,
@@ -39,13 +41,28 @@ def _starttls_context(host: str) -> ssl.SSLContext:
     return ctx
 
 
+def _append_to_sent(msg: MIMEMultipart) -> None:
+    """Best-effort copy of a just-sent message into the account's Sent
+    folder. Failure here never affects send_email()'s return value — the
+    message already left via SMTP; this is bookkeeping, not delivery."""
+    try:
+        with imaplib.IMAP4(MAIL_IMAP_HOST, MAIL_IMAP_PORT) as imap:
+            imap.starttls(ssl_context=_starttls_context(MAIL_IMAP_HOST))
+            imap.login(MAIL_USERNAME, MAIL_PASSWORD)
+            imap.append("Sent", "\\Seen", imaplib.Time2Internaldate(time.time()), msg.as_bytes())
+    except Exception as error:
+        logger.error("append_to_sent failed: %s", error)
+
+
 def send_email(to_email: str, subject: str, body: str, from_email: str | None = None) -> bool:
     """
-    Send a plain-text email via SMTP, authenticated as MAIL_USERNAME.
+    Send a plain-text email via SMTP, authenticated as MAIL_USERNAME, and
+    file a copy in that account's Sent folder over IMAP.
     `from_email` overrides the From header (still sent through the same
     login) — the caller is responsible for validating it against
     MAIL_SENDER_OPTIONS; this function trusts whatever it's given.
-    Returns True on success, False on failure.
+    Returns True on successful send — the Sent-folder copy is best-effort
+    and doesn't affect the return value.
     """
     if not EMAIL_ENABLED:
         logger.warning("send_email: EMAIL_ENABLED=false — not sending to %s (%s)", to_email, subject)
@@ -59,6 +76,8 @@ def send_email(to_email: str, subject: str, body: str, from_email: str | None = 
     msg["Subject"] = subject
     msg["From"] = from_email or MAIL_FROM_EMAIL
     msg["To"] = to_email
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid()
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
     try:
@@ -68,6 +87,7 @@ def send_email(to_email: str, subject: str, body: str, from_email: str | None = 
             smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
             smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
         logger.info("send_email: sent to %s — %s", to_email, subject)
+        _append_to_sent(msg)
         return True
     except Exception as error:
         logger.error("send_email failed to %s: %s", to_email, error)

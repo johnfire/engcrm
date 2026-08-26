@@ -1,4 +1,4 @@
-"""STARTTLS context: verify remote certs, skip for the local Proton Bridge."""
+"""STARTTLS context: verify remote certs, skip for a loopback dev mail server."""
 import ssl
 
 from gcrm.tools.email import _starttls_context
