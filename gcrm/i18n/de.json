@@ -283,6 +283,7 @@
   "people.noPeopleFound": "Keine Personen gefunden.",
   "people.addPerson": "+ Person hinzufügen",
   "people.companyPriority": "Firmenpriorität",
+  "people.lastContact": "Letzter Kontakt",
   "contactValue.title": "Kontaktwert",
   "contactValue.short": "Meine Bewertung",
   "contactValue.privateHint": "Nur du kannst diese Bewertung sehen.",

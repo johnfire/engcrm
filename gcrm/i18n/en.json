@@ -283,6 +283,7 @@
   "people.noPeopleFound": "No people found.",
   "people.addPerson": "+ Add person",
   "people.companyPriority": "Company priority",
+  "people.lastContact": "Last contact",
   "contactValue.title": "Contact value",
   "contactValue.short": "My rating",
   "contactValue.privateHint": "Only you can see this rating.",

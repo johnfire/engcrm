@@ -132,7 +132,9 @@ _SELECT_WITH_COMPANY = (
     "company.pipeline_stage AS company_pipeline_stage, "
     "company_priority.priority AS company_personal_priority, "
     "company_opportunity.opportunity_score AS company_opportunity_score, "
-    "person_priority.priority AS value_rating "
+    "person_priority.priority AS value_rating, "
+    "(SELECT MAX(pi.occurred_at) FROM people_interactions pi "
+    " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact "
     "FROM people person "
     "LEFT JOIN contacts company ON company.id = person.contact_id "
     "LEFT JOIN ai_analysis company_opportunity "
@@ -180,8 +182,8 @@ def get_people(
     """All people (optionally filtered by name/email/city), sorted by `sort`
     (created_at|name|last_name|company|city|met_at; default newest-added-first),
     each annotated with their linked company's name, pipeline stage, opportunity
-    score, and (when user_id is given) that user's private company-priority and
-    person-value ratings."""
+    score, most recent logged interaction date, and (when user_id is given)
+    that user's private company-priority and person-value ratings."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)

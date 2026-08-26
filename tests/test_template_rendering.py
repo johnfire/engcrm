@@ -332,6 +332,7 @@ class TestPeoplePage:
                 "company": "Galerie Roth", "contact_id": 7,
                 "company_pipeline_stage": "opportunity", "company_opportunity_score": 62,
                 "company_personal_priority": 2, "value_rating": None,
+                "last_contact": "2026-08-24T15:30:00+00:00",
                 "created_at": "2026-08-20T10:00:00+00:00",
             }
             for lang in ("en", "de"):
