@@ -5,6 +5,7 @@
   "common.save": "Speichern",
   "common.cancel": "Abbrechen",
   "common.name": "Name",
+  "common.lastName": "Nachname",
   "common.city": "Stadt",
   "common.type": "Typ",
   "common.status": "Status",

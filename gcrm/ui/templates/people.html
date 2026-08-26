@@ -15,6 +15,10 @@
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
+    <option value="last_name" {% if sort == "last_name" %}selected{% endif %}>{{ t('common.lastName') }}</option>
+    <option value="company" {% if sort == "company" %}selected{% endif %}>{{ t('personDetail.company') }}</option>
+    <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
+    <option value="met_at" {% if sort == "met_at" %}selected{% endif %}>{{ t('people.metAt') }}</option>
   </select>
   <select name="dir">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
@@ -38,7 +42,6 @@
       <th class="nowrap">{{ t('common.phone') }}</th>
       <th>{{ t('common.website') }}</th>
       <th>{{ t('people.metAt') }}</th>
-      <th>{{ t('common.notes') }}</th>
       <th class="nowrap">{{ t('common.added') }}</th>
     </tr>
   </thead>
@@ -53,7 +56,6 @@
       <td class="muted small nowrap">{{ p.phone or '—' }}</td>
       <td class="muted small">{% set person_website_url = p.website | browsable_url %}{% if person_website_url %}<a href="{{ person_website_url }}" target="_blank" rel="noopener noreferrer">{{ p.website }}</a>{% else %}{{ p.website or '—' }}{% endif %}</td>
       <td class="muted small">{{ p.met_at or '—' }}</td>
-      <td class="muted small">{{ p.notes or '—' }}</td>
       <td class="muted nowrap">{{ p.created_at[:10] if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}

@@ -134,16 +134,22 @@ _SELECT_WITH_COMPANY = (
 )
 
 # Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
+# last_name strips everything up to the final space in the full name — there's
+# no dedicated last-name column, `name` is stored as one free-text string.
 SORT_COLUMNS = {
     "created_at": "person.created_at",
     "name":       "lower(person.name)",
+    "last_name":  r"lower(regexp_replace(trim(person.name), '.*\s', ''))",
+    "company":    "lower(company.name)",
+    "city":       "lower(person.city)",
+    "met_at":     "lower(person.met_at)",
 }
 
 
 def get_people(search: str = "", sort: str = "created_at", dir: str = "desc") -> list[dict]:
     """All people (optionally filtered by name/email/city), sorted by `sort`
-    (created_at|name; default newest-added-first), each annotated with their
-    linked company name."""
+    (created_at|name|last_name|company|city|met_at; default newest-added-first),
+    each annotated with their linked company name."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     with db() as conn:
