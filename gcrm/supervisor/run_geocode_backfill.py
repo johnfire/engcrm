@@ -20,7 +20,10 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
-def _backfill(table: str, query_sql: str, row_to_query, args):
+def _backfill(table: str, query_sql: str, row_to_query, args, fallback_query=None):
+    """`fallback_query(row)` is tried, with its own rate-limited request, when the
+    primary query finds nothing and the fallback text actually differs — e.g. a
+    business name Nominatim can't resolve, retried as its city alone."""
     from gcrm.db.connection import db
     from gcrm.tools.search import geocode
 
@@ -37,7 +40,13 @@ def _backfill(table: str, query_sql: str, row_to_query, args):
     logger.info("geocode backfill: %d %s(s) without coordinates", len(rows), table)
     geocoded = 0
     for index, row in enumerate(rows, 1):
-        coords = geocode(row_to_query(row), row.get("country") or "DE")
+        primary_query = row_to_query(row)
+        coords = geocode(primary_query, row.get("country") or "DE")
+        if not coords and fallback_query:
+            retry_query = fallback_query(row)
+            if retry_query and retry_query != primary_query:
+                time.sleep(1.1)
+                coords = geocode(retry_query, row.get("country") or "DE")
         if coords:
             with db() as conn:
                 conn.cursor().execute(
@@ -62,6 +71,7 @@ def main():
         "SELECT id, name, address, city, country FROM contacts WHERE latitude IS NULL ORDER BY id",
         lambda row: (row.get("address") or "").strip() or f"{row['name']} {row.get('city') or ''}".strip(),
         args,
+        fallback_query=lambda row: (row.get("city") or "").strip(),
     )
     # A person's name isn't a geocodable location — city alone is the query.
     _backfill(
