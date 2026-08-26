@@ -38,6 +38,13 @@ MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
 MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
 # From address for outgoing emails — can be an alias. Defaults to MAIL_USERNAME.
 MAIL_FROM_EMAIL: str = os.getenv("MAIL_FROM_EMAIL", "") or os.getenv("MAIL_USERNAME", "")
+# Addresses selectable as the From identity when composing an email (all send
+# through the same MAIL_USERNAME/MAIL_PASSWORD login — the mail server doesn't
+# require the From header to match the authenticated account). Comma-separated;
+# defaults to just MAIL_FROM_EMAIL when unset.
+MAIL_SENDER_OPTIONS: list[str] = [
+    addr.strip() for addr in os.getenv("MAIL_SENDER_OPTIONS", "").split(",") if addr.strip()
+] or ([MAIL_FROM_EMAIL] if MAIL_FROM_EMAIL else [])
 
 # --- App ---
 HOST: str = os.getenv("HOST", "127.0.0.1")

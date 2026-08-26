@@ -15,6 +15,16 @@
 </div>
 
 <form method="post" action="/drafts/{{ draft.id }}/approve" class="draft-edit-form">
+  {% if mail_sender_options|length > 1 %}
+  <div class="field-row">
+    <label for="draft-from">{{ t('personDetail.curiosityEmail.fromLabel') }}</label>
+    <select id="draft-from" name="from_email">
+      {% for addr in mail_sender_options %}
+      <option value="{{ addr }}" {% if addr == draft.from_email %}selected{% endif %}>{{ addr }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
   <div class="field-row field-row--wide">
     <label for="draft-subject">{{ t('common.subject') }}</label>
     <input id="draft-subject" type="text" name="final_subject" value="{{ draft.draft_subject }}" class="draft-subject-input" />

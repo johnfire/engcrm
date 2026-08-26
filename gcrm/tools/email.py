@@ -39,9 +39,12 @@ def _starttls_context(host: str) -> ssl.SSLContext:
     return ctx
 
 
-def send_email(to_email: str, subject: str, body: str) -> bool:
+def send_email(to_email: str, subject: str, body: str, from_email: str | None = None) -> bool:
     """
-    Send a plain-text email via SMTP.
+    Send a plain-text email via SMTP, authenticated as MAIL_USERNAME.
+    `from_email` overrides the From header (still sent through the same
+    login) — the caller is responsible for validating it against
+    MAIL_SENDER_OPTIONS; this function trusts whatever it's given.
     Returns True on success, False on failure.
     """
     if not EMAIL_ENABLED:
@@ -54,7 +57,7 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = MAIL_FROM_EMAIL
+    msg["From"] = from_email or MAIL_FROM_EMAIL
     msg["To"] = to_email
     msg.attach(MIMEText(body, "plain", "utf-8"))
 

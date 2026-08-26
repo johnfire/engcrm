@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
-from gcrm.config import MAX_UPLOAD_BYTES
+from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
@@ -123,6 +123,7 @@ def person_detail(
         "person": person,
         "saved": saved,
         "interactions": get_person_interactions(person_id),
+        "mail_sender_options": MAIL_SENDER_OPTIONS,
     })
 
 
@@ -205,6 +206,7 @@ def remove_note(person_id: int, note_id: int, _admin: str = Depends(require_admi
 def draft_curiosity_email_route(
     person_id: int,
     language: str = Query(default="en"),
+    from_email: str = Query(default=""),
     _admin: str = Depends(require_admin),
 ) -> dict:
     """Generates the email and immediately queues it as a held draft — review
@@ -212,12 +214,13 @@ def draft_curiosity_email_route(
     docs/plans/2026-08-26-person-curiosity-email-design.md."""
     if language not in ("en", "de"):
         language = "en"
+    sender = from_email if from_email in MAIL_SENDER_OPTIONS else None
     try:
         result = draft_curiosity_email(person_id, language)
     except LookupError:
         raise HTTPException(status_code=404, detail="Person not found")
     if "error" in result:
         return result
-    draft_id = queue_person_draft(person_id, result["subject"], result["body"])
+    draft_id = queue_person_draft(person_id, result["subject"], result["body"], sender)
     log_audit(None, None, "person.curiosity_email_drafted", f"person:{person_id}", f"draft:{draft_id}")
     return {"draft_id": draft_id}

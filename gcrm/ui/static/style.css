@@ -449,6 +449,14 @@ main.draft-detail-page {
   font-size: 0.85em;
   color: var(--muted);
 }
+.draft-edit-form select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+}
 .draft-subject-input {
   width: 100%;
   font-size: 1.1rem;

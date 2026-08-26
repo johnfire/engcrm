@@ -311,6 +311,7 @@
   "personDetail.curiosityEmail.languageLabel": "Sprache",
   "personDetail.curiosityEmail.languageEnglish": "Englisch",
   "personDetail.curiosityEmail.languageGerman": "Deutsch",
+  "personDetail.curiosityEmail.fromLabel": "Von",
   "personDetail.curiosityEmail.draftButton": "Erstkontakt-E-Mail entwerfen",
   "personDetail.curiosityEmail.drafting": "Wird entworfen…",
   "personDetail.curiosityEmail.draftFailed": "E-Mail konnte nicht entworfen werden. Erneut versuchen oder von Hand schreiben.",

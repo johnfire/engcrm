@@ -311,6 +311,7 @@
   "personDetail.curiosityEmail.languageLabel": "Language",
   "personDetail.curiosityEmail.languageEnglish": "English",
   "personDetail.curiosityEmail.languageGerman": "German",
+  "personDetail.curiosityEmail.fromLabel": "From",
   "personDetail.curiosityEmail.draftButton": "Draft first-contact email",
   "personDetail.curiosityEmail.drafting": "Drafting…",
   "personDetail.curiosityEmail.draftFailed": "Could not draft this email. Try again, or write it by hand.",

@@ -229,6 +229,17 @@
     </select>
   </div>
 
+  {% if mail_sender_options|length > 1 %}
+  <div class="field-row">
+    <label for="curiosity-from">{{ t('personDetail.curiosityEmail.fromLabel') }}</label>
+    <select id="curiosity-from">
+      {% for addr in mail_sender_options %}
+      <option value="{{ addr }}">{{ addr }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
   <div class="detail-actions">
     <button type="button" id="curiosity-draft-button" class="btn-secondary">
       <span class="opportunity-spinner" data-curiosity-spinner hidden aria-hidden="true"></span>
@@ -244,6 +255,7 @@
   if (!draftButton) return;
 
   const languageSelect = document.getElementById('curiosity-language');
+  const fromSelect = document.getElementById('curiosity-from');
   const status = document.getElementById('curiosity-status');
   const draftLabel = draftButton.querySelector('[data-curiosity-draft-label]');
   const spinner = draftButton.querySelector('[data-curiosity-spinner]');
@@ -260,8 +272,10 @@
     draftLabel.textContent = T_DRAFTING;
     status.textContent = '';
     try {
+      const params = new URLSearchParams({ language: languageSelect.value });
+      if (fromSelect) params.set('from_email', fromSelect.value);
       const response = await fetch(
-        `/people/{{ person.id }}/curiosity-email/draft?language=${languageSelect.value}`,
+        `/people/{{ person.id }}/curiosity-email/draft?${params}`,
         { method: 'POST' },
       );
       const data = await response.json();

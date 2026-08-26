@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
+from gcrm.config import MAIL_SENDER_OPTIONS
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
 
@@ -60,7 +61,7 @@ def _fetch_draft(conn, item_id: int) -> dict | None:
     cur.execute(f"""
         SELECT
             aq.id, aq.draft_subject, aq.draft_body, aq.created_at, aq.reviewer_note,
-            aq.contact_id, aq.person_id,
+            aq.contact_id, aq.person_id, aq.from_email,
             COALESCE(c.name, p.name)   AS recipient_name,
             COALESCE(c.email, p.email) AS email,
             COALESCE(c.city, p.city)   AS city
@@ -84,7 +85,9 @@ def draft_detail(request: Request, item_id: int):
         draft = _fetch_draft(conn, item_id)
     if draft is None:
         raise HTTPException(status_code=404, detail="Draft not found or not on hold")
-    return templates.TemplateResponse("draft_detail.html", {"request": request, "draft": draft})
+    return templates.TemplateResponse("draft_detail.html", {
+        "request": request, "draft": draft, "mail_sender_options": MAIL_SENDER_OPTIONS,
+    })
 
 
 @router.post("/{item_id}/approve", response_class=HTMLResponse)
@@ -93,16 +96,17 @@ def approve(
     item_id: int,
     final_subject: str = Form(default=""),
     final_body: str = Form(default=""),
+    from_email: str = Form(default=""),
     note: str = Form(default=""),
     _admin: str = Depends(require_admin),
 ):
-    """Sends the draft — final_subject/final_body (from the full-page editor)
-    override the stored draft when provided; the list page's quick actions
-    omit them and the stored draft is sent as-is."""
+    """Sends the draft — final_subject/final_body/from_email (from the
+    full-page editor) override the stored draft when provided; the list
+    page's quick actions omit them and the stored values are sent as-is."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(f"""
-            SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.person_id,
+            SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.person_id, aq.from_email,
                    COALESCE(c.email, p.email) AS email
             {_RECIPIENT_JOIN}
             WHERE aq.id = %s AND aq.status = 'on_hold'
@@ -113,10 +117,11 @@ def approve(
 
     subject = final_subject.strip() or row["draft_subject"]
     body = final_body.strip() or row["draft_body"]
+    sender = from_email if from_email in MAIL_SENDER_OPTIONS else row["from_email"]
 
     try:
         from gcrm.tools.email import send_email
-        success = send_email(to_email=row["email"] or "", subject=subject, body=body)
+        success = send_email(to_email=row["email"] or "", subject=subject, body=body, from_email=sender)
         if row["contact_id"]:
             from gcrm.tools.db import log_interaction
             log_interaction(
@@ -140,9 +145,9 @@ def approve(
         cur.execute("""
             UPDATE approval_queue
             SET status = %s, reviewed_at = NOW(), reviewer_note = %s,
-                final_subject = %s, final_body = %s
+                final_subject = %s, final_body = %s, from_email = %s
             WHERE id = %s
-        """, (final_status, note or None, subject, body, item_id))
+        """, (final_status, note or None, subject, body, sender, item_id))
         if row["contact_id"]:
             cur.execute("""
                 UPDATE contacts SET status = 'contacted', updated_at = NOW()

@@ -45,8 +45,17 @@ class TestQueuePersonDraft:
             draft_id = db_approvals.queue_person_draft(3, "Subject", "Body")
         assert draft_id == 9
         sql, params = cur.execute.call_args.args
-        assert "person_id" in sql and "'on_hold'" in sql
-        assert params == (3, "Subject", "Body")
+        assert "person_id" in sql and "from_email" in sql and "'on_hold'" in sql
+        assert params == (3, "Subject", "Body", None)
+
+    def test_stores_chosen_from_email(self):
+        conn, cur = make_mock_conn([{"id": 9}])
+        with patch("gcrm.tools.db_approvals.db") as mock_db, \
+             patch("gcrm.tools.db_approvals.log_audit"):
+            mock_db.return_value.__enter__.return_value = conn
+            db_approvals.queue_person_draft(3, "Subject", "Body", "chris@christopherrehm.de")
+        _, params = cur.execute.call_args.args
+        assert params == (3, "Subject", "Body", "chris@christopherrehm.de")
 
 
 PERSON_DRAFT_ROW = {
@@ -55,6 +64,7 @@ PERSON_DRAFT_ROW = {
     "contact_id": None,
     "person_id": 3,
     "email": "anna@example.com",
+    "from_email": None,
     "created_at": datetime.now(),
 }
 ORG_DRAFT_ROW = {
@@ -63,6 +73,7 @@ ORG_DRAFT_ROW = {
     "contact_id": 42,
     "person_id": None,
     "email": "info@acme.de",
+    "from_email": None,
     "created_at": datetime.now(),
 }
 
@@ -100,7 +111,7 @@ class TestDraftApprove:
             mock_db.return_value.__enter__.return_value = conn
             resp = client.post("/drafts/5/approve", data={}, headers={"HX-Request": "true"})
         assert resp.status_code == 200
-        send.assert_called_once_with(to_email="anna@example.com", subject=PERSON_DRAFT_ROW["draft_subject"], body=PERSON_DRAFT_ROW["draft_body"])
+        send.assert_called_once_with(to_email="anna@example.com", subject=PERSON_DRAFT_ROW["draft_subject"], body=PERSON_DRAFT_ROW["draft_body"], from_email=None)
         log_note.assert_called_once_with(3, "email", f"Sent: {PERSON_DRAFT_ROW['draft_subject']}")
         log_interaction.assert_not_called()
 
@@ -114,7 +125,7 @@ class TestDraftApprove:
             mock_db.return_value.__enter__.return_value = conn
             resp = client.post("/drafts/5/approve", data={}, headers={"HX-Request": "true"})
         assert resp.status_code == 200
-        send.assert_called_once_with(to_email="info@acme.de", subject=ORG_DRAFT_ROW["draft_subject"], body=ORG_DRAFT_ROW["draft_body"])
+        send.assert_called_once_with(to_email="info@acme.de", subject=ORG_DRAFT_ROW["draft_subject"], body=ORG_DRAFT_ROW["draft_body"], from_email=None)
         log_interaction.assert_called_once()
         assert log_interaction.call_args.kwargs["contact_id"] == 42
         log_note.assert_not_called()
@@ -131,7 +142,49 @@ class TestDraftApprove:
                 data={"final_subject": "Edited subject", "final_body": "Edited body"},
                 headers={"HX-Request": "true"},
             )
-        send.assert_called_once_with(to_email="anna@example.com", subject="Edited subject", body="Edited body")
+        send.assert_called_once_with(to_email="anna@example.com", subject="Edited subject", body="Edited body", from_email=None)
+
+    def test_stored_sender_is_used_when_no_override_given(self, admin_web):
+        row = {**PERSON_DRAFT_ROW, "from_email": "contact@christopherrehm.de"}
+        conn, cur = make_mock_conn([row])
+        with patch("gcrm.api.routers.drafts.db") as mock_db, \
+             patch("gcrm.tools.email.send_email", return_value=True) as send, \
+             patch("gcrm.tools.db_people_interactions.log_person_note"), \
+             patch("gcrm.api.routers.drafts.log_audit"):
+            mock_db.return_value.__enter__.return_value = conn
+            client.post("/drafts/5/approve", data={}, headers={"HX-Request": "true"})
+        send.assert_called_once_with(to_email="anna@example.com", subject=row["draft_subject"], body=row["draft_body"], from_email="contact@christopherrehm.de")
+
+    def test_valid_from_email_override_is_used(self, admin_web):
+        conn, cur = make_mock_conn([PERSON_DRAFT_ROW])
+        with patch("gcrm.api.routers.drafts.db") as mock_db, \
+             patch("gcrm.api.routers.drafts.MAIL_SENDER_OPTIONS", ["chris@christopherrehm.de", "contact@christopherrehm.de"]), \
+             patch("gcrm.tools.email.send_email", return_value=True) as send, \
+             patch("gcrm.tools.db_people_interactions.log_person_note"), \
+             patch("gcrm.api.routers.drafts.log_audit"):
+            mock_db.return_value.__enter__.return_value = conn
+            client.post(
+                "/drafts/5/approve",
+                data={"from_email": "contact@christopherrehm.de"},
+                headers={"HX-Request": "true"},
+            )
+        assert send.call_args.kwargs["from_email"] == "contact@christopherrehm.de"
+
+    def test_from_email_not_in_whitelist_falls_back_to_stored(self, admin_web):
+        row = {**PERSON_DRAFT_ROW, "from_email": "chris@christopherrehm.de"}
+        conn, cur = make_mock_conn([row])
+        with patch("gcrm.api.routers.drafts.db") as mock_db, \
+             patch("gcrm.api.routers.drafts.MAIL_SENDER_OPTIONS", ["chris@christopherrehm.de"]), \
+             patch("gcrm.tools.email.send_email", return_value=True) as send, \
+             patch("gcrm.tools.db_people_interactions.log_person_note"), \
+             patch("gcrm.api.routers.drafts.log_audit"):
+            mock_db.return_value.__enter__.return_value = conn
+            client.post(
+                "/drafts/5/approve",
+                data={"from_email": "attacker@evil.example"},
+                headers={"HX-Request": "true"},
+            )
+        assert send.call_args.kwargs["from_email"] == "chris@christopherrehm.de"
 
     def test_htmx_request_gets_partial_plain_request_gets_redirect(self, admin_web):
         conn, cur = make_mock_conn([PERSON_DRAFT_ROW])

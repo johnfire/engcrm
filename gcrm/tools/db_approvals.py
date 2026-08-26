@@ -94,16 +94,18 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
     return queue_id
 
 
-def queue_person_draft(person_id: int, subject: str, body: str) -> int:
+def queue_person_draft(person_id: int, subject: str, body: str, from_email: str | None = None) -> int:
     """Persist a person-targeted draft directly as 'on_hold' — it lands in the
     Drafts review page (not the org-outreach pending queue), since it isn't
-    part of the scored/automated sales pipeline."""
+    part of the scored/automated sales pipeline. `from_email` is the sender
+    identity chosen at creation time; NULL falls back to MAIL_FROM_EMAIL at
+    send time."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO approval_queue (person_id, draft_subject, draft_body, status) "
-            "VALUES (%s, %s, %s, 'on_hold') RETURNING id",
-            (person_id, subject, body),
+            "INSERT INTO approval_queue (person_id, draft_subject, draft_body, from_email, status) "
+            "VALUES (%s, %s, %s, %s, 'on_hold') RETURNING id",
+            (person_id, subject, body, from_email or None),
         )
         queue_id = cursor.fetchone()["id"]
     log_audit(None, None, "approval.queued", f"person-approval:{queue_id}", "on_hold")

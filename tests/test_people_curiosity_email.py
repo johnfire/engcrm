@@ -134,7 +134,7 @@ class TestCuriosityEmailDraftRoute:
         assert resp.status_code == 200
         assert resp.json() == {"draft_id": 77}
         draft.assert_called_once_with(3, "de")
-        queue.assert_called_once_with(3, "Curious...", "Hi Anna,...")
+        queue.assert_called_once_with(3, "Curious...", "Hi Anna,...", None)
 
     def test_invalid_language_falls_back_to_english(self, admin_web):
         with patch(
@@ -145,6 +145,28 @@ class TestCuriosityEmailDraftRoute:
              patch("gcrm.api.routers.people.log_audit"):
             client.post("/people/3/curiosity-email/draft?language=fr")
         draft.assert_called_once_with(3, "en")
+
+    def test_valid_from_email_is_passed_through(self, admin_web):
+        with patch(
+            "gcrm.api.routers.people.draft_curiosity_email",
+            return_value={"subject": "x", "body": "y"},
+        ), patch(
+            "gcrm.api.routers.people.MAIL_SENDER_OPTIONS", ["chris@christopherrehm.de", "contact@christopherrehm.de"],
+        ), patch("gcrm.api.routers.people.queue_person_draft", return_value=1) as queue, \
+             patch("gcrm.api.routers.people.log_audit"):
+            client.post("/people/3/curiosity-email/draft?from_email=contact@christopherrehm.de")
+        queue.assert_called_once_with(3, "x", "y", "contact@christopherrehm.de")
+
+    def test_from_email_not_in_whitelist_is_ignored(self, admin_web):
+        with patch(
+            "gcrm.api.routers.people.draft_curiosity_email",
+            return_value={"subject": "x", "body": "y"},
+        ), patch(
+            "gcrm.api.routers.people.MAIL_SENDER_OPTIONS", ["chris@christopherrehm.de"],
+        ), patch("gcrm.api.routers.people.queue_person_draft", return_value=1) as queue, \
+             patch("gcrm.api.routers.people.log_audit"):
+            client.post("/people/3/curiosity-email/draft?from_email=attacker@evil.example")
+        queue.assert_called_once_with(3, "x", "y", None)
 
     def test_missing_person_is_404(self, admin_web):
         with patch("gcrm.api.routers.people.draft_curiosity_email", side_effect=LookupError()):
