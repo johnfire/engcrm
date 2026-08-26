@@ -45,14 +45,20 @@ def people_list(
     q: str = "",
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
+    company_priority: str = Query(default=""),
+    value_rating: str = Query(default=""),
 ):
-    people = get_people(q, sort, dir, request.session.get("user_id"))
+    people = get_people(
+        q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
+    )
     return templates.TemplateResponse("people.html", {
         "request": request,
         "people": people,
         "query": q,
         "sort": sort,
         "dir": dir,
+        "company_priority": company_priority,
+        "value_rating": value_rating,
     })
 
 

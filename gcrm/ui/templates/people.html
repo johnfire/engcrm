@@ -11,6 +11,28 @@
 
 <form class="filter-bar" method="get" action="/people/">
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
+  <select name="company_priority" aria-label="{{ t('people.companyPriority') }}">
+    <option value="">{{ t('people.allCompanyPriorities') }}</option>
+    {% for priority in [1, 2, 3, 4, 5] %}
+    <option value="{{ priority }}" {% if company_priority == priority|string %}selected{% endif %}>
+      P{{ priority }}
+    </option>
+    {% endfor %}
+    <option value="unrated" {% if company_priority == "unrated" %}selected{% endif %}>
+      {{ t('personalPriority.unrated') }}
+    </option>
+  </select>
+  <select name="value_rating" aria-label="{{ t('contactValue.short') }}">
+    <option value="">{{ t('contactValue.all') }}</option>
+    {% for rating in [1, 2, 3, 4, 5] %}
+    <option value="{{ rating }}" {% if value_rating == rating|string %}selected{% endif %}>
+      {{ rating }}
+    </option>
+    {% endfor %}
+    <option value="unrated" {% if value_rating == "unrated" %}selected{% endif %}>
+      {{ t('personalPriority.unrated') }}
+    </option>
+  </select>
   <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
@@ -28,7 +50,7 @@
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
   <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
-  {% if query %}
+  {% if query or company_priority or value_rating %}
   <a href="/people/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
   {% endif %}
 </form>

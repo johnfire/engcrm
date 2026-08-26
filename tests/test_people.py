@@ -462,3 +462,57 @@ class TestPersonNotesMobileRoutes:
         with patch("gcrm.api.routers.api_people_interactions.delete_person_interaction", return_value=False):
             resp = client.delete("/api/people/3/notes/9", headers=AUTH)
         assert resp.status_code == 404
+
+
+class TestGetPeopleFilters:
+    """company_priority / value_rating filters on get_people — mirrors how
+    organizations.py filters by personal_priority."""
+
+    def test_no_filters_means_no_where_clause(self):
+        # last_contact is itself a correlated subquery containing "WHERE", so
+        # check for the query's own top-level filter clause specifically,
+        # not just the substring "WHERE" (which the subquery always has).
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(user_id=7)
+        sql, params = cur.execute.call_args.args
+        assert "priority = %s" not in sql and "priority IS NULL" not in sql
+        assert "person.name ILIKE" not in sql
+        assert params == [7, 7]  # the two rating-join user_id params only
+
+    def test_company_priority_filters_by_exact_value(self):
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(user_id=7, company_priority="3")
+        sql, params = cur.execute.call_args.args
+        assert "company_priority.priority = %s" in sql
+        assert params == [7, 7, 3]
+
+    def test_value_rating_unrated_filters_on_null(self):
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(user_id=7, value_rating="unrated")
+        sql, params = cur.execute.call_args.args
+        assert "person_priority.priority IS NULL" in sql
+        assert params == [7, 7]
+
+    def test_search_and_rating_filters_combine_with_and(self):
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people("anna", user_id=7, company_priority="2", value_rating="unrated")
+        sql, params = cur.execute.call_args.args
+        assert " AND " in sql.split("WHERE", 1)[1]
+        assert params == [7, 7, "%anna%", "%anna%", "%anna%", 2]
+
+    def test_invalid_rating_value_is_ignored(self):
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(user_id=7, company_priority="not-a-rating")
+        sql, params = cur.execute.call_args.args
+        assert "priority = %s" not in sql and "priority IS NULL" not in sql
+        assert params == [7, 7]

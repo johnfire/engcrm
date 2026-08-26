@@ -181,33 +181,57 @@ def _rating_joins(user_id: int | None) -> tuple[str, list]:
     )
 
 
+_RATING_VALUES = {"1", "2", "3", "4", "5"}
+
+
+def _rating_filter(conditions: list, params: list, column: str, value: str) -> None:
+    """Append a `column = n` / `column IS NULL` condition for one rating filter
+    (company_priority or value_rating), in place. A blank value is "any" and
+    adds nothing."""
+    if value in _RATING_VALUES:
+        conditions.append(f"{column} = %s")
+        params.append(int(value))
+    elif value == "unrated":
+        conditions.append(f"{column} IS NULL")
+
+
 def get_people(
-    search: str = "", sort: str = "created_at", dir: str = "desc", user_id: int | None = None,
+    search: str = "",
+    sort: str = "created_at",
+    dir: str = "desc",
+    user_id: int | None = None,
+    company_priority: str = "",
+    value_rating: str = "",
 ) -> list[dict]:
-    """All people (optionally filtered by name/email/city), sorted by `sort`
-    (created_at|name|last_name|company|city|met_at|opportunity_score|
-    company_priority|value_rating; default newest-added-first), each annotated
-    with their linked company's name, pipeline stage, opportunity score, most
-    recent logged interaction date, and (when user_id is given) that user's
-    private company-priority and person-value ratings."""
+    """All people, optionally filtered by name/email/city text search and/or
+    company_priority / value_rating ("1".."5", "unrated", or "" for any —
+    only meaningful when user_id is given, since both are private per-user),
+    sorted by `sort` (created_at|name|last_name|company|city|met_at|
+    opportunity_score|company_priority|value_rating; default newest-added-first).
+    Each row is annotated with its linked company's name, pipeline stage,
+    opportunity score, most recent logged interaction date, and (when user_id
+    is given) that user's private company-priority and person-value ratings."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
     select = _SELECT_WITH_COMPANY + rating_joins
+
+    conditions = []
+    params = list(rating_params)
+    if search:
+        like = f"%{search}%"
+        conditions.append("(person.name ILIKE %s OR person.email ILIKE %s OR person.city ILIKE %s)")
+        params += [like, like, like]
+    _rating_filter(conditions, params, "company_priority.priority", company_priority)
+    _rating_filter(conditions, params, "person_priority.priority", value_rating)
+    where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
+
     # NULLS LAST regardless of direction — an unrated/unlinked person should
     # never jump to the top of a descending sort just for lacking a value.
     order_by = f"ORDER BY {sort_col} {sort_dir} NULLS LAST"
     with db() as conn:
         cur = conn.cursor()
-        if search:
-            like = f"%{search}%"
-            cur.execute(
-                select + "WHERE person.name ILIKE %s OR person.email ILIKE %s "
-                f"OR person.city ILIKE %s {order_by}",
-                rating_params + [like, like, like],
-            )
-        else:
-            cur.execute(select + order_by, rating_params)
+        cur.execute(select + where + order_by, params)
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
