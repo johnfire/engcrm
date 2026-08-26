@@ -29,7 +29,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: backend-deploy
+  # TEMP: renamed from "backend-deploy" to dodge a permanently zombie-queued
+  # run (32986377963) from the 2026-08-26 GitHub Actions outage that GitHub's
+  # API refuses to cancel or delete, and which was blocking the old group
+  # forever. Revert this rename once a deploy has gone through cleanly.
+  group: backend-deploy-2026-08-26
   cancel-in-progress: false
 
 # Default for every job; build-deploy overrides it below with the packages:write
