@@ -146,13 +146,18 @@ _SELECT_WITH_COMPANY = (
 # Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
 # last_name strips everything up to the final space in the full name — there's
 # no dedicated last-name column, `name` is stored as one free-text string.
+# The three rating columns are only meaningful once _rating_joins/the
+# opportunity join are in the query, which get_people/get_person always add.
 SORT_COLUMNS = {
-    "created_at": "person.created_at",
-    "name":       "lower(person.name)",
-    "last_name":  r"lower(regexp_replace(trim(person.name), '.*\s', ''))",
-    "company":    "lower(company.name)",
-    "city":       "lower(person.city)",
-    "met_at":     "lower(person.met_at)",
+    "created_at":       "person.created_at",
+    "name":             "lower(person.name)",
+    "last_name":        r"lower(regexp_replace(trim(person.name), '.*\s', ''))",
+    "company":          "lower(company.name)",
+    "city":             "lower(person.city)",
+    "met_at":           "lower(person.met_at)",
+    "opportunity_score": "company_opportunity.opportunity_score",
+    "company_priority": "company_priority.priority",
+    "value_rating":     "person_priority.priority",
 }
 
 
@@ -180,25 +185,29 @@ def get_people(
     search: str = "", sort: str = "created_at", dir: str = "desc", user_id: int | None = None,
 ) -> list[dict]:
     """All people (optionally filtered by name/email/city), sorted by `sort`
-    (created_at|name|last_name|company|city|met_at; default newest-added-first),
-    each annotated with their linked company's name, pipeline stage, opportunity
-    score, most recent logged interaction date, and (when user_id is given)
-    that user's private company-priority and person-value ratings."""
+    (created_at|name|last_name|company|city|met_at|opportunity_score|
+    company_priority|value_rating; default newest-added-first), each annotated
+    with their linked company's name, pipeline stage, opportunity score, most
+    recent logged interaction date, and (when user_id is given) that user's
+    private company-priority and person-value ratings."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
     select = _SELECT_WITH_COMPANY + rating_joins
+    # NULLS LAST regardless of direction — an unrated/unlinked person should
+    # never jump to the top of a descending sort just for lacking a value.
+    order_by = f"ORDER BY {sort_col} {sort_dir} NULLS LAST"
     with db() as conn:
         cur = conn.cursor()
         if search:
             like = f"%{search}%"
             cur.execute(
                 select + "WHERE person.name ILIKE %s OR person.email ILIKE %s "
-                f"OR person.city ILIKE %s ORDER BY {sort_col} {sort_dir}",
+                f"OR person.city ILIKE %s {order_by}",
                 rating_params + [like, like, like],
             )
         else:
-            cur.execute(select + f"ORDER BY {sort_col} {sort_dir}", rating_params)
+            cur.execute(select + order_by, rating_params)
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 

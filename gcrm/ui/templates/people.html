@@ -19,6 +19,9 @@
     <option value="company" {% if sort == "company" %}selected{% endif %}>{{ t('personDetail.company') }}</option>
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
     <option value="met_at" {% if sort == "met_at" %}selected{% endif %}>{{ t('people.metAt') }}</option>
+    <option value="opportunity_score" {% if sort == "opportunity_score" %}selected{% endif %}>{{ t('organizationDetail.opportunityScore') }}</option>
+    <option value="company_priority" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriority') }}</option>
+    <option value="value_rating" {% if sort == "value_rating" %}selected{% endif %}>{{ t('contactValue.short') }}</option>
   </select>
   <select name="dir">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
