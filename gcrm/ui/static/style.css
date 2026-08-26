@@ -436,6 +436,9 @@ main.main-wide {
 }
 
 /* Draft review: one held draft, full-page editor — no cramped inline box. */
+main.draft-detail-page {
+  max-width: 80vw;
+}
 .draft-edit-form .field-row {
   margin-bottom: 1rem;
   display: flex;

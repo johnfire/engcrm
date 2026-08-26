@@ -50,3 +50,10 @@ templates = AppTemplates(directory=str(UI_DIR / "templates"))
 templates.env.filters["urlenc"] = quote_plus
 templates.env.filters["browsable_url"] = browsable_url
 templates.env.filters["tojson"] = tojson_filter
+
+# Cache-busting query param for /static assets, so a deploy that changes CSS/JS
+# doesn't sit behind a browser's stale cached copy of a URL that never changes.
+# Read once per process (mtime, not content hash — Docker's COPY sets it to
+# build time, which already changes on every deploy).
+_style_css = UI_DIR / "static" / "style.css"
+templates.env.globals["static_version"] = str(int(_style_css.stat().st_mtime)) if _style_css.exists() else "0"
