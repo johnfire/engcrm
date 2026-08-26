@@ -6,6 +6,7 @@ contact via people.contact_id — e.g. the individual on a scanned business card
 import logging
 
 from gcrm.db.connection import db, serialize_row
+from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,16 @@ def save_person(
             """
             INSERT INTO people
                 (name, title, email, phone, website, city, country, relationship,
-                 notes, met_at, contact_id, source)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 notes, met_at, contact_id, source, workspace_id)
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
+            )
             RETURNING id
             """,
             (name, title or None, email or None, phone or None, website or None,
              city or None, country or None, relationship or None, notes or None,
-             met_at or None, contact_id, source or None),
+             met_at or None, contact_id, source or None, get_workspace_id()),
         )
         person_id = cur.fetchone()["id"]
         logger.info("save_person: created id=%d  %s (contact_id=%s)", person_id, name, contact_id)

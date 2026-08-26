@@ -60,6 +60,24 @@ class TestSavePerson:
             for call in cur.execute.call_args_list
         )
 
+    def test_insert_sets_workspace_id_from_the_request_context(self):
+        """Regression: save_person() used to omit workspace_id entirely, so every
+        person ended up NULL-workspace and workspace-scoped checks (e.g.
+        set_person_value_rating's contact/person match) could never succeed."""
+        conn, cur = make_mock_conn()
+        # no email, so only the name-dedup miss then INSERT ... RETURNING id
+        cur.fetchone.side_effect = [None, {"id": 13}]
+        with (
+            patch("gcrm.tools.db_people.db") as mock_db,
+            patch("gcrm.tools.db_people.get_workspace_id", return_value=5),
+        ):
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth")
+        insert = cur.execute.call_args_list[-1]
+        assert "workspace_id" in insert.args[0]
+        assert "COALESCE" in insert.args[0]
+        assert insert.args[1][-1] == 5
+
 
 class TestMetAtOnRescan:
     """A re-scan deduping onto an existing person must still record the new
