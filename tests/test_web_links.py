@@ -16,7 +16,7 @@ PERSON_ROW = {
     "phone": "+49 821 555 12", "website": "galerie-nord.de", "city": "Augsburg", "country": "DE",
     "relationship": None, "notes": None, "met_at": None,
     "contact_id": 42, "company": "Galerie Nord", "source": "card_capture",
-    "created_at": "2026-08-19T10:00:00+00:00",
+    "created_at": "2026-08-19T10:00:00+00:00", "distance_km": None,
 }
 
 CONTACT_ROW = {
@@ -24,6 +24,7 @@ CONTACT_ROW = {
     "status": "candidate", "email": "a@acme.de", "website": "acme.de", "fit_score": 80,
     "notes": None, "flagged": False, "starred": False, "personal_priority": None,
     "last_contact": None, "address": None, "phone": None, "source": None, "maps_uri": None,
+    "distance_km": None,
     "created_at": "2026-08-19T10:00:00+00:00", "decision_maker": None,
     "preferred_contact_method": None, "best_visit_time": None, "visit_duration": None,
     "last_visited_at": None, "first_impression": None, "last_impression": None,

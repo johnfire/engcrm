@@ -26,7 +26,8 @@ class TestSaveOrganization:
         # First fetchone = no duplicate; second = RETURNING id; third = no existing consent_log
         cur.fetchone.side_effect = [None, {"id": 42}, None]
 
-        with patch("gcrm.tools.db.db") as mock_db:
+        with patch("gcrm.tools.db.db") as mock_db, \
+             patch("gcrm.tools.db_organizations.geocode", return_value=None):
             mock_db.return_value.__enter__.return_value = conn
             result = save_organization("Galerie Nord", "Munich", country="DE", type="gallery")
 
@@ -45,6 +46,38 @@ class TestSaveOrganization:
         # 0 = "not newly created". The research agent and import_studies both rely
         # on a falsy return to skip/count duplicates instead of re-processing them.
         assert result == 0
+
+    def test_geocodes_new_organization_from_city_when_no_google_data(self):
+        from gcrm.tools.db import save_organization
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 42}, None]
+
+        with patch("gcrm.tools.db.db") as mock_db, \
+             patch("gcrm.tools.db_organizations.geocode", return_value=(48.1, 11.5)) as mgeocode:
+            mock_db.return_value.__enter__.return_value = conn
+            save_organization("Galerie Nord", "Munich", country="DE")
+
+        mgeocode.assert_called_once_with("Munich", "DE")
+        insert = next(
+            call for call in cur.execute.call_args_list if "INSERT INTO contacts" in call.args[0]
+        )
+        assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
+        assert (48.1, 11.5) == insert.args[1][13:15]
+
+    def test_skips_geocoding_when_google_data_has_coords(self):
+        from gcrm.tools.db import save_organization
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 42}, None]
+
+        with patch("gcrm.tools.db.db") as mock_db, \
+             patch("gcrm.tools.db_organizations.geocode") as mgeocode:
+            mock_db.return_value.__enter__.return_value = conn
+            save_organization(
+                "Galerie Nord", "Munich", country="DE",
+                google={"latitude": 48.2, "longitude": 11.6},
+            )
+
+        mgeocode.assert_not_called()
 
 
 class TestCheckCompliance:

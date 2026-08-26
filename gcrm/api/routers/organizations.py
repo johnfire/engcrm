@@ -8,6 +8,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
+from gcrm.geo import distance_km_sql
 from gcrm.organization_state import (
     PIPELINE_STAGES,
     STATUSES,
@@ -38,7 +39,10 @@ SORT_COLUMNS = {
     "starred":      "c.starred",
     "last_contact": "MAX(i.interaction_date)",
     "created_at":   "c.created_at",
+    "distance":     "distance_km",
 }
+
+_DISTANCE_KM_SQL = distance_km_sql("c.latitude", "c.longitude")
 
 
 class PersonalPriorityBody(BaseModel):
@@ -123,7 +127,8 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
-                MAX(i.interaction_date) AS last_contact
+                MAX(i.interaction_date) AS last_contact,
+                ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
@@ -244,7 +249,8 @@ def organization_print(
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes,
                 cup.priority AS personal_priority,
-                MAX(i.interaction_date) AS last_contact
+                MAX(i.interaction_date) AS last_contact,
+                ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
@@ -307,7 +313,8 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         workspace_filter = "AND c.workspace_id = %s" if workspace_id is not None else ""
         cur.execute(
             f"""
-            SELECT c.*, cup.priority AS personal_priority
+            SELECT c.*, cup.priority AS personal_priority,
+                   ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}
             WHERE c.id = %s

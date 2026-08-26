@@ -6,6 +6,8 @@ contact via people.contact_id — e.g. the individual on a scanned business card
 import logging
 
 from gcrm.db.connection import db, serialize_row
+from gcrm.geo import distance_km_sql
+from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,10 @@ def save_person(
     On a dedup hit the existing row is left as-is except for `met_at`, which a
     re-scan is allowed to update (a person can be met somewhere new). Every
     other field still belongs to whoever created the row first.
+
+    A new row is geocoded from `city`/`country` (via Nominatim) so distance-
+    from-home can be shown and sorted on — best-effort, city-level accuracy;
+    failures leave latitude/longitude NULL rather than blocking the save.
     """
     with db() as conn:
         cur = conn.cursor()
@@ -73,20 +79,27 @@ def save_person(
             logger.debug("save_person: name duplicate — %s (contact_id=%s)", name, contact_id)
             return _refresh_met_at(cur, existing["id"], met_at)
 
+        latitude = longitude = None
+        if city:
+            coords = geocode(city, country)
+            if coords:
+                latitude, longitude = coords
+
         cur.execute(
             """
             INSERT INTO people
                 (name, title, email, phone, website, city, country, relationship,
-                 notes, met_at, contact_id, source, workspace_id)
+                 notes, met_at, contact_id, source, latitude, longitude, workspace_id)
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
             (name, title or None, email or None, phone or None, website or None,
              city or None, country or None, relationship or None, notes or None,
-             met_at or None, contact_id, source or None, get_workspace_id()),
+             met_at or None, contact_id, source or None, latitude, longitude,
+             get_workspace_id()),
         )
         person_id = cur.fetchone()["id"]
         logger.info("save_person: created id=%d  %s (contact_id=%s)", person_id, name, contact_id)
@@ -130,6 +143,11 @@ def update_person(person_id: int, values: dict) -> bool:
     return True
 
 
+_DISTANCE_KM_SQL = distance_km_sql(
+    "COALESCE(person.latitude, company.latitude)",
+    "COALESCE(person.longitude, company.longitude)",
+)
+
 _SELECT_WITH_COMPANY = (
     "SELECT person.*, company.name AS company, "
     "company.preferred_language AS company_language, "
@@ -138,7 +156,8 @@ _SELECT_WITH_COMPANY = (
     "company_opportunity.opportunity_score AS company_opportunity_score, "
     "person_priority.priority AS value_rating, "
     "(SELECT MAX(pi.occurred_at) FROM people_interactions pi "
-    " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact "
+    " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact, "
+    f"({_DISTANCE_KM_SQL}) AS distance_km "
     "FROM people person "
     "LEFT JOIN contacts company ON company.id = person.contact_id "
     "LEFT JOIN ai_analysis company_opportunity "
@@ -162,6 +181,7 @@ SORT_COLUMNS = {
     "opportunity_score": "company_opportunity.opportunity_score",
     "company_priority": "company_priority.priority",
     "value_rating":     "person_priority.priority",
+    "distance":         "distance_km",
 }
 
 
@@ -211,7 +231,7 @@ def get_people(
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
     only meaningful when user_id is given, since both are private per-user),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
-    opportunity_score|company_priority|value_rating; default newest-added-first).
+    opportunity_score|company_priority|value_rating|distance; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
     opportunity score, most recent logged interaction date, and (when user_id
     is given) that user's private company-priority and person-value ratings."""

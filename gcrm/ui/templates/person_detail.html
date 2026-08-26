@@ -11,6 +11,7 @@
     {%- if person.company %}
     <a href="/organizations/{{ person.contact_id }}">{{ person.company }}</a>
     {%- endif -%}
+    {%- if person.distance_km is not none %} · {{ person.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif -%}
   </span>
 </div>
 

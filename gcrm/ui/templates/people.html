@@ -44,6 +44,7 @@
     <option value="opportunity_score" {% if sort == "opportunity_score" %}selected{% endif %}>{{ t('organizationDetail.opportunityScore') }}</option>
     <option value="company_priority" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriority') }}</option>
     <option value="value_rating" {% if sort == "value_rating" %}selected{% endif %}>{{ t('contactValue.short') }}</option>
+    <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
   </select>
   <select name="dir">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
@@ -68,6 +69,7 @@
       <th>{{ t('people.relationship') }}</th>
       <th>{{ t('contactValue.short') }}</th>
       <th class="nowrap">{{ t('people.lastContact') }}</th>
+      <th class="nowrap">{{ t('common.distanceKm') }}</th>
       <th class="nowrap">{{ t('common.added') }}</th>
     </tr>
   </thead>
@@ -95,6 +97,7 @@
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td class="muted nowrap">{{ p.last_contact[:10] if p.last_contact else '—' }}</td>
+      <td class="muted nowrap">{{ p.distance_km|round|int if p.distance_km is not none else '—' }}</td>
       <td class="muted nowrap">{{ p.created_at[:10] if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}

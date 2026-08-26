@@ -78,6 +78,31 @@ class TestSavePerson:
         assert "COALESCE" in insert.args[0]
         assert insert.args[1][-1] == 5
 
+    def test_geocodes_new_person_from_city(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 14}]
+        with (
+            patch("gcrm.tools.db_people.db") as mock_db,
+            patch("gcrm.tools.db_people.geocode", return_value=(48.1, 10.8)) as mgeocode,
+        ):
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth", city="Augsburg", country="DE")
+        mgeocode.assert_called_once_with("Augsburg", "DE")
+        insert = cur.execute.call_args_list[-1]
+        assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
+        assert (48.1, 10.8) == insert.args[1][12:14]
+
+    def test_skips_geocoding_when_deduped(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [{"id": 7}]  # email match
+        with (
+            patch("gcrm.tools.db_people.db") as mock_db,
+            patch("gcrm.tools.db_people.geocode") as mgeocode,
+        ):
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna", email="anna@acme.de", city="Augsburg")
+        mgeocode.assert_not_called()
+
 
 class TestMetAtOnRescan:
     """A re-scan deduping onto an existing person must still record the new
@@ -178,7 +203,7 @@ PERSON_ROW = {
     "phone": "+49 821 555 12", "website": None, "city": "Augsburg", "country": "DE",
     "relationship": None, "notes": "Met at the spring fair.", "met_at": "Kunstmesse Augsburg",
     "contact_id": 42, "company": "Galerie Nord", "source": "card_capture",
-    "created_at": "2026-08-19T10:00:00+00:00",
+    "created_at": "2026-08-19T10:00:00+00:00", "distance_km": None,
 }
 
 
@@ -534,3 +559,12 @@ class TestGetPeopleFilters:
         sql, params = cur.execute.call_args.args
         assert "priority = %s" not in sql and "priority IS NULL" not in sql
         assert params == [7, 7]
+
+    def test_sort_by_distance_orders_on_distance_km(self):
+        conn, cur = make_mock_conn([])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(sort="distance", dir="asc")
+        sql, params = cur.execute.call_args.args
+        assert "AS distance_km" in sql
+        assert "ORDER BY distance_km ASC NULLS LAST" in sql

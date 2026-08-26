@@ -79,6 +79,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="personal_priority" {% if sort == "personal_priority" %}selected{% endif %}>{{ t('personalPriority.title') }}</option>
     <option value="starred" {% if sort == "starred" %}selected{% endif %}>{{ t('organizations.colStarred') }}</option>
     <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('organizations.colLastContact') }}</option>
+    <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
     <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('organizations.colId') }}</option>
   </select>
   <select name="dir">
@@ -121,6 +122,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th>{{ sort_link('fit', t('organizations.colFit')) }}</th>
       <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>
       <th>{{ sort_link('last_contact', t('organizations.colLastContact')) }}</th>
+      <th>{{ sort_link('distance', t('common.distanceKm')) }}</th>
       <th>{{ sort_link('created_at', t('common.added'), 'desc') }}</th>
       <th>{{ t('common.email') }}</th>
       <th>{{ t('common.website') }}</th>
@@ -163,6 +165,9 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       </td>
       <td class="muted">
         {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
+      </td>
+      <td class="muted">
+        {{ c.distance_km|round|int if c.distance_km is not none else '—' }}
       </td>
       <td class="muted">
         {{ c.created_at.strftime('%Y-%m-%d') if c.created_at else '—' }}

@@ -59,7 +59,7 @@ CONTACT_ROW = {
     "do_not_contact": False, "email_bounced": False, "research_exhausted": False,
     "email": "a@acme.de", "website": "https://acme.de", "fit_score": 80,
     "notes": "Test note", "flagged": False, "starred": False,
-    "personal_priority": None, "last_contact": None,
+    "personal_priority": None, "last_contact": None, "distance_km": None,
 }
 
 INTERACTION_ROW = {
@@ -333,6 +333,7 @@ class TestPeoplePage:
                 "company_pipeline_stage": "opportunity", "company_opportunity_score": 62,
                 "company_personal_priority": 2, "value_rating": None,
                 "last_contact": "2026-08-24T15:30:00+00:00",
+                "distance_km": 42.7,
                 "created_at": "2026-08-20T10:00:00+00:00",
             }
             for lang in ("en", "de"):

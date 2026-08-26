@@ -4,7 +4,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   <h1>{{ organization.name }}</h1>
   <span class="muted"
     >{{ organization.city }}{% if organization.country %} · {{ organization.country }}{% endif
-    %} ·
+    %}{% if organization.distance_km is not none %} · {{ organization.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif %} ·
     <span class="badge badge-{{ organization.status }}"
       >{{ organization.status }}</span
     ></span

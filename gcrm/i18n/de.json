@@ -7,6 +7,7 @@
   "common.name": "Name",
   "common.lastName": "Nachname",
   "common.city": "Stadt",
+  "common.distanceKm": "Entfernung (km)",
   "common.type": "Typ",
   "common.status": "Status",
   "common.email": "E-Mail",

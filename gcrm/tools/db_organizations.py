@@ -18,6 +18,7 @@ from gcrm.organization_state import (
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
+from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ def save_organization(
             cols["user_ratings"],
         )
         google_json = Json(cols["google_data"])
+
     with db() as conn:
         cur = conn.cursor()
         # Skip names matching the ignored-chains blocklist
@@ -139,6 +141,14 @@ def save_organization(
         if cur.fetchone():
             logger.debug("save_organization: duplicate skipped — %s / %s", name, city)
             return 0
+
+        # Scanned businesses already carry coords from Google Places; a manual
+        # or voice-created contact doesn't, so fall back to geocoding by city
+        # (best-effort, city-level accuracy) for distance-from-home to work.
+        if latitude is None and city:
+            coords = geocode(city, country)
+            if coords:
+                latitude, longitude = coords
 
         cur.execute(
             """
