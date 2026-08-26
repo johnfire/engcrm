@@ -327,8 +327,12 @@ class TestPeoplePage:
         with_login_session()
         try:
             person = {
-                "name": "Anna Roth", "city": "Augsburg", "relationship": "owner",
+                "id": 3, "name": "Anna Roth", "city": "Augsburg", "relationship": "owner",
                 "email": "anna@acme.de", "phone": "+49 1", "website": None, "notes": None,
+                "company": "Galerie Roth", "contact_id": 7,
+                "company_pipeline_stage": "opportunity", "company_opportunity_score": 62,
+                "company_personal_priority": 2, "value_rating": None,
+                "created_at": "2026-08-20T10:00:00+00:00",
             }
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn([person])

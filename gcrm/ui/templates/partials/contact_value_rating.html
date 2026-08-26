@@ -1,0 +1,104 @@
+<section
+  class="personal-priority"
+  data-contact-value-rating
+  data-person-id="{{ person.id }}"
+>
+  <div>
+    <h2>{{ t('contactValue.title') }}</h2>
+    <p class="muted small">{{ t('contactValue.privateHint') }}</p>
+  </div>
+  {% if request.session.get('user_id') %}
+  <div
+    class="personal-priority__choices"
+    role="group"
+    aria-label="{{ t('contactValue.title') }}"
+  >
+    {% for value, label_key in [
+      (1, 'contactValue.exceptional'),
+      (2, 'contactValue.high'),
+      (3, 'contactValue.medium'),
+      (4, 'contactValue.low'),
+      (5, 'contactValue.minimal')
+    ] %}
+    <button
+      type="button"
+      class="personal-priority__button{% if person.value_rating == value %} selected{% endif %}"
+      data-priority-value="{{ value }}"
+      aria-pressed="{{ 'true' if person.value_rating == value else 'false' }}"
+    >
+      {{ value }} {{ t(label_key) }}
+    </button>
+    {% endfor %}
+    <button
+      type="button"
+      class="personal-priority__clear"
+      data-priority-value=""
+      {% if person.value_rating is none %}disabled{% endif %}
+    >
+      {{ t('contactValue.clear') }}
+    </button>
+  </div>
+  <p class="muted small" role="status" aria-live="polite" data-priority-status></p>
+  {% else %}
+  <p class="muted small">{{ t('contactValue.accountRequired') }}</p>
+  {% endif %}
+</section>
+
+<script>
+  (() => {
+    const panel = document.querySelector("[data-contact-value-rating]");
+    if (!panel) return;
+    const buttons = [...panel.querySelectorAll("[data-priority-value]")];
+    const status = panel.querySelector("[data-priority-status]");
+    if (!buttons.length || !status) return;
+
+    const updateSelection = (priority) => {
+      buttons.forEach((button) => {
+        const isSelected = button.dataset.priorityValue === priority;
+        if (button.classList.contains("personal-priority__button")) {
+          button.classList.toggle("selected", isSelected);
+          button.setAttribute("aria-pressed", String(isSelected));
+        }
+        if (button.classList.contains("personal-priority__clear")) {
+          button.disabled = priority === "";
+        }
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", async () => {
+        const previous = panel.querySelector('[aria-pressed="true"]')?.dataset.priorityValue || "";
+        const priority = button.dataset.priorityValue;
+        buttons.forEach((choice) => {
+          choice.disabled = true;
+          choice.setAttribute("aria-busy", "true");
+        });
+        status.textContent = "{{ t('contactValue.saving') }}";
+        try {
+          const response = await fetch(
+            `/people/${panel.dataset.personId}/value-rating`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ priority: priority === "" ? null : Number(priority) }),
+            },
+          );
+          if (!response.ok) throw new Error("save failed");
+          updateSelection(priority);
+          status.textContent = "{{ t('contactValue.saved') }}";
+        } catch {
+          updateSelection(previous);
+          status.textContent = "{{ t('contactValue.saveFailed') }}";
+        } finally {
+          buttons.forEach((choice) => {
+            choice.removeAttribute("aria-busy");
+            choice.disabled = false;
+          });
+          const clearButton = panel.querySelector(".personal-priority__clear");
+          if (clearButton) clearButton.disabled =
+            !panel.querySelector('.personal-priority__button[aria-pressed="true"]');
+        }
+      });
+    });
+  })();
+</script>

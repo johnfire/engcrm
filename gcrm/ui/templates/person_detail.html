@@ -18,6 +18,8 @@
 <div class="flash-success">{{ t('personDetail.saved') }}</div>
 {% endif %}
 
+{% include 'partials/contact_value_rating.html' %}
+
 <form method="post" action="/people/{{ person.id }}/edit" class="person-edit-form">
   <div class="detail-grid">
     <section class="detail-section">

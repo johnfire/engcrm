@@ -36,12 +36,12 @@
     <tr>
       <th>{{ t('common.name') }}</th>
       <th>{{ t('personDetail.company') }}</th>
+      <th>{{ t('common.pipelineStage') }}</th>
+      <th>{{ t('organizationDetail.opportunityScore') }}</th>
+      <th>{{ t('people.companyPriority') }}</th>
       <th>{{ t('common.city') }}</th>
       <th>{{ t('people.relationship') }}</th>
-      <th>{{ t('common.email') }}</th>
-      <th class="nowrap">{{ t('common.phone') }}</th>
-      <th>{{ t('common.website') }}</th>
-      <th>{{ t('people.metAt') }}</th>
+      <th>{{ t('contactValue.short') }}</th>
       <th class="nowrap">{{ t('common.added') }}</th>
     </tr>
   </thead>
@@ -50,12 +50,24 @@
     <tr>
       <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong></td>
       <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% else %}—{% endif %}</td>
+      <td>
+        {% if p.company_pipeline_stage %}
+        <span class="badge badge-stage-{{ p.company_pipeline_stage }}">{{ t('stage.' ~ p.company_pipeline_stage) }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>{{ p.company_opportunity_score if p.company_opportunity_score is not none else '—' }}</td>
+      <td>
+        {% if p.company_personal_priority is not none %}
+        <span class="personal-priority-badge">P{{ p.company_personal_priority }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
       <td>{{ p.city or '—' }}</td>
       <td class="muted">{{ p.relationship or '—' }}</td>
-      <td class="muted small">{{ p.email or '—' }}</td>
-      <td class="muted small nowrap">{{ p.phone or '—' }}</td>
-      <td class="muted small">{% set person_website_url = p.website | browsable_url %}{% if person_website_url %}<a href="{{ person_website_url }}" target="_blank" rel="noopener noreferrer">{{ p.website }}</a>{% else %}{{ p.website or '—' }}{% endif %}</td>
-      <td class="muted small">{{ p.met_at or '—' }}</td>
+      <td>
+        {% if p.value_rating is not none %}
+        <span class="personal-priority-badge">{{ p.value_rating }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
       <td class="muted nowrap">{{ p.created_at[:10] if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}

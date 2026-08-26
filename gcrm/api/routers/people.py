@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
@@ -10,7 +11,13 @@ from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_people import get_people, get_person, save_person, update_person
+from gcrm.tools.db_people import (
+    get_people,
+    get_person,
+    save_person,
+    set_person_value_rating,
+    update_person,
+)
 from gcrm.tools.db_people_interactions import (
     delete_person_interaction,
     get_person_interactions,
@@ -28,6 +35,10 @@ _TRANSCRIBE_FAILED = "Couldn't make out any speech — try again or type your no
 router = APIRouter(dependencies=[Depends(require_login)])
 
 
+class PersonValueRatingBody(BaseModel):
+    priority: int | None = None
+
+
 @router.get("/people/", response_class=HTMLResponse)
 def people_list(
     request: Request,
@@ -35,7 +46,7 @@ def people_list(
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
 ):
-    people = get_people(q, sort, dir)
+    people = get_people(q, sort, dir, request.session.get("user_id"))
     return templates.TemplateResponse("people.html", {
         "request": request,
         "people": people,
@@ -92,7 +103,7 @@ def person_detail(
     person_id: int,
     saved: bool = Query(default=False),
 ):
-    person = get_person(person_id)
+    person = get_person(person_id, request.session.get("user_id"))
     if person is None:
         raise HTTPException(status_code=404, detail="Person not found")
     return templates.TemplateResponse("person_detail.html", {
@@ -102,6 +113,31 @@ def person_detail(
         "interactions": get_person_interactions(person_id),
         "mail_sender_options": MAIL_SENDER_OPTIONS,
     })
+
+
+@router.put("/people/{person_id}/value-rating")
+def update_person_value_rating(
+    person_id: int,
+    body: PersonValueRatingBody,
+    request: Request,
+):
+    """Set or clear the signed-in user's private value-as-a-contact rating for one person."""
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    if body.priority is not None and body.priority not in range(1, 6):
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+
+    person_found, stored_rating = set_person_value_rating(
+        user_id, workspace_id, person_id, body.priority,
+    )
+    if not person_found:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    outcome = "cleared" if stored_rating is None else f"set:{stored_rating}"
+    log_audit(None, None, "person.value_rating_changed", f"person:{person_id}", outcome)
+    return {"value_rating": stored_rating}
 
 
 @router.post("/people/{person_id}/edit")

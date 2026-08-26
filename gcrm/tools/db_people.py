@@ -128,9 +128,17 @@ def update_person(person_id: int, values: dict) -> bool:
 
 _SELECT_WITH_COMPANY = (
     "SELECT person.*, company.name AS company, "
-    "company.preferred_language AS company_language "
+    "company.preferred_language AS company_language, "
+    "company.pipeline_stage AS company_pipeline_stage, "
+    "company_priority.priority AS company_personal_priority, "
+    "company_opportunity.opportunity_score AS company_opportunity_score, "
+    "person_priority.priority AS value_rating "
     "FROM people person "
     "LEFT JOIN contacts company ON company.id = person.contact_id "
+    "LEFT JOIN ai_analysis company_opportunity "
+    "ON company_opportunity.contact_id = company.id "
+    "AND company_opportunity.analysis_kind = 'opportunity' "
+    "AND company_opportunity.deleted_at IS NULL "
 )
 
 # Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
@@ -146,30 +154,128 @@ SORT_COLUMNS = {
 }
 
 
-def get_people(search: str = "", sort: str = "created_at", dir: str = "desc") -> list[dict]:
+def _rating_joins(user_id: int | None) -> tuple[str, list]:
+    """The two private per-user rating joins (company priority, person value
+    rating), placed right after the FROM/company JOIN in _SELECT_WITH_COMPANY.
+    Without a signed-in user_id both are unconditionally FALSE so the columns
+    come back NULL rather than leaking another user's ratings."""
+    if user_id is None:
+        return (
+            "LEFT JOIN contact_user_priorities company_priority ON FALSE "
+            "LEFT JOIN person_user_priorities person_priority ON FALSE ",
+            [],
+        )
+    return (
+        "LEFT JOIN contact_user_priorities company_priority "
+        "ON company_priority.contact_id = company.id AND company_priority.user_id = %s "
+        "LEFT JOIN person_user_priorities person_priority "
+        "ON person_priority.person_id = person.id AND person_priority.user_id = %s ",
+        [user_id, user_id],
+    )
+
+
+def get_people(
+    search: str = "", sort: str = "created_at", dir: str = "desc", user_id: int | None = None,
+) -> list[dict]:
     """All people (optionally filtered by name/email/city), sorted by `sort`
     (created_at|name|last_name|company|city|met_at; default newest-added-first),
-    each annotated with their linked company name."""
+    each annotated with their linked company's name, pipeline stage, opportunity
+    score, and (when user_id is given) that user's private company-priority and
+    person-value ratings."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
+    rating_joins, rating_params = _rating_joins(user_id)
+    select = _SELECT_WITH_COMPANY + rating_joins
     with db() as conn:
         cur = conn.cursor()
         if search:
             like = f"%{search}%"
             cur.execute(
-                _SELECT_WITH_COMPANY + "WHERE person.name ILIKE %s OR person.email ILIKE %s "
+                select + "WHERE person.name ILIKE %s OR person.email ILIKE %s "
                 f"OR person.city ILIKE %s ORDER BY {sort_col} {sort_dir}",
-                (like, like, like),
+                rating_params + [like, like, like],
             )
         else:
-            cur.execute(_SELECT_WITH_COMPANY + f"ORDER BY {sort_col} {sort_dir}")
+            cur.execute(select + f"ORDER BY {sort_col} {sort_dir}", rating_params)
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 
 
-def get_person(person_id: int) -> dict | None:
-    """One person with their linked company name, or None if not found."""
+def get_person(person_id: int, user_id: int | None = None) -> dict | None:
+    """One person with their linked company's name, pipeline stage, opportunity
+    score, and (when user_id is given) that user's private ratings — or None if
+    not found."""
+    rating_joins, rating_params = _rating_joins(user_id)
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(_SELECT_WITH_COMPANY + "WHERE person.id = %s", (person_id,))
+        cur.execute(
+            _SELECT_WITH_COMPANY + rating_joins + "WHERE person.id = %s",
+            rating_params + [person_id],
+        )
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None
+
+
+def get_person_value_rating(user_id: int, workspace_id: int, person_id: int) -> int | None:
+    """Return one user's private value-as-a-contact rating for one person."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT priority
+            FROM person_user_priorities
+            WHERE user_id = %s AND workspace_id = %s AND person_id = %s
+            """,
+            (user_id, workspace_id, person_id),
+        )
+        row = cur.fetchone()
+        return row["priority"] if row else None
+
+
+def set_person_value_rating(
+    user_id: int, workspace_id: int, person_id: int, rating: int | None,
+) -> tuple[bool, int | None]:
+    """Set or clear a user's private value-as-a-contact rating for one person,
+    returning (person_found, stored_rating)."""
+    if rating is not None and rating not in range(1, 6):
+        raise ValueError("Contact value rating must be between 1 and 5")
+
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT 1
+            FROM people p
+            JOIN users u
+              ON u.id = %s
+             AND u.workspace_id = %s
+             AND u.is_active = TRUE
+            WHERE p.id = %s
+              AND p.workspace_id = u.workspace_id
+            """,
+            (user_id, workspace_id, person_id),
+        )
+        if cur.fetchone() is None:
+            return False, None
+
+        if rating is None:
+            cur.execute(
+                "DELETE FROM person_user_priorities "
+                "WHERE user_id = %s AND workspace_id = %s AND person_id = %s",
+                (user_id, workspace_id, person_id),
+            )
+            return True, None
+
+        cur.execute(
+            """
+            INSERT INTO person_user_priorities (workspace_id, user_id, person_id, priority)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (user_id, person_id)
+            DO UPDATE SET
+                priority = EXCLUDED.priority,
+                workspace_id = EXCLUDED.workspace_id,
+                updated_at = NOW()
+            RETURNING priority
+            """,
+            (workspace_id, user_id, person_id, rating),
+        )
+        return True, cur.fetchone()["priority"]
