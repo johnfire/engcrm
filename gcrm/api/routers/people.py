@@ -9,6 +9,7 @@ from gcrm.api.templates import templates
 from gcrm.config import MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools.curiosity_email import draft_curiosity_email
+from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import get_person, save_person, update_person
 from gcrm.tools.db_people_interactions import (
@@ -16,7 +17,6 @@ from gcrm.tools.db_people_interactions import (
     get_person_interactions,
     log_person_note,
 )
-from gcrm.tools.email import send_email
 from gcrm.tools.email_extract import extract_person_from_email
 from gcrm.tools.transcribe import transcribe
 
@@ -207,35 +207,17 @@ def draft_curiosity_email_route(
     language: str = Query(default="en"),
     _admin: str = Depends(require_admin),
 ) -> dict:
-    """No DB write — the Send button is the write. See
+    """Generates the email and immediately queues it as a held draft — review
+    and sending happen on the Drafts page, not here. See
     docs/plans/2026-08-26-person-curiosity-email-design.md."""
     if language not in ("en", "de"):
         language = "en"
     try:
-        return draft_curiosity_email(person_id, language)
+        result = draft_curiosity_email(person_id, language)
     except LookupError:
         raise HTTPException(status_code=404, detail="Person not found")
-
-
-@router.post("/people/{person_id}/curiosity-email/send")
-def send_curiosity_email(
-    person_id: int,
-    body: dict = Body(...),
-    _admin: str = Depends(require_admin),
-) -> dict:
-    """Sends the (possibly hand-edited) draft as-is — never re-generates it."""
-    person = get_person(person_id)
-    if person is None:
-        raise HTTPException(status_code=404, detail="Person not found")
-    if not person.get("email"):
-        raise HTTPException(status_code=400, detail="Person has no email on file")
-    subject = (body.get("subject") or "").strip()
-    email_body = (body.get("body") or "").strip()
-    if not subject or not email_body:
-        raise HTTPException(status_code=400, detail="Subject and body are required")
-
-    sent = send_email(person["email"], subject, email_body)
-    if sent:
-        log_person_note(person_id, "email", f"Sent: {subject}")
-        log_audit(None, None, "person.curiosity_email_sent", f"person:{person_id}", "sent")
-    return {"sent": sent}
+    if "error" in result:
+        return result
+    draft_id = queue_person_draft(person_id, result["subject"], result["body"])
+    log_audit(None, None, "person.curiosity_email_drafted", f"person:{person_id}", f"draft:{draft_id}")
+    return {"draft_id": draft_id}

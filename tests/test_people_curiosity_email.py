@@ -114,25 +114,35 @@ class TestDraftCuriosityEmail:
 
 
 class TestCuriosityEmailDraftRoute:
+    """Drafting now queues the email straight into the held-drafts pipeline
+    (approval_queue, status=on_hold) instead of returning it for inline
+    editing — review and sending happen on the Drafts page. See
+    docs/plans/2026-08-26-person-curiosity-email-design.md."""
+
     def test_requires_auth(self):
         resp = client.post("/people/3/curiosity-email/draft", follow_redirects=False)
         assert resp.status_code == 307
 
-    def test_success_returns_subject_and_body(self, admin_web):
+    def test_success_queues_a_draft(self, admin_web):
         with patch(
             "gcrm.api.routers.people.draft_curiosity_email",
             return_value={"subject": "Curious...", "body": "Hi Anna,..."},
-        ) as draft:
+        ) as draft, \
+             patch("gcrm.api.routers.people.queue_person_draft", return_value=77) as queue, \
+             patch("gcrm.api.routers.people.log_audit"):
             resp = client.post("/people/3/curiosity-email/draft?language=de")
         assert resp.status_code == 200
-        assert resp.json()["subject"] == "Curious..."
+        assert resp.json() == {"draft_id": 77}
         draft.assert_called_once_with(3, "de")
+        queue.assert_called_once_with(3, "Curious...", "Hi Anna,...")
 
     def test_invalid_language_falls_back_to_english(self, admin_web):
         with patch(
             "gcrm.api.routers.people.draft_curiosity_email",
             return_value={"subject": "x", "body": "y"},
-        ) as draft:
+        ) as draft, \
+             patch("gcrm.api.routers.people.queue_person_draft", return_value=1), \
+             patch("gcrm.api.routers.people.log_audit"):
             client.post("/people/3/curiosity-email/draft?language=fr")
         draft.assert_called_once_with(3, "en")
 
@@ -141,65 +151,19 @@ class TestCuriosityEmailDraftRoute:
             resp = client.post("/people/999/curiosity-email/draft")
         assert resp.status_code == 404
 
-    def test_generation_failure_surfaces_fixed_error(self, admin_web):
+    def test_generation_failure_surfaces_fixed_error_and_does_not_queue(self, admin_web):
         with patch(
             "gcrm.api.routers.people.draft_curiosity_email",
             return_value={"error": curiosity_email.DRAFT_FAILED},
-        ):
+        ), patch("gcrm.api.routers.people.queue_person_draft") as queue:
             resp = client.post("/people/3/curiosity-email/draft")
         assert resp.status_code == 200
         assert resp.json()["error"] == curiosity_email.DRAFT_FAILED
-
-
-class TestCuriosityEmailSendRoute:
-    def test_requires_auth(self):
-        resp = client.post(
-            "/people/3/curiosity-email/send", json={"subject": "s", "body": "b"}, follow_redirects=False,
-        )
-        assert resp.status_code == 307
-
-    def test_missing_person_is_404(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value=None):
-            resp = client.post("/people/999/curiosity-email/send", json={"subject": "s", "body": "b"})
-        assert resp.status_code == 404
-
-    def test_no_email_on_file_is_400(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value={**PERSON, "email": None}):
-            resp = client.post("/people/3/curiosity-email/send", json={"subject": "s", "body": "b"})
-        assert resp.status_code == 400
-
-    def test_blank_subject_or_body_is_400(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value=PERSON):
-            resp = client.post("/people/3/curiosity-email/send", json={"subject": "  ", "body": "b"})
-        assert resp.status_code == 400
-
-    def test_success_sends_edited_body_and_logs_interaction(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value=PERSON), \
-             patch("gcrm.api.routers.people.send_email", return_value=True) as send, \
-             patch("gcrm.api.routers.people.log_person_note") as log_note, \
-             patch("gcrm.api.routers.people.log_audit"):
-            resp = client.post(
-                "/people/3/curiosity-email/send",
-                json={"subject": "Curious about AI", "body": "Hand-edited body"},
-            )
-        assert resp.status_code == 200
-        assert resp.json() == {"sent": True}
-        send.assert_called_once_with("anna@galerie-nord.de", "Curious about AI", "Hand-edited body")
-        log_note.assert_called_once_with(3, "email", "Sent: Curious about AI")
-
-    def test_send_failure_does_not_log_interaction(self, admin_web):
-        with patch("gcrm.api.routers.people.get_person", return_value=PERSON), \
-             patch("gcrm.api.routers.people.send_email", return_value=False), \
-             patch("gcrm.api.routers.people.log_person_note") as log_note:
-            resp = client.post("/people/3/curiosity-email/send", json={"subject": "s", "body": "b"})
-        assert resp.status_code == 200
-        assert resp.json() == {"sent": False}
-        log_note.assert_not_called()
+        queue.assert_not_called()
 
 
 def test_person_template_has_curiosity_email_section():
     template = (Path(__file__).parents[1] / "gcrm/ui/templates/person_detail.html").read_text()
     assert "curiosity-draft-button" in template
     assert "curiosity-language" in template
-    assert "curiosity-send-button" in template
     assert "aria-busy" in template

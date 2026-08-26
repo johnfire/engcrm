@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ draft.draft_subject }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide draft-detail-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>
+    {% if draft.contact_id %}
+    <a href="/organizations/{{ draft.contact_id }}">{{ draft.recipient_name }}</a>
+    {% else %}
+    <a href="/people/{{ draft.person_id }}">{{ draft.recipient_name }}</a>
+    {% endif %}
+  </h1>
+  <span class="muted">{{ draft.email or '—' }}{% if draft.city %} · {{ draft.city }}{% endif %} · {{ t('draftsList.heldSince') }} {{ draft.created_at.strftime('%Y-%m-%d') }}</span>
+</div>
+
+<form method="post" action="/drafts/{{ draft.id }}/approve" class="draft-edit-form">
+  <div class="field-row field-row--wide">
+    <label for="draft-subject">{{ t('common.subject') }}</label>
+    <input id="draft-subject" type="text" name="final_subject" value="{{ draft.draft_subject }}" class="draft-subject-input" />
+  </div>
+  <div class="field-row field-row--wide field-row--tall">
+    <label for="draft-body">{{ t('draftsList.bodyLabel') }}</label>
+    <textarea id="draft-body" name="final_body" class="draft-body-textarea">{{ draft.draft_body }}</textarea>
+  </div>
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('draftsList.send') }}</button>
+    <a href="/drafts/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+  </div>
+</form>
+
+<form method="post" action="/drafts/{{ draft.id }}/reject" style="margin-top: 1rem"
+      onsubmit="return confirm('{{ t('draftsList.dropConfirm') }}')">
+  <button type="submit" class="btn-danger">{{ t('draftsList.drop') }}</button>
+</form>
+{% endblock %}

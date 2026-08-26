@@ -425,9 +425,9 @@ class TestDraftsPage:
         try:
             draft = {
                 "id": 1, "draft_subject": "Hi", "draft_body": "Body", "created_at": __import__("datetime").datetime.now(),
-                "reviewer_note": None, "contact_id": 1, "contact_name": "Acme", "city": "Augsburg",
+                "reviewer_note": None, "contact_id": 1, "person_id": None, "recipient_name": "Acme", "city": "Augsburg",
                 "country": "DE", "organization_type": "Handwerksbetrieb", "email": "a@acme.de",
-                "website": "https://acme.de", "contact_notes": "x" * 150,
+                "recipient_notes": "x" * 150,
             }
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn([draft])

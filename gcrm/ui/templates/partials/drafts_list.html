@@ -8,7 +8,6 @@
       <th>{{ t('common.email') }}</th>
       <th>{{ t('common.subject') }}</th>
       <th>{{ t('draftsList.heldSince') }}</th>
-      <th>{{ t('draftsList.note') }}</th>
       <th>{{ t('common.actions') }}</th>
     </tr>
   </thead>
@@ -16,30 +15,24 @@
     {% for d in drafts %}
     <tr id="draft-{{ d.id }}">
       <td>
-        <strong><a href="/organizations/{{ d.contact_id }}">{{ d.contact_name }}</a></strong>
-        {% if d.contact_notes %}
-        <div class="muted small notes-cell-inner" style="max-width:200px">{{ d.contact_notes[:120] }}{% if d.contact_notes|length > 120 %}…{% endif %}</div>
+        <strong>
+          {% if d.contact_id %}
+          <a href="/organizations/{{ d.contact_id }}">{{ d.recipient_name }}</a>
+          {% else %}
+          <a href="/people/{{ d.person_id }}">{{ d.recipient_name }}</a>
+          {% endif %}
+        </strong>
+        {% if d.recipient_notes %}
+        <div class="muted small notes-cell-inner" style="max-width:200px">{{ d.recipient_notes[:120] }}{% if d.recipient_notes|length > 120 %}…{% endif %}</div>
         {% endif %}
       </td>
-      <td class="muted">{{ d.city }}{% if d.country and d.country != 'DE' %} <span>{{ d.country }}</span>{% endif %}</td>
-      <td class="muted small">{{ d.contact_type or '—' }}</td>
+      <td class="muted">{{ d.city or '—' }}{% if d.country and d.country != 'DE' %} <span>{{ d.country }}</span>{% endif %}</td>
+      <td class="muted small">{{ d.organization_type or '—' }}</td>
       <td class="muted small">{{ d.email or '—' }}</td>
-      <td>
-        <div class="draft-subject">{{ d.draft_subject }}</div>
-        <details style="margin-top:0.3rem">
-          <summary class="muted small" style="cursor:pointer">{{ t('draftsList.previewEmail') }}</summary>
-          <pre class="body-preview" style="margin-top:0.5rem">{{ d.draft_body }}</pre>
-        </details>
-      </td>
+      <td class="draft-subject">{{ d.draft_subject }}</td>
       <td class="muted small">{{ d.created_at.strftime('%Y-%m-%d') }}</td>
-      <td class="muted small">{{ d.reviewer_note or '—' }}</td>
       <td style="white-space:nowrap">
-        <form hx-post="/drafts/{{ d.id }}/approve"
-              hx-target="#drafts-list"
-              hx-swap="innerHTML"
-              style="display:inline">
-          <button type="submit" class="btn-primary btn-tiny">{{ t('draftsList.send') }}</button>
-        </form>
+        <a href="/drafts/{{ d.id }}" class="btn-secondary btn-tiny">{{ t('draftsList.open') }}</a>
         <form hx-post="/drafts/{{ d.id }}/reject"
               hx-target="#drafts-list"
               hx-swap="innerHTML"

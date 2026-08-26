@@ -435,6 +435,42 @@ main.main-wide {
   max-width: none;
 }
 
+/* Draft review: one held draft, full-page editor — no cramped inline box. */
+.draft-edit-form .field-row {
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+.draft-edit-form label {
+  margin-bottom: 0.3rem;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.draft-subject-input {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  border-radius: 3px;
+}
+.draft-body-textarea {
+  display: block;
+  width: 100%;
+  min-height: 65vh;
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  border-radius: 3px;
+  resize: vertical;
+}
+
 /* Contact editor: use the full work area without compromising narrow screens. */
 main.organization-detail-page,
 main.person-detail-page {

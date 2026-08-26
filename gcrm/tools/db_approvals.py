@@ -92,3 +92,19 @@ def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) ->
         logger.debug("approval push notification failed (non-blocking): %s", error)
     log_audit(None, None, "approval.queued", f"approval:{queue_id}", "pending")
     return queue_id
+
+
+def queue_person_draft(person_id: int, subject: str, body: str) -> int:
+    """Persist a person-targeted draft directly as 'on_hold' — it lands in the
+    Drafts review page (not the org-outreach pending queue), since it isn't
+    part of the scored/automated sales pipeline."""
+    with db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO approval_queue (person_id, draft_subject, draft_body, status) "
+            "VALUES (%s, %s, %s, 'on_hold') RETURNING id",
+            (person_id, subject, body),
+        )
+        queue_id = cursor.fetchone()["id"]
+    log_audit(None, None, "approval.queued", f"person-approval:{queue_id}", "on_hold")
+    return queue_id
