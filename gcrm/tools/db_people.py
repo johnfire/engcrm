@@ -127,7 +127,8 @@ def update_person(person_id: int, values: dict) -> bool:
 
 
 _SELECT_WITH_COMPANY = (
-    "SELECT person.*, company.name AS company "
+    "SELECT person.*, company.name AS company, "
+    "company.preferred_language AS company_language "
     "FROM people person "
     "LEFT JOIN contacts company ON company.id = person.contact_id "
 )

@@ -217,4 +217,123 @@
   });
 })();
 </script>
+
+<section class="detail-section" style="margin-top: 2rem">
+  <h2>{{ t('personDetail.curiosityEmail.title') }}</h2>
+
+  <div class="field-row">
+    <label for="curiosity-language">{{ t('personDetail.curiosityEmail.languageLabel') }}</label>
+    <select id="curiosity-language">
+      <option value="en" {% if person.company_language != 'de' %}selected{% endif %}>{{ t('personDetail.curiosityEmail.languageEnglish') }}</option>
+      <option value="de" {% if person.company_language == 'de' %}selected{% endif %}>{{ t('personDetail.curiosityEmail.languageGerman') }}</option>
+    </select>
+  </div>
+
+  <div class="detail-actions">
+    <button type="button" id="curiosity-draft-button" class="btn-secondary">
+      <span class="opportunity-spinner" data-curiosity-spinner hidden aria-hidden="true"></span>
+      <span data-curiosity-draft-label>{{ t('personDetail.curiosityEmail.draftButton') }}</span>
+    </button>
+  </div>
+  <p id="curiosity-status" class="muted small" role="status" aria-live="polite"></p>
+
+  <div id="curiosity-draft-panel" hidden>
+    <div class="field-row field-row--wide">
+      <label for="curiosity-subject">{{ t('personDetail.curiosityEmail.subjectLabel') }}</label>
+      <input id="curiosity-subject" type="text" />
+    </div>
+    <div class="field-row field-row--wide field-row--tall">
+      <label for="curiosity-body">{{ t('personDetail.curiosityEmail.bodyLabel') }}</label>
+      <textarea id="curiosity-body" rows="12"></textarea>
+    </div>
+    {% if not person.email %}
+    <p class="muted small">{{ t('personDetail.curiosityEmail.noEmail') }}</p>
+    {% endif %}
+    <div class="detail-actions">
+      <button type="button" id="curiosity-send-button" class="btn-primary" {% if not person.email %}disabled{% endif %}>
+        {{ t('personDetail.curiosityEmail.sendButton') }}
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  const draftButton = document.getElementById('curiosity-draft-button');
+  if (!draftButton) return;
+
+  const languageSelect = document.getElementById('curiosity-language');
+  const status = document.getElementById('curiosity-status');
+  const panel = document.getElementById('curiosity-draft-panel');
+  const subjectInput = document.getElementById('curiosity-subject');
+  const bodyTextarea = document.getElementById('curiosity-body');
+  const sendButton = document.getElementById('curiosity-send-button');
+  const draftLabel = draftButton.querySelector('[data-curiosity-draft-label]');
+  const spinner = draftButton.querySelector('[data-curiosity-spinner]');
+
+  const T_DRAFT = {{ t('personDetail.curiosityEmail.draftButton') | tojson }};
+  const T_DRAFTING = {{ t('personDetail.curiosityEmail.drafting') | tojson }};
+  const T_DRAFT_FAILED = {{ t('personDetail.curiosityEmail.draftFailed') | tojson }};
+  const T_SEND = {{ t('personDetail.curiosityEmail.sendButton') | tojson }};
+  const T_SENDING = {{ t('personDetail.curiosityEmail.sending') | tojson }};
+  const T_SEND_SUCCESS = {{ t('personDetail.curiosityEmail.sendSuccess') | tojson }};
+  const T_SEND_FAILED = {{ t('personDetail.curiosityEmail.sendFailed') | tojson }};
+
+  draftButton.addEventListener('click', async () => {
+    draftButton.disabled = true;
+    draftButton.setAttribute('aria-busy', 'true');
+    spinner.hidden = false;
+    draftLabel.textContent = T_DRAFTING;
+    status.textContent = '';
+    try {
+      const response = await fetch(
+        `/people/{{ person.id }}/curiosity-email/draft?language=${languageSelect.value}`,
+        { method: 'POST' },
+      );
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error((data && data.error) || T_DRAFT_FAILED);
+      }
+      subjectInput.value = data.subject;
+      bodyTextarea.value = data.body;
+      panel.hidden = false;
+    } catch (error) {
+      status.textContent = error.message || T_DRAFT_FAILED;
+    } finally {
+      draftButton.disabled = false;
+      draftButton.removeAttribute('aria-busy');
+      spinner.hidden = true;
+      draftLabel.textContent = T_DRAFT;
+    }
+  });
+
+  if (sendButton) {
+    sendButton.addEventListener('click', async () => {
+      sendButton.disabled = true;
+      sendButton.setAttribute('aria-busy', 'true');
+      sendButton.textContent = T_SENDING;
+      status.textContent = '';
+      try {
+        const response = await fetch(`/people/{{ person.id }}/curiosity-email/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject: subjectInput.value, body: bodyTextarea.value }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.sent) {
+          throw new Error(T_SEND_FAILED);
+        }
+        status.textContent = T_SEND_SUCCESS;
+        panel.hidden = true;
+      } catch (error) {
+        status.textContent = error.message || T_SEND_FAILED;
+      } finally {
+        sendButton.disabled = false;
+        sendButton.removeAttribute('aria-busy');
+        sendButton.textContent = T_SEND;
+      }
+    });
+  }
+})();
+</script>
 {% endblock %}
