@@ -41,7 +41,7 @@ research → enrich → scout → outreach → followup
 - `ACTIVE_MISSION` in `gcrm/config.py` — what the agents are working toward, including `website` for email sign-offs
 - `SCAN_LEVELS` in `gcrm/supervisor/targets.py` — Google Maps search terms per scan level
 - `EMAIL_ENABLED` in `.env` — set to `false` to disable all outgoing email globally
-- `PROTON_FROM_EMAIL` in `.env` — the From address on outgoing emails (can differ from the SMTP login address, e.g. an alias)
+- `MAIL_FROM_EMAIL` in `.env` — the From address on outgoing emails (can differ from the SMTP login address, e.g. an alias)
 
 ---
 
@@ -170,7 +170,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **What happens after you approve:**
 
-- Email is sent via Proton Bridge SMTP (if `EMAIL_ENABLED=true`)
+- Email is sent via SMTP (if `EMAIL_ENABLED=true`)
 - An interaction is logged in `interactions`
 - Contact moves to `status=contacted`
 
@@ -184,7 +184,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Work stream 1 — Inbox replies:**
 
-1. **fetch_inbox_messages** — reads unprocessed messages from Proton Bridge IMAP
+1. **fetch_inbox_messages** — reads unprocessed messages from IMAP
 2. **classify_replies** — for each message, finds the matching contact by email address
    - Messages with no matching contact are skipped and marked processed (no LLM call)
    - Classifies as: `interested`, `rejected`, `opt_out`, `other`

@@ -77,7 +77,7 @@ general-crm/
 - **Anthropic and/or DeepSeek API keys** for the administrator-selected AI
   backends. CRM prompts can contain personal data; selecting DeepSeek requires
   the controller to assess and document its China transfer separately.
-- **Proton Bridge** running locally if you want email send/receive via ProtonMail — otherwise email is disabled and you copy drafts manually
+- A reachable **SMTP/IMAP mail server** if you want email send/receive — otherwise email is disabled and you copy drafts manually
 - `~/logs/` directory: `mkdir -p ~/logs`
 
 ---
@@ -135,14 +135,14 @@ ANTHROPIC_API_KEY=your_anthropic_key
 # Google Maps (required for research agent)
 GOOGLE_MAPS_API_KEY=your_maps_key
 
-# Email via Proton Bridge (optional — set EMAIL_ENABLED=false to disable)
-PROTON_IMAP_HOST=127.0.0.1
-PROTON_IMAP_PORT=1143
-PROTON_SMTP_HOST=127.0.0.1
-PROTON_SMTP_PORT=1025
-PROTON_EMAIL=your@proton.me
-PROTON_PASSWORD=bridge_app_password
-PROTON_FROM_EMAIL=alias@proton.me   # optional alias
+# Email via SMTP/IMAP (optional — set EMAIL_ENABLED=false to disable)
+MAIL_SMTP_HOST=mail.example.com
+MAIL_SMTP_PORT=587
+MAIL_IMAP_HOST=mail.example.com
+MAIL_IMAP_PORT=143
+MAIL_USERNAME=you@example.com
+MAIL_PASSWORD=mailbox_password
+MAIL_FROM_EMAIL=alias@example.com   # optional alias
 
 # Server
 HOST=127.0.0.1
@@ -230,7 +230,7 @@ Nothing gets sent without your sign-off. After each run, go to `http://127.0.0.1
 - **Edit + Approve** — edit subject/body inline, then send
 - **Reject** — discards the draft; contact stays `ready` and will be re-drafted next run
 
-If Proton Bridge isn't running, approved emails are marked `approved_unsent` rather than failing.
+If the mail server is unreachable, approved emails are marked `approved_unsent` rather than failing.
 
 ---
 

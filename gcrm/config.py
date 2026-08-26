@@ -29,15 +29,15 @@ WHISPER_URL: str = os.getenv("WHISPER_URL", "http://whisper:9000")
 # --- Bright Data ---
 BRIGHTDATA_API_TOKEN: str = os.getenv("BRIGHTDATA_API_TOKEN", "")
 
-# --- Proton Bridge (IMAP + SMTP) ---
-PROTON_IMAP_HOST: str = os.getenv("PROTON_IMAP_HOST", "127.0.0.1")
-PROTON_IMAP_PORT: int = int(os.getenv("PROTON_IMAP_PORT", "1143"))
-PROTON_SMTP_HOST: str = os.getenv("PROTON_SMTP_HOST", "127.0.0.1")
-PROTON_SMTP_PORT: int = int(os.getenv("PROTON_SMTP_PORT", "1025"))
-PROTON_EMAIL: str = os.getenv("PROTON_EMAIL", "")
-PROTON_PASSWORD: str = os.getenv("PROTON_PASSWORD", "")
-# From address for outgoing emails — can be an alias. Defaults to PROTON_EMAIL.
-PROTON_FROM_EMAIL: str = os.getenv("PROTON_FROM_EMAIL", "") or os.getenv("PROTON_EMAIL", "")
+# --- Mail (SMTP + IMAP) ---
+MAIL_SMTP_HOST: str = os.getenv("MAIL_SMTP_HOST", "")
+MAIL_SMTP_PORT: int = int(os.getenv("MAIL_SMTP_PORT", "587"))
+MAIL_IMAP_HOST: str = os.getenv("MAIL_IMAP_HOST", "")
+MAIL_IMAP_PORT: int = int(os.getenv("MAIL_IMAP_PORT", "143"))
+MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+# From address for outgoing emails — can be an alias. Defaults to MAIL_USERNAME.
+MAIL_FROM_EMAIL: str = os.getenv("MAIL_FROM_EMAIL", "") or os.getenv("MAIL_USERNAME", "")
 
 # --- App ---
 HOST: str = os.getenv("HOST", "127.0.0.1")

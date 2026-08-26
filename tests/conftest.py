@@ -12,8 +12,8 @@ if os.environ.get("TEST_DATABASE_URL"):
     os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 else:
     os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost/test")
-os.environ.setdefault("PROTON_EMAIL", "test@test.com")
-os.environ.setdefault("PROTON_PASSWORD", "test")
+os.environ.setdefault("MAIL_USERNAME", "test@test.com")
+os.environ.setdefault("MAIL_PASSWORD", "test")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-deepseek-key")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-not-for-production")

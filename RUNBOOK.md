@@ -25,7 +25,7 @@ The repo lives at `~/ppp2/engcrm`. The five agent packages are vendored in-repo 
 
 - PostgreSQL running with the `gcrm` database (same one used by `theo-hits-the-road`)
 - `uv` installed (`~/.local/bin/uv`)
-- Proton Bridge running locally (required for any email send/receive)
+- A reachable SMTP/IMAP mail server (required for any email send/receive)
 - Anthropic and/or DeepSeek API keys. An administrator selects the models in
   Settings; DeepSeek use requires a documented controller transfer decision.
 - `~/logs/` directory exists: `mkdir -p ~/logs`
@@ -46,12 +46,12 @@ Edit `.env`:
 DATABASE_URL=postgresql://user:password@localhost/gcrm
 ANTHROPIC_API_KEY=your_key          # optional
 
-PROTON_IMAP_HOST=127.0.0.1
-PROTON_IMAP_PORT=1143
-PROTON_SMTP_HOST=127.0.0.1
-PROTON_SMTP_PORT=1025
-PROTON_EMAIL=your@proton.me
-PROTON_PASSWORD=bridge_app_password  # from Proton Bridge settings
+MAIL_SMTP_HOST=mail.example.com
+MAIL_SMTP_PORT=587
+MAIL_IMAP_HOST=mail.example.com
+MAIL_IMAP_PORT=143
+MAIL_USERNAME=you@example.com
+MAIL_PASSWORD=mailbox_password
 
 HOST=127.0.0.1
 PORT=8000
@@ -124,11 +124,11 @@ Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
 | Activity Feed | `/activity/` | Agent run log with status, duration, and summary. |
 
 **Approval actions:**
-- **Approve** — sends via Proton Bridge SMTP, logs interaction, contact → `status=contacted`
+- **Approve** — sends via SMTP, logs interaction, contact → `status=contacted`
 - **Edit + Approve** — edit subject/body first, then sends
 - **Reject** — discards draft, contact stays `status=ready` for next run
 
-If Proton Bridge is not running, status shows `approved_unsent`. Re-trigger by running the outreach agent again.
+If the mail server is unreachable, status shows `approved_unsent`. Re-trigger by running the outreach agent again.
 
 ---
 
@@ -145,7 +145,7 @@ outreach_agent  →  approval_queue (status=pending)
   ↓
 YOU approve at /approvals/
   ↓
-Proton Bridge SMTP  →  email sent, status=contacted, interaction logged
+SMTP send         →  email sent, status=contacted, interaction logged
   ↓
 followup_agent (next run):
   ├── reply interested  →  drafts + sends reply, logs
@@ -347,7 +347,7 @@ general-crm/
     tools/
       db.py                 All database operations (contacts, compliance, interactions, runs)
       search.py             Overpass geo search + DuckDuckGo web search
-      email.py              Proton Bridge SMTP send + IMAP read
+      email.py              SMTP send + IMAP read
       llm.py                LLM factory: claude-haiku, claude
     supervisor/
       targets.py            Research target list

@@ -1,5 +1,5 @@
 """
-Audit the Proton Mail Sent folder against the database.
+Audit the Sent folder against the database.
 
 Finds contacts whose email was sent to but are not marked as 'contacted'
 (or a further-along status), then offers to fix them.
@@ -17,10 +17,10 @@ import re
 from datetime import date
 
 from gcrm.config import (
-    PROTON_EMAIL,
-    PROTON_IMAP_HOST,
-    PROTON_IMAP_PORT,
-    PROTON_PASSWORD,
+    MAIL_IMAP_HOST,
+    MAIL_IMAP_PORT,
+    MAIL_PASSWORD,
+    MAIL_USERNAME,
 )
 from gcrm.supervisor.logging_setup import configure_logging
 
@@ -104,10 +104,10 @@ def main():
     args = parser.parse_args()
 
     sent_recipients = fetch_sent_recipients(
-        imap_host=PROTON_IMAP_HOST,
-        imap_port=PROTON_IMAP_PORT,
-        username=PROTON_EMAIL,
-        password=PROTON_PASSWORD,
+        imap_host=MAIL_IMAP_HOST,
+        imap_port=MAIL_IMAP_PORT,
+        username=MAIL_USERNAME,
+        password=MAIL_PASSWORD,
     )
 
     organizations = get_organizations(args.city)

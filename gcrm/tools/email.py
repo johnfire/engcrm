@@ -1,6 +1,6 @@
 """
-Email tools: SMTP sending and IMAP inbox reading via Proton Bridge.
-Proton Bridge runs locally and exposes standard IMAP/SMTP ports.
+Email tools: SMTP sending and IMAP inbox reading over standard SMTP/IMAP
+(the christopherrehm.de mail server).
 """
 import email as email_lib
 import imaplib
@@ -13,13 +13,13 @@ from email.mime.text import MIMEText
 
 from gcrm.config import (
     EMAIL_ENABLED,
-    PROTON_EMAIL,
-    PROTON_FROM_EMAIL,
-    PROTON_IMAP_HOST,
-    PROTON_IMAP_PORT,
-    PROTON_PASSWORD,
-    PROTON_SMTP_HOST,
-    PROTON_SMTP_PORT,
+    MAIL_FROM_EMAIL,
+    MAIL_IMAP_HOST,
+    MAIL_IMAP_PORT,
+    MAIL_PASSWORD,
+    MAIL_SMTP_HOST,
+    MAIL_SMTP_PORT,
+    MAIL_USERNAME,
 )
 from gcrm.tools.db import save_inbox_message
 
@@ -29,9 +29,9 @@ _LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
 def _starttls_context(host: str) -> ssl.SSLContext:
-    """Verify the server certificate for remote hosts. The local Proton Bridge
-    (loopback) presents a self-signed cert, so verification is skipped there,
-    preserving the current local-bridge behavior."""
+    """Verify the server certificate for remote hosts. A loopback mail server
+    (e.g. a local dev bridge) may present a self-signed cert, so verification
+    is skipped there; the real christopherrehm.de host gets full verification."""
     ctx = ssl.create_default_context()
     if host in _LOOPBACK_HOSTS:
         ctx.check_hostname = False
@@ -41,7 +41,7 @@ def _starttls_context(host: str) -> ssl.SSLContext:
 
 def send_email(to_email: str, subject: str, body: str) -> bool:
     """
-    Send a plain-text email via Proton Bridge SMTP.
+    Send a plain-text email via SMTP.
     Returns True on success, False on failure.
     """
     if not EMAIL_ENABLED:
@@ -54,16 +54,16 @@ def send_email(to_email: str, subject: str, body: str) -> bool:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = PROTON_FROM_EMAIL
+    msg["From"] = MAIL_FROM_EMAIL
     msg["To"] = to_email
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(PROTON_SMTP_HOST, PROTON_SMTP_PORT) as smtp:
+        with smtplib.SMTP(MAIL_SMTP_HOST, MAIL_SMTP_PORT) as smtp:
             smtp.ehlo()
-            smtp.starttls(context=_starttls_context(PROTON_SMTP_HOST))
-            smtp.login(PROTON_EMAIL, PROTON_PASSWORD)
-            smtp.sendmail(PROTON_EMAIL, [to_email], msg.as_string())
+            smtp.starttls(context=_starttls_context(MAIL_SMTP_HOST))
+            smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
+            smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
         logger.info("send_email: sent to %s — %s", to_email, subject)
         return True
     except Exception as error:
@@ -130,16 +130,16 @@ def _parse_message(parsed) -> dict:
 
 def read_inbox(limit: int = 50, since_days: int = 14) -> list[dict]:
     """
-    Read emails from the INBOX via Proton Bridge IMAP (last since_days days).
+    Read emails from the INBOX via IMAP (last since_days days).
     Saves each message to the inbox_messages table (deduplication handled there).
     Returns list of message dicts: {id, message_id, from_email, subject, body, received_at}.
     """
     from datetime import timedelta
     messages = []
     try:
-        with imaplib.IMAP4(PROTON_IMAP_HOST, PROTON_IMAP_PORT) as imap:
-            imap.starttls(ssl_context=_starttls_context(PROTON_IMAP_HOST))
-            imap.login(PROTON_EMAIL, PROTON_PASSWORD)
+        with imaplib.IMAP4(MAIL_IMAP_HOST, MAIL_IMAP_PORT) as imap:
+            imap.starttls(ssl_context=_starttls_context(MAIL_IMAP_HOST))
+            imap.login(MAIL_USERNAME, MAIL_PASSWORD)
             imap.select("INBOX")
 
             since_date = (datetime.now(timezone.utc) - timedelta(days=since_days)).strftime("%d-%b-%Y")
