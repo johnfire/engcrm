@@ -17,9 +17,36 @@ function clippedByAncestor(el, win) {
   return false;
 }
 
+// A column heading snapped mid-character ("Distanc / e") reads as a typo. The
+// spill check cannot see it — the text is inside its box, just broken badly.
+function headingWordBreaks(doc, win) {
+  const out = [];
+  const probe = doc.createElement("span");
+  probe.style.cssText = "position:absolute;white-space:nowrap;visibility:hidden";
+  doc.body.appendChild(probe);
+  doc.querySelectorAll("th").forEach(th => {
+    const cs = win.getComputedStyle(th);
+    if (cs.hyphens === "auto") return;              // breaks with a hyphen, on purpose
+    const words = th.textContent.trim().split(/[\s\u2193\u2191-]+/).filter(Boolean);
+    if (!words.length) return;
+    const longest = words.sort((a, b) => b.length - a.length)[0];
+    probe.style.font = cs.font;
+    probe.textContent = longest;
+    const need = Math.ceil(probe.getBoundingClientRect().width);
+    const usable = th.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (need > usable + 1) {
+      out.push({kind: "heading-word-break", word: longest, need: need, usable: Math.round(usable),
+                head: th.textContent.trim().replace(/\s+/g, " ").slice(0, 24)});
+    }
+  });
+  probe.remove();
+  return out;
+}
+
 function audit(doc, win, width) {
   const out = [];
   if (!doc.querySelector("link[rel=stylesheet]")) return out;  // bare htmx fragment
+  out.push(...headingWordBreaks(doc, win));
   if (doc.documentElement.scrollWidth > width + 1) {
     out.push({kind: "page-overflow", detail: doc.documentElement.scrollWidth + " > " + width});
   }
@@ -41,7 +68,7 @@ function audit(doc, win, width) {
 // Replace each cell's longest text node with a hostile value, so a column that
 // only copes with the test fixture's short strings is exposed.
 function stress(doc) {
-  doc.querySelectorAll("td,th").forEach((cell, i) => {
+  doc.querySelectorAll("td").forEach((cell, i) => {   // headings are fixed vocabulary, not user data
     const walker = doc.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
     let best = null, node;
     while ((node = walker.nextNode())) {
