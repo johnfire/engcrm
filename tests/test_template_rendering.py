@@ -88,9 +88,10 @@ class TestActivityPage:
                 stats_row = {"total": 1, "pending": 1, "approved": 0, "rejected": 0, "edited": 0}
                 spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
                 agent_cost_row = {"agent_name": "research", "run_count": 1, "total_usd": 0.5, "avg_usd": 0.5}
+                opportunity_row = {"count": 0}
                 conn, cur = make_mock_conn(
                     [run_row], [agent_cost_row],
-                    fetchone_sequence=[stats_row, spend_row],
+                    fetchone_sequence=[stats_row, spend_row, opportunity_row],
                 )
                 with patch("gcrm.api.routers.activity.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
@@ -104,7 +105,8 @@ class TestActivityPage:
         try:
             stats_row = {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "edited": 0}
             spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
-            conn, cur = make_mock_conn([], [], fetchone_sequence=[stats_row, spend_row])
+            opportunity_row = {"count": 0}
+            conn, cur = make_mock_conn([], [], fetchone_sequence=[stats_row, spend_row, opportunity_row])
             with patch("gcrm.api.routers.activity.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
                 r = client.get("/activity/?lang=en")
@@ -122,7 +124,8 @@ class TestActivityPage:
             }
             stats_row = {"total": 1, "pending": 1, "approved": 0, "rejected": 0, "edited": 0}
             spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
-            conn, cur = make_mock_conn([run_row], [], fetchone_sequence=[stats_row, spend_row])
+            opportunity_row = {"count": 0}
+            conn, cur = make_mock_conn([run_row], [], fetchone_sequence=[stats_row, spend_row, opportunity_row])
             with patch("gcrm.api.routers.activity.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
                 r = client.get("/activity/?lang=en")
@@ -141,15 +144,31 @@ class TestActivityPage:
             stats_row = {"total": 1, "pending": 0, "approved": 1, "rejected": 0, "edited": 0}
             spend_row = {"today": 1.234, "this_week": 1.234, "this_month": 1.234, "all_time": 1.234}
             agent_cost_row = {"agent_name": "opportunity", "run_count": 1, "total_usd": 1.234, "avg_usd": 1.234}
+            opportunity_row = {"count": 0}
             conn, cur = make_mock_conn(
                 [run_row], [agent_cost_row],
-                fetchone_sequence=[stats_row, spend_row],
+                fetchone_sequence=[stats_row, spend_row, opportunity_row],
             )
             with patch("gcrm.api.routers.activity.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
                 r = client.get("/activity/?lang=en")
             assert r.status_code == 200, r.text
             assert "$1.2340" in r.text
+        finally:
+            clear_login_session()
+
+    def test_cost_per_opportunity_divides_all_time_spend_by_opportunity_count(self):
+        with_login_session()
+        try:
+            stats_row = {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "edited": 0}
+            spend_row = {"today": 0, "this_week": 0, "this_month": 10, "all_time": 10}
+            opportunity_row = {"count": 4}
+            conn, cur = make_mock_conn([], [], fetchone_sequence=[stats_row, spend_row, opportunity_row])
+            with patch("gcrm.api.routers.activity.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                r = client.get("/activity/?lang=en")
+            assert r.status_code == 200, r.text
+            assert "$2.50" in r.text  # 10 / 4 opportunities
         finally:
             clear_login_session()
 

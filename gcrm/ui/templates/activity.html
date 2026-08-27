@@ -44,6 +44,10 @@
     <span class="stat-value">${{ "%.4f"|format(spend_stats.all_time) }}</span>
     <span class="stat-label">{{ t('activity.spendAllTime') }}</span>
   </div>
+  <div class="stat">
+    <span class="stat-value">{% if cost_per_opportunity is not none %}${{ "%.2f"|format(cost_per_opportunity) }}{% else %}—{% endif %}</span>
+    <span class="stat-label">{{ t('activity.costPerOpportunity') }} ({{ opportunity_count }})</span>
+  </div>
 </div>
 
 {% if agent_costs %}

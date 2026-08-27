@@ -138,6 +138,7 @@
   "activity.totalCost": "Gesamtkosten",
   "activity.avgCost": "Ø / Lauf",
   "activity.cost": "Kosten",
+  "activity.costPerOpportunity": "Kosten / Opportunity",
   "approval.title": "Freigabe-Warteschlange",
   "approval.pendingCount": "{{count}} ausstehend",
   "approval.noPending": "Keine ausstehenden Freigaben.",

@@ -54,10 +54,19 @@ def activity_feed(request: Request):
         """)
         agent_costs = [dict(row) for row in cur.fetchall()]
 
+        cur.execute("SELECT COUNT(*) AS count FROM contacts WHERE pipeline_stage = 'opportunity'")
+        opportunity_count = cur.fetchone()["count"]
+
+    cost_per_opportunity = (
+        spend_stats["all_time"] / opportunity_count if opportunity_count else None
+    )
+
     return templates.TemplateResponse("activity.html", {
         "request": request,
         "runs": runs,
         "queue_stats": queue_stats,
         "spend_stats": spend_stats,
         "agent_costs": agent_costs,
+        "opportunity_count": opportunity_count,
+        "cost_per_opportunity": cost_per_opportunity,
     })

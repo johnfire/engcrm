@@ -138,6 +138,7 @@
   "activity.totalCost": "Total Cost",
   "activity.avgCost": "Avg / Run",
   "activity.cost": "Cost",
+  "activity.costPerOpportunity": "Cost / Opportunity",
   "approval.title": "Approval Queue",
   "approval.pendingCount": "{{count}} pending",
   "approval.noPending": "No pending approvals.",
