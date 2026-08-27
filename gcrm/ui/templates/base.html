@@ -33,10 +33,18 @@
     {'href': '/impressum', 'prefix': '/impressum', 'label': t('nav.impressum')},
     {'href': '/privacy', 'prefix': '/privacy', 'label': t('nav.privacy')}
   ] %}
+  {# The most specific matching tab is the active one: /approvals/dropped/ is a
+     Dropped page, not an Approvals page, even though both prefixes match. #}
+  {% set active = namespace(prefix='') %}
+  {% for tab in nav_tabs + nav_legal %}
+  {% if request.url.path.startswith(tab.prefix) and tab.prefix | length > active.prefix | length %}
+  {% set active.prefix = tab.prefix %}
+  {% endif %}
+  {% endfor %}
   <nav>
     <span class="nav-brand">{{ t('nav.brand') }}</span>
     {% for tab in (nav_tabs | sort(attribute='label')) + nav_legal %}
-    <a href="{{ tab.href }}" {% if request.url.path.startswith(tab.prefix) %}class="active"{% endif %}>
+    <a href="{{ tab.href }}" {% if tab.prefix == active.prefix %}class="active"{% endif %}>
       {{ tab.label }}
     </a>
     {% endfor %}
