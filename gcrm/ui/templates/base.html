@@ -10,50 +10,36 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
+  {# Tabs run alphabetically by their label in the language actually being
+     shown, so the order holds in German too. Impressum and Privacy are pinned
+     to the end: they are footer-grade links, not part of the working set. #}
+  {% set nav_tabs = [
+    {'href': '/activity/', 'prefix': '/activity', 'label': t('nav.activity')},
+    {'href': '/approvals/', 'prefix': '/approvals', 'label': t('nav.approvals')},
+    {'href': '/areas/', 'prefix': '/areas', 'label': t('nav.areas')},
+    {'href': '/drafts/', 'prefix': '/drafts', 'label': t('nav.drafts')},
+    {'href': '/approvals/dropped/', 'prefix': '/approvals/dropped', 'label': t('nav.dropped')},
+    {'href': '/help/', 'prefix': '/help', 'label': t('nav.help')},
+    {'href': '/inbox/', 'prefix': '/inbox', 'label': t('nav.inbox')},
+    {'href': '/organizations/', 'prefix': '/organizations', 'label': t('nav.organizations')},
+    {'href': '/people/', 'prefix': '/people', 'label': t('nav.people')},
+    {'href': '/research/', 'prefix': '/research', 'label': t('nav.research')},
+    {'href': '/settings', 'prefix': '/settings', 'label': t('nav.settings')}
+  ] %}
+  {% if request.session.get('role') == 'admin' %}
+  {% set nav_tabs = nav_tabs + [{'href': '/users/', 'prefix': '/users', 'label': t('nav.users')}] %}
+  {% endif %}
+  {% set nav_legal = [
+    {'href': '/impressum', 'prefix': '/impressum', 'label': t('nav.impressum')},
+    {'href': '/privacy', 'prefix': '/privacy', 'label': t('nav.privacy')}
+  ] %}
   <nav>
     <span class="nav-brand">{{ t('nav.brand') }}</span>
-    <a href="/approvals/" {% if request.url.path.startswith('/approvals') %}class="active"{% endif %}>
-      {{ t('nav.approvals') }}
+    {% for tab in (nav_tabs | sort(attribute='label')) + nav_legal %}
+    <a href="{{ tab.href }}" {% if request.url.path.startswith(tab.prefix) %}class="active"{% endif %}>
+      {{ tab.label }}
     </a>
-    <a href="/organizations/" {% if request.url.path.startswith('/organizations') %}class="active"{% endif %}>
-      {{ t('nav.organizations') }}
-    </a>
-    <a href="/activity/" {% if request.url.path.startswith('/activity') %}class="active"{% endif %}>
-      {{ t('nav.activity') }}
-    </a>
-    <a href="/people/" {% if request.url.path.startswith('/people') %}class="active"{% endif %}>
-      {{ t('nav.people') }}
-    </a>
-    <a href="/research/" {% if request.url.path.startswith('/research') %}class="active"{% endif %}>
-      {{ t('nav.research') }}
-    </a>
-    <a href="/areas/" {% if request.url.path.startswith('/areas') %}class="active"{% endif %}>
-      {{ t('nav.areas') }}
-    </a>
-    <a href="/inbox/" {% if request.url.path.startswith('/inbox') %}class="active"{% endif %}>
-      {{ t('nav.inbox') }}
-    </a>
-    <a href="/drafts/" {% if request.url.path.startswith('/drafts') %}class="active"{% endif %}>
-      {{ t('nav.drafts') }}
-    </a>
-    <a href="/help/" {% if request.url.path.startswith('/help') %}class="active"{% endif %}>
-      {{ t('nav.help') }}
-    </a>
-    <a href="/settings" {% if request.url.path.startswith('/settings') %}class="active"{% endif %}>{{ t('nav.settings') }}</a>
-    <a href="/approvals/dropped/" {% if request.url.path.startswith('/approvals/dropped') %}class="active"{% endif %}>
-      {{ t('nav.dropped') }}
-    </a>
-    {% if request.session.get('role') == 'admin' %}
-    <a href="/users/" {% if request.url.path.startswith('/users') %}class="active"{% endif %}>
-      {{ t('nav.users') }}
-    </a>
-    {% endif %}
-    <a href="/impressum" {% if request.url.path.startswith('/impressum') %}class="active"{% endif %}>
-      {{ t('nav.impressum') }}
-    </a>
-    <a href="/privacy" {% if request.url.path.startswith('/privacy') %}class="active"{% endif %}>
-      {{ t('nav.privacy') }}
-    </a>
+    {% endfor %}
   </nav>
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
