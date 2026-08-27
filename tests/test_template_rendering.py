@@ -83,14 +83,73 @@ class TestActivityPage:
             for lang in ("en", "de"):
                 run_row = {
                     "id": 1, "agent_name": "research", "started_at": __import__("datetime").datetime.now(),
-                    "finished_at": None, "status": "running", "summary": None,
+                    "finished_at": None, "status": "running", "summary": None, "cost_usd": None,
                 }
                 stats_row = {"total": 1, "pending": 1, "approved": 0, "rejected": 0, "edited": 0}
-                conn, cur = make_mock_conn([run_row], fetchone_sequence=[stats_row])
+                spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
+                agent_cost_row = {"agent_name": "research", "run_count": 1, "total_usd": 0.5, "avg_usd": 0.5}
+                conn, cur = make_mock_conn(
+                    [run_row], [agent_cost_row],
+                    fetchone_sequence=[stats_row, spend_row],
+                )
                 with patch("gcrm.api.routers.activity.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
                     r = client.get(f"/activity/?lang={lang}")
                 assert r.status_code == 200, r.text
+        finally:
+            clear_login_session()
+
+    def test_empty_state_renders_no_runs_and_zero_spend(self):
+        with_login_session()
+        try:
+            stats_row = {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "edited": 0}
+            spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
+            conn, cur = make_mock_conn([], [], fetchone_sequence=[stats_row, spend_row])
+            with patch("gcrm.api.routers.activity.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                r = client.get("/activity/?lang=en")
+            assert r.status_code == 200, r.text
+            assert "$0.0000" in r.text  # spend-summary row still renders at zero
+        finally:
+            clear_login_session()
+
+    def test_run_without_cost_shows_dash(self):
+        with_login_session()
+        try:
+            run_row = {
+                "id": 1, "agent_name": "research", "started_at": __import__("datetime").datetime.now(),
+                "finished_at": None, "status": "running", "summary": None, "cost_usd": None,
+            }
+            stats_row = {"total": 1, "pending": 1, "approved": 0, "rejected": 0, "edited": 0}
+            spend_row = {"today": 0, "this_week": 0, "this_month": 0, "all_time": 0}
+            conn, cur = make_mock_conn([run_row], [], fetchone_sequence=[stats_row, spend_row])
+            with patch("gcrm.api.routers.activity.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                r = client.get("/activity/?lang=en")
+            assert r.status_code == 200, r.text
+            assert "—" in r.text
+        finally:
+            clear_login_session()
+
+    def test_run_with_cost_and_agent_breakdown_render_dollar_values(self):
+        with_login_session()
+        try:
+            run_row = {
+                "id": 1, "agent_name": "opportunity", "started_at": __import__("datetime").datetime.now(),
+                "finished_at": None, "status": "completed", "summary": "cost=$1.2340", "cost_usd": 1.234,
+            }
+            stats_row = {"total": 1, "pending": 0, "approved": 1, "rejected": 0, "edited": 0}
+            spend_row = {"today": 1.234, "this_week": 1.234, "this_month": 1.234, "all_time": 1.234}
+            agent_cost_row = {"agent_name": "opportunity", "run_count": 1, "total_usd": 1.234, "avg_usd": 1.234}
+            conn, cur = make_mock_conn(
+                [run_row], [agent_cost_row],
+                fetchone_sequence=[stats_row, spend_row],
+            )
+            with patch("gcrm.api.routers.activity.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                r = client.get("/activity/?lang=en")
+            assert r.status_code == 200, r.text
+            assert "$1.2340" in r.text
         finally:
             clear_login_session()
 

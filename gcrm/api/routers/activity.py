@@ -13,9 +13,11 @@ def activity_feed(request: Request):
     with db() as conn:
         cur = conn.cursor()
         cur.execute("""
-            SELECT id, agent_name, started_at, finished_at, status, summary
-            FROM agent_runs
-            ORDER BY started_at DESC
+            SELECT ar.id, ar.agent_name, ar.started_at, ar.finished_at, ar.status, ar.summary,
+                   rc.total_usd AS cost_usd
+            FROM agent_runs ar
+            LEFT JOIN run_costs rc ON rc.run_id = ar.id
+            ORDER BY ar.started_at DESC
             LIMIT 500
         """)
         runs = [dict(row) for row in cur.fetchall()]
@@ -30,8 +32,32 @@ def activity_feed(request: Request):
         """)
         queue_stats = dict(cur.fetchone())
 
+        cur.execute("""
+            SELECT
+                COALESCE(SUM(total_usd) FILTER (WHERE recorded_at >= CURRENT_DATE), 0) AS today,
+                COALESCE(SUM(total_usd) FILTER (WHERE recorded_at >= NOW() - INTERVAL '7 days'), 0) AS this_week,
+                COALESCE(SUM(total_usd) FILTER (WHERE recorded_at >= NOW() - INTERVAL '30 days'), 0) AS this_month,
+                COALESCE(SUM(total_usd), 0) AS all_time
+            FROM run_costs
+        """)
+        spend_stats = dict(cur.fetchone())
+
+        cur.execute("""
+            SELECT ar.agent_name,
+                   COUNT(*) AS run_count,
+                   SUM(rc.total_usd) AS total_usd,
+                   AVG(rc.total_usd) AS avg_usd
+            FROM run_costs rc
+            JOIN agent_runs ar ON ar.id = rc.run_id
+            GROUP BY ar.agent_name
+            ORDER BY total_usd DESC
+        """)
+        agent_costs = [dict(row) for row in cur.fetchall()]
+
     return templates.TemplateResponse("activity.html", {
         "request": request,
         "runs": runs,
         "queue_stats": queue_stats,
+        "spend_stats": spend_stats,
+        "agent_costs": agent_costs,
     })

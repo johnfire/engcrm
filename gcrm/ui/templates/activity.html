@@ -27,6 +27,51 @@
   </div>
 </div>
 
+<div class="stats-row">
+  <div class="stat">
+    <span class="stat-value">${{ "%.4f"|format(spend_stats.today) }}</span>
+    <span class="stat-label">{{ t('activity.spendToday') }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">${{ "%.4f"|format(spend_stats.this_week) }}</span>
+    <span class="stat-label">{{ t('activity.spendWeek') }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">${{ "%.4f"|format(spend_stats.this_month) }}</span>
+    <span class="stat-label">{{ t('activity.spendMonth') }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value">${{ "%.4f"|format(spend_stats.all_time) }}</span>
+    <span class="stat-label">{{ t('activity.spendAllTime') }}</span>
+  </div>
+</div>
+
+{% if agent_costs %}
+<section class="card">
+  <h2>{{ t('activity.costByAgent') }}</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('activity.agent') }}</th>
+        <th>{{ t('activity.runs') }}</th>
+        <th>{{ t('activity.totalCost') }}</th>
+        <th>{{ t('activity.avgCost') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in agent_costs %}
+      <tr>
+        <td><code>{{ row.agent_name }}</code></td>
+        <td>{{ row.run_count }}</td>
+        <td>${{ "%.4f"|format(row.total_usd) }}</td>
+        <td>${{ "%.4f"|format(row.avg_usd) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 {% if runs %}
 <table>
   <thead>
@@ -35,6 +80,7 @@
       <th class="nowrap">{{ t('activity.started') }}</th>
       <th>{{ t('activity.duration') }}</th>
       <th>{{ t('common.status') }}</th>
+      <th class="nowrap">{{ t('activity.cost') }}</th>
       <th>{{ t('common.summary') }}</th>
     </tr>
   </thead>
@@ -51,6 +97,7 @@
         {% endif %}
       </td>
       <td><span class="badge badge-{{ run.status }}">{{ run.status }}</span></td>
+      <td class="nowrap">{% if run.cost_usd is not none %}${{ "%.4f"|format(run.cost_usd) }}{% else %}—{% endif %}</td>
       <td class="summary">{{ run.summary or '—' }}</td>
     </tr>
     {% endfor %}
