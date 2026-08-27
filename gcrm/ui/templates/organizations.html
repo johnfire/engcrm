@@ -109,7 +109,26 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   >{{ label }}{{ arrow }}</a
 >
 {% endmacro %} {% if organizations %}
-<table>
+<div class="table-scroll">
+<table class="orgs-table">
+  <colgroup>
+    <col class="c-star" />
+    <col class="c-id" />
+    <col class="c-name" />
+    <col class="c-city" />
+    <col class="c-type" />
+    <col class="c-stage" />
+    <col class="c-status" />
+    <col class="c-fit" />
+    <col class="c-mine" />
+    <col class="c-date" />
+    <col class="c-distance" />
+    <col class="c-date" />
+    <col class="c-email" />
+    <col class="c-website" />
+    <col class="c-notes" />
+    <col class="c-actions" />
+  </colgroup>
   <thead>
     <tr>
       <th class="star-col">{{ sort_link('starred', '★', 'desc') }}</th>
@@ -142,7 +161,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         {{ c.city }}{% if c.country %}
         <span class="muted">{{ c.country }}</span>{% endif %}
       </td>
-      <td class="muted">{{ c.type or '—' }}</td>
+      <td class="muted cell-clip" title="{{ c.type or '' }}">{{ c.type or '—' }}</td>
       <td><span class="badge badge-stage-{{ c.pipeline_stage }}">{{ t('stage.' ~ c.pipeline_stage) }}</span></td>
       <td>
         <span class="badge badge-{{ c.status }}">{{ t('status.' ~ c.status) }}</span>
@@ -163,23 +182,23 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         <span class="personal-priority-badge">P{{ c.personal_priority }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
-      <td class="muted">
+      <td class="muted nowrap">
         {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
       </td>
-      <td class="muted">
+      <td class="muted nowrap">
         {{ c.distance_km|round|int if c.distance_km is not none else '—' }}
       </td>
-      <td class="muted">
+      <td class="muted nowrap">
         {{ c.created_at.strftime('%Y-%m-%d') if c.created_at else '—' }}
       </td>
-      <td class="muted small">{{ c.email or '—' }}</td>
-      <td class="muted small">
+      <td class="muted small cell-clip" title="{{ c.email or '' }}">{{ c.email or '—' }}</td>
+      <td class="muted small cell-clip" title="{{ c.website or '' }}">
         {% set organization_website_url = c.website | browsable_url %}
         {% if organization_website_url %}<a href="{{ organization_website_url }}" target="_blank" rel="noopener noreferrer"
           >{{ c.website }}</a
         >{% else %}{{ c.website or '—' }}{% endif %}
       </td>
-      <td class="muted small notes-cell">
+      <td class="muted small notes-cell" title="{{ c.notes or '' }}">
         <div class="notes-cell-inner">{{ c.notes or '—' }}</div>
       </td>
       <td>
@@ -206,6 +225,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <p class="empty">{{ t('organizations.noContactsFound') }}</p>
 {% endif %} {% if total_pages > 1 %}

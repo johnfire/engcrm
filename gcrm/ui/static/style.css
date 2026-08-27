@@ -30,7 +30,12 @@ body {
 nav {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  /* Fourteen links: past a certain narrowness they have to wrap rather than
+     run off the right edge. Wrapped rows stay right-aligned under the first,
+     so the nav reads as one block instead of a ragged left column. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 1.5rem;
   padding: 0.75rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -204,8 +209,8 @@ button {
 .sort-link:hover {
   color: var(--text);
 }
-.notes-cell {
-  max-width: 260px;
+.notes-cell,
+.cell-clip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -273,6 +278,8 @@ code {
 
 /* Badges — agent run status */
 .badge {
+  display: inline-block;
+  white-space: nowrap;
   font-size: 0.8em;
   padding: 0.1em 0.5em;
   border-radius: 3px;
@@ -796,4 +803,81 @@ main.person-detail-page {
 th.nowrap,
 td.nowrap {
   white-space: nowrap;
+}
+
+/* Organizations list — 16 columns of very differently-shaped data. Under the
+   browser's automatic layout one long URL or note decided how wide its column
+   got, and the leftovers were split among the rest until dates and badges
+   broke across lines — while the table still overflowed the screen sideways.
+   A fixed layout with a colgroup gives every fixed-shape column exactly the
+   width its content needs, and lets Name and Notes share whatever the screen
+   has left, so the table widens with the monitor instead of stretching one
+   greedy column. */
+.table-scroll {
+  overflow-x: auto;
+}
+table.orgs-table {
+  table-layout: fixed;
+  /* Below the minimum the wrapper scrolls rather than crushing 16 columns;
+     above the maximum the leftover width would all land on Name, which just
+     makes the eye travel further between columns. */
+  min-width: 1180px;
+  max-width: 1800px;
+}
+.orgs-table th,
+.orgs-table td {
+  /* Tighter gutters than the default table: with 16 columns every 8px of
+     padding is 8px a value cannot use. */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.orgs-table col.c-star {
+  width: 26px;
+}
+.orgs-table col.c-id {
+  width: 46px;
+}
+.orgs-table col.c-city {
+  /* Wide enough for a 15-character town name on one line — Klosterlechfeld
+     is in most of the local rows. */
+  width: 148px;
+}
+.orgs-table col.c-type {
+  width: 128px;
+}
+.orgs-table col.c-stage {
+  width: 92px;
+}
+.orgs-table col.c-status {
+  width: 100px;
+}
+.orgs-table col.c-fit {
+  width: 48px;
+}
+.orgs-table col.c-mine {
+  width: 52px;
+}
+.orgs-table col.c-date {
+  width: 84px;
+}
+.orgs-table col.c-distance {
+  width: 80px;
+}
+.orgs-table col.c-email {
+  width: 122px;
+}
+.orgs-table col.c-website {
+  /* Clipped to an ellipsis and read as a link, not as text. */
+  width: 100px;
+}
+.orgs-table col.c-notes {
+  /* Notes is clipped to a single line, so it only needs enough width to be a
+     useful preview — the leftover goes to Name, which must stay readable. */
+  width: 12%;
+}
+.orgs-table col.c-actions {
+  /* Usually empty — only flagged rows carry the keep/delete buttons, and there
+     the two buttons stack rather than taking width away from every other row. */
+  width: 68px;
 }
