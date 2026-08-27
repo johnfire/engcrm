@@ -1,4 +1,5 @@
 {% if drafts %}
+<div class="table-scroll">
 <table class="drafts-table">
   <thead>
     <tr>
@@ -44,6 +45,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <p class="empty">{{ t('draftsList.noDrafts') }}</p>
 {% endif %}

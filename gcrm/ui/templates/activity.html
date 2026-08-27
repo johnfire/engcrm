@@ -53,7 +53,8 @@
 {% if agent_costs %}
 <section class="card cost-by-agent">
   <h2>{{ t('activity.costByAgent') }}</h2>
-  <table>
+  <div class="table-scroll">
+<table>
     <thead>
       <tr>
         <th>{{ t('activity.agent') }}</th>
@@ -73,10 +74,12 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
 </section>
 {% endif %}
 
 {% if runs %}
+<div class="table-scroll">
 <table>
   <thead>
     <tr>
@@ -107,6 +110,7 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
   <p class="empty">{{ t('activity.noRuns') }}</p>
 {% endif %}

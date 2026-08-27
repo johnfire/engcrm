@@ -262,6 +262,12 @@ td {
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
+/* A value with no spaces in it — a URL, an address, a pasted token — breaks
+   rather than running out of its cell and over the column next door. */
+th,
+td {
+  overflow-wrap: break-word;
+}
 tr:last-child td {
   border-bottom: none;
 }
@@ -278,8 +284,11 @@ code {
 
 /* Badges — agent run status */
 .badge {
+  /* inline-block is what keeps a two-word label from tearing the badge in
+     half: the box never splits across lines. The text inside may still wrap,
+     which is what stops a long label ("Nicht in der Pipeline", "Ready to
+     contact") from running out of a narrow column. */
   display: inline-block;
-  white-space: nowrap;
   font-size: 0.8em;
   padding: 0.1em 0.5em;
   border-radius: 3px;
@@ -805,6 +814,17 @@ td.nowrap {
   white-space: nowrap;
 }
 
+/* Every data table lives in one of these: a table too wide for the window
+   scrolls inside its own box instead of pushing the whole page sideways. */
+.table-scroll {
+  overflow-x: auto;
+}
+/* A long unbroken value — a URL, a pasted token — must not run out of its box
+   and across the page. */
+.notes-cell-inner {
+  overflow-wrap: anywhere;
+}
+
 /* Organizations list — 16 columns of very differently-shaped data. Under the
    browser's automatic layout one long URL or note decided how wide its column
    got, and the leftovers were split among the rest until dates and badges
@@ -813,9 +833,6 @@ td.nowrap {
    width its content needs, and lets Name and Notes share whatever the screen
    has left, so the table widens with the monitor instead of stretching one
    greedy column. */
-.table-scroll {
-  overflow-x: auto;
-}
 table.orgs-table {
   table-layout: fixed;
   /* Below the minimum the wrapper scrolls rather than crushing 16 columns;

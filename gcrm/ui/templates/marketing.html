@@ -30,7 +30,8 @@
   >
     {{ t('marketing.strategies') }}
   </h2>
-  <table>
+  <div class="table-scroll">
+<table>
     <thead>
       <tr>
         <th>{{ t('common.name') }}</th>
@@ -58,5 +59,6 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
 </section>
 {% endif %} {% endblock %}

@@ -410,7 +410,8 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 {% if interactions %}
 <section class="detail-section" style="margin-top: 2rem">
   <h2>{{ t('organizationDetail.interactionHistory') }}</h2>
-  <table>
+  <div class="table-scroll">
+<table>
     <thead>
       <tr>
         <th>{{ t('common.date') }}</th>
@@ -442,5 +443,6 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       {% endfor %}
     </tbody>
   </table>
+</div>
 </section>
 {% endif %} {% endblock %}
