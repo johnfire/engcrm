@@ -429,6 +429,10 @@ code {
   font-size: 0.85em;
 }
 
+.cost-by-agent th {
+  color: #fff;
+}
+
 /* Wide page variant — for data-table views that need the full screen width
    instead of the default 960px reading column. */
 main.main-wide {
