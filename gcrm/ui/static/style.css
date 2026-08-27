@@ -821,8 +821,13 @@ table.orgs-table {
   /* Below the minimum the wrapper scrolls rather than crushing 16 columns;
      above the maximum the leftover width would all land on Name, which just
      makes the eye travel further between columns. */
-  min-width: 1180px;
+  min-width: 1500px;
   max-width: 1800px;
+}
+/* Sort links are nowrap everywhere else, which in a fixed-width column means a
+   two-word heading overlaps its neighbour instead of wrapping. */
+.orgs-table th .sort-link {
+  white-space: normal;
 }
 .orgs-table th,
 .orgs-table td {
@@ -859,22 +864,25 @@ table.orgs-table {
   width: 52px;
 }
 .orgs-table col.c-date {
-  width: 84px;
+  /* Wide enough for a whole ISO date on one line — a nowrap value in a column
+     narrower than itself does not wrap, it spills over the next column. */
+  width: 90px;
 }
 .orgs-table col.c-distance {
   width: 80px;
 }
 .orgs-table col.c-email {
-  width: 122px;
+  width: 106px;
 }
 .orgs-table col.c-website {
   /* Clipped to an ellipsis and read as a link, not as text. */
-  width: 100px;
+  width: 96px;
 }
 .orgs-table col.c-notes {
-  /* Notes is clipped to a single line, so it only needs enough width to be a
-     useful preview — the leftover goes to Name, which must stay readable. */
-  width: 12%;
+  /* Notes is clipped to a single line, so a fixed preview width is enough —
+     every other spare pixel goes to Name, the one column that must stay
+     readable. Keeping it fixed also makes the table's minimum predictable. */
+  width: 184px;
 }
 .orgs-table col.c-actions {
   /* Usually empty — only flagged rows carry the keep/delete buttons, and there

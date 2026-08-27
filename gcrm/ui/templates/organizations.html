@@ -182,13 +182,13 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         <span class="personal-priority-badge">P{{ c.personal_priority }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
-      <td class="muted nowrap">
+      <td class="muted small nowrap">
         {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
       </td>
-      <td class="muted nowrap">
+      <td class="muted small nowrap">
         {{ c.distance_km|round|int if c.distance_km is not none else '—' }}
       </td>
-      <td class="muted nowrap">
+      <td class="muted small nowrap">
         {{ c.created_at.strftime('%Y-%m-%d') if c.created_at else '—' }}
       </td>
       <td class="muted small cell-clip" title="{{ c.email or '' }}">{{ c.email or '—' }}</td>
