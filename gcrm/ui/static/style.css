@@ -372,6 +372,14 @@ code {
   color: var(--danger);
   margin-left: 0.25rem;
 }
+/* research_exhausted is advisory, not a suppression: enrichment gave up, but
+   nothing blocks outreach and the organization is still workable by hand. It
+   also sits on most rows, so in the warning colour it drowned out the two
+   flags that do stop an email going out. */
+.badge-flag-research_exhausted {
+  border-color: var(--border);
+  color: var(--muted);
+}
 
 /* Suppression checkboxes on the contact detail form */
 .field-group-label {

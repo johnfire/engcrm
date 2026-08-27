@@ -167,7 +167,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         <span class="badge badge-{{ c.status }}">{{ t('status.' ~ c.status) }}</span>
         {%- for flag in ['do_not_contact', 'email_bounced', 'research_exhausted'] %}
         {%- if c[flag] %}
-        <span class="badge badge-flag" title="{{ t('flag.' ~ flag) }}">{{ t('flagShort.' ~ flag) }}</span>
+        <span class="badge badge-flag badge-flag-{{ flag }}" title="{{ t('flag.' ~ flag) }}">{{ t('flagShort.' ~ flag) }}</span>
         {%- endif %}
         {%- endfor %}
       </td>
