@@ -5,8 +5,8 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
     "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version == '3.13.*' and sys_platform != 'win32'",
+    "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 
@@ -696,7 +696,7 @@ requires-dist = [
     { name = "langchain-openai", marker = "extra == 'agents'", specifier = ">=0.2.0" },
     { name = "langgraph", marker = "extra == 'agents'", specifier = ">=0.2.0" },
     { name = "langgraph-checkpoint-postgres", marker = "extra == 'agents'", specifier = ">=2.0.0" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.0.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.0.0,<2" },
     { name = "openai", marker = "extra == 'agents'", specifier = ">=1.50.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "pyjwt", specifier = ">=2.8" },
