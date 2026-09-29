@@ -1,4 +1,6 @@
 """Mobile contacts endpoints (JSON)."""
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -6,9 +8,12 @@ from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.db.connection import db
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.db_users import get_user_by_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
 
@@ -122,7 +127,10 @@ def list_organizations(
                    c.do_not_contact, c.email_bounced, c.research_exhausted,
                    c.email, c.website, c.fit_score, c.flagged, c.starred,
                    c.created_at, cup.priority AS personal_priority,
-                   MAX(i.interaction_date) AS last_contact
+                   MAX(i.interaction_date) AS last_contact,
+                   (SELECT COUNT(*) FROM people lp
+                     WHERE lp.contact_id = c.id AND lp.is_linkedin_contact
+                   ) AS linkedin_connection_count
             FROM contacts c
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
@@ -182,6 +190,13 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
     organization["opportunity_analysis"] = _opportunity_payload(
         get_latest_opportunity_analysis(contact_id)
     )
+    # "Do I know someone here?" is a bonus on this screen: a failed lookup
+    # returns no connections rather than failing the whole organization.
+    try:
+        organization["linkedin_connections"] = get_linkedin_connections_for_org(contact_id)
+    except Exception:
+        logger.exception("linkedin connection lookup failed for contact %s", contact_id)
+        organization["linkedin_connections"] = {"linked": [], "possible": []}
     return organization
 
 

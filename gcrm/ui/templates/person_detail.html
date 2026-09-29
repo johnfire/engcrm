@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>{{ person.name }}</h1>
+  <h1>{{ person.name }}{% if person.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}</h1>
   <span class="muted">
     {%- if person.title %}{{ person.title }}{% endif -%}
     {%- if person.title and person.company %} · {% endif -%}
@@ -55,6 +55,24 @@
            aria-label="{{ t('common.website') }}: {{ person_website_url }}">{{ t('common.openInNewTab') }}</a>
         {% endif %}
       </div>
+      <div class="field-row field-row--wide">
+        <label for="person-linkedin-url">{{ t('linkedin.url') }}</label>
+        <input id="person-linkedin-url" type="text" name="linkedin_url" value="{{ person.linkedin_url or '' }}"
+               placeholder="https://www.linkedin.com/in/…" />
+        {% set person_linkedin_link = person.linkedin_url | browsable_url %}
+        {% if person_linkedin_link %}
+        <a class="field-open-link" href="{{ person_linkedin_link }}" target="_blank" rel="noopener noreferrer"
+           title="{{ person_linkedin_link }}"
+           aria-label="{{ t('linkedin.url') }}: {{ person_linkedin_link }}">{{ t('common.openInNewTab') }}</a>
+        {% endif %}
+      </div>
+      <div class="field-row field-row--wide">
+        <label class="flag-check" for="person-is-linkedin">
+          <input id="person-is-linkedin" type="checkbox" name="is_linkedin_contact" value="1"
+                 {% if person.is_linkedin_contact %}checked{% endif %} />
+          {{ t('linkedin.isConnection') }}
+        </label>
+      </div>
       <div class="field-row">
         <label for="person-city">{{ t('common.city') }}</label>
         <input id="person-city" type="text" name="city" value="{{ person.city or '' }}" />
@@ -83,6 +101,15 @@
           <a href="/organizations/{{ person.contact_id }}">{{ person.company }}</a>
           {%- else -%}—{%- endif -%}
         </dd>
+        {% if person.is_linkedin_contact %}
+        <dt>{{ t('linkedin.connectedOn') }}</dt>
+        <dd>{{ person.connected_on or '—' }}</dd>
+        <dt>{{ t('linkedin.companyOnLinkedin') }}</dt>
+        <dd>
+          {{- person.company_raw or '—' -}}
+          {%- if person.company_raw and not person.contact_id %} <span class="muted">({{ t('linkedin.notLinked') }})</span>{% endif -%}
+        </dd>
+        {% endif %}
         <dt>{{ t('personDetail.source') }}</dt>
         <dd>{{ person.source or '—' }}</dd>
         <dt>{{ t('common.added') }}</dt>

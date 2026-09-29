@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ t('linkedin.matches.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('linkedin.matches.title') }}</h1>
+  <span class="muted">{{ t('linkedin.matches.total', count=total) }}</span>
+  <a href="/people/?linkedin=unlinked" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</div>
+
+{% if applied %}
+<div class="flash-success">{{ t('linkedin.matches.applied', linked=applied.linked, rejected=applied.rejected) }}</div>
+{% endif %}
+{% if load_failed %}
+<p class="error">{{ t('linkedin.matches.loadFailed') }}</p>
+{% endif %}
+
+<p class="muted">{{ t('linkedin.matches.intro') }}</p>
+
+{% if suggestions %}
+<form method="post" action="/people/linkedin/matches">
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.matches.apply') }}</button>
+  </div>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('common.name') }}</th>
+        <th>{{ t('linkedin.companyOnLinkedin') }}</th>
+        <th>{{ t('linkedin.matches.organization') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in suggestions %}
+      <tr>
+        <td>
+          <strong><a href="/people/{{ s.id }}">{{ s.name }}</a></strong>
+          {% if s.title %}<div class="muted small">{{ s.title }}</div>{% endif %}
+        </td>
+        <td>{{ s.company_raw }}</td>
+        <td>
+          <input type="hidden" name="cands_{{ s.id }}" value="{{ s.matches | map(attribute='contact_id') | join(',') }}">
+          <select name="person_{{ s.id }}" aria-label="{{ t('linkedin.matches.organization') }}">
+            <option value="">{{ t('linkedin.matches.decideLater') }}</option>
+            {% for m in s.matches %}
+            <option value="{{ m.contact_id }}" {% if loop.first and m.confidence == 'exact' %}selected{% endif %}>
+              {{ m.name }}{% if m.city %} ({{ m.city }}){% endif %} — {{ t('linkedin.matches.confidence.' ~ m.confidence) }}
+            </option>
+            {% endfor %}
+            <option value="none">{{ t('linkedin.matches.noneOfThese') }}</option>
+          </select>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.matches.apply') }}</button>
+  </div>
+</form>
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}" class="btn-secondary">{{ t('common.prev') }}</a>{% endif %}
+  <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}" class="btn-secondary">{{ t('common.next') }}</a>{% endif %}
+</div>
+{% endif %}
+{% elif not load_failed %}
+<p class="muted">{{ t('linkedin.matches.empty') }}</p>
+{% endif %}
+{% endblock %}

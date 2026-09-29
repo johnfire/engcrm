@@ -215,3 +215,85 @@ describe("organization detail — state", () => {
     expect(screen.queryByText("No more data findable")).toBeNull();
   });
 });
+
+describe("organization detail — LinkedIn notice", () => {
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockGetRole.mockReset();
+    mockGetRole.mockResolvedValue("spectator");
+  });
+
+  const ANNA = {
+    id: 3,
+    name: "Anna Roth",
+    title: "CTO",
+    linkedin_url: "https://www.linkedin.com/in/anna-roth",
+    connected_on: "2024-03-05",
+  };
+  const BOB = {
+    id: 4,
+    name: "Bob Ng",
+    title: null,
+    linkedin_url: null,
+    connected_on: null,
+    company_raw: "Acme Ltd",
+  };
+
+  it("tells you who you know here, confirmed people first", async () => {
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      linkedin_connections: { linked: [ANNA], possible: [] },
+    });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("You know someone here on LinkedIn")).toBeTruthy());
+    expect(screen.getByText("Anna Roth · CTO")).toBeTruthy();
+    expect(screen.queryByText(/Possible LinkedIn connections/)).toBeNull();
+  });
+
+  it("opens the profile of a confirmed connection", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      linkedin_connections: { linked: [ANNA], possible: [] },
+    });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth · CTO")).toBeTruthy());
+    fireEvent.press(screen.getByText("Anna Roth · CTO"));
+
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("https://www.linkedin.com/in/anna-roth"));
+    openURL.mockRestore();
+  });
+
+  it("labels unconfirmed lookalikes as such and shows their LinkedIn company", async () => {
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      linkedin_connections: { linked: [], possible: [BOB] },
+    });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() =>
+      expect(screen.getByText(/Possible LinkedIn connections.*unconfirmed/)).toBeTruthy(),
+    );
+    expect(screen.getByText("Bob Ng")).toBeTruthy();
+    expect(screen.getByText("Company on LinkedIn: Acme Ltd")).toBeTruthy();
+    expect(screen.queryByText("You know someone here on LinkedIn")).toBeNull();
+  });
+
+  it("shows no notice when there are no connections, or the server predates the feature", async () => {
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      linkedin_connections: { linked: [], possible: [] },
+    });
+    const empty = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(empty.getByText("Acme Salon")).toBeTruthy());
+    expect(empty.queryByText(/LinkedIn/)).toBeNull();
+    empty.unmount();
+
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+    const legacy = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(legacy.getByText("Acme Salon")).toBeTruthy());
+    expect(legacy.queryByText(/LinkedIn/)).toBeNull();
+  });
+});

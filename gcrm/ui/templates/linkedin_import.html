@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ t('linkedin.import.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}person-detail-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('linkedin.import.title') }}</h1>
+  <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</div>
+
+{% if error %}
+<p class="error">{{ t(error) }}</p>
+{% endif %}
+
+{% if result %}
+<div class="flash-success">
+  <strong>{{ t('linkedin.import.done') }}</strong>
+  <ul>
+    <li>{{ t('linkedin.import.created', count=result.created) }}</li>
+    <li>{{ t('linkedin.import.updated', count=result.updated) }}</li>
+    {% if result.skipped %}<li>{{ t('linkedin.import.skipped', count=result.skipped) }}</li>{% endif %}
+    {% if result.failed %}<li>{{ t('linkedin.import.failed', count=result.failed) }}</li>{% endif %}
+  </ul>
+  <a href="/people/linkedin/matches" class="btn-primary">{{ t('linkedin.import.nextMatch') }}</a>
+</div>
+{% endif %}
+
+<section class="detail-section">
+  <h2>{{ t('linkedin.import.howTitle') }}</h2>
+  <ol>
+    <li>{{ t('linkedin.import.step1') }}</li>
+    <li>{{ t('linkedin.import.step2') }}</li>
+    <li>{{ t('linkedin.import.step3') }}</li>
+  </ol>
+  <p class="muted small">{{ t('linkedin.import.emailNote') }}</p>
+
+  <form method="post" action="/people/import/linkedin" enctype="multipart/form-data">
+    <div class="field-row field-row--wide">
+      <label for="linkedin-file">{{ t('linkedin.import.fileLabel') }}</label>
+      <input id="linkedin-file" type="file" name="connections" accept=".csv,text/csv" required />
+    </div>
+    <div class="detail-actions">
+      <button type="submit" class="btn-primary">{{ t('linkedin.import.submit') }}</button>
+    </div>
+    <p class="muted small">{{ t('linkedin.import.safeToRepeat') }}</p>
+  </form>
+</section>
+{% endblock %}

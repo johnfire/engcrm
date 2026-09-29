@@ -7,6 +7,7 @@ import logging
 
 from gcrm.db.connection import db, serialize_row
 from gcrm.geo import distance_km_sql
+from gcrm.linkedin import normalize_linkedin_url
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -111,7 +112,7 @@ def save_person(
 # link is a relation, not a text field) and source/created_at (provenance).
 EDITABLE_COLUMNS = (
     "name", "title", "email", "phone", "website",
-    "city", "country", "relationship", "notes", "met_at",
+    "city", "country", "relationship", "notes", "met_at", "linkedin_url",
 )
 
 
@@ -120,12 +121,23 @@ def update_person(person_id: int, values: dict) -> bool:
     Write the editable fields of one person. Only EDITABLE_COLUMNS keys present
     in `values` are written; blank strings become NULL. Returns False when the
     person does not exist, so the caller can 404 rather than silently no-op.
+
+    `is_linkedin_contact` is the one non-text field: written as a boolean when
+    present. A non-blank `linkedin_url` is stored in its canonical form, and
+    raises ValueError when it is not a linkedin.com link.
     """
     updates = {
         column: ((values.get(column) or "").strip() or None)
         for column in EDITABLE_COLUMNS
         if column in values
     }
+    if updates.get("linkedin_url"):
+        canonical = normalize_linkedin_url(updates["linkedin_url"])
+        if canonical is None:
+            raise ValueError("linkedin_url must be a linkedin.com link")
+        updates["linkedin_url"] = canonical
+    if "is_linkedin_contact" in values:
+        updates["is_linkedin_contact"] = bool(values["is_linkedin_contact"])
     if not updates:
         return False
 
@@ -182,6 +194,14 @@ SORT_COLUMNS = {
     "company_priority": "company_priority.priority",
     "value_rating":     "person_priority.priority",
     "distance":         "distance_km",
+    "connected_on":     "person.connected_on",
+}
+
+# `linkedin` filter values -> WHERE fragment. "unlinked" is the review queue:
+# connections not yet tied to one of our organizations.
+_LINKEDIN_FILTERS = {
+    "1":        "person.is_linkedin_contact",
+    "unlinked": "person.is_linkedin_contact AND person.contact_id IS NULL",
 }
 
 
@@ -226,12 +246,15 @@ def get_people(
     user_id: int | None = None,
     company_priority: str = "",
     value_rating: str = "",
+    linkedin: str = "",
 ) -> list[dict]:
     """All people, optionally filtered by name/email/city text search and/or
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
-    only meaningful when user_id is given, since both are private per-user),
+    only meaningful when user_id is given, since both are private per-user)
+    and/or `linkedin` ("1" = LinkedIn connections, "unlinked" = connections not
+    yet tied to an organization, "" = everyone),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
-    opportunity_score|company_priority|value_rating|distance; default newest-added-first).
+    opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
     opportunity score, most recent logged interaction date, and (when user_id
     is given) that user's private company-priority and person-value ratings."""
@@ -248,6 +271,8 @@ def get_people(
         params += [like, like, like]
     _rating_filter(conditions, params, "company_priority.priority", company_priority)
     _rating_filter(conditions, params, "person_priority.priority", value_rating)
+    if linkedin in _LINKEDIN_FILTERS:
+        conditions.append(_LINKEDIN_FILTERS[linkedin])
     where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
 
     # NULLS LAST regardless of direction — an unrated/unlinked person should

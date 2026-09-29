@@ -5,7 +5,7 @@ gdpr-audit skill; columns marked (human) are business decisions — fill and
 keep them.
 
 **Controller:** ⚠ TODO (human) — <name, address, contact>
-**Last code-derived update:** 2026-07-23 | **Last human review:** ⚠ TODO
+**Last code-derived update:** 2026-09-29 | **Last human review:** ⚠ TODO
 
 ## Processing activities
 
@@ -22,6 +22,7 @@ keep them.
 | 9 | Ops logging & AI-run bookkeeping (`agent_runs`, `run_costs`, `audit_log`, app logs) | run inputs/outputs (may embed contact data), audit actor/action/target/outcome, application logs | prospects, staff | ⚠ TODO | ⚠ TODO | IONOS (DE) | no code-evidenced third-country transfer | shared runs: 3 years maximum; audit: 730 days | correlated audit context; append-only audit log; scheduled purge |
 | 10 | Database backups | full dump of all categories above | all of the above | ⚠ TODO | ⚠ TODO | none — local VPS directory | no (DE) | bounded: 7 daily / 4 weekly / 3 monthly | rotation automated; **dumps world-readable — F-08** |
 | 11 | Storefront-sign capture & business research (mobile photo → OCR → Places resolution → enrichment + key-people lookup) | sign image, GPS of capture (nullable), extracted business name/type/phone/website, resolved Google Place payload, researched key-people names/roles/emails/phones | business owners/staff never contacted before, individuals named on business websites | ⚠ TODO | ⚠ TODO (Art. 14 and legitimate-interest review required) | Google Places (US), Bright Data (IL), Anthropic (US), DeepSeek (CN when selected) | US transfer requires confirmation; IL adequacy; CN requires Art. 46/TIA evidence | image deleted on confirm/discard; linked records follow configured retention | JWT-admin only; upload size caps; human accept/reject before contact creation |
+| 12 | LinkedIn connection import (Connections.csv upload → people; company-name matching to organizations; "who do I know here" notice) | name, LinkedIn profile URL, position/title, company name as shown on LinkedIn, connected-on date, email only where the connection shared it | the user's LinkedIn connections — third parties who never used this service | ⚠ TODO (human) — warm-introduction outreach to target organizations | ⚠ TODO (human) — Art. 14 information duty and legitimate-interest review required | IONOS (DE). Import and matching are local string comparison; nothing is sent to LinkedIn or an AI provider. AI drafting for a person (activity 3) sends that person's fields to Anthropic only when a draft is requested | no for import and matching; see activity 3 for drafting | ⚠ **gap:** `people` rows have no age-based purge and no per-person erasure; they are deleted only together with a linked organization (`erase_organization`), so connections never linked to an organization are kept indefinitely | admin-only upload with size cap; rows imported independently; audit-logged (`person.linkedin_imported`, `person.linkedin_matches_applied`); soft-deleted people are excluded from notices |
 
 ## Notes
 

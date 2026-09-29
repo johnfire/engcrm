@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -18,8 +19,11 @@ from gcrm.organization_state import (
 )
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.privacy_retention import erase_organization
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/organizations", tags=["organizations"], dependencies=[Depends(require_login)])
 
@@ -345,10 +349,18 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
             (contact_id,),
         )
         opportunity_analysis = cur.fetchone()
+    # The walk-in notice is a bonus on this page: if the lookup fails, the page
+    # still renders without it.
+    try:
+        linkedin = get_linkedin_connections_for_org(contact_id)
+    except Exception:
+        logger.exception("linkedin connection lookup failed for contact %s", contact_id)
+        linkedin = {"linked": [], "possible": []}
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
         "interactions": interactions,
+        "linkedin": linkedin,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "pipeline_stages": PIPELINE_STAGES,
         "statuses": STATUSES,

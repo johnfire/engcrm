@@ -779,6 +779,30 @@ main.person-detail-page {
 @media (max-width: 640px) { .help-search input { min-width: 0; width: 100%; } }
 
 /* Save confirmation on the contact / person editors. */
+/* LinkedIn: the "in" mark on people, and the who-do-I-know-here notice on an
+   organization. Blue is LinkedIn's own, deliberately unlike the app's purple. */
+.linkedin-badge {
+  background: #0a66c2;
+  color: #fff;
+  font-weight: 700;
+  text-transform: lowercase;
+}
+
+.linkedin-notice {
+  background: var(--surface);
+  border: 1px solid #0a66c2;
+  border-left: 3px solid #0a66c2;
+  border-radius: 4px;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.9em;
+}
+
+.linkedin-notice ul {
+  margin: 0.3rem 0 0.5rem;
+  padding-left: 1.2rem;
+}
+
 .flash-success {
   background: var(--surface);
   border: 1px solid #3fa46a;

@@ -15,6 +15,8 @@ import {
   updatePersonalPriority,
   OrganizationDetail,
   OpportunityAnalysis,
+  LinkedInConnections,
+  LinkedInPerson,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
 import {
@@ -110,6 +112,8 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
 
+      <LinkedInNotice connections={organization.linkedin_connections} />
+
       <PersonalPrioritySelector
         key={organization.id}
         priority={organization.personal_priority}
@@ -174,6 +178,64 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+// "Who do I know here?" — LinkedIn connections at this organization, shown at the
+// top so it is the first thing seen when walking in cold. Confirmed people are
+// listed first; unconfirmed name-lookalikes sit under their own heading so a wrong
+// guess cannot pass for a known contact. Renders nothing when there are none.
+function LinkedInNotice({ connections }: { connections?: LinkedInConnections }) {
+  const { t } = useTranslation();
+  if (!connections || (connections.linked.length === 0 && connections.possible.length === 0)) {
+    return null;
+  }
+  return (
+    <View style={styles.linkedinNotice} accessibilityRole="summary">
+      {connections.linked.length > 0 && (
+        <>
+          <Text style={styles.linkedinTitle}>{t("organizationDetail.linkedin.title")}</Text>
+          {connections.linked.map((person) => (
+            <LinkedInPersonRow key={person.id} person={person} />
+          ))}
+        </>
+      )}
+      {connections.possible.length > 0 && (
+        <>
+          <Text style={[styles.linkedinTitle, styles.linkedinPossibleTitle]}>
+            {t("organizationDetail.linkedin.possibleTitle")}
+          </Text>
+          {connections.possible.map((person) => (
+            <LinkedInPersonRow key={person.id} person={person} showCompany />
+          ))}
+        </>
+      )}
+    </View>
+  );
+}
+
+function LinkedInPersonRow({ person, showCompany }: { person: LinkedInPerson; showCompany?: boolean }) {
+  const { t } = useTranslation();
+  const label = person.title ? `${person.name} · ${person.title}` : person.name;
+  return (
+    <View style={styles.linkedinRow}>
+      {browsableUrl(person.linkedin_url) ? (
+        <TouchableOpacity
+          accessibilityRole="link"
+          accessibilityLabel={t("organizationDetail.linkedin.openProfile", { name: person.name })}
+          onPress={() => openWebsite(person.linkedin_url)}
+        >
+          <Text style={styles.linkedinLink}>{label}</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.linkedinName}>{label}</Text>
+      )}
+      {showCompany && !!person.company_raw && (
+        <Text style={styles.linkedinCompany}>
+          {t("organizationDetail.linkedin.companyLabel", { company: person.company_raw })}
+        </Text>
+      )}
+    </View>
   );
 }
 
@@ -402,6 +464,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   empty: { color: "#555" },
+
+  // --- LinkedIn notice --- (#0a66c2 is LinkedIn's blue, deliberately unlike the app's purple)
+  linkedinNotice: {
+    backgroundColor: "#0a66c220",
+    borderColor: "#0a66c2",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  linkedinTitle: { color: "#5aa9f0", fontSize: 13, fontWeight: "700", marginBottom: 6 },
+  linkedinPossibleTitle: { color: "#8aa4bd", marginTop: 8 },
+  linkedinRow: { marginBottom: 6 },
+  linkedinName: { color: "#ddd", fontSize: 14 },
+  linkedinLink: { color: "#5aa9f0", fontSize: 14, textDecorationLine: "underline" },
+  linkedinCompany: { color: "#888", fontSize: 12, marginTop: 1 },
 
   // --- Opportunity analysis ---
   analysisCard: {

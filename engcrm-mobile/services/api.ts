@@ -443,11 +443,29 @@ export interface Organization {
   created_at: string;
 }
 
+// A LinkedIn connection as the organization screen needs them. `possible` are
+// unconfirmed: their LinkedIn company name merely looks like this organization's.
+export interface LinkedInPerson {
+  id: number;
+  name: string;
+  title: string | null;
+  linkedin_url: string | null;
+  connected_on: string | null;
+  company_raw?: string | null;
+}
+
+export interface LinkedInConnections {
+  linked: LinkedInPerson[];
+  possible: LinkedInPerson[];
+}
+
 export interface OrganizationDetail extends Organization {
   phone: string | null;
   notes: string | null;
   interactions: Interaction[];
   opportunity_analysis: OpportunityAnalysis | null;
+  // Absent on servers that predate the LinkedIn import.
+  linkedin_connections?: LinkedInConnections;
 }
 
 export interface RecommendedService {

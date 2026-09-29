@@ -8,9 +8,15 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES
+from gcrm.linkedin import decode_export, parse_connections_csv
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_linkedin import (
+    apply_match_decisions,
+    get_match_suggestions,
+    import_connections,
+)
 from gcrm.tools.db_people import (
     get_people,
     get_person,
@@ -34,6 +40,9 @@ _TRANSCRIBE_FAILED = "Couldn't make out any speech — try again or type your no
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
+# Rows per page on the LinkedIn match-review screen.
+MATCH_PAGE_SIZE = 100
+
 
 class PersonValueRatingBody(BaseModel):
     priority: int | None = None
@@ -47,9 +56,11 @@ def people_list(
     dir: str = Query(default="desc"),
     company_priority: str = Query(default=""),
     value_rating: str = Query(default=""),
+    linkedin: str = Query(default=""),
 ):
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
+        linkedin,
     )
     return templates.TemplateResponse("people.html", {
         "request": request,
@@ -59,6 +70,7 @@ def people_list(
         "dir": dir,
         "company_priority": company_priority,
         "value_rating": value_rating,
+        "linkedin": linkedin,
     })
 
 
@@ -101,6 +113,116 @@ def person_create(
     )
     log_audit(None, None, "person.created", f"person:{person_id}", "created")
     return local_redirect(f"/people/{person_id}", saved="1")
+
+
+def _import_page(request: Request, result=None, error=None, status_code: int = 200):
+    return templates.TemplateResponse(
+        "linkedin_import.html",
+        {"request": request, "result": result, "error": error},
+        status_code=status_code,
+    )
+
+
+@router.get("/people/import/linkedin", response_class=HTMLResponse)
+def linkedin_import_form(request: Request):
+    return _import_page(request)
+
+
+@router.post("/people/import/linkedin", response_class=HTMLResponse)
+def linkedin_import_upload(
+    request: Request,
+    connections: UploadFile = File(...),
+    _admin: str = Depends(require_admin),
+):
+    """Import LinkedIn's Connections.csv data export as people. Rows are
+    independent — one unreadable row is counted, never fatal."""
+    data = connections.file.read(MAX_UPLOAD_BYTES + 1)
+    if not data:
+        return _import_page(request, error="linkedin.import.errorEmpty", status_code=400)
+    if len(data) > MAX_UPLOAD_BYTES:
+        return _import_page(request, error="linkedin.import.errorTooLarge", status_code=413)
+    parsed = parse_connections_csv(decode_export(data))
+    if not parsed.header_found:
+        return _import_page(request, error="linkedin.import.errorFormat", status_code=400)
+    try:
+        counts = import_connections(parsed.rows)
+    except Exception:
+        logger.exception("linkedin import failed")
+        return _import_page(request, error="linkedin.import.errorFailed", status_code=500)
+    counts["skipped"] = parsed.skipped
+    counts["total"] = len(parsed.rows)
+    log_audit(
+        None, None, "person.linkedin_imported", "people",
+        f"created:{counts['created']} updated:{counts['updated']} "
+        f"skipped:{counts['skipped']} failed:{counts['failed']}",
+    )
+    return _import_page(request, result=counts)
+
+
+@router.get("/people/linkedin/matches", response_class=HTMLResponse)
+def linkedin_matches(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    linked: int | None = Query(default=None),
+    rejected: int | None = Query(default=None),
+):
+    """Review which organization each LinkedIn connection works at. Paged: with
+    1,500 connections one page of rows is over a megabyte. Applying a page
+    removes its decided rows, so the undecided ones simply move up."""
+    load_failed = False
+    try:
+        suggestions = get_match_suggestions()
+    except Exception:
+        logger.exception("linkedin match suggestions failed")
+        suggestions, load_failed = [], True
+    total = len(suggestions)
+    total_pages = max(1, -(-total // MATCH_PAGE_SIZE))
+    page = min(page, total_pages)
+    start = (page - 1) * MATCH_PAGE_SIZE
+    return templates.TemplateResponse("linkedin_matches.html", {
+        "request": request,
+        "suggestions": suggestions[start:start + MATCH_PAGE_SIZE],
+        "total": total,
+        "page": page,
+        "total_pages": total_pages,
+        "load_failed": load_failed,
+        "applied": None if linked is None else {"linked": linked, "rejected": rejected or 0},
+    })
+
+
+def _parse_match_decisions(form) -> list[dict]:
+    """The review form posts one `person_<id>` choice per row ('' = leave for
+    later, 'none' = none of the offered organizations, else an organization id)
+    plus `cands_<id>`, the ids that row offered. A link is honoured only to an
+    organization that was actually offered for that person."""
+    decisions = []
+    for key in form.keys():
+        if not key.startswith("person_") or not key[len("person_"):].isdigit():
+            continue
+        person_id = int(key[len("person_"):])
+        choice = str(form.get(key) or "").strip()
+        offered = [
+            int(part) for part in str(form.get(f"cands_{person_id}") or "").split(",")
+            if part.strip().isdigit()
+        ]
+        if choice == "none":
+            decisions.append({"person_id": person_id, "contact_id": None, "rejected": offered})
+        elif choice.isdigit() and int(choice) in offered:
+            decisions.append({"person_id": person_id, "contact_id": int(choice), "rejected": []})
+    return decisions
+
+
+@router.post("/people/linkedin/matches")
+async def linkedin_matches_apply(request: Request, _admin: str = Depends(require_admin)):
+    decisions = _parse_match_decisions(await request.form())
+    counts = apply_match_decisions(decisions) if decisions else {"linked": 0, "rejected": 0}
+    log_audit(
+        None, None, "person.linkedin_matches_applied", "people",
+        f"linked:{counts['linked']} rejected:{counts['rejected']}",
+    )
+    return local_redirect(
+        "/people/linkedin/matches", linked=str(counts["linked"]), rejected=str(counts["rejected"]),
+    )
 
 
 @router.get("/people/{person_id}", response_class=HTMLResponse)
@@ -159,16 +281,22 @@ def person_edit(
     relationship: str = Form(""),
     met_at: str = Form(""),
     notes: str = Form(""),
+    linkedin_url: str = Form(""),
+    is_linkedin_contact: bool = Form(False),
     _admin: str = Depends(require_admin),
 ):
     """Save the edited person. Name is the one field the row cannot lose."""
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
-    updated = update_person(person_id, {
-        "name": name, "title": title, "email": email, "phone": phone,
-        "website": website, "city": city, "country": country,
-        "relationship": relationship, "met_at": met_at, "notes": notes,
-    })
+    try:
+        updated = update_person(person_id, {
+            "name": name, "title": title, "email": email, "phone": phone,
+            "website": website, "city": city, "country": country,
+            "relationship": relationship, "met_at": met_at, "notes": notes,
+            "linkedin_url": linkedin_url, "is_linkedin_contact": is_linkedin_contact,
+        })
+    except ValueError:
+        raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")
     if not updated:
         raise HTTPException(status_code=404, detail="Person not found")
     log_audit(None, None, "person.edited", f"person:{person_id}", "updated")

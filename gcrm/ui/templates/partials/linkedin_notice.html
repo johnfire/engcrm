@@ -1,0 +1,30 @@
+{# "Who do I know here?" — LinkedIn connections at this organization. Confirmed
+   people first; unconfirmed name-lookalikes are listed separately and labelled
+   as such, so a wrong guess can't pass for a known contact. #}
+{% if linkedin and (linkedin.linked or linkedin.possible) %}
+<div class="linkedin-notice" role="note">
+  {% if linkedin.linked %}
+  <strong>{{ t('linkedin.notice.title') }}</strong>
+  <ul>
+    {% for p in linkedin.linked %}
+    <li>
+      <a href="/people/{{ p.id }}">{{ p.name }}</a>{% if p.title %} · {{ p.title }}{% endif %}
+      {%- set profile = p.linkedin_url | browsable_url %}
+      {%- if profile %} · <a href="{{ profile }}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if linkedin.possible %}
+  <strong class="muted">{{ t('linkedin.notice.possibleTitle') }}</strong>
+  <ul>
+    {% for p in linkedin.possible %}
+    <li>
+      <a href="/people/{{ p.id }}">{{ p.name }}</a>{% if p.title %} · {{ p.title }}{% endif %}
+      · <span class="muted small">{{ t('linkedin.notice.companyLabel', company=p.company_raw) }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
