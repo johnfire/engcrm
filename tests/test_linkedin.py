@@ -13,6 +13,7 @@ from gcrm.api.jwt_auth import create_token
 from gcrm.linkedin import (
     OrgIndex,
     decode_export,
+    linkedin_url_hash,
     normalize_company,
     normalize_linkedin_url,
     parse_connected_on,
@@ -219,7 +220,8 @@ class TestCommonWords:
 class FakeCursor:
     """Answers the importer's lookups from a dict and can fail one insert."""
 
-    def __init__(self, known_urls=None, fail_on_name=None):
+    def __init__(self, known_urls=None, fail_on_name=None, suppressed_hashes=()):
+        self.suppressed_hashes = set(suppressed_hashes)
         self.executed = []
         self.known_urls = known_urls or {}
         self.fail_on_name = fail_on_name
@@ -232,6 +234,8 @@ class FakeCursor:
         if sql.strip().startswith("SELECT id FROM people WHERE lower(linkedin_url)"):
             person_id = self.known_urls.get(params[0])
             self._rows = [{"id": person_id}] if person_id else []
+        elif sql.strip().startswith("SELECT 1 FROM person_import_suppressions"):
+            self._rows = [{"?column?": 1}] if params[0] in self.suppressed_hashes else []
         elif sql.strip().startswith("INSERT INTO people") and params[0] == self.fail_on_name:
             raise RuntimeError("boom")
 
@@ -270,7 +274,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 1, "updated": 1, "failed": 0}
+        assert counts == {"created": 1, "updated": 1, "failed": 0, "suppressed": 0}
         [update] = cursor.statements("UPDATE people SET")
         assert "is_linkedin_contact = TRUE" in update
         # Existing values are only filled in when blank, never overwritten.
@@ -289,7 +293,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 2, "updated": 0, "failed": 1}
+        assert counts == {"created": 2, "updated": 0, "failed": 1, "suppressed": 0}
         assert cursor.statements("ROLLBACK TO SAVEPOINT") == ["ROLLBACK TO SAVEPOINT linkedin_row"]
         assert len(cursor.statements("RELEASE SAVEPOINT")) == 2
 
@@ -318,7 +322,7 @@ class TestImportConnections:
             counts = db_linkedin.import_connections([row("Anna Roth", None, company="Acme")])
         finally:
             patcher.stop()
-        assert counts == {"created": 1, "updated": 0, "failed": 0}
+        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 0}
 
     def test_reimporting_a_connection_with_no_url_email_or_real_company_does_not_duplicate(self):
         """Regression, found against real Postgres: "Self-employed" normalises to
@@ -334,7 +338,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 0, "updated": 1, "failed": 0}
+        assert counts == {"created": 0, "updated": 1, "failed": 0, "suppressed": 0}
 
     def test_the_connected_on_date_alone_corroborates_a_name(self):
         cursor = FakeCursor()
@@ -348,11 +352,26 @@ class TestImportConnections:
             patcher.stop()
         assert counts["updated"] == 1
 
+    def test_a_person_deleted_earlier_is_not_brought_back(self):
+        url = "https://www.linkedin.com/in/anna"
+        cursor = FakeCursor(suppressed_hashes={linkedin_url_hash(url)})
+        patcher = patched_db(cursor)
+        try:
+            counts = db_linkedin.import_connections([
+                row("Anna Roth", url),
+                row("Bob Ng", "https://www.linkedin.com/in/bob"),
+            ])
+        finally:
+            patcher.stop()
+        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 1}
+        [insert] = [(s, p) for s, p in cursor.executed if s.startswith("INSERT INTO people")]
+        assert insert[1][0] == "Bob Ng"
+
     def test_empty_import(self):
         cursor = FakeCursor()
         patcher = patched_db(cursor)
         try:
-            assert db_linkedin.import_connections([]) == {"created": 0, "updated": 0, "failed": 0}
+            assert db_linkedin.import_connections([]) == {"created": 0, "updated": 0, "failed": 0, "suppressed": 0}
         finally:
             patcher.stop()
 
@@ -570,7 +589,7 @@ class TestImportRoutes:
 
     def test_import_parses_the_export_and_reports_counts(self, admin_web):
         with patch("gcrm.api.routers.people.import_connections",
-                   return_value={"created": 2, "updated": 1, "failed": 0}) as mimport, \
+                   return_value={"created": 2, "updated": 1, "failed": 0, "suppressed": 0}) as mimport, \
              patch("gcrm.api.routers.people.log_audit") as maudit:
             response = client.post(
                 "/people/import/linkedin", files={"connections": ("c.csv", CSV_BYTES, "text/csv")},
@@ -880,3 +899,15 @@ class TestMobileApi:
             response = client.get("/api/contacts/1", headers=AUTH)
         assert response.status_code == 200
         assert response.json()["linkedin_connections"] == {"linked": [], "possible": []}
+
+
+class TestLinkedinUrlHash:
+    def test_one_hash_for_every_spelling_of_a_profile(self):
+        assert linkedin_url_hash("https://www.linkedin.com/in/Anna/") == linkedin_url_hash("linkedin.com/in/anna")
+
+    def test_it_is_a_sha256_not_the_url(self):
+        digest = linkedin_url_hash("https://www.linkedin.com/in/anna")
+        assert len(digest) == 64 and "anna" not in digest
+
+    def test_nothing_to_hash(self):
+        assert linkedin_url_hash("") is None and linkedin_url_hash(None) is None

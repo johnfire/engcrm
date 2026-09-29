@@ -116,14 +116,17 @@ EDITABLE_COLUMNS = (
 )
 
 
+BOOLEAN_COLUMNS = ("is_linkedin_contact", "retention_hold")
+
+
 def update_person(person_id: int, values: dict) -> bool:
     """
     Write the editable fields of one person. Only EDITABLE_COLUMNS keys present
     in `values` are written; blank strings become NULL. Returns False when the
     person does not exist, so the caller can 404 rather than silently no-op.
 
-    `is_linkedin_contact` is the one non-text field: written as a boolean when
-    present. A non-blank `linkedin_url` is stored in its canonical form, and
+    `is_linkedin_contact` and `retention_hold` are the non-text fields: written as
+    booleans when present. A non-blank `linkedin_url` is stored in its canonical form, and
     raises ValueError when it is not a linkedin.com link.
     """
     updates = {
@@ -136,8 +139,9 @@ def update_person(person_id: int, values: dict) -> bool:
         if canonical is None:
             raise ValueError("linkedin_url must be a linkedin.com link")
         updates["linkedin_url"] = canonical
-    if "is_linkedin_contact" in values:
-        updates["is_linkedin_contact"] = bool(values["is_linkedin_contact"])
+    for column in BOOLEAN_COLUMNS:
+        if column in values:
+            updates[column] = bool(values[column])
     if not updates:
         return False
 

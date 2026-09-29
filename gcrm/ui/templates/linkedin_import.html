@@ -19,6 +19,7 @@
     <li>{{ t('linkedin.import.created', count=result.created) }}</li>
     <li>{{ t('linkedin.import.updated', count=result.updated) }}</li>
     {% if result.skipped %}<li>{{ t('linkedin.import.skipped', count=result.skipped) }}</li>{% endif %}
+    {% if result.suppressed %}<li>{{ t('linkedin.import.suppressed', count=result.suppressed) }}</li>{% endif %}
     {% if result.failed %}<li>{{ t('linkedin.import.failed', count=result.failed) }}</li>{% endif %}
   </ul>
   <a href="/people/linkedin/matches" class="btn-primary">{{ t('linkedin.import.nextMatch') }}</a>

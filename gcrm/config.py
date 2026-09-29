@@ -150,6 +150,10 @@ INBOX_RETENTION_DAYS: int = int(os.getenv("INBOX_RETENTION_DAYS", "365"))
 AGENT_RUN_RETENTION_DAYS: int = int(os.getenv("AGENT_RUN_RETENTION_DAYS", str(CONTACT_RETENTION_DAYS)))
 AUDIT_LOG_RETENTION_DAYS: int = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "730"))
 PUSH_TOKEN_RETENTION_DAYS: int = int(os.getenv("PUSH_TOKEN_RETENTION_DAYS", "90"))
+# People not linked to an organization are deleted after this many days with no
+# activity (edit, note, rating, draft, re-import). People linked to an organization
+# follow that organization's retention; people marked "keep" are never purged.
+PEOPLE_RETENTION_DAYS: int = int(os.getenv("PEOPLE_RETENTION_DAYS", str(CONTACT_RETENTION_DAYS)))
 
 # How many NEW businesses one research scan processes (an alphabetical batch).
 # Each scan picks up where the last left off, so repeated scans march through the

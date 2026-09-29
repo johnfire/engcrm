@@ -7,9 +7,11 @@ from gcrm.config import (
     CARD_IMAGE_DIR,
     CONTACT_RETENTION_DAYS,
     INBOX_RETENTION_DAYS,
+    PEOPLE_RETENTION_DAYS,
     PUSH_TOKEN_RETENTION_DAYS,
 )
 from gcrm.db.connection import db
+from gcrm.linkedin import linkedin_url_hash
 from gcrm.tools.db_audit import log_audit
 
 
@@ -57,6 +59,60 @@ def erase_organization(contact_id: int) -> bool:
     return True
 
 
+def erase_person(person_id: int, suppress_reimport: bool = True) -> bool:
+    """Permanently delete one person. Everything that points at them (notes,
+    ratings, queued drafts, rejected matches) goes with them by cascade.
+
+    With `suppress_reimport`, a person who has a LinkedIn URL leaves behind only
+    its hash, so the next Connections.csv import skips them instead of quietly
+    re-adding them. Returns False when there is no such person."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT linkedin_url FROM people WHERE id = %s", (person_id,))
+        row = cursor.fetchone()
+        if row is None:
+            return False
+        suppressed = False
+        url_hash = linkedin_url_hash(row["linkedin_url"]) if suppress_reimport else None
+        if url_hash:
+            cursor.execute(
+                "INSERT INTO person_import_suppressions (linkedin_url_hash) VALUES (%s) "
+                "ON CONFLICT DO NOTHING",
+                (url_hash,),
+            )
+            suppressed = True
+        cursor.execute("DELETE FROM people WHERE id = %s", (person_id,))
+    log_audit(None, None, "person.erased", f"person:{person_id}", "suppressed" if suppressed else "erased")
+    return True
+
+
+def _purge_expired_people(cursor) -> int:
+    """Delete people nobody has touched for PEOPLE_RETENTION_DAYS, plus anything
+    already soft-deleted. Only people not linked to an organization: linked ones
+    go with their organization. People marked "keep" are exempt from the age rule.
+
+    "Touched" is the latest of: created, edited (which includes a re-import),
+    last note, last rating, last queued draft."""
+    cursor.execute(
+        """
+        DELETE FROM people p
+        WHERE p.deleted_at IS NOT NULL
+           OR (
+                p.contact_id IS NULL AND p.linked_contact_id IS NULL AND NOT p.retention_hold
+                AND GREATEST(
+                    p.created_at,
+                    p.updated_at,
+                    (SELECT MAX(occurred_at) FROM people_interactions WHERE person_id = p.id),
+                    (SELECT MAX(updated_at)  FROM person_user_priorities WHERE person_id = p.id),
+                    (SELECT MAX(created_at)  FROM approval_queue WHERE person_id = p.id)
+                ) < NOW() - (%s * INTERVAL '1 day')
+           )
+        """,
+        (PEOPLE_RETENTION_DAYS,),
+    )
+    return cursor.rowcount
+
+
 def _delete_expired_rows(
     cursor,
     table: str,
@@ -89,6 +145,7 @@ def purge_expired_data() -> dict[str, int]:
     with db() as connection:
         cursor = connection.cursor()
         counts = {
+            "people": _purge_expired_people(cursor),
             "contacts": sum(contact_id in expired_contact_ids for contact_id in erased_contact_ids),
             "inbox_messages": _delete_expired_rows(
                 cursor,

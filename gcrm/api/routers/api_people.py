@@ -1,9 +1,11 @@
 """Mobile JSON API for people — the individuals on scanned cards, each linked to
-their company contact. Read-only; people are created via the card-confirm flow."""
+their company contact. Read-only apart from delete; people are created via the
+card-confirm flow."""
 from fastapi import APIRouter, Depends, HTTPException
 
-from gcrm.api.jwt_auth import require_jwt
+from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.tools.db import get_people, get_person
+from gcrm.tools.privacy_retention import erase_person
 
 router = APIRouter(prefix="/api/people", tags=["mobile-people"])
 
@@ -24,3 +26,11 @@ def person_detail(person_id: int, _role: str = Depends(require_jwt)) -> dict:
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     return person
+
+
+@router.delete("/{person_id}")
+def delete_person(person_id: int, _role: str = Depends(require_jwt_admin)) -> dict:
+    """Permanently delete one person (admin only, no undo)."""
+    if not erase_person(person_id):
+        raise HTTPException(status_code=404, detail="Person not found")
+    return {"deleted": True}

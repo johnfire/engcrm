@@ -73,6 +73,13 @@
           {{ t('linkedin.isConnection') }}
         </label>
       </div>
+      <div class="field-row field-row--wide">
+        <label class="flag-check" for="person-retention-hold">
+          <input id="person-retention-hold" type="checkbox" name="retention_hold" value="1"
+                 {% if person.retention_hold %}checked{% endif %} />
+          {{ t('personDetail.retentionHold', days=people_retention_days) }}
+        </label>
+      </div>
       <div class="field-row">
         <label for="person-city">{{ t('common.city') }}</label>
         <input id="person-city" type="text" name="city" value="{{ person.city or '' }}" />
@@ -122,6 +129,11 @@
     <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
     <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
   </div>
+</form>
+
+<form method="post" action="/people/{{ person.id }}/delete" style="margin-top: 1rem"
+      onsubmit="return confirm('{{ t('personDetail.deleteConfirm') }}')">
+  <button type="submit" class="btn-danger">{{ t('personDetail.delete') }}</button>
 </form>
 
 <section class="detail-section" style="margin-top: 2rem">

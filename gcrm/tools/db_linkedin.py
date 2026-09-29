@@ -10,7 +10,7 @@ import logging
 from contextlib import contextmanager
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.linkedin import OrgIndex, normalize_company
+from gcrm.linkedin import OrgIndex, linkedin_url_hash, normalize_company
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,16 @@ def _find_existing_person(cur, row: dict) -> int | None:
     return None
 
 
+def _is_suppressed(cur, row: dict) -> bool:
+    """True for a connection someone deleted by hand: their URL hash is on the
+    suppression list, so the import must not bring them back."""
+    url_hash = linkedin_url_hash(row["linkedin_url"])
+    if not url_hash:
+        return False
+    cur.execute("SELECT 1 FROM person_import_suppressions WHERE linkedin_url_hash = %s", (url_hash,))
+    return cur.fetchone() is not None
+
+
 def _upsert_connection(cur, row: dict) -> str:
     """Write one connection. Existing people are marked and have only their
     blank fields filled — nothing you typed is overwritten. Returns 'created'
@@ -107,13 +117,16 @@ def _upsert_connection(cur, row: dict) -> str:
 def import_connections(rows: list[dict]) -> dict:
     """Import parsed Connections.csv rows. Idempotent: re-importing a fresh
     export marks/updates the same people instead of duplicating them. Returns
-    counts — created, updated, failed."""
-    counts = {"created": 0, "updated": 0, "failed": 0}
+    counts — created, updated, failed, suppressed (skipped because deleted earlier)."""
+    counts = {"created": 0, "updated": 0, "failed": 0, "suppressed": 0}
     with db() as conn:
         cur = conn.cursor()
         for row in rows:
             try:
                 with _savepoint(cur):
+                    if _is_suppressed(cur, row):
+                        counts["suppressed"] += 1
+                        continue
                     counts[_upsert_connection(cur, row)] += 1
             except Exception:
                 counts["failed"] += 1

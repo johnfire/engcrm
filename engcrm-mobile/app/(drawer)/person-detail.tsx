@@ -5,11 +5,13 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Alert,
   Linking,
   TouchableOpacity,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { fetchPerson, Person } from "../../services/api";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { deletePerson, fetchPerson, Person } from "../../services/api";
+import { getRole } from "../../services/auth";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
@@ -20,6 +22,14 @@ export default function PersonDetailScreen() {
   const [person, setPerson] = useState<Person | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
+
+  useEffect(() => {
+    getRole().then((role) => setIsAdmin(role === "admin"));
+  }, []);
 
   useEffect(() => {
     fetchPerson(Number(id))
@@ -30,6 +40,28 @@ export default function PersonDetailScreen() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  function confirmDelete() {
+    Alert.alert(t("personDetail.deleteConfirm"), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("personDetail.delete"),
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          setDeleteError(false);
+          try {
+            await deletePerson(Number(id));
+            if (router.canGoBack()) router.back();
+            else router.replace("/people");
+          } catch {
+            setDeleteError(true);
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  }
 
   if (loading)
     return (
@@ -94,6 +126,21 @@ export default function PersonDetailScreen() {
       )}
 
       <PersonNotesLog personId={person.id} />
+
+      {isAdmin && (
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+            onPress={confirmDelete}
+            disabled={deleting}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: deleting, busy: deleting }}
+          >
+            <Text style={styles.deleteButtonText}>{t("personDetail.delete")}</Text>
+          </TouchableOpacity>
+          {deleteError && <Text style={styles.deleteError}>{t("personDetail.deleteFailed")}</Text>}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -126,4 +173,14 @@ const styles = StyleSheet.create({
   },
   fieldText: { color: "#ccc", fontSize: 14, lineHeight: 22 },
   empty: { color: "#555" },
+  deleteButton: {
+    borderColor: "#ff6b6b",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  deleteButtonDisabled: { opacity: 0.5 },
+  deleteButtonText: { color: "#ff6b6b", fontSize: 14, fontWeight: "700" },
+  deleteError: { color: "#ff6b6b", fontSize: 13, marginTop: 8 },
 });

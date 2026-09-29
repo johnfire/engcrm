@@ -11,6 +11,10 @@
   <a href="/people/new" class="btn-primary">{{ t('people.addPerson') }}</a>
 </div>
 
+{% if deleted %}
+<div class="flash-success">{{ t('people.deleted') }}</div>
+{% endif %}
+
 <form class="filter-bar" method="get" action="/people/">
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
   <select name="company_priority" aria-label="{{ t('people.companyPriority') }}">

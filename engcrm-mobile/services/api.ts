@@ -690,6 +690,11 @@ export async function addPersonNote(
   return resp.data;
 }
 
+// Permanently deletes a person (admin only, no undo).
+export async function deletePerson(personId: number): Promise<void> {
+  await client.delete(`/api/people/${personId}`);
+}
+
 export async function deletePersonNote(personId: number, noteId: number): Promise<void> {
   await client.delete(`/api/people/${personId}/notes/${noteId}`);
 }

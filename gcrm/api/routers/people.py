@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
-from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES
+from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_DAYS
 from gcrm.linkedin import decode_export, parse_connections_csv
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
@@ -30,6 +30,7 @@ from gcrm.tools.db_people_interactions import (
     log_person_note,
 )
 from gcrm.tools.email_extract import extract_person_from_email
+from gcrm.tools.privacy_retention import erase_person
 from gcrm.tools.transcribe import transcribe
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def people_list(
     company_priority: str = Query(default=""),
     value_rating: str = Query(default=""),
     linkedin: str = Query(default=""),
+    deleted: bool = Query(default=False),
 ):
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
@@ -71,6 +73,7 @@ def people_list(
         "company_priority": company_priority,
         "value_rating": value_rating,
         "linkedin": linkedin,
+        "deleted": deleted,
     })
 
 
@@ -240,7 +243,17 @@ def person_detail(
         "saved": saved,
         "interactions": get_person_interactions(person_id),
         "mail_sender_options": MAIL_SENDER_OPTIONS,
+        "people_retention_days": PEOPLE_RETENTION_DAYS,
     })
+
+
+@router.post("/people/{person_id}/delete")
+def person_delete(person_id: int, _admin: str = Depends(require_admin)):
+    """Permanently delete one person (no undo). A person with a LinkedIn URL leaves
+    only its hash behind, so the next LinkedIn import does not bring them back."""
+    if not erase_person(person_id):
+        raise HTTPException(status_code=404, detail="Person not found")
+    return local_redirect("/people/", deleted="1")
 
 
 @router.put("/people/{person_id}/value-rating")
@@ -283,6 +296,7 @@ def person_edit(
     notes: str = Form(""),
     linkedin_url: str = Form(""),
     is_linkedin_contact: bool = Form(False),
+    retention_hold: bool = Form(False),
     _admin: str = Depends(require_admin),
 ):
     """Save the edited person. Name is the one field the row cannot lose."""
@@ -294,6 +308,7 @@ def person_edit(
             "website": website, "city": city, "country": country,
             "relationship": relationship, "met_at": met_at, "notes": notes,
             "linkedin_url": linkedin_url, "is_linkedin_contact": is_linkedin_contact,
+            "retention_hold": retention_hold,
         })
     except ValueError:
         raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")

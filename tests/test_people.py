@@ -568,3 +568,64 @@ class TestGetPeopleFilters:
         sql, params = cur.execute.call_args.args
         assert "AS distance_km" in sql
         assert "ORDER BY distance_km ASC NULLS LAST" in sql
+
+
+class TestDeletePerson:
+    def test_delete_requires_login(self):
+        resp = client.post("/people/3/delete", follow_redirects=False)
+        assert resp.status_code == 307
+
+    def test_delete_erases_and_returns_to_the_list(self, admin_web):
+        with patch("gcrm.api.routers.people.erase_person", return_value=True) as erase:
+            resp = client.post("/people/3/delete", follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/people/?deleted=1"
+        erase.assert_called_once_with(3)
+
+    def test_delete_404_when_missing(self, admin_web):
+        with patch("gcrm.api.routers.people.erase_person", return_value=False):
+            assert client.post("/people/999/delete", follow_redirects=False).status_code == 404
+
+    def test_list_confirms_the_deletion(self, admin_web):
+        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+            assert "Person deleted." in client.get("/people/?deleted=1").text
+            assert "Person deleted." not in client.get("/people/").text
+
+    def test_detail_offers_delete_with_a_confirmation_and_the_keep_switch(self, admin_web):
+        with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+            resp = client.get("/people/3")
+        assert 'action="/people/3/delete"' in resp.text
+        assert "confirm(" in resp.text.split('action="/people/3/delete"')[1].split("</form>")[0]
+        assert 'name="retention_hold"' in resp.text
+        assert "otherwise deleted after 1095 days without activity" in resp.text
+
+    def test_edit_passes_the_keep_switch(self, admin_web):
+        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+             patch("gcrm.api.routers.people.log_audit"):
+            client.post("/people/3/edit", data={"name": "Anna", "retention_hold": "1"}, follow_redirects=False)
+            assert update.call_args.args[1]["retention_hold"] is True
+            client.post("/people/3/edit", data={"name": "Anna"}, follow_redirects=False)
+            assert update.call_args.args[1]["retention_hold"] is False
+
+    def test_mobile_delete_needs_an_admin_token(self):
+        assert client.delete("/api/people/3").status_code in (401, 403)
+
+    def test_mobile_delete(self):
+        with patch("gcrm.api.routers.api_people.erase_person", return_value=True) as erase:
+            resp = client.delete("/api/people/3", headers=AUTH)
+        assert resp.status_code == 200 and resp.json() == {"deleted": True}
+        erase.assert_called_once_with(3)
+
+    def test_mobile_delete_404(self):
+        with patch("gcrm.api.routers.api_people.erase_person", return_value=False):
+            assert client.delete("/api/people/3", headers=AUTH).status_code == 404
+
+    def test_update_person_writes_retention_hold_as_a_boolean(self):
+        conn, cur = make_mock_conn()
+        cur.rowcount = 1
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.update_person(3, {"name": "Anna", "retention_hold": "1"})
+        sql, params = cur.execute.call_args.args
+        assert "retention_hold = %s" in sql and True in params

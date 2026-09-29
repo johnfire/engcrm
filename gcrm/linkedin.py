@@ -11,6 +11,7 @@ Nothing here fetches or scrapes LinkedIn.
 """
 import csv
 import difflib
+import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -126,6 +127,13 @@ def normalize_linkedin_url(value: str | None) -> str | None:
     if not path:
         return None
     return f"https://www.linkedin.com{path}"
+
+
+def linkedin_url_hash(value: str | None) -> str | None:
+    """SHA-256 of the canonical profile URL: what is remembered about a person
+    who was deleted, so a later import can skip them without keeping their URL."""
+    canonical = normalize_linkedin_url(value) or _clean(value).lower()
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest() if canonical else None
 
 
 def parse_connections_csv(text: str) -> ConnectionsParse:
