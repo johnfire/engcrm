@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ t('personLink.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}person-detail-page{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('personLink.title') }}</h1>
+  <span class="muted">{{ person.name }}{% if person.company_raw %} · {{ t('linkedin.notice.companyLabel', company=person.company_raw) }}{% endif %}</span>
+</div>
+
+<form class="filter-bar" method="get" action="/people/{{ person.id }}/link">
+  <input type="text" name="q" value="{{ q }}" placeholder="{{ t('personLink.searchPlaceholder') }}" autofocus>
+  <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
+  <a href="/people/{{ person.id }}" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</form>
+
+{% if results %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>{{ t('linkedin.matches.organization') }}</th><th>{{ t('common.city') }}</th><th>{{ t('common.status') }}</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for org in results %}
+    <tr>
+      <td><a href="/organizations/{{ org.id }}">{{ org.name }}</a></td>
+      <td class="muted">{{ org.city or '—' }}</td>
+      <td class="muted">{{ org.status or '—' }}</td>
+      <td>
+        <form method="post" action="/people/{{ person.id }}/link" style="display: inline">
+          <input type="hidden" name="contact_id" value="{{ org.id }}">
+          <button type="submit" class="btn-primary btn-tiny"
+                  {% if person.contact_id == org.id %}disabled{% endif %}>{{ t('personLink.link') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% elif q %}
+<p class="muted">{{ t('personLink.noResults') }}</p>
+{% endif %}
+{% endblock %}

@@ -107,6 +107,10 @@
           {%- if person.company -%}
           <a href="/organizations/{{ person.contact_id }}">{{ person.company }}</a>
           {%- else -%}—{%- endif -%}
+          <a href="/people/{{ person.id }}/link" class="small">{{ t('personDetail.linkOrganization') }}</a>
+          {%- if person.contact_id %}
+          <button type="submit" form="person-unlink-form" class="btn-tiny btn-danger">{{ t('personDetail.unlinkOrganization') }}</button>
+          {%- endif -%}
         </dd>
         {% if person.is_linkedin_contact %}
         <dt>{{ t('linkedin.connectedOn') }}</dt>
@@ -130,6 +134,8 @@
     <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
   </div>
 </form>
+
+<form id="person-unlink-form" method="post" action="/people/{{ person.id }}/unlink"></form>
 
 <form method="post" action="/people/{{ person.id }}/delete" style="margin-top: 1rem"
       onsubmit="return confirm('{{ t('personDetail.deleteConfirm') }}')">

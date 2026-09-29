@@ -629,3 +629,116 @@ class TestDeletePerson:
             db_people.update_person(3, {"name": "Anna", "retention_hold": "1"})
         sql, params = cur.execute.call_args.args
         assert "retention_hold = %s" in sql and True in params
+
+
+class TestLinkPersonToOrganization:
+    def test_search_needs_a_query(self):
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            assert db_people.search_organizations("   ") == []
+        mock_db.assert_not_called()
+
+    def test_search_matches_name_or_city_and_skips_deleted(self):
+        conn, cur = make_mock_conn([{"id": 1, "name": "Acme", "city": "Ulm", "status": "cold"}])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            found = db_people.search_organizations("acme", limit=5)
+        assert found[0]["name"] == "Acme"
+        sql, params = cur.execute.call_args.args
+        assert "deleted_at IS NULL" in sql and "name ILIKE" in sql and "city ILIKE" in sql
+        assert params == ("%acme%", "%acme%", 5)
+
+    def test_link_sets_the_organization_and_clears_an_old_rejection(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.return_value = {"contact_id": None}
+        cur.rowcount = 1
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.set_person_organization(3, 42) is True
+        sql = [" ".join(c.args[0].split()) for c in cur.execute.call_args_list]
+        assert any(s.startswith("UPDATE people SET contact_id = %s") and "deleted_at IS NULL" in s for s in sql)
+        assert any(s.startswith("DELETE FROM person_match_rejections") for s in sql)
+
+    def test_link_to_a_missing_organization_changes_nothing(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.return_value = {"contact_id": None}
+        cur.rowcount = 0
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.set_person_organization(3, 999) is False
+        assert not any("person_match_rejections" in c.args[0] for c in cur.execute.call_args_list)
+
+    def test_unlink_remembers_the_organization_as_rejected(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.return_value = {"contact_id": 42}
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.set_person_organization(3, None) is True
+        calls = [(" ".join(c.args[0].split()), c.args[1]) for c in cur.execute.call_args_list]
+        assert ("UPDATE people SET contact_id = NULL WHERE id = %s", (3,)) in calls
+        rejection = next(c for c in calls if c[0].startswith("INSERT INTO person_match_rejections"))
+        assert rejection[1] == (3, 42)
+
+    def test_unlinking_someone_with_no_organization_records_nothing(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.return_value = {"contact_id": None}
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.set_person_organization(3, None) is True
+        assert not any("person_match_rejections" in c.args[0] for c in cur.execute.call_args_list)
+
+    def test_missing_person(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.return_value = None
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.set_person_organization(999, 42) is False
+
+    def test_link_page_starts_from_the_linkedin_company_and_lists_results(self, admin_web):
+        person = {**PERSON_ROW, "company_raw": "Acme Ltd"}
+        with patch("gcrm.api.routers.people.get_person", return_value=person), \
+             patch("gcrm.api.routers.people.search_organizations",
+                   return_value=[{"id": 42, "name": "Acme GmbH", "city": "Ulm", "status": "cold"}]) as search:
+            resp = client.get("/people/3/link")
+        assert resp.status_code == 200
+        search.assert_called_once_with("Acme Ltd")
+        assert 'value="Acme Ltd"' in resp.text and "Acme GmbH" in resp.text
+        assert 'name="contact_id" value="42"' in resp.text
+
+    def test_link_page_uses_an_explicit_query_even_when_blank(self, admin_web):
+        person = {**PERSON_ROW, "company_raw": "Acme Ltd"}
+        with patch("gcrm.api.routers.people.get_person", return_value=person), \
+             patch("gcrm.api.routers.people.search_organizations", return_value=[]) as search:
+            client.get("/people/3/link?q=")
+        search.assert_called_once_with("")
+
+    def test_link_page_404(self, admin_web):
+        with patch("gcrm.api.routers.people.get_person", return_value=None):
+            assert client.get("/people/999/link").status_code == 404
+
+    def test_link_and_unlink_routes(self, admin_web):
+        with patch("gcrm.api.routers.people.set_person_organization", return_value=True) as setter, \
+             patch("gcrm.api.routers.people.log_audit"):
+            linked = client.post("/people/3/link", data={"contact_id": "42"}, follow_redirects=False)
+            unlinked = client.post("/people/3/unlink", follow_redirects=False)
+        assert linked.status_code == unlinked.status_code == 303
+        assert [c.args for c in setter.call_args_list] == [(3, 42), (3, None)]
+
+    def test_link_404_when_person_or_organization_missing(self, admin_web):
+        with patch("gcrm.api.routers.people.set_person_organization", return_value=False):
+            assert client.post("/people/3/link", data={"contact_id": "42"}, follow_redirects=False).status_code == 404
+            assert client.post("/people/3/unlink", follow_redirects=False).status_code == 404
+
+    def test_link_needs_login(self):
+        assert client.post("/people/3/link", data={"contact_id": "1"}, follow_redirects=False).status_code == 307
+
+    def test_detail_offers_link_and_unlink(self, admin_web):
+        with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+            resp = client.get("/people/3")
+        assert 'href="/people/3/link"' in resp.text
+        assert 'action="/people/3/unlink"' in resp.text
+        unlinked = {**PERSON_ROW, "contact_id": None, "company": None}
+        with patch("gcrm.api.routers.people.get_person", return_value=unlinked), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+            resp = client.get("/people/3")
+        assert 'form="person-unlink-form"' not in resp.text  # nothing to unlink

@@ -21,6 +21,8 @@ from gcrm.tools.db_people import (
     get_people,
     get_person,
     save_person,
+    search_organizations,
+    set_person_organization,
     set_person_value_rating,
     update_person,
 )
@@ -245,6 +247,38 @@ def person_detail(
         "mail_sender_options": MAIL_SENDER_OPTIONS,
         "people_retention_days": PEOPLE_RETENTION_DAYS,
     })
+
+
+@router.get("/people/{person_id}/link", response_class=HTMLResponse)
+def person_link_form(request: Request, person_id: int, q: str | None = Query(default=None)):
+    """Find an organization to link this person to. The search starts from the
+    company name the person has on LinkedIn, when there is one."""
+    person = get_person(person_id)
+    if person is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    term = q if q is not None else (person.get("company_raw") or "")
+    return templates.TemplateResponse("person_link.html", {
+        "request": request,
+        "person": person,
+        "q": term,
+        "results": search_organizations(term),
+    })
+
+
+@router.post("/people/{person_id}/link")
+def person_link(person_id: int, contact_id: int = Form(...), _admin: str = Depends(require_admin)):
+    if not set_person_organization(person_id, contact_id):
+        raise HTTPException(status_code=404, detail="Person or organization not found")
+    log_audit(None, None, "person.linked", f"person:{person_id}", f"contact:{contact_id}")
+    return local_redirect(f"/people/{person_id}", saved="1")
+
+
+@router.post("/people/{person_id}/unlink")
+def person_unlink(person_id: int, _admin: str = Depends(require_admin)):
+    if not set_person_organization(person_id, None):
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, "person.unlinked", f"person:{person_id}", "unlinked")
+    return local_redirect(f"/people/{person_id}", saved="1")
 
 
 @router.post("/people/{person_id}/delete")

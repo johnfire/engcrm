@@ -367,3 +367,58 @@ def set_person_value_rating(
             (workspace_id, user_id, person_id, rating),
         )
         return True, cur.fetchone()["priority"]
+
+
+def search_organizations(query: str, limit: int = 20) -> list[dict]:
+    """Organizations whose name or city contains `query`, for linking a person to
+    one by hand. A blank query returns nothing rather than the whole table."""
+    query = (query or "").strip()
+    if not query:
+        return []
+    like = f"%{query}%"
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, name, city, status FROM contacts "
+            "WHERE deleted_at IS NULL AND (name ILIKE %s OR city ILIKE %s) "
+            "ORDER BY lower(name) LIMIT %s",
+            (like, like, limit),
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+
+def set_person_organization(person_id: int, contact_id: int | None) -> bool:
+    """Link a person to an organization, or unlink them with `contact_id=None`.
+    Returns False when the person (or the organization) does not exist.
+
+    Unlinking remembers the organization as rejected for that person, so the
+    LinkedIn match review does not offer the same pairing again; linking clears
+    any earlier rejection of the pair."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT contact_id FROM people WHERE id = %s", (person_id,))
+        row = cur.fetchone()
+        if row is None:
+            return False
+        if contact_id is None:
+            previous = row["contact_id"]
+            cur.execute("UPDATE people SET contact_id = NULL WHERE id = %s", (person_id,))
+            if previous is not None:
+                cur.execute(
+                    "INSERT INTO person_match_rejections (person_id, contact_id) VALUES (%s, %s) "
+                    "ON CONFLICT DO NOTHING",
+                    (person_id, previous),
+                )
+            return True
+        cur.execute(
+            "UPDATE people SET contact_id = %s WHERE id = %s "
+            "AND EXISTS (SELECT 1 FROM contacts WHERE id = %s AND deleted_at IS NULL)",
+            (contact_id, person_id, contact_id),
+        )
+        if cur.rowcount == 0:
+            return False
+        cur.execute(
+            "DELETE FROM person_match_rejections WHERE person_id = %s AND contact_id = %s",
+            (person_id, contact_id),
+        )
+        return True
