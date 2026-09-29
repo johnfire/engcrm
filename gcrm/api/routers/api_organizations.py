@@ -129,7 +129,7 @@ def list_organizations(
                    c.created_at, cup.priority AS personal_priority,
                    MAX(i.interaction_date) AS last_contact,
                    (SELECT COUNT(*) FROM people lp
-                     WHERE lp.contact_id = c.id AND lp.is_linkedin_contact
+                     WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                    ) AS linkedin_connection_count
             FROM contacts c
             {priority_join}

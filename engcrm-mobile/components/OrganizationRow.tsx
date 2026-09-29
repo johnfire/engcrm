@@ -24,6 +24,14 @@ export function OrganizationRow({ item, onPress }: Props) {
         </Text>
       </View>
       <View style={styles.badges}>
+        {(item.linkedin_connection_count ?? 0) > 0 && (
+          <View
+            style={styles.linkedinBadge}
+            accessibilityLabel={`LinkedIn: ${item.linkedin_connection_count}`}
+          >
+            <Text style={styles.linkedinBadgeText}>in {item.linkedin_connection_count}</Text>
+          </View>
+        )}
         {(item.personal_priority ?? null) !== null && (
           <View style={styles.priorityBadge}>
             <Text style={styles.priorityBadgeText}>P{item.personal_priority}</Text>
@@ -72,5 +80,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  // #0a66c2 is LinkedIn's blue, deliberately unlike the app's purple.
+  linkedinBadge: {
+    backgroundColor: "#0a66c2",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  linkedinBadgeText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   priorityBadgeText: { color: "#aaa3ff", fontSize: 12, fontWeight: "700" },
 });

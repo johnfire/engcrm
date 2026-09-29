@@ -911,3 +911,68 @@ class TestLinkedinUrlHash:
 
     def test_nothing_to_hash(self):
         assert linkedin_url_hash("") is None and linkedin_url_hash(None) is None
+
+
+class TestOrganizationsListFilter:
+    """Combined with the status filter this answers "which cold organizations can
+    I reach through someone I know?"."""
+
+    def test_filter_only_keeps_organizations_with_a_live_linkedin_connection(self):
+        from gcrm.api.routers.organizations import _build_organization_filters
+
+        where, params = _build_organization_filters("", "", "", "", linkedin="1")
+        assert "EXISTS (SELECT 1 FROM people lp WHERE lp.contact_id = c.id" in where
+        assert "lp.is_linkedin_contact AND lp.deleted_at IS NULL" in where
+        assert params == []
+
+    @pytest.mark.parametrize("value", ["", "0", "x", "1; DROP TABLE contacts"])
+    def test_anything_else_adds_no_condition(self, value):
+        from gcrm.api.routers.organizations import _build_organization_filters
+
+        where, _ = _build_organization_filters("", "", "", "", linkedin=value)
+        assert "people" not in where
+
+    def test_it_combines_with_the_other_filters(self):
+        from gcrm.api.routers.organizations import _build_organization_filters
+
+        where, params = _build_organization_filters("ready", "", "", "", linkedin="1", stage="suspect")
+        assert "c.status = %s" in where and "c.pipeline_stage = %s" in where and "EXISTS" in where
+        assert params == ["ready", "suspect"]
+
+    def _list(self, query=""):
+        org = {**ORG_ROW, "linkedin_connection_count": 2, "do_not_contact": False, "email_bounced": False,
+               "research_exhausted": False, "created_at": datetime(2026, 8, 19, 10, 0)}
+        other = {**org, "id": 2, "name": "Nobody Known", "linkedin_connection_count": 0}
+        with patch("gcrm.api.routers.organizations._fetch_organizations_page",
+                   return_value=([org, other], {}, {}, [], 2)) as fetch:
+            return client.get(f"/organizations/{query}"), fetch
+
+    def test_list_marks_organizations_where_you_know_someone(self, admin_web):
+        response, _ = self._list()
+        assert response.status_code == 200
+        assert response.text.count("linkedin-badge") == 1  # only the one with connections
+        assert ">in 2<" in response.text
+
+    def test_list_passes_the_filter_and_keeps_it_across_sorting_and_paging(self, admin_web):
+        response, fetch = self._list("?linkedin=1&stage=suspect&status=ready")
+        assert 'value="1" selected' in response.text
+        assert "linkedin=1" in response.text.split("sort=")[1]  # header sort links carry it
+        assert "EXISTS" in fetch.call_args.args[0]  # the WHERE clause built for the query
+
+
+class TestMobileListCount:
+    def test_the_count_ignores_deleted_people_like_the_web_list_and_the_notice(self):
+        """Regression, found against real Postgres: the mobile count once included
+        soft-deleted people, so it disagreed with the web list."""
+        from gcrm.api.routers import api_organizations
+
+        conn = MagicMock()
+        cur = conn.cursor.return_value
+        cur.fetchall.return_value = []
+        with patch.object(api_organizations, "db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            response = client.get("/api/contacts", headers=AUTH)
+        assert response.status_code == 200
+        sql = " ".join(cur.execute.call_args.args[0].split())
+        assert "linkedin_connection_count" in sql
+        assert "lp.is_linkedin_contact AND lp.deleted_at IS NULL" in sql

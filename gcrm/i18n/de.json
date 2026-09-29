@@ -349,6 +349,8 @@
   "personDetail.retentionHold": "Behalten: nie automatisch löschen (sonst Löschung nach {{days}} Tagen ohne Aktivität)",
   "linkedin.import.suppressed": "Übersprungen, weil früher gelöscht: {{count}}",
   "personLink.title": "Mit einer Organisation verknüpfen",
+  "organizations.anyLinkedin": "Egal (LinkedIn)",
+  "organizations.hasLinkedin": "Ich kenne jemanden (LinkedIn)",
   "personLink.searchPlaceholder": "Organisationen nach Name oder Stadt suchen…",
   "personLink.noResults": "Keine Organisationen gefunden.",
   "personLink.link": "Verknüpfen",

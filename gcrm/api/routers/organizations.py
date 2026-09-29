@@ -65,6 +65,7 @@ def _priority_join(user_id: int | None) -> tuple[str, list]:
 
 def _build_organization_filters(
     status, type, q, has_contact, personal_priority="", workspace_id=None, stage="", suppressed="",
+    linkedin="",
 ):
     """Build the WHERE clause + bound params for the contact list from the query
     filters. The name/city search is a parenthesized OR so it can't leak past an
@@ -94,6 +95,11 @@ def _build_organization_filters(
         params.append(int(personal_priority))
     elif personal_priority == "unrated":
         conditions.append("cup.priority IS NULL")
+    if linkedin == "1":
+        conditions.append(
+            "EXISTS (SELECT 1 FROM people lp WHERE lp.contact_id = c.id "
+            "AND lp.is_linkedin_contact AND lp.deleted_at IS NULL)"
+        )
     if workspace_id is not None:
         conditions.append("c.workspace_id = %s")
         params.append(workspace_id)
@@ -132,6 +138,9 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact,
+                (SELECT COUNT(*) FROM people lp
+                  WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
+                ) AS linkedin_connection_count,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}
@@ -181,6 +190,7 @@ def organization_list(
     q: str = Query(default=""),
     has_contact: str = Query(default=""),
     personal_priority: str = Query(default=""),
+    linkedin: str = Query(default=""),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
@@ -192,7 +202,7 @@ def organization_list(
     user_id = request.session.get("user_id")
     workspace_id = request.session.get("workspace_id")
     where, params = _build_organization_filters(
-        status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed,
+        status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed, linkedin,
     )
     organizations, status_counts, stage_counts, types, total = _fetch_organizations_page(
         where, params, sort_col, sort_dir, offset, user_id, workspace_id,
@@ -214,6 +224,7 @@ def organization_list(
         "query": q,
         "has_contact": has_contact,
         "personal_priority": personal_priority,
+        "linkedin": linkedin,
         "page": page,
         "total_pages": total_pages,
         "total": total,

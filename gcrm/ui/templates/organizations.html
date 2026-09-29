@@ -68,6 +68,10 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
       {{ t('organizations.noContactDate') }}
     </option>
   </select>
+  <select name="linkedin" aria-label="{{ t('linkedin.filter.label') }}">
+    <option value="" {% if linkedin == "" %}selected{% endif %}>{{ t('organizations.anyLinkedin') }}</option>
+    <option value="1" {% if linkedin == "1" %}selected{% endif %}>{{ t('organizations.hasLinkedin') }}</option>
+  </select>
   <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
@@ -87,7 +91,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  {% if query or active_status or active_stage or active_suppressed or active_type or has_contact or personal_priority %}
+  {% if query or active_status or active_stage or active_suppressed or active_type or has_contact or personal_priority or linkedin %}
   <a href="/organizations/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
   {% endif %}
   <a
@@ -104,7 +108,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 = ' ↑' if (sort == col and dir == 'asc') else (' ↓' if (sort == col and dir ==
 'desc') else '') %}
 <a
-  href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ col }}&dir={{ next_dir }}&page=1"
+  href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ col }}&dir={{ next_dir }}&page=1"
   class="sort-link"
   >{{ label }}{{ arrow }}</a
 >
@@ -155,7 +159,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td class="star-col">{% include 'partials/star_button.html' %}</td>
       <td class="muted small">{{ c.id }}</td>
       <td>
-        <strong><a href="/organizations/{{ c.id }}">{{ c.name }}</a></strong>
+        <strong><a href="/organizations/{{ c.id }}">{{ c.name }}</a></strong>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}
       </td>
       <td>
         {{ c.city }}{% if c.country %}
@@ -232,7 +236,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 <div class="pagination">
   {% if page > 1 %}
   <a
-    href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
+    href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
     class="btn-secondary"
     >{{ t('common.prev') }}</a
   >
@@ -240,7 +244,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
   {% if page < total_pages %}
   <a
-    href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
+    href="?status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
     class="btn-secondary"
     >{{ t('common.next') }}</a
   >

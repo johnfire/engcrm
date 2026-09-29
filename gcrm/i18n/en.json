@@ -349,6 +349,8 @@
   "personDetail.retentionHold": "Keep: never delete automatically (otherwise deleted after {{days}} days without activity)",
   "linkedin.import.suppressed": "Skipped because you deleted them earlier: {{count}}",
   "personLink.title": "Link to an organization",
+  "organizations.anyLinkedin": "Any LinkedIn",
+  "organizations.hasLinkedin": "I know someone (LinkedIn)",
   "personLink.searchPlaceholder": "Search organizations by name or city…",
   "personLink.noResults": "No organizations found.",
   "personLink.link": "Link",

@@ -441,6 +441,8 @@ export interface Organization {
   personal_priority: number | null;
   last_contact: string | null;
   created_at: string;
+  // Confirmed LinkedIn connections at this organization; absent on older servers.
+  linkedin_connection_count?: number;
 }
 
 // A LinkedIn connection as the organization screen needs them. `possible` are
