@@ -14,13 +14,24 @@ def score_organization_prompt(mission, organization: dict, city_context: dict | 
         notes = city_context.get("market_notes", "")
         city_context_str = f"\nCity market context ({char}): {notes}\n"
 
+    network_str = ""
+    if organization.get("source") == "linkedin":
+        network_str = (
+            "\nThis organization comes from the user's own LinkedIn network, so there is a "
+            "personal way in. Its location is NOT a reason to rate it a poor fit: work can be "
+            "done remotely, so an organization in another region or country is judged exactly "
+            "like a local one, and a missing city means only that nobody has filled it in yet. "
+            "Judge on size, how it works, and the signals below. All you may have is its name; "
+            "if that is too little to judge, answer 'unsure' rather than guessing.\n"
+        )
+
     positive_signals = "\n".join(f"- {signal}" for signal in FIT_SIGNALS)
     negative_signals = "\n".join(f"- {signal}" for signal in ANTI_SIGNALS)
 
     system = (
         f"You are researching potential contacts on behalf of {mission.identity}.\n"
         f"Mission: {mission.goal}\n"
-        f"{city_context_str}\n"
+        f"{city_context_str}{network_str}\n"
         f"Your task: read this contact's website content and notes carefully and determine "
         f"whether they are a realistic outreach target.\n\n"
         f"Positive signals (indicates a good fit):\n{positive_signals}\n\n"

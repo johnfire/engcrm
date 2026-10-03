@@ -5,9 +5,11 @@ Usage:
     uv run python -m gcrm.supervisor.run_scout
     uv run python -m gcrm.supervisor.run_scout --limit 200
     uv run python -m gcrm.supervisor.run_scout --city Augsburg
+    uv run python -m gcrm.supervisor.run_scout --linkedin --limit 25   # organizations from LinkedIn only
     uv run python -m gcrm.supervisor.run_scout --skip-scoring   # promote all candidates to cold, no LLM scoring
 """
 import argparse
+import functools
 import logging
 
 from gcrm.supervisor.logging_setup import configure_logging
@@ -20,6 +22,12 @@ def main():
     parser = argparse.ArgumentParser(description="Run scout agent")
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--city", type=str, default=None, help="Only scout candidates in this city")
+    parser.add_argument(
+        "--linkedin",
+        action="store_true",
+        help="Scout only the organizations created from LinkedIn employers (the scheduled "
+        "pipeline never does; each one is an LLM call, so start with a small --limit)",
+    )
     parser.add_argument(
         "--skip-scoring",
         "--skip-galleries",
@@ -48,15 +56,18 @@ def main():
         # split_and_promote sees no scored types and auto-promotes everything.
         scout_graph.SCORED_TYPES = set()
         scout_graph.SCORED_TYPES_LC = set()
+        scout_graph.ALWAYS_SCORED_SOURCES = set()
         logger.info("scout: LLM scoring disabled — all candidates will be auto-promoted to cold")
+
+    pool = functools.partial(get_candidates, source="linkedin") if args.linkedin else get_candidates
 
     # get_candidates has no city parameter; filter the returned batch in-process.
     if args.city:
         def fetch_candidates(limit):
-            rows = get_candidates(limit=limit)
+            rows = pool(limit=limit)
             return [organization for organization in rows if (organization.get("city") or "").lower() == args.city.lower()]
     else:
-        fetch_candidates = get_candidates
+        fetch_candidates = pool
 
     agent = create_scout_agent(
         llm=get_llm(CHEAP_LLM),

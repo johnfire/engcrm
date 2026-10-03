@@ -227,14 +227,20 @@ def update_organization_google_data(contact_id: int, google: dict) -> None:
         )
 
 
-def get_candidates(limit: int = 50) -> list[dict]:
-    """Return contacts still at the 'candidate' stage — not yet evaluated."""
+def get_candidates(limit: int = 50, source: str | None = None) -> list[dict]:
+    """Return contacts still at the 'candidate' stage — not yet evaluated.
+
+    LinkedIn-sourced organizations are a separate pool: the scheduled pipeline
+    never sees them (scoring hundreds of them is an LLM bill you should choose
+    to start), and `source="linkedin"` selects only them for a manual scout run.
+    """
     with db() as conn:
         cur = conn.cursor()
+        origin = "source = %s" if source else "source IS DISTINCT FROM 'linkedin'"
         cur.execute(
-            "SELECT * FROM contacts WHERE pipeline_stage = 'candidate' "
+            f"SELECT * FROM contacts WHERE pipeline_stage = 'candidate' AND {origin} "
             "AND deleted_at IS NULL ORDER BY created_at ASC LIMIT %s",
-            (limit,),
+            ((source, limit) if source else (limit,)),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 

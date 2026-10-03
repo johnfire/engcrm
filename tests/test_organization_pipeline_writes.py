@@ -103,6 +103,23 @@ class TestOutreachSelection:
             db_organizations.get_candidates()
         assert "pipeline_stage = 'candidate'" in executed_sql(cur)
 
+    def test_the_scheduled_pipeline_never_picks_up_linkedin_organizations(self):
+        conn, cur = make_mock_conn()
+        with patch("gcrm.tools.db_organizations.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_organizations.get_candidates(25)
+        assert "source IS DISTINCT FROM 'linkedin'" in executed_sql(cur)
+        assert cur.execute.call_args.args[1] == (25,)
+
+    def test_a_manual_scout_run_can_select_only_linkedin_organizations(self):
+        conn, cur = make_mock_conn()
+        with patch("gcrm.tools.db_organizations.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_organizations.get_candidates(25, source="linkedin")
+        statement = executed_sql(cur)
+        assert "source = %s" in statement and "DISTINCT" not in statement
+        assert cur.execute.call_args.args[1] == ("linkedin", 25)
+
     def test_enrichment_skips_organizations_whose_research_is_exhausted(self):
         conn, cur = make_mock_conn()
         with patch("gcrm.tools.db_organizations.db") as mock_db:

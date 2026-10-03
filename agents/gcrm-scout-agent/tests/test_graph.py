@@ -137,3 +137,67 @@ def test_agent_continues_on_score_parse_error():
     assert result["promoted_count"] == 1
     assert result["unsure_count"] == 1
     assert result["no_fit_count"] == 0
+
+
+class RecordingLLM(FakeLLM):
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.prompts = []
+
+    def invoke(self, messages):
+        self.prompts.append([m.content for m in messages])
+        return super().invoke(messages)
+
+
+LINKEDIN_ORG = {"id": 7, "name": "Acme GmbH", "city": None, "country": None, "type": None,
+                "source": "linkedin", "pipeline_stage": "candidate", "status": "none"}
+UNTYPED_SCAN_ORG = {"id": 8, "name": "Cafe Roma", "city": "Munich", "type": "Cafe",
+                    "source": "scan", "pipeline_stage": "candidate", "status": "none"}
+
+
+def run_agent(candidates, llm):
+    fetch, update, start_run, finish_run, updates, runs = make_tools(candidates=candidates)
+    agent = create_scout_agent(
+        llm=llm, fetch_candidates=fetch, set_organization_state=update,
+        fetch_page=_no_page, fetch_city_context=_no_city_context,
+        start_run=start_run, finish_run=finish_run, mission=DummyMission(),
+    )
+    return agent.invoke({"limit": 50}), updates
+
+
+def test_a_linkedin_organization_is_scored_not_auto_promoted():
+    """It has no type, and 'type does not need scoring' would send it to ready unscored."""
+    llm = RecordingLLM(['{"outcome": "no_fit", "reasoning": "A software company"}'])
+    result, updates = run_agent([LINKEDIN_ORG], llm)
+
+    assert len(llm.prompts) == 1  # the LLM was asked
+    assert result["no_fit_count"] == 1 and result["promoted_count"] == 0
+    assert (updates[0]["stage"], updates[0]["status"]) == ("not_in_pipeline", "dropped")
+
+
+def test_a_name_only_linkedin_organization_can_stay_unsure():
+    llm = RecordingLLM(['{"outcome": "unsure", "reasoning": "Only a name"}'])
+    result, updates = run_agent([LINKEDIN_ORG], llm)
+    assert result["unsure_count"] == 1
+    assert updates[0]["status"] == "none" and updates[0]["stage"] == "candidate"
+
+
+def test_other_untyped_sources_keep_the_old_auto_promotion():
+    llm = RecordingLLM(["{}"])
+    result, updates = run_agent([UNTYPED_SCAN_ORG], llm)
+    assert llm.prompts == []  # no LLM call
+    assert result["promoted_count"] == 1 and updates[0]["score"] == 50
+
+
+def test_linkedin_organizations_are_told_location_is_no_disadvantage():
+    llm = RecordingLLM(['{"outcome": "fit", "reasoning": "ok"}'])
+    run_agent([LINKEDIN_ORG, {**LINKEDIN_ORG, "id": 9, "source": "linkedin"}], llm)
+    system = llm.prompts[0][0]
+    assert "LinkedIn network" in system and "NOT a reason to rate it a poor fit" in system
+
+
+def test_the_geography_note_is_not_added_for_other_organizations():
+    llm = RecordingLLM(['{"outcome": "fit", "reasoning": "ok"}'])
+    scored_scan_org = {**UNTYPED_SCAN_ORG, "type": "Unternehmensberatung"}
+    run_agent([scored_scan_org], llm)
+    assert "LinkedIn" not in llm.prompts[0][0]

@@ -22,6 +22,10 @@ from .state import ScoutState
 
 logger = logging.getLogger(__name__)
 SCORED_TYPES_LC = {organization_type.lower() for organization_type in SCORED_TYPES}
+# Organizations from these sources have no type to go by (a LinkedIn employer is
+# just a name), so "type does not need scoring" would wave every one of them
+# through to ready unscored. They always get the LLM's verdict.
+ALWAYS_SCORED_SOURCES = {"linkedin"}
 
 # What the LLM is allowed to answer, and where each answer puts the contact.
 # 'unsure' deliberately leaves it a candidate: an unclear verdict is a request
@@ -61,7 +65,9 @@ def fetch(state: ScoutState, fetch_candidates: CandidateFetcher) -> dict:
 def split_and_promote(state: ScoutState, set_organization_state: OrganizationStateSetter) -> dict:
     promoted, to_score = 0, []
     for organization in state.get("candidates", []):
-        if (organization.get("type") or "").lower() in SCORED_TYPES_LC:
+        if (organization.get("type") or "").lower() in SCORED_TYPES_LC or (
+            organization.get("source") in ALWAYS_SCORED_SOURCES
+        ):
             to_score.append(organization)
             continue
         try:
