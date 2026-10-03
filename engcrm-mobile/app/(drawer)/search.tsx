@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
+import { getRole } from "../../services/auth";
 import { searchAll, SearchOrganization, SearchPerson, SearchResults } from "../../services/api";
 import { stageLabelKey } from "../../services/organizationState";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -29,6 +30,7 @@ export default function SearchScreen() {
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const latest = useRef(0); // an older, slower answer must never overwrite a newer one
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,6 +63,10 @@ export default function SearchScreen() {
         });
     }, DEBOUNCE_MS);
   }
+
+  useEffect(() => {
+    getRole().then((role) => setIsAdmin(role === "admin"));
+  }, []);
 
   useEffect(
     () => () => {
@@ -95,6 +101,15 @@ export default function SearchScreen() {
 
   const hasQuery = text.trim().length >= MIN_CHARS;
 
+  // Look first, then add: the add rows appear under the results so that the
+  // company or person is not created twice. The server checks as well.
+  function add(kind: "organization" | "person") {
+    router.push({
+      pathname: kind === "organization" ? "/(drawer)/edit-organization" : "/(drawer)/edit-person",
+      params: { name: text.trim() },
+    });
+  }
+
   return (
     <View style={styles.container}>
       <TextInput
@@ -125,6 +140,19 @@ export default function SearchScreen() {
       <SectionList
         sections={sections}
         keyboardShouldPersistTaps="handled"
+        ListFooterComponent={
+          isAdmin && hasQuery && !loading ? (
+            <View style={styles.addBox}>
+              <Text style={styles.addTitle}>{t("search.addTitle", { query: text.trim() })}</Text>
+              <TouchableOpacity style={styles.addButton} onPress={() => add("organization")} accessibilityRole="button">
+                <Text style={styles.addText}>{t("search.addOrganization")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.addButton} onPress={() => add("person")} accessibilityRole="button">
+                <Text style={styles.addText}>{t("search.addPerson")}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
         keyExtractor={(row) => `${row.kind}-${row.item.id}`}
         renderSectionHeader={({ section }) => <Text style={styles.sectionTitle}>{section.title}</Text>}
         renderItem={({ item: row }) => (
@@ -202,6 +230,18 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     textTransform: "uppercase",
   },
+  addBox: { marginBottom: 40, marginTop: 24 },
+  addTitle: { color: "#888", fontSize: 13, marginBottom: 8 },
+  addButton: {
+    alignItems: "center",
+    borderColor: "#7c6fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginBottom: 8,
+    minHeight: 46,
+  },
+  addText: { color: "#b9b2ff", fontSize: 15, fontWeight: "600" },
   row: { borderBottomColor: "#ffffff15", borderBottomWidth: 1, paddingVertical: 12 },
   line: { alignItems: "center", flexDirection: "row", gap: 8 },
   name: { color: "#fff", flexShrink: 1, fontSize: 16, fontWeight: "600" },

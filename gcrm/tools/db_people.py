@@ -34,6 +34,24 @@ def _refresh_met_at(cur, person_id: int, met_at: str) -> int:
     return person_id
 
 
+def find_existing_person(cur, name: str, email: str, contact_id: int | None) -> int | None:
+    """The id of the person a new one would duplicate, or None. Same email (any
+    case) wins; otherwise the same name at the same company. A NULL company
+    matches another NULL (IS NOT DISTINCT FROM)."""
+    if email:
+        cur.execute("SELECT id FROM people WHERE lower(email) = lower(%s)", (email,))
+        row = cur.fetchone()
+        if row:
+            return row["id"]
+    cur.execute(
+        "SELECT id FROM people WHERE lower(name) = lower(%s) "
+        "AND contact_id IS NOT DISTINCT FROM %s",
+        (name, contact_id),
+    )
+    row = cur.fetchone()
+    return row["id"] if row else None
+
+
 def save_person(
     name: str,
     *,
@@ -64,22 +82,10 @@ def save_person(
     """
     with db() as conn:
         cur = conn.cursor()
-        if email:
-            cur.execute("SELECT id FROM people WHERE lower(email) = lower(%s)", (email,))
-            existing = cur.fetchone()
-            if existing:
-                logger.debug("save_person: email duplicate — %s (%s)", name, email)
-                return _refresh_met_at(cur, existing["id"], met_at)
-        # IS NOT DISTINCT FROM so a NULL contact_id matches another NULL.
-        cur.execute(
-            "SELECT id FROM people WHERE lower(name) = lower(%s) "
-            "AND contact_id IS NOT DISTINCT FROM %s",
-            (name, contact_id),
-        )
-        existing = cur.fetchone()
-        if existing:
-            logger.debug("save_person: name duplicate — %s (contact_id=%s)", name, contact_id)
-            return _refresh_met_at(cur, existing["id"], met_at)
+        existing_id = find_existing_person(cur, name, email, contact_id)
+        if existing_id:
+            logger.debug("save_person: duplicate — %s (%s, contact_id=%s)", name, email, contact_id)
+            return _refresh_met_at(cur, existing_id, met_at)
 
         latitude = longitude = None
         if city:

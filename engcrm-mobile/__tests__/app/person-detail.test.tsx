@@ -18,9 +18,10 @@ jest.mock("../../services/auth", () => ({
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
 const mockCanGoBack = jest.fn();
+const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "7" }),
-  useRouter: () => ({ back: mockBack, replace: mockReplace, canGoBack: mockCanGoBack }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace, canGoBack: mockCanGoBack, push: mockPush }),
 }));
 
 // The notes log loads and records notes on its own; this file is about the screen.
@@ -156,3 +157,26 @@ describe("person detail — stage", () => {
   });
 });
 
+describe("person detail — edit", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON });
+    mockGetRole.mockReset();
+    mockPush.mockReset();
+  });
+
+  it("opens the edit form for the admin", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Edit")).toBeTruthy());
+    fireEvent.press(screen.getByText("Edit"));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-person", params: { id: "7" } });
+  });
+
+  it("does not offer it to anyone else", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    expect(screen.queryByText("Edit")).toBeNull();
+  });
+});

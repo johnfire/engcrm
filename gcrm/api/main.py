@@ -26,6 +26,7 @@ from gcrm.api.routers import (
     api_pipeline,
     api_push,
     api_recon,
+    api_record_edit,
     api_research,
     api_search,
     api_signs,
@@ -119,6 +120,7 @@ app.include_router(api_push.router)
 app.include_router(api_approvals.router)
 app.include_router(api_inbox.router)
 app.include_router(api_organizations.router)
+app.include_router(api_record_edit.router)
 app.include_router(api_activity.router)
 app.include_router(api_research.router)
 app.include_router(api_cards.router)

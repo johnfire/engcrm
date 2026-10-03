@@ -133,6 +133,22 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="edit-organization"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("recordForm.organizationTitle"),
+          headerLeft: () => <HeaderBack to="/(drawer)/search" />,
+        }}
+      />
+      <Drawer.Screen
+        name="edit-person"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("recordForm.personTitle"),
+          headerLeft: () => <HeaderBack to="/(drawer)/search" />,
+        }}
+      />
+      <Drawer.Screen
         name="card-confirm"
         options={{ drawerItemStyle: { display: "none" }, title: t("drawer.reviewCard") }}
       />

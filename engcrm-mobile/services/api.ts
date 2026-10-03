@@ -475,6 +475,8 @@ export interface LinkedInConnections {
 export interface OrganizationDetail extends Organization {
   phone: string | null;
   notes: string | null;
+  decision_maker?: string | null;
+  preferred_contact_method?: string | null;
   interactions: Interaction[];
   opportunity_analysis: OpportunityAnalysis | null;
   // Absent on servers that predate the LinkedIn import.
@@ -785,6 +787,63 @@ export async function updatePersonStage(
 ): Promise<{ pipeline_stage: PipelineStage | null }> {
   const resp = await client.patch(`/api/people/${personId}/stage`, { stage });
   return resp.data;
+}
+
+// --- Creating and editing records by hand (admin only) ---
+// Fields are sent as text; a blank value clears the field on the server. An edit sends
+// only the fields that changed, so it can never overwrite a value it did not touch.
+export type OrganizationFields = Partial<
+  Record<
+    | "name" | "type" | "city" | "country" | "website" | "email" | "phone"
+    | "decision_maker" | "preferred_contact_method" | "notes",
+    string
+  >
+> & { do_not_contact?: boolean };
+
+export type PersonFields = Partial<
+  Record<
+    | "name" | "title" | "email" | "phone" | "website" | "city" | "country"
+    | "relationship" | "met_at" | "notes" | "linkedin_url",
+    string
+  >
+>;
+
+export async function createOrganization(fields: OrganizationFields): Promise<{ id: number }> {
+  const resp = await client.post("/api/contacts", fields);
+  return resp.data;
+}
+
+export async function editOrganization(id: number, changed: OrganizationFields): Promise<void> {
+  await client.patch(`/api/contacts/${id}`, changed);
+}
+
+export async function createPerson(fields: PersonFields & { contact_id?: number }): Promise<{ id: number }> {
+  const resp = await client.post("/api/people", fields);
+  return resp.data;
+}
+
+export async function editPerson(id: number, changed: PersonFields): Promise<void> {
+  await client.patch(`/api/people/${id}`, changed);
+}
+
+// What the server says when the record being created already exists (HTTP 409).
+export interface DuplicateInfo {
+  existingId: number | null; // null: nothing to open (deleted, or blocked by a rule)
+  name: string | null;
+  city: string | null;
+}
+
+/** The existing record behind a 409, or null when the error is not a duplicate. */
+export function duplicateOf(error: unknown): DuplicateInfo | null {
+  const response = (error as any)?.response;
+  if (response?.status !== 409) return null;
+  const detail = response.data?.detail;
+  const object = detail && typeof detail === "object" ? detail : {};
+  return {
+    existingId: typeof object.existing_id === "number" ? object.existing_id : null,
+    name: typeof object.existing_name === "string" ? object.existing_name : null,
+    city: typeof object.existing_city === "string" ? object.existing_city : null,
+  };
 }
 
 // Permanently deletes a person (admin only, no undo).

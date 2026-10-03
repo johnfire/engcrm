@@ -382,6 +382,20 @@ describe("organization detail — meeting log", () => {
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
     expect(screen.queryByText("Log a meeting")).toBeNull();
+    expect(screen.queryByText("Edit")).toBeNull();
+    expect(screen.queryByText("Add a person here")).toBeNull();
+  });
+
+  it("opens the edit form, and the add-a-person form already pointing at this organization (admin)", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Edit")).toBeTruthy());
+    fireEvent.press(screen.getByText("Edit"));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-organization", params: { id: "42" } });
+    fireEvent.press(screen.getByText("Add a person here"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(drawer)/edit-person", params: { companyId: "42", companyName: "Acme Salon" },
+    });
   });
 
   it("shows the follow-up date and what it is about in the history", async () => {

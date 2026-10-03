@@ -158,6 +158,16 @@ export default function PersonDetailScreen() {
       )}
 
       {isAdmin && (
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => router.push({ pathname: "/(drawer)/edit-person", params: { id: String(person.id) } })}
+          accessibilityRole="button"
+        >
+          <Text style={styles.secondaryButtonText}>{t("recordForm.edit")}</Text>
+        </TouchableOpacity>
+      )}
+
+      {isAdmin && (
         <PersonStagePicker
           key={`stage-${person.id}-${person.pipeline_stage ?? "none"}`}
           stage={person.pipeline_stage ?? null}
@@ -212,6 +222,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  secondaryButton: {
+    alignItems: "center",
+    borderColor: "#7c6fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 10,
+    minHeight: 46,
+  },
+  secondaryButtonText: { color: "#b9b2ff", fontSize: 14, fontWeight: "600" },
   section: { marginTop: 20 },
   sectionTitle: {
     color: "#888",

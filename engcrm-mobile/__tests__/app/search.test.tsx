@@ -5,6 +5,9 @@ jest.mock("../../services/api", () => ({
   searchAll: (...args: any[]) => mockSearchAll(...args),
 }));
 
+const mockGetRole = jest.fn();
+jest.mock("../../services/auth", () => ({ getRole: (...args: any[]) => mockGetRole(...args) }));
+
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
@@ -33,6 +36,7 @@ describe("search screen", () => {
     jest.useFakeTimers();
     mockSearchAll.mockReset();
     mockPush.mockReset();
+    mockGetRole.mockReset().mockResolvedValue("viewer");
   });
   afterEach(() => jest.useRealTimers());
 
@@ -126,5 +130,46 @@ describe("search screen", () => {
     await typeAndWait(screen, "");
     expect(screen.queryByText("IHK Schwaben")).toBeNull();
     expect(screen.getByText(/at least two letters/)).toBeTruthy();
+  });
+
+  describe("adding what was not found (admin)", () => {
+    it("offers to add the typed name as an organization or as a person, carrying the name over", async () => {
+      mockGetRole.mockResolvedValue("admin");
+      mockSearchAll.mockResolvedValue({ query: "neue firma", organizations: [], people: [] });
+      const screen = render(<SearchScreen />);
+      await typeAndWait(screen, "Neue Firma");
+      await waitFor(() => expect(screen.getByText("Add as organization")).toBeTruthy());
+      expect(screen.getByText("Not found? Add “Neue Firma”:")).toBeTruthy();
+      fireEvent.press(screen.getByText("Add as organization"));
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: "/(drawer)/edit-organization", params: { name: "Neue Firma" },
+      });
+      fireEvent.press(screen.getByText("Add as person"));
+      expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-person", params: { name: "Neue Firma" } });
+    });
+
+    it("offers it even when there are results, since the match may be someone else", async () => {
+      mockGetRole.mockResolvedValue("admin");
+      mockSearchAll.mockResolvedValue({ query: "ihk", organizations: [ORG], people: [] });
+      const screen = render(<SearchScreen />);
+      await typeAndWait(screen, "ihk");
+      await waitFor(() => expect(screen.getByText("IHK Schwaben")).toBeTruthy());
+      expect(screen.getByText("Add as person")).toBeTruthy();
+    });
+
+    it("does not show it to anyone else, nor before there is a query", async () => {
+      mockSearchAll.mockResolvedValue({ query: "ihk", organizations: [ORG], people: [] });
+      const screen = render(<SearchScreen />);
+      await typeAndWait(screen, "ihk");
+      await waitFor(() => expect(screen.getByText("IHK Schwaben")).toBeTruthy());
+      expect(screen.queryByText("Add as organization")).toBeNull();
+    });
+
+    it("shows no add rows for an empty box, even for the admin", async () => {
+      mockGetRole.mockResolvedValue("admin");
+      const screen = render(<SearchScreen />);
+      await act(async () => { jest.advanceTimersByTime(10); });
+      expect(screen.queryByText("Add as organization")).toBeNull();
+    });
   });
 });
