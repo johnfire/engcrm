@@ -8,11 +8,11 @@ from pydantic import BaseModel
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.db.connection import db
-from gcrm.organization_state import PIPELINE_STAGES, STATUSES, is_typical
+from gcrm.organization_state import PIPELINE_STAGES, STATUSES, SUPPRESSION_FLAGS, is_typical
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
-from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
+from gcrm.tools.db_linkedin import get_linkedin_connections_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_organizations import set_organization_state
 from gcrm.tools.db_personal_priorities import set_personal_priority
@@ -103,6 +103,8 @@ def list_organizations(
     sort: str = Query("created_at"),
     dir: str = Query("desc"),
     personal_priority: str = Query(""),
+    linkedin: str = Query(""),
+    suppressed: str = Query(""),
     payload: dict = Depends(require_jwt_payload),
 ) -> list[dict]:
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
@@ -127,6 +129,13 @@ def list_organizations(
             filter_params.append(int(personal_priority))
         elif personal_priority == "unrated":
             where.append("cup.priority IS NULL")
+        if linkedin == "1":
+            where.append(
+                "EXISTS (SELECT 1 FROM people k WHERE k.contact_id = c.id "
+                "AND k.is_linkedin_contact AND k.deleted_at IS NULL)"
+            )
+        if suppressed in SUPPRESSION_FLAGS:
+            where.append(f"c.{suppressed} = TRUE")  # checked against the constant tuple above
         if workspace_id is not None:
             where.append("c.workspace_id = %s")
             filter_params.append(workspace_id)
@@ -148,12 +157,25 @@ def list_organizations(
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE {where_clause}
             GROUP BY c.id, cup.priority
-            ORDER BY {sort_col} {sort_dir} NULLS LAST
+            ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id
             LIMIT 50 OFFSET %s
             """,
             priority_params + filter_params + [offset],
         )
         return [_serialize(dict(row)) for row in cur.fetchall()]
+
+
+@router.get("/reachable")
+def reachable_fits(
+    page: int = Query(1, ge=1),
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """The warm-intro work list: organizations that are a fit (suspect, ready) where
+    you know someone on LinkedIn, best fit first, each with the people you know
+    there. Declared before /{contact_id} so "reachable" is not read as an id."""
+    _, workspace_id = _personal_identity(payload)
+    result = get_reachable_fits(page, workspace_id)
+    return result
 
 
 @router.get("/{contact_id}")

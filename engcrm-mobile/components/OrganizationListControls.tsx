@@ -1,10 +1,11 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
 import { useTranslation } from "../i18n/I18nContext";
+import { ChipRow, FilterChip } from "./FilterChips";
 import { OrganizationSortKey } from "../services/api";
 import {
   PIPELINE_STAGES,
   STATUSES,
+  SUPPRESSION_FLAGS,
+  flagLabelKey,
   stageLabelKey,
   statusLabelKey,
 } from "../services/organizationState";
@@ -13,6 +14,7 @@ import {
 // added in gcrm/contact_state.py shows up here without editing this file.
 const STAGE_FILTERS = ["", ...PIPELINE_STAGES];
 const STATUS_FILTERS = ["", ...STATUSES];
+const FLAG_FILTERS = ["", ...SUPPRESSION_FLAGS];
 
 const PRIORITY_FILTERS = ["", "1", "2", "3", "4", "5", "unrated"];
 
@@ -35,45 +37,31 @@ interface Props {
   stage: string;
   status: string;
   personalPriority: string;
+  linkedin: string; // "" = any, "1" = I know someone there
+  suppressed: string; // "" = any, or one suppression flag
   sort: OrganizationSortKey;
   direction: "asc" | "desc";
   onStageChange: (stage: string) => void;
   onStatusChange: (status: string) => void;
   onPriorityChange: (priority: string) => void;
+  onLinkedinChange: (linkedin: string) => void;
+  onSuppressedChange: (suppressed: string) => void;
   onSortChange: (sort: OrganizationSortKey, direction: "asc" | "desc") => void;
-}
-
-function ChipRow({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label?: string;
-}) {
-  return (
-    <View>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filters}
-        contentContainerStyle={styles.filtersContent}
-      >
-        {children}
-      </ScrollView>
-    </View>
-  );
 }
 
 export function OrganizationListControls({
   stage,
   status,
   personalPriority,
+  linkedin,
+  suppressed,
   sort,
   direction,
   onStageChange,
   onStatusChange,
   onPriorityChange,
+  onLinkedinChange,
+  onSuppressedChange,
   onSortChange,
 }: Props) {
   const { t } = useTranslation();
@@ -96,6 +84,28 @@ export function OrganizationListControls({
             label={filter === "" ? t("organizations.statusAll") : t(statusLabelKey(filter))}
             isActive={status === filter}
             onPress={() => onStatusChange(filter)}
+          />
+        ))}
+      </ChipRow>
+      <ChipRow label={t("organizations.linkedinFilter")}>
+        <FilterChip
+          label={t("organizations.linkedinAny")}
+          isActive={linkedin === ""}
+          onPress={() => onLinkedinChange("")}
+        />
+        <FilterChip
+          label={t("organizations.linkedinKnow")}
+          isActive={linkedin === "1"}
+          onPress={() => onLinkedinChange("1")}
+        />
+      </ChipRow>
+      <ChipRow label={t("organizations.flagFilter")}>
+        {FLAG_FILTERS.map((filter) => (
+          <FilterChip
+            key={filter}
+            label={filter === "" ? t("organizations.statusAll") : t(flagLabelKey(filter))}
+            isActive={suppressed === filter}
+            onPress={() => onSuppressedChange(filter)}
           />
         ))}
       </ChipRow>
@@ -128,43 +138,3 @@ export function OrganizationListControls({
     </>
   );
 }
-
-function FilterChip({
-  label,
-  isActive,
-  onPress,
-}: {
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.chip, isActive && styles.chipActive]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: isActive }}
-    >
-      <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  filters: { flexGrow: 0, marginBottom: 8, marginHorizontal: 16 },
-  filtersContent: { alignItems: "center", gap: 8, paddingVertical: 6 },
-  label: { color: "#666", fontSize: 11, marginHorizontal: 16 },
-  chip: {
-    backgroundColor: "#ffffff10",
-    borderRadius: 16,
-    justifyContent: "center",
-    minHeight: 32,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  chipActive: { backgroundColor: "#7c6fff" },
-  chipText: { color: "#888", fontSize: 12, fontWeight: "600", lineHeight: 16 },
-  chipTextActive: { color: "#fff" },
-});

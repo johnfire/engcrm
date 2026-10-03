@@ -161,6 +161,8 @@ export async function fetchOrganizations(params: {
   sort?: OrganizationSortKey;
   dir?: "asc" | "desc";
   personal_priority?: string;
+  linkedin?: string; // "1": organizations where I know someone on LinkedIn
+  suppressed?: string; // a suppression flag, e.g. "do_not_contact"
 }): Promise<Organization[]> {
   const resp = await client.get("/api/contacts", { params });
   return resp.data;
@@ -684,12 +686,18 @@ export async function searchAll(q: string): Promise<SearchResults> {
 }
 
 // --- People (individuals on scanned cards, linked to their company organization) ---
-export type PersonSortKey = "created_at" | "name";
+export type PersonSortKey = "created_at" | "name" | "connected_on" | "company";
+
+export const PEOPLE_PAGE_SIZE = 50;
+export const ORGANIZATIONS_PAGE_SIZE = 50;
 
 export async function fetchPeople(params: {
   search?: string;
   sort?: PersonSortKey;
   dir?: "asc" | "desc";
+  stage?: string; // a pipeline stage, or "none" for people with no stage set
+  linkedin?: string; // "1": LinkedIn connections; "unlinked": not yet tied to an organization
+  page?: number; // omit for the whole list
 } = {}): Promise<Person[]> {
   const resp = await client.get("/api/people", { params });
   return resp.data;
@@ -715,6 +723,8 @@ export interface Person {
   company: string | null;
   source: string | null;
   created_at: string;
+  is_linkedin_contact?: boolean;
+  connected_on?: string | null;
   // The person's own stage tag; null when none is set (and on servers that predate it).
   pipeline_stage?: PipelineStage | null;
   // The stage of the organization they work at, when linked.
@@ -853,6 +863,33 @@ export async function deletePerson(personId: number): Promise<void> {
 
 export async function deletePersonNote(personId: number, noteId: number): Promise<void> {
   await client.delete(`/api/people/${personId}/notes/${noteId}`);
+}
+
+// --- Reachable fits: the warm-intro work list ---
+export interface ReachablePerson {
+  id: number;
+  name: string;
+  title: string | null;
+  linkedin_url: string | null;
+  connected_on: string | null;
+}
+
+export interface ReachableOrganization {
+  id: number;
+  name: string;
+  city: string | null;
+  country: string | null;
+  type: string | null;
+  website: string | null;
+  fit_score: number | null;
+  people: ReachablePerson[];
+}
+
+export const REACHABLE_PAGE_SIZE = 50;
+
+export async function fetchReachable(page: number): Promise<{ total: number; rows: ReachableOrganization[] }> {
+  const resp = await client.get("/api/contacts/reachable", { params: { page } });
+  return resp.data;
 }
 
 // --- Recon (nearby organizations for on-foot field visits) ---
