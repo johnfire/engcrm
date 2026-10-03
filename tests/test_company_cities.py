@@ -615,3 +615,102 @@ class TestPersonStage:
             admin_session.post("/people/1/edit", data={"name": "Ann", "pipeline_stage": "customer"},
                                follow_redirects=False)
         assert update.call_args.args[1]["pipeline_stage"] == "customer"
+
+
+# --- the "Look up cities" button -----------------------------------------------
+
+class LockCursor:
+    def __init__(self, got=True):
+        self.got, self.executed = got, []
+
+    def execute(self, sql, params=None):
+        self.executed.append(" ".join(sql.split()))
+
+    def fetchone(self):
+        return {"got": self.got}
+
+
+class TestRunCityLookup:
+    def run(self, limit, got=True):
+        cursor = LockCursor(got)
+        conn = MagicMock()
+        conn.cursor.return_value = cursor
+        with patch("gcrm.tools.db_linkedin.db") as mock_db, \
+             patch("gcrm.tools.db_linkedin.resolve_company_cities",
+                   return_value={"looked_up": 1, "stopped": ""}) as resolve:
+            mock_db.return_value.__enter__.return_value = conn
+            result = db_linkedin.run_city_lookup(limit)
+        return result, resolve, cursor
+
+    def test_the_limit_is_clamped_so_one_click_cannot_start_a_huge_bill(self):
+        for asked, used in ((5, 5), (0, 1), (-3, 1), (10_000, db_linkedin.WEB_LOOKUP_MAX)):
+            _, resolve, _ = self.run(asked)
+            resolve.assert_called_once_with(limit=used)
+
+    def test_it_takes_and_always_releases_the_lock(self):
+        _, _, cursor = self.run(5)
+        assert any("pg_try_advisory_lock" in s for s in cursor.executed)
+        assert any("pg_advisory_unlock" in s for s in cursor.executed)
+
+    def test_a_second_run_while_one_is_going_is_refused_without_billing(self):
+        result, resolve, cursor = self.run(5, got=False)
+        resolve.assert_not_called()
+        assert result["looked_up"] == 0 and "already running" in result["stopped"]
+        assert not any("pg_advisory_unlock" in s for s in cursor.executed)
+
+
+class TestLookupButton:
+    PANEL = {"key_set": True, "max": 50, "per_1000": 35, "to_lookup": 627, "cached_ready": 0}
+
+    def page(self, admin_session, panel=None, url="/people/linkedin/cities"):
+        with patch("gcrm.api.routers.people.get_city_review_queue", return_value={"total": 0, "rows": []}), \
+             patch("gcrm.api.routers.people._city_lookup_panel", return_value=panel or self.PANEL):
+            return admin_session.get(url)
+
+    def test_the_page_states_the_count_the_estimate_and_defaults_to_five(self, admin_session):
+        text = self.page(admin_session).text
+        assert "Companies never looked up: 627" in text
+        assert "about $35 per 1,000 lookups" in text and "estimate" in text
+        assert 'name="limit" value="5" min="1" max="50"' in text
+        assert 'action="/people/linkedin/cities/lookup"' in text
+        assert "onsubmit='this.querySelector" in text  # confirm + double-click guard
+
+    def test_without_a_key_the_button_is_absent_and_the_page_says_nothing_is_billed(self, admin_session):
+        text = self.page(admin_session, {**self.PANEL, "key_set": False}).text
+        assert "No Google Maps API key" in text and "/cities/lookup" not in text
+
+    def test_with_nothing_to_look_up_there_is_no_button(self, admin_session):
+        text = self.page(admin_session, {**self.PANEL, "to_lookup": 0, "cached_ready": 3}).text
+        assert "Nothing to look up" in text and "/cities/lookup" not in text
+
+    def test_clicking_runs_the_lookup_and_redirects_with_the_counts(self, admin_session):
+        counts = {"looked_up": 5, "resolved": 3, "ambiguous": 1, "not_found": 1, "errors": 0, "stopped": ""}
+        with patch("gcrm.api.routers.people.run_city_lookup", return_value=counts) as run, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities/lookup", data={"limit": "5"},
+                                          follow_redirects=False)
+        run.assert_called_once_with(5)
+        assert response.status_code == 303
+        assert "looked_up=5&resolved=3&ambiguous=1&not_found=1&errors=0" in response.headers["location"]
+
+    def test_the_result_shows_the_billed_count_and_an_estimated_cost(self, admin_session):
+        text = self.page(
+            admin_session,
+            url="/people/linkedin/cities?saved=0&looked_up=5&resolved=3&ambiguous=1&not_found=1&errors=0",
+        ).text
+        assert "Looked up 5 companies." in text and "Found a city: 3" in text
+        assert "5 billed lookups ≈ $0.17" in text and "billing console" in text
+
+    def test_a_refused_or_failed_run_is_explained_not_a_500(self, admin_session):
+        with patch("gcrm.api.routers.people.run_city_lookup", side_effect=RuntimeError("db")), \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities/lookup", data={"limit": "5"},
+                                          follow_redirects=False)
+        assert response.status_code == 303 and "errors=1" in response.headers["location"]
+        text = self.page(admin_session, url=response.headers["location"]).text
+        assert "stopped early" in text
+
+    def test_the_count_failing_still_renders_the_page(self, admin_session):
+        with patch("gcrm.api.routers.people.count_city_work", side_effect=RuntimeError("x")), \
+             patch("gcrm.api.routers.people.get_city_review_queue", return_value={"total": 0, "rows": []}):
+            assert admin_session.get("/people/linkedin/cities").status_code == 200

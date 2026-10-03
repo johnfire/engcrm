@@ -535,6 +535,28 @@ def resolve_company_cities(limit: int = 200, lookup=lookup_places) -> dict:
     return counts
 
 
+CITY_LOOKUP_LOCK_KEY = 7_340_011  # arbitrary, app-wide constant for pg advisory locks
+WEB_LOOKUP_MAX = 50  # most billed lookups one browser click may start
+
+
+def run_city_lookup(limit: int) -> dict:
+    """resolve_company_cities for the browser: the limit is clamped to
+    1..WEB_LOOKUP_MAX, and a Postgres advisory lock lets only one run go at a
+    time, so a double click or two tabs cannot bill the same companies twice.
+    Returns resolve_company_cities' counts; `stopped` explains a refused run."""
+    limit = max(1, min(int(limit), WEB_LOOKUP_MAX))
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_try_advisory_lock(%s) AS got", (CITY_LOOKUP_LOCK_KEY,))
+        if not cur.fetchone()["got"]:
+            return {"applied_cached": 0, "looked_up": 0, "resolved": 0, "ambiguous": 0,
+                    "not_found": 0, "errors": 0, "stopped": "another lookup is already running"}
+        try:
+            return resolve_company_cities(limit=limit)
+        finally:
+            cur.execute("SELECT pg_advisory_unlock(%s)", (CITY_LOOKUP_LOCK_KEY,))
+
+
 # --- City review queue -------------------------------------------------------
 
 CITY_QUEUE_PAGE_SIZE = 100

@@ -22,6 +22,11 @@ from gcrm.tools.search import GOOGLE_PLACES_URL
 
 logger = logging.getLogger(__name__)
 
+# Rough list price in USD per 1,000 Places text-search requests with address
+# fields. An estimate from memory of Google's published pricing, which changes;
+# a monthly free allowance may make the real cost zero. The Google Cloud billing
+# console is the only authority on what a run actually cost.
+ESTIMATED_USD_PER_1000 = 35
 FIELD_MASK = "places.id,places.displayName,places.formattedAddress,places.addressComponents"
 MAX_RESULTS = 5  # enough to notice a chain, which is what makes a name ambiguous
 CLOSE_NAME_RATIO = 0.9

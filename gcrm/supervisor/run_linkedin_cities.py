@@ -22,10 +22,6 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = 200
-# Rough list price for a Places text search with address fields. An estimate from
-# memory of Google's published pricing, which changes — check your billing
-# console; a monthly free allowance may make the real cost zero.
-ESTIMATED_USD_PER_1000 = 35
 
 
 def main() -> None:
@@ -35,6 +31,7 @@ def main() -> None:
                         help=f"Most lookups this run (default {DEFAULT_LIMIT})")
     args = parser.parse_args()
 
+    from gcrm.tools.company_places import ESTIMATED_USD_PER_1000
     from gcrm.tools.db_linkedin import count_city_work, resolve_company_cities
 
     work = count_city_work()

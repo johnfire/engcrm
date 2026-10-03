@@ -10,21 +10,25 @@ from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_DAYS
 from gcrm.linkedin import decode_export, parse_connections_csv
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.tools.company_places import ESTIMATED_USD_PER_1000
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_linkedin import (
     CITY_QUEUE_PAGE_SIZE,
     JOB_CHANGE_PAGE_SIZE,
+    WEB_LOOKUP_MAX,
     apply_city_decisions,
     apply_company_change_decisions,
     apply_match_decisions,
+    count_city_work,
     get_city_review_queue,
     get_company_changes,
     get_company_promotion_plan,
     get_match_suggestions,
     import_connections,
     promote_linkedin_companies,
+    run_city_lookup,
 )
 from gcrm.tools.db_people import (
     get_people,
@@ -249,6 +253,12 @@ def linkedin_cities(
     saved: int | None = Query(default=None),
     dismissed: int | None = Query(default=None),
     failed: int | None = Query(default=None),
+    looked_up: int | None = Query(default=None),
+    resolved: int | None = Query(default=None),
+    ambiguous: int | None = Query(default=None),
+    not_found: int | None = Query(default=None),
+    errors: int | None = Query(default=None),
+    stopped: str = Query(default=""),
 ):
     """Organizations created from LinkedIn that still need a city, most
     connections first. The lookup could not settle these (chains, unknown or
@@ -269,7 +279,44 @@ def linkedin_cities(
         "load_failed": load_failed,
         "applied": None if saved is None else {
             "saved": saved, "dismissed": dismissed or 0, "failed": failed or 0},
+        "lookup": _city_lookup_panel(),
+        "lookup_result": None if looked_up is None else {
+            "looked_up": looked_up, "resolved": resolved or 0, "ambiguous": ambiguous or 0,
+            "not_found": not_found or 0, "errors": errors or 0, "stopped": stopped,
+            "estimate": round(looked_up * ESTIMATED_USD_PER_1000 / 1000, 2)},
     })
+
+
+def _city_lookup_panel() -> dict:
+    """What the 'Look up cities' button would do right now, for the page."""
+    from gcrm.config import GOOGLE_MAPS_API_KEY
+    try:
+        work = count_city_work()
+    except Exception:
+        logger.exception("city work count failed")
+        work = {"to_lookup": 0, "cached_ready": 0, "failed": True}
+    return {"key_set": bool(GOOGLE_MAPS_API_KEY), "max": WEB_LOOKUP_MAX,
+            "per_1000": ESTIMATED_USD_PER_1000, **work}
+
+
+@router.post("/people/linkedin/cities/lookup")
+def linkedin_cities_lookup(limit: int = Form(5), _admin: str = Depends(require_admin)):
+    """Look up the city of up to `limit` (1..WEB_LOOKUP_MAX) companies in Google
+    Places. Each lookup is billed, so the page states the count and estimate
+    first, the limit is capped, and only one run can go at a time."""
+    try:
+        counts = run_city_lookup(limit)
+    except Exception:
+        logger.exception("city lookup run failed")
+        counts = {"looked_up": 0, "resolved": 0, "ambiguous": 0, "not_found": 0,
+                  "errors": 1, "stopped": "the lookup could not run"}
+    log_audit(None, None, "contact.linkedin_cities_lookup", "contacts",
+              f"looked_up:{counts['looked_up']} resolved:{counts['resolved']}")
+    return local_redirect(
+        "/people/linkedin/cities", looked_up=str(counts["looked_up"]), resolved=str(counts["resolved"]),
+        ambiguous=str(counts["ambiguous"]), not_found=str(counts["not_found"]),
+        errors=str(counts["errors"]), stopped=counts["stopped"], saved="0",
+    )
 
 
 def _parse_city_decisions(form) -> list[dict]:

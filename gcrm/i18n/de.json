@@ -625,5 +625,22 @@
   "linkedin.companies.loadFailed": "Die Vorschau konnte nicht geladen werden. Bitte erneut versuchen.",
   "people.stage.all": "Alle Stufen",
   "people.stage.none": "Keine Stufe",
-  "people.stage.organization": "Organisation: {{stage}}"
+  "people.stage.organization": "Organisation: {{stage}}",
+  "linkedin.lookup.title": "Städte automatisch suchen",
+  "linkedin.lookup.intro": "Jeder Firmenname wird einmal an Google Places gesendet (nur der Firmenname, nie etwas über die Personen) und die Antwort gemerkt — eine Firma wird nie zweimal gesucht oder berechnet. Eine Stadt wird nur übernommen, wenn genau ein Ort den Firmennamen trägt; Unklares bleibt für Sie in der Liste unten.",
+  "linkedin.lookup.noKey": "Auf dem Server ist kein Google-Maps-API-Schlüssel gesetzt, die Suche ist daher aus. Es wird nichts gesendet und nichts berechnet.",
+  "linkedin.lookup.nothing": "Nichts zu suchen: Jede Firma wurde schon gesucht oder hat eine Stadt. ({{cached}} akzeptierte Städte sind bereits übernommen.)",
+  "linkedin.lookup.waiting": "Noch nie gesuchte Firmen: {{count}}",
+  "linkedin.lookup.estimate": "Geschätzter Listenpreis: etwa {{per1000}} $ je 1.000 Suchen. Das ist eine Schätzung aus dem Gedächtnis — die Google-Cloud-Abrechnung nennt den echten Wert, und ein monatliches Freikontingent kann ihn auf null senken.",
+  "linkedin.lookup.limit": "So viele suchen (kostenpflichtig):",
+  "linkedin.lookup.button": "Städte suchen",
+  "linkedin.lookup.confirm": "Diese Firmennamen jetzt an Google Places senden? Jede Suche wird berechnet.",
+  "linkedin.lookup.maxNote": "Höchstens {{max}} pro Klick. Mit 5 beginnen, die Ergebnisse unten ansehen, dann weitermachen.",
+  "linkedin.lookup.done": "{{count}} Firmen gesucht.",
+  "linkedin.lookup.resolved": "Stadt gefunden: {{count}}",
+  "linkedin.lookup.ambiguous": "Mehrere Städte (für Sie übrig): {{count}}",
+  "linkedin.lookup.notFound": "Nicht gefunden (für Sie übrig): {{count}}",
+  "linkedin.lookup.errors": "Fehlgeschlagen (beim nächsten Mal erneut): {{count}}",
+  "linkedin.lookup.cost": "{{count}} berechnete Suchen ≈ {{usd}} $ zum geschätzten Listenpreis. Die Google-Cloud-Abrechnung zeigt, was es wirklich gekostet hat.",
+  "linkedin.lookup.stopped": "Der Lauf wurde vorzeitig beendet: {{reason}}"
 }

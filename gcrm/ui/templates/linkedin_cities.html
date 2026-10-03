@@ -17,6 +17,42 @@
 <p class="error">{{ t('linkedin.cities.loadFailed') }}</p>
 {% endif %}
 
+{% if lookup_result %}
+<div class="flash-success">
+  <strong>{{ t('linkedin.lookup.done', count=lookup_result.looked_up) }}</strong>
+  <ul>
+    <li>{{ t('linkedin.lookup.resolved', count=lookup_result.resolved) }}</li>
+    <li>{{ t('linkedin.lookup.ambiguous', count=lookup_result.ambiguous) }}</li>
+    <li>{{ t('linkedin.lookup.notFound', count=lookup_result.not_found) }}</li>
+    {% if lookup_result.errors %}<li>{{ t('linkedin.lookup.errors', count=lookup_result.errors) }}</li>{% endif %}
+  </ul>
+  <p>{{ t('linkedin.lookup.cost', count=lookup_result.looked_up, usd=lookup_result.estimate) }}</p>
+  {% if lookup_result.stopped %}<p class="error">{{ t('linkedin.lookup.stopped', reason=lookup_result.stopped) }}</p>{% endif %}
+</div>
+{% endif %}
+
+<section class="detail-section">
+  <h2>{{ t('linkedin.lookup.title') }}</h2>
+  <p class="muted">{{ t('linkedin.lookup.intro') }}</p>
+  {% if not lookup.key_set %}
+  <p class="error">{{ t('linkedin.lookup.noKey') }}</p>
+  {% elif lookup.to_lookup == 0 %}
+  <p class="muted">{{ t('linkedin.lookup.nothing', cached=lookup.cached_ready) }}</p>
+  {% else %}
+  <ul>
+    <li>{{ t('linkedin.lookup.waiting', count=lookup.to_lookup) }}</li>
+    <li>{{ t('linkedin.lookup.estimate', per1000=lookup.per_1000) }}</li>
+  </ul>
+  <form method="post" action="/people/linkedin/cities/lookup" class="filter-bar"
+        onsubmit='this.querySelector("button").disabled = true; return confirm({{ t("linkedin.lookup.confirm")|tojson }});'>
+    <label for="lookup-limit">{{ t('linkedin.lookup.limit') }}</label>
+    <input id="lookup-limit" type="number" name="limit" value="5" min="1" max="{{ lookup.max }}" size="4" />
+    <button type="submit" class="btn-primary">{{ t('linkedin.lookup.button') }}</button>
+  </form>
+  <p class="muted small">{{ t('linkedin.lookup.maxNote', max=lookup.max) }}</p>
+  {% endif %}
+</section>
+
 <p class="muted">{{ t('linkedin.cities.intro') }}</p>
 
 {% if rows %}

@@ -625,5 +625,22 @@
   "linkedin.companies.loadFailed": "The preview could not be loaded. Try again.",
   "people.stage.all": "All stages",
   "people.stage.none": "No stage set",
-  "people.stage.organization": "organization: {{stage}}"
+  "people.stage.organization": "organization: {{stage}}",
+  "linkedin.lookup.title": "Look up cities automatically",
+  "linkedin.lookup.intro": "Each company name is sent to Google Places once (only the company name, never anything about the people) and the answer is remembered, so a company is never looked up or billed twice. A city is accepted only when exactly one place carries the company's name; anything unclear stays in the list below for you.",
+  "linkedin.lookup.noKey": "No Google Maps API key is set on the server, so lookups are off. Nothing is sent and nothing is billed.",
+  "linkedin.lookup.nothing": "Nothing to look up: every company has either been looked up already or has a city. ({{cached}} accepted cities are already applied.)",
+  "linkedin.lookup.waiting": "Companies never looked up: {{count}}",
+  "linkedin.lookup.estimate": "Estimated list price: about ${{per1000}} per 1,000 lookups. This is an estimate from memory — your Google Cloud billing console has the real figure, and a free monthly allowance may make it zero.",
+  "linkedin.lookup.limit": "Look up this many (billed):",
+  "linkedin.lookup.button": "Look up cities",
+  "linkedin.lookup.confirm": "Send these company names to Google Places now? Each lookup is billed.",
+  "linkedin.lookup.maxNote": "At most {{max}} per click. Start with 5, look at the results below, then go on.",
+  "linkedin.lookup.done": "Looked up {{count}} companies.",
+  "linkedin.lookup.resolved": "Found a city: {{count}}",
+  "linkedin.lookup.ambiguous": "Several cities (left for you): {{count}}",
+  "linkedin.lookup.notFound": "Not found (left for you): {{count}}",
+  "linkedin.lookup.errors": "Failed (will be retried next time): {{count}}",
+  "linkedin.lookup.cost": "{{count}} billed lookups ≈ ${{usd}} at the estimated list price. Check the Google Cloud billing console for what it really cost.",
+  "linkedin.lookup.stopped": "The run stopped early: {{reason}}"
 }
