@@ -20,8 +20,10 @@ from gcrm.tools.db_linkedin import (
     apply_match_decisions,
     get_city_review_queue,
     get_company_changes,
+    get_company_promotion_plan,
     get_match_suggestions,
     import_connections,
+    promote_linkedin_companies,
 )
 from gcrm.tools.db_people import (
     get_people,
@@ -360,6 +362,60 @@ async def linkedin_job_changes_apply(request: Request, _admin: str = Depends(req
     return local_redirect(
         "/people/linkedin/job-changes", moved=str(counts["moved"]),
         kept=str(counts["kept"]), failed=str(counts["failed"]),
+    )
+
+
+COMPANY_PREVIEW_SAMPLE = 25
+
+
+@router.get("/people/linkedin/companies", response_class=HTMLResponse)
+def linkedin_companies(
+    request: Request,
+    created: int | None = Query(default=None),
+    linked: int | None = Query(default=None),
+    people: int | None = Query(default=None),
+    failed: int | None = Query(default=None),
+    ambiguous: int | None = Query(default=None),
+):
+    """Preview, then create, the organizations for the companies your LinkedIn
+    connections work at. Reading the preview writes nothing."""
+    load_failed, plan = False, None
+    try:
+        plan = get_company_promotion_plan()
+    except Exception:
+        logger.exception("linkedin company plan failed")
+        load_failed = True
+
+    def largest(groups):
+        return sorted(groups, key=lambda g: (-len(g["people_ids"]), g["name"].lower()))[:COMPANY_PREVIEW_SAMPLE]
+
+    return templates.TemplateResponse("linkedin_companies.html", {
+        "request": request,
+        "plan": plan,
+        "load_failed": load_failed,
+        "people_in": (lambda groups: sum(len(g["people_ids"]) for g in groups)),
+        "create_sample": largest(plan.create) if plan else [],
+        "link_sample": largest(plan.link) if plan else [],
+        "ambiguous_sample": largest(plan.ambiguous) if plan else [],
+        "applied": None if created is None else {
+            "created": created, "linked": linked or 0, "people": people or 0,
+            "failed": failed or 0, "ambiguous": ambiguous or 0},
+    })
+
+
+@router.post("/people/linkedin/companies")
+def linkedin_companies_apply(_admin: str = Depends(require_admin)):
+    """Create the organizations. The plan is recomputed here, not taken from the
+    form, so a stale preview can never apply old decisions."""
+    try:
+        counts = promote_linkedin_companies()
+    except Exception:
+        logger.exception("linkedin company promotion failed")
+        counts = {"created": 0, "linked": 0, "people_linked": 0, "failed": 1, "ambiguous_skipped": 0}
+    return local_redirect(
+        "/people/linkedin/companies", created=str(counts["created"]), linked=str(counts["linked"]),
+        people=str(counts["people_linked"]), failed=str(counts["failed"]),
+        ambiguous=str(counts["ambiguous_skipped"]),
     )
 
 

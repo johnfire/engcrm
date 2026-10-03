@@ -8,6 +8,7 @@
   <span class="muted">{{ t('people.shownCount', count=people|length) }}</span>
   <a href="/people/import/linkedin" class="btn-secondary">{{ t('linkedin.import.link') }}</a>
   <a href="/people/linkedin/matches" class="btn-secondary">{{ t('linkedin.matches.link') }}</a>
+  <a href="/people/linkedin/companies" class="btn-secondary">{{ t('linkedin.companies.link') }}</a>
   <a href="/people/linkedin/cities" class="btn-secondary">{{ t('linkedin.cities.link') }}</a>
   <a href="/people/linkedin/job-changes" class="btn-secondary">{{ t('linkedin.jobChanges.link') }}</a>
   <a href="/people/new" class="btn-primary">{{ t('people.addPerson') }}</a>
@@ -96,6 +97,8 @@
       <td>
         {% if p.company_pipeline_stage %}
         <span class="badge badge-stage-{{ p.company_pipeline_stage }}">{{ t('stage.' ~ p.company_pipeline_stage) }}</span>
+        {% elif p.is_linkedin_contact %}
+        <span class="badge badge-stage-candidate" title="{{ t('linkedin.candidateHint') }}">{{ t('stage.candidate') }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td>{{ p.company_opportunity_score if p.company_opportunity_score is not none else '—' }}</td>

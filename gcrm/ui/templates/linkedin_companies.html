@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ t('linkedin.companies.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('linkedin.companies.title') }}</h1>
+  <a href="/people/?linkedin=1" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</div>
+
+{% if applied %}
+<div class="flash-success">
+  {{ t('linkedin.companies.applied', created=applied.created, people=applied.people) }}
+  {% if applied.linked %} {{ t('linkedin.companies.appliedLinked', count=applied.linked) }}{% endif %}
+</div>
+{% if applied.failed %}<p class="error">{{ t('linkedin.companies.failed', count=applied.failed) }}</p>{% endif %}
+<p class="muted">{{ t('linkedin.companies.next') }} <a href="/people/linkedin/cities">{{ t('linkedin.cities.link') }}</a></p>
+{% endif %}
+{% if load_failed %}
+<p class="error">{{ t('linkedin.companies.loadFailed') }}</p>
+{% endif %}
+
+<p class="muted">{{ t('linkedin.companies.intro') }}</p>
+
+{% if plan %}
+<ul>
+  <li>{{ t('linkedin.companies.willCreate', count=plan.create|length, people=people_in(plan.create)) }}</li>
+  <li>{{ t('linkedin.companies.willLink', count=plan.link|length, people=people_in(plan.link)) }}</li>
+  {% if plan.ambiguous %}<li>{{ t('linkedin.companies.ambiguous', count=plan.ambiguous|length) }}</li>{% endif %}
+  <li>{{ t('linkedin.companies.noCompany', count=plan.skipped_no_company) }}</li>
+</ul>
+
+{% if plan.create or plan.link %}
+<form method="post" action="/people/linkedin/companies"
+      onsubmit='return confirm({{ t("linkedin.companies.confirm", count=plan.create|length)|tojson }});'>
+  <button type="submit" class="btn-primary">{{ t('linkedin.companies.apply', count=plan.create|length) }}</button>
+</form>
+{% else %}
+<p class="muted">{{ t('linkedin.companies.nothing') }}</p>
+{% endif %}
+
+{% if create_sample %}
+<h2>{{ t('linkedin.companies.sampleCreate', count=create_sample|length) }}</h2>
+<div class="table-scroll"><table>
+  <thead><tr><th>{{ t('linkedin.companies.company') }}</th><th>{{ t('linkedin.companies.connections') }}</th></tr></thead>
+  <tbody>
+    {% for g in create_sample %}
+    <tr><td>{{ g.name }}{% if g.near %} <span class="muted small">~ {{ g.near | map(attribute='name') | join(', ') }}</span>{% endif %}</td><td>{{ g.people_ids|length }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+
+{% if ambiguous_sample %}
+<h2>{{ t('linkedin.companies.sampleAmbiguous') }}</h2>
+<ul>{% for g in ambiguous_sample %}<li>{{ g.name }} <span class="muted small">({{ g.people_ids|length }})</span></li>{% endfor %}</ul>
+{% endif %}
+{% endif %}
+{% endblock %}

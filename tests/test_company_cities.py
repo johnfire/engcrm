@@ -463,3 +463,91 @@ class TestReachableRoute:
         with patch("gcrm.api.routers.organizations._fetch_organizations_page",
                    return_value=([], {}, {}, [], 0)):
             assert "/organizations/reachable" in admin_session.get("/organizations/").text
+
+
+# --- create organizations from the browser ------------------------------------
+
+from gcrm.linkedin import plan_company_promotion  # noqa: E402
+
+
+def a_plan():
+    people = [{"id": 1, "company_raw": "Acme GmbH"}, {"id": 2, "company_raw": "ACME"},
+              {"id": 3, "company_raw": "Globex"}, {"id": 4, "company_raw": "Self-employed"}]
+    return plan_company_promotion(people, organizations=[])
+
+
+class TestCompaniesPage:
+    def test_preview_counts_what_the_button_would_do_and_writes_nothing(self, admin_session):
+        with patch("gcrm.api.routers.people.get_company_promotion_plan", return_value=a_plan()), \
+             patch("gcrm.api.routers.people.promote_linkedin_companies") as promote:
+            response = admin_session.get("/people/linkedin/companies")
+        assert response.status_code == 200
+        assert "New organizations to create: 2 (for 3 people)" in response.text
+        assert "usable company (blank, self-employed, freelance): 1" in response.text
+        assert "Create 2 organizations" in response.text
+        assert "<td>ACME</td>" in response.text and "<td>Globex</td>" in response.text
+        promote.assert_not_called()
+
+    def test_the_confirm_message_is_safe_javascript(self, admin_session):
+        with patch("gcrm.api.routers.people.get_company_promotion_plan", return_value=a_plan()):
+            response = admin_session.get("/people/linkedin/companies")
+        assert "onsubmit='return confirm(" in response.text
+
+    def test_nothing_to_do_hides_the_button(self, admin_session):
+        empty = plan_company_promotion([], [])
+        with patch("gcrm.api.routers.people.get_company_promotion_plan", return_value=empty):
+            response = admin_session.get("/people/linkedin/companies")
+        assert "every company already has its organization" in response.text
+        assert 'method="post"' not in response.text
+
+    def test_a_failing_preview_still_renders(self, admin_session):
+        with patch("gcrm.api.routers.people.get_company_promotion_plan", side_effect=RuntimeError("x")):
+            response = admin_session.get("/people/linkedin/companies")
+        assert response.status_code == 200 and "could not be loaded" in response.text
+
+    def test_the_button_creates_the_organizations_and_redirects_with_the_counts(self, admin_session):
+        counts = {"created": 625, "linked": 1, "people_linked": 659, "failed": 0, "ambiguous_skipped": 1}
+        with patch("gcrm.api.routers.people.promote_linkedin_companies", return_value=counts) as promote:
+            response = admin_session.post("/people/linkedin/companies", follow_redirects=False)
+        promote.assert_called_once_with()  # recomputed server-side, nothing taken from the form
+        assert response.status_code == 303
+        assert response.headers["location"] == (
+            "/people/linkedin/companies?created=625&linked=1&people=659&failed=0&ambiguous=1")
+
+    def test_the_result_is_shown_with_the_next_step(self, admin_session):
+        with patch("gcrm.api.routers.people.get_company_promotion_plan", return_value=plan_company_promotion([], [])):
+            response = admin_session.get("/people/linkedin/companies?created=625&linked=1&people=659&failed=0&ambiguous=1")
+        assert "Created 625 organizations and linked 659 connections." in response.text
+        assert "/people/linkedin/cities" in response.text
+
+    def test_a_crash_while_creating_is_reported_not_a_500(self, admin_session):
+        with patch("gcrm.api.routers.people.promote_linkedin_companies", side_effect=RuntimeError("db down")):
+            response = admin_session.post("/people/linkedin/companies", follow_redirects=False)
+        assert response.status_code == 303 and "failed=1" in response.headers["location"]
+
+    def test_the_people_page_and_the_import_result_lead_to_it(self, admin_session):
+        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+            assert "/people/linkedin/companies" in admin_session.get("/people/").text
+
+
+class TestEveryConnectionIsACandidate:
+    def listed(self, **extra):
+        return {"id": 1, "name": "Ann", "title": None, "company": None, "contact_id": None, "company_raw": None,
+                "is_linkedin_contact": True, "company_pipeline_stage": None, "company_opportunity_score": None,
+                "company_personal_priority": None, "value_rating": None, "last_contact": None,
+                "city": None, "relationship": None, "distance_km": None, "created_at": "2026-10-03", **extra}
+
+    def test_a_connection_without_an_organization_shows_as_candidate(self, admin_session):
+        with patch("gcrm.api.routers.people.get_people", return_value=[self.listed()]):
+            assert "badge-stage-candidate" in admin_session.get("/people/").text
+
+    def test_a_linked_connection_shows_its_organizations_stage(self, admin_session):
+        row = self.listed(company_pipeline_stage="suspect")
+        with patch("gcrm.api.routers.people.get_people", return_value=[row]):
+            text = admin_session.get("/people/").text
+        assert "badge-stage-suspect" in text and "badge-stage-candidate" not in text
+
+    def test_people_who_are_not_connections_get_no_candidate_badge(self, admin_session):
+        row = self.listed(is_linkedin_contact=False)
+        with patch("gcrm.api.routers.people.get_people", return_value=[row]):
+            assert "badge-stage-candidate" not in admin_session.get("/people/").text
