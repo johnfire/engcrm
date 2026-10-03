@@ -454,5 +454,6 @@
   "people.linkedinOnly": "Kontakte",
   "people.linkedinUnlinked": "Keiner Organisation zugeordnet",
   "people.sortConnected": "Zuletzt vernetzt",
-  "people.sortCompany": "Firma"
+  "people.sortCompany": "Firma",
+  "people.sortCity": "Stadt"
 }

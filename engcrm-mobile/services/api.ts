@@ -706,7 +706,7 @@ export async function searchAll(q: string): Promise<SearchResults> {
 }
 
 // --- People (individuals on scanned cards, linked to their company organization) ---
-export type PersonSortKey = "created_at" | "name" | "connected_on" | "company";
+export type PersonSortKey = "created_at" | "name" | "connected_on" | "company" | "city";
 
 export const PEOPLE_PAGE_SIZE = 50;
 export const ORGANIZATIONS_PAGE_SIZE = 50;

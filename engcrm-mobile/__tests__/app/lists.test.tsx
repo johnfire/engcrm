@@ -125,6 +125,15 @@ describe("people list", () => {
     );
   });
 
+  it("sorts by city, A to Z", async () => {
+    const screen = render(<PeopleScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getByText("City"));
+    await waitFor(() =>
+      expect(mockFetchPeople).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "city", dir: "asc" })),
+    );
+  });
+
   it("opens a person, and offers the admin an add button", async () => {
     mockGetRole.mockResolvedValue("admin");
     const screen = render(<PeopleScreen />);

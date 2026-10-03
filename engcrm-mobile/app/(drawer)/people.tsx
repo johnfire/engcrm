@@ -22,6 +22,7 @@ const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string 
   { key: "name", dir: "asc", labelKey: "common.sortAZ" },
   { key: "connected_on", dir: "desc", labelKey: "people.sortConnected" },
   { key: "company", dir: "asc", labelKey: "people.sortCompany" },
+  { key: "city", dir: "asc", labelKey: "people.sortCity" },
 ];
 
 // "" = any stage, "none" = people with no stage set, then the shared vocabulary.
