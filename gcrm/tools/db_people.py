@@ -330,8 +330,8 @@ def get_person_cities() -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT min(trim(city)) AS city, count(*) AS people
-            FROM person
+            SELECT mode() WITHIN GROUP (ORDER BY trim(city)) AS city, count(*) AS people
+            FROM people
             WHERE city IS NOT NULL AND trim(city) <> ''
             GROUP BY lower(trim(city))
             ORDER BY lower(trim(city))

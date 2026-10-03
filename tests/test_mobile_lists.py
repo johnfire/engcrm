@@ -95,6 +95,7 @@ class TestGetPeoplePaging:
             mock_db.return_value.__enter__.return_value = conn
             assert db_people.get_person_cities() == [{"city": "Ulm", "people": 2}]
         assert "GROUP BY lower(trim(city))" in cursor.execute.call_args.args[0]
+        assert "FROM people\n" in cursor.execute.call_args.args[0]  # the table is `people`; `person` is only an alias in get_people
 
     def test_no_limit_means_no_limit_clause(self):
         sql, _ = self.run()
