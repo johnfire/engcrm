@@ -483,7 +483,7 @@ def lookup_company(
 
     results: list[dict] = []
     seen_urls: set[str] = set()
-    for query in (name, f"{name} Impressum"):
+    for query in (name, f"{name} Impressum", f"{name} offizielle Website Kontakt"):
         for result in search_with_retry(search, query, sleep):
             if result.get("url") not in seen_urls:
                 seen_urls.add(result.get("url"))
