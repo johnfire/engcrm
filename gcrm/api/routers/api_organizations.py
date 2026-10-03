@@ -6,10 +6,12 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.db.connection import db
+from gcrm.organization_state import PIPELINE_STAGES, STATUSES, is_typical
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
+from gcrm.tools.db_organizations import set_organization_state
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.db_users import get_user_by_id
 
@@ -28,6 +30,13 @@ SORT_COLUMNS = {
 
 class PersonalPriorityBody(BaseModel):
     priority: int | None = None
+
+
+class StateBody(BaseModel):
+    """Either or both: a stage change alone keeps the current status, and the
+    other way round — the phone sends only what the user touched."""
+    pipeline_stage: str | None = None
+    status: str | None = None
 
 
 def _personal_identity(payload: dict) -> tuple[int | None, int | None]:
@@ -229,6 +238,47 @@ def update_personal_priority(
         outcome,
     )
     return {"personal_priority": stored_priority}
+
+
+@router.patch("/{contact_id}/state")
+def update_organization_state(
+    contact_id: int,
+    body: StateBody,
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """Move an organization along the pipeline (stage) and/or change what is going
+    on with it (status). Admin only, like the web edit form. Unknown values are
+    refused rather than quietly replaced: the picker only offers valid ones, so
+    anything else is a bug worth seeing. An unusual stage/status pair is allowed —
+    the response says so, the phone may warn, the server never blocks it."""
+    if body.pipeline_stage is None and body.status is None:
+        raise HTTPException(status_code=400, detail="Send a pipeline_stage and/or a status")
+    if body.pipeline_stage is not None and body.pipeline_stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+    if body.status is not None and body.status not in STATUSES:
+        raise HTTPException(status_code=400, detail="Unknown status")
+
+    _, workspace_id = _personal_identity(payload)
+    scope = "AND workspace_id = %s" if workspace_id is not None else ""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT pipeline_stage, status FROM contacts WHERE id = %s AND deleted_at IS NULL {scope}",
+            [contact_id] + ([workspace_id] if workspace_id is not None else []),
+        )
+        current = cur.fetchone()
+    if not current:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    stage = body.pipeline_stage or current["pipeline_stage"]
+    status = body.status or current["status"]
+    set_organization_state(contact_id, pipeline_stage=stage, status=status)
+    log_audit(
+        None, None, "contact.state_changed", f"contact:{contact_id}",
+        f"{current['pipeline_stage']}/{current['status']}->{stage}/{status}",
+    )
+    return {"pipeline_stage": stage, "status": status, "typical": is_typical(stage, status)}
 
 
 @router.post("/{contact_id}/opportunity-analysis")
