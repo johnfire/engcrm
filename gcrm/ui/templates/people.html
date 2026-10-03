@@ -79,22 +79,28 @@
 </form>
 
 {% if people %}
+{% macro sort_th(key, label, first_dir="asc", cls="") %}
+{%- set active = sort == key -%}
+{%- set next_dir = ("asc" if dir == "desc" else "desc") if active else first_dir -%}
+{%- set u = request.url.include_query_params(sort=key, dir=next_dir) -%}
+<th class="sortable {{ cls }}"{% if active %} aria-sort="{{ 'ascending' if dir == 'asc' else 'descending' }}"{% endif %}><a href="{{ u.path }}?{{ u.query }}">{{ label }}{% if active %}<span class="sort-arrow" aria-hidden="true">{{ '▲' if dir == 'asc' else '▼' }}</span>{% endif %}</a></th>
+{%- endmacro %}
 <div class="table-scroll">
 <table>
   <thead>
     <tr>
       <th class="nowrap">{{ t('organizations.colId') }}</th>
-      <th>{{ t('common.name') }}</th>
-      <th>{{ t('personDetail.company') }}</th>
+      {{ sort_th('name', t('common.name')) }}
+      {{ sort_th('company', t('personDetail.company')) }}
       <th>{{ t('common.pipelineStage') }}</th>
-      <th>{{ t('organizationDetail.opportunityScore') }}</th>
-      <th>{{ t('people.companyPriority') }}</th>
-      <th>{{ t('common.city') }}</th>
+      {{ sort_th('opportunity_score', t('organizationDetail.opportunityScore'), 'desc') }}
+      {{ sort_th('company_priority', t('people.companyPriority'), 'desc') }}
+      {{ sort_th('city', t('common.city')) }}
       <th>{{ t('people.relationship') }}</th>
-      <th>{{ t('contactValue.short') }}</th>
+      {{ sort_th('value_rating', t('contactValue.short'), 'desc') }}
       <th class="nowrap">{{ t('people.lastContact') }}</th>
-      <th class="nowrap">{{ t('common.distanceKm') }}</th>
-      <th class="nowrap">{{ t('common.added') }}</th>
+      {{ sort_th('distance', t('common.distanceKm'), 'asc', 'nowrap') }}
+      {{ sort_th('created_at', t('common.added'), 'desc', 'nowrap') }}
     </tr>
   </thead>
   <tbody>
