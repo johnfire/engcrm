@@ -1,14 +1,17 @@
 """Mobile contacts endpoints (JSON)."""
 import logging
+from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
+from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES, is_typical
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
 from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_organizations import set_organization_state
@@ -183,16 +186,19 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
 
         cur.execute(
             """
-            SELECT interaction_date, method, direction, summary, outcome
+            SELECT id, interaction_date, method, direction, summary, outcome,
+                   next_action, next_action_date
             FROM interactions
-            WHERE contact_id = %s
-            ORDER BY interaction_date DESC
+            WHERE contact_id = %s AND deleted_at IS NULL
+            ORDER BY interaction_date DESC, id DESC
             LIMIT 20
             """,
             [contact_id],
         )
         organization["interactions"] = [
-            {**dict(row), "interaction_date": row["interaction_date"].isoformat() if row["interaction_date"] else None}
+            {**dict(row),
+             "interaction_date": row["interaction_date"].isoformat() if row["interaction_date"] else None,
+             "next_action_date": row["next_action_date"].isoformat() if row["next_action_date"] else None}
             for row in cur.fetchall()
         ]
 
@@ -238,6 +244,85 @@ def update_personal_priority(
         outcome,
     )
     return {"personal_priority": stored_priority}
+
+
+MEETING_METHODS = ("in_person", "phone", "email", "other")
+MAX_FOLLOW_UP_DAYS = 3650
+
+
+class MeetingNoteBody(BaseModel):
+    note: str
+    method: str | None = None
+    follow_up_date: str | None = None   # YYYY-MM-DD
+    follow_up_text: str | None = None
+
+
+def _require_organization(contact_id: int, payload: dict) -> None:
+    """404 unless the organization exists, is not deleted, and is in the caller's workspace."""
+    _, workspace_id = _personal_identity(payload)
+    scope = "AND workspace_id = %s" if workspace_id is not None else ""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT 1 FROM contacts WHERE id = %s AND deleted_at IS NULL {scope}",
+            [contact_id] + ([workspace_id] if workspace_id is not None else []),
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Contact not found")
+
+
+@router.post("/{contact_id}/notes")
+def add_organization_note(
+    contact_id: int,
+    body: MeetingNoteBody,
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """Log a note about a meeting, call or visit, with an optional follow-up date.
+    Changes no stage or status — that is a separate, explicit call."""
+    note = body.note.strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="Note is required")
+    method = (body.method or "").strip() or None
+    if method is not None and method not in MEETING_METHODS:
+        raise HTTPException(status_code=400, detail="Unknown method")
+    follow_up = None
+    if body.follow_up_date:
+        try:
+            follow_up = date.fromisoformat(body.follow_up_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="follow_up_date must be YYYY-MM-DD")
+        today = date.today()
+        if follow_up < today - timedelta(days=1) or follow_up > today + timedelta(days=MAX_FOLLOW_UP_DAYS):
+            raise HTTPException(status_code=400, detail="follow_up_date is out of range")
+    _require_organization(contact_id, payload)
+    note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None)
+    return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
+
+
+@router.post("/{contact_id}/notes/transcribe")
+def transcribe_organization_note(
+    contact_id: int,
+    audio: UploadFile = File(...),
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """Voice to text for a meeting note. Nothing is stored; the phone shows the text
+    for review and the Save is the write."""
+    _require_organization(contact_id, payload)
+    return {"transcript": transcribe_upload(audio)}
+
+
+@router.delete("/{contact_id}/notes/{note_id}", status_code=204)
+def remove_organization_note(
+    contact_id: int,
+    note_id: int,
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> None:
+    _require_organization(contact_id, payload)
+    if not delete_meeting_note(contact_id, note_id):
+        raise HTTPException(status_code=404, detail="Note not found")
 
 
 @router.patch("/{contact_id}/state")

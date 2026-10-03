@@ -512,7 +512,7 @@ class TestPersonNotesMobileRoutes:
 
     def test_transcribe_success(self):
         with patch("gcrm.api.routers.api_people_interactions.get_person", return_value=PERSON_ROW), \
-             patch("gcrm.api.routers.api_people_interactions.transcribe", return_value="Met Anna"):
+             patch("gcrm.api.transcribe_upload.transcribe", return_value="Met Anna"):
             resp = client.post("/api/people/3/notes/transcribe", headers=AUTH,
                                 files={"audio": ("n.m4a", b"\x00\x01", "audio/m4a")})
         assert resp.status_code == 200
