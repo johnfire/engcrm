@@ -16,8 +16,6 @@ concurrency:
   # Scoped per-branch/PR so an unrelated push (e.g. a Dependabot PR) can't
   # cancel an in-progress main build. A stale run on the SAME ref still gets
   # canceled by a newer push to that ref, which is the intended behavior.
-  # Only one self-hosted runner exists, so if two refs' build jobs land at
-  # the same time, the second one queues rather than colliding.
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
@@ -58,9 +56,10 @@ jobs:
   build:
     if: github.event_name == 'push'
     needs: mobile-test
-    # Self-hosted runner on the laptop (free, fast, has the Android toolchain).
-    # Falls back to nothing if the laptop is off — the job queues until it's up.
-    runs-on: [self-hosted, android]
+    # GitHub-hosted: free for a public repo, 10–14 min (no slower than the old
+    # laptop runner), and never stuck waiting for a machine to be switched on.
+    # A self-hosted runner on a public repo would also let fork PRs run code on it.
+    runs-on: ubuntu-latest
     env:
       # Empty unless the secret is set — the Play submit step is skipped when empty.
       PLAY_SA: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -101,7 +100,7 @@ jobs:
           ENGCRM_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
       - name: Build signed AAB
-        # arm64-v8a only — covers virtually all modern devices; keeps the 4-core
+        # arm64-v8a only — covers virtually all modern devices; keeps the
         # runner's native compile fast. Add armeabi-v7a back for a production track
         # if you need 32-bit/legacy device coverage.
         run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a

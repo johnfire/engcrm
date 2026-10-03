@@ -10,8 +10,7 @@ name: Android Security
 # design. Adapted from notes-world's identical pipeline; unlike that repo,
 # engcrm has no deployed VPS to push a status file to, so results land in the
 # GitHub Actions job summary + a downloadable artifact instead. Runs on fresh
-# ubuntu-latest runners, independent of the existing self-hosted-runner
-# android.yml release pipeline — this workflow only needs a debug build, no
+# ubuntu-latest runners, independent of the android.yml release pipeline — this workflow only needs a debug build, no
 # signing secrets.
 on:
   push:

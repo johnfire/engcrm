@@ -41,9 +41,8 @@ identified from a sign photo + GPS.
   migration checked into `gcrm/db/migrations/` is applied on deploy — order your PRs so the migration
   lands before code that reads the new column.
 - **Mobile** (`engcrm-mobile/`, Expo/React Native, pkg `de.christopherrehm.engcrm`): built as a signed
-  Android AAB by a **self-hosted GitHub runner on Chris's laptop** (`.github/workflows/android.yml`,
-  `runs-on: [self-hosted, android]`), optionally submitted to Play internal. **The laptop must be on**
-  or the mobile build job queues. Not EAS cloud.
+  Android AAB by a GitHub-hosted runner (`.github/workflows/android.yml`, `runs-on: ubuntu-latest`;
+  moved off the laptop runner 2026-10-03), optionally submitted to Play internal. Not EAS cloud.
 - **`GOOGLE_MAPS_API_KEY` already exists and works** — set in the local `.env` **and** verified
   present in the VPS `.env` (`/opt/engcrm/.env`, checked via SSH 2026-07-21), wired through
   `gcrm/config.py:24`, and already in production use by the city research pipeline's
@@ -199,7 +198,7 @@ sensitive than a card someone handed over. Chris actively maintains
 2. **PR B — backend, migration first:** migration `034` + `prompts/signs.py` + `tools/signs.py` +
    enrichment-agent people output + `api_signs.py` + tests + Art. 30 entry. Deploys to VPS on merge.
 3. **PR C — mobile:** drawer reorder + `scan-sign.tsx` + `sign-confirm.tsx` + `services/api.ts` +
-   tests. (Laptop runner must be on for the build.)
+   tests.
 
 Mobile can technically ship before the backend (endpoints just 404 until then), but landing backend
 first gives a working end-to-end demo.
