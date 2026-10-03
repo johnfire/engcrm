@@ -111,9 +111,19 @@ def registrable_host(url: str) -> str:
     return ".".join(labels[-2:]) if len(labels) >= 2 else host
 
 
+# Business directories are too many to list, but they name themselves.
+_DIRECTORY_WORDS = ("firmen", "branchen", "unternehmen", "handelsregister", "companies", "company-info",
+                    "companyinfo", "yellowpages", "gelbeseiten", "verzeichnis", "directory", "zaubacorp",
+                    "firmendata", "bizapedia", "opencorporates", "northdata", "dnb", "creditsafe")
+
+
 def is_directory(url: str) -> bool:
+    """A listing site, not the company: known ones by name, others by what they call
+    themselves (firmendata.com, branchenbuch24.de, ...)."""
     host = registrable_host(url)
-    return host in DIRECTORY_DOMAINS or any(host.endswith("." + d) for d in DIRECTORY_DOMAINS)
+    label = host.split(".")[0]
+    return (host in DIRECTORY_DOMAINS or any(host.endswith("." + d) for d in DIRECTORY_DOMAINS)
+            or any(word in label for word in _DIRECTORY_WORDS))
 
 
 # Words that say what kind of organization it is, not which one. They need not
@@ -365,7 +375,8 @@ def find_addresses(text: str, host: str = "") -> list[Address]:
             if len(plz) == 4 and re.search(r"(?:©|\(c\)|copyright|&copy;)\s*$", before, re.IGNORECASE):
                 continue
             city = _CITY_STOP.sub("", match.group("city")).strip(" .,-/")
-            city = " ".join(city.split()[:3]).strip(" .,-/")
+            city = re.sub(r"(?:Germany|Deutschland|Austria|Österreich|Switzerland|Schweiz)$", "",
+                          " ".join(city.split()[:3])).strip(" .,-/")
             if len(city) < 2 or _JUNK_CITY.search(city):
                 continue
             street_match = _STREET_BEFORE.search(before)

@@ -441,3 +441,18 @@ class TestPrecisionFromRealRuns:
         result = lookup_company("Acme GmbH", lambda q: [hit("https://acme.de/")],
                                 fake_web({"https://acme.de/": home}), sleep=no_sleep)
         assert result.outcome != "resolved"
+
+
+class TestFromTheRandomSample:
+    def test_directories_are_recognised_by_what_they_call_themselves(self):
+        """Regression: Dussmann resolved from firmendata.com, a listing site."""
+        for url in ("https://firmendata.com/x", "https://www.branchenbuch24.de/y",
+                    "https://zaubacorp.com/company/z", "https://www.unternehmensverzeichnis.org/"):
+            assert is_directory(url)
+        assert not is_directory("https://www.dussmann.com/")
+        assert not is_directory("https://masea.de/")
+
+    def test_a_country_glued_onto_the_town_is_removed(self):
+        """Regression: '10117 BerlinGermany'."""
+        [a] = find_addresses("Schützenstraße 25, 10117 BerlinGermany", "x.de")
+        assert a.city == "Berlin"
