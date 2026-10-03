@@ -204,7 +204,8 @@ GENERIC_TOKENS = frozenset({
 _NO_COMPANY = frozenset({
     "self employed", "selfemployed", "freelance", "freelancer", "selbststaendig",
     "selbstaendig", "independent", "confidential", "stealth", "stealth startup",
-    "retired", "ruhestand", "none", "n a", "na", "student",
+    "retired", "ruhestand", "none", "n a", "na", "student", "self", "myself",
+    "selbstaendiger", "freiberuflich", "freiberufler", "unemployed", "arbeitssuchend",
 })
 
 FUZZY_THRESHOLD = 0.88
@@ -333,3 +334,69 @@ class OrgIndex:
             if ratio >= FUZZY_THRESHOLD:
                 return OrgMatch(org.contact_id, org.name, org.city, "fuzzy", round(ratio, 3))
         return None
+
+
+@dataclass
+class CompanyPlan:
+    """What promoting LinkedIn employers to organizations would do. Nothing in
+    it has been written yet: `create` groups would become new organizations,
+    `link` groups attach to one we already have, `ambiguous` groups share an
+    exact name with several organizations and wait for a human."""
+    create: list[dict]
+    link: list[dict]
+    ambiguous: list[dict]
+    skipped_no_company: int
+
+
+def plan_company_promotion(people: list[dict], organizations: list[dict]) -> CompanyPlan:
+    """Group unlinked LinkedIn people by employer and decide, per employer,
+    whether it needs a new organization. Pure: callers supply the rows.
+
+    people: {id, company_raw}. organizations: {id, name, city, source, company_key}.
+
+    Re-running after a newer export is stable: an employer we already created
+    is found by its company_key, one we had before by an exact name match. Only
+    an *exact* name match counts as the same organization; a partial or fuzzy
+    one ("Siemens" vs "Siemens Healthineers") is a different company, reported
+    as `near` on the create entry so it can be eyeballed in the preview."""
+    created_before = {
+        org["company_key"]: org for org in organizations
+        if org.get("source") == "linkedin" and org.get("company_key")
+    }
+    groups: dict[str, dict] = {}
+    skipped = 0
+    for person in people:
+        key = normalize_company(person.get("company_raw"))
+        if not key:
+            skipped += 1
+            continue
+        group = groups.setdefault(key, {"spellings": {}, "people_ids": []})
+        raw = (person.get("company_raw") or "").strip()
+        group["spellings"][raw] = group["spellings"].get(raw, 0) + 1
+        group["people_ids"].append(person["id"])
+
+    index = OrgIndex(organizations)
+    plan = CompanyPlan(create=[], link=[], ambiguous=[], skipped_no_company=skipped)
+    for key in sorted(groups):
+        group = groups[key]
+        # Most common spelling wins; ties go to the alphabetically first.
+        name = sorted(group["spellings"].items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+        entry = {"key": key, "name": name, "people_ids": group["people_ids"]}
+        if key in created_before:
+            org = created_before[key]
+            plan.link.append({**entry, "contact_id": org["id"], "contact_name": org["name"],
+                              "reason": "created_earlier"})
+            continue
+        matches = index.match(name)
+        exact = [m for m in matches if m.confidence in ("exact", "ambiguous")]
+        if len(exact) == 1:
+            plan.link.append({**entry, "contact_id": exact[0].contact_id,
+                              "contact_name": exact[0].name, "reason": "exact_name"})
+        elif exact:
+            plan.ambiguous.append({**entry, "contact_ids": [m.contact_id for m in exact]})
+        else:
+            near = [{"contact_id": m.contact_id, "name": m.name, "confidence": m.confidence}
+                    for m in matches[:2]]
+            plan.create.append({**entry, "near": near})
+    return plan
+

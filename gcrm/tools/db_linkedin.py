@@ -10,7 +10,13 @@ import logging
 from contextlib import contextmanager
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.linkedin import OrgIndex, linkedin_url_hash, normalize_company
+from gcrm.linkedin import (
+    CompanyPlan,
+    OrgIndex,
+    linkedin_url_hash,
+    normalize_company,
+    plan_company_promotion,
+)
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -250,3 +256,21 @@ def get_linkedin_connections_for_org(contact_id: int) -> dict:
                 if index.match(row["company_raw"])
             ]
     return {"linked": linked, "possible": possible}
+
+
+def get_company_promotion_plan() -> CompanyPlan:
+    """Read-only preview of promoting the employers of unlinked LinkedIn people
+    to organizations. Writes nothing."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, company_raw FROM people "
+            "WHERE is_linkedin_contact AND contact_id IS NULL AND deleted_at IS NULL"
+        )
+        people = [dict(row) for row in cur.fetchall()]
+        cur.execute(
+            "SELECT id, name, city, source, company_key FROM contacts WHERE deleted_at IS NULL"
+        )
+        organizations = [dict(row) for row in cur.fetchall()]
+    return plan_company_promotion(people, organizations)
+

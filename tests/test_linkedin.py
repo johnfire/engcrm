@@ -18,6 +18,7 @@ from gcrm.linkedin import (
     normalize_linkedin_url,
     parse_connected_on,
     parse_connections_csv,
+    plan_company_promotion,
 )
 from gcrm.tools import db_linkedin, db_people
 
@@ -976,3 +977,98 @@ class TestMobileListCount:
         sql = " ".join(cur.execute.call_args.args[0].split())
         assert "linkedin_connection_count" in sql
         assert "lp.is_linkedin_contact AND lp.deleted_at IS NULL" in sql
+
+
+def people_at(*companies):
+    return [{"id": i + 1, "company_raw": c} for i, c in enumerate(companies)]
+
+
+class TestCompanyPromotionPlan:
+    def test_unknown_employers_become_one_organization_each(self):
+        plan = plan_company_promotion(
+            people_at("Acme GmbH", "ACME", "Globex Corp"), organizations=[]
+        )
+        assert [g["key"] for g in plan.create] == ["acme", "globex"]
+        acme = plan.create[0]
+        assert acme["people_ids"] == [1, 2]  # one organization, both people
+        assert acme["name"] == "ACME"  # tie on spelling -> alphabetical
+        assert plan.link == [] and plan.ambiguous == []
+
+    def test_most_common_spelling_names_the_organization(self):
+        plan = plan_company_promotion(
+            people_at("Acme GmbH", "Acme GmbH", "ACME"), organizations=[]
+        )
+        assert plan.create[0]["name"] == "Acme GmbH"
+
+    def test_placeholder_and_blank_companies_are_skipped(self):
+        plan = plan_company_promotion(
+            people_at("", "Self-employed", None, "Self", "Acme"), organizations=[]
+        )
+        assert plan.skipped_no_company == 4
+        assert [g["key"] for g in plan.create] == ["acme"]
+
+    def test_exact_name_match_links_instead_of_creating(self):
+        orgs = [{"id": 9, "name": "Acme GmbH", "city": "Augsburg", "source": None, "company_key": None}]
+        plan = plan_company_promotion(people_at("ACME"), orgs)
+        assert plan.create == []
+        [link] = plan.link
+        assert (link["contact_id"], link["reason"]) == (9, "exact_name")
+
+    def test_same_name_in_two_cities_waits_for_a_human(self):
+        orgs = [
+            {"id": 1, "name": "Cafe Roma", "city": "Augsburg", "source": None, "company_key": None},
+            {"id": 2, "name": "Cafe Roma", "city": "Munich", "source": None, "company_key": None},
+        ]
+        plan = plan_company_promotion(people_at("Cafe Roma"), orgs)
+        assert plan.create == [] and plan.link == []
+        assert plan.ambiguous[0]["contact_ids"] == [1, 2]
+
+    def test_partial_match_is_a_different_company_but_is_reported_as_near(self):
+        orgs = [{"id": 5, "name": "Siemens", "city": "Munich", "source": None, "company_key": None}]
+        plan = plan_company_promotion(people_at("Siemens Healthineers"), orgs)
+        [created] = plan.create
+        assert created["near"][0]["name"] == "Siemens"
+        assert created["near"][0]["confidence"] == "partial"
+
+    def test_rerun_finds_organization_created_by_an_earlier_import(self):
+        # Even if its name later changed, the company_key anchors it.
+        orgs = [{"id": 11, "name": "Renamed Co", "city": None, "source": "linkedin",
+                 "company_key": "acme"}]
+        plan = plan_company_promotion(people_at("Acme GmbH"), orgs)
+        assert plan.create == []
+        [link] = plan.link
+        assert (link["contact_id"], link["reason"]) == (11, "created_earlier")
+
+    def test_key_match_on_a_non_linkedin_organization_is_not_trusted(self):
+        # company_key is only an anchor for organizations *we* created.
+        orgs = [{"id": 3, "name": "Other", "city": None, "source": "scan", "company_key": "acme"}]
+        assert plan_company_promotion(people_at("Acme"), orgs).link == []
+
+
+class QueuedCursor:
+    """Returns one prepared result set per execute(), in order."""
+
+    def __init__(self, *result_sets):
+        self._queue = list(result_sets)
+        self.executed = []
+        self._rows = []
+
+    def execute(self, sql, params=None):
+        self.executed.append((" ".join(sql.split()), params))
+        self._rows = self._queue.pop(0)
+
+    def fetchall(self):
+        return list(self._rows)
+
+
+class TestGetCompanyPromotionPlan:
+    def test_reads_only_and_never_writes(self):
+        cursor = QueuedCursor([{"id": 1, "company_raw": "Acme"}], [])
+        patcher = patched_db(cursor)
+        try:
+            plan = db_linkedin.get_company_promotion_plan()
+        finally:
+            patcher.stop()
+        assert [g["key"] for g in plan.create] == ["acme"]
+        assert len(cursor.executed) == 2
+        assert all(sql.upper().startswith("SELECT") for sql, _ in cursor.executed)
