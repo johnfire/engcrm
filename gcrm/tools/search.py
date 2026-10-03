@@ -257,6 +257,34 @@ def is_public_http_url(url: str) -> bool:
     return True
 
 
+def fetch_html(url: str, max_bytes: int = 400_000) -> tuple[str, str]:
+    """Fetch a page's raw HTML, keeping its links (fetch_page strips them).
+    Returns (final_url, html), or ("", "") on any failure — callers treat that as
+    "page unavailable", never as an error. Every hop of a redirect chain is
+    checked against the same public-URL rule as fetch_page, so a company site
+    cannot bounce the fetch to an internal address."""
+    current = url
+    try:
+        for _ in range(5):
+            if not is_public_http_url(current):
+                logger.warning("fetch_html: refusing non-public or unsafe URL: %s", current)
+                return "", ""
+            resp = httpx.get(current, timeout=10, follow_redirects=False, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "de,en;q=0.8",
+            })
+            if resp.is_redirect and resp.headers.get("location"):
+                current = urljoin(current, resp.headers["location"])
+                continue
+            if resp.status_code != 200 or "html" not in resp.headers.get("content-type", "text/html"):
+                return "", ""
+            return current, resp.text[:max_bytes]
+    except Exception as error:
+        logger.debug("fetch_html failed for %s: %s", url, error)
+    return "", ""
+
+
 def fetch_page(url: str, max_chars: int = 3000) -> str:
     """
     Fetch a web page and return its content as markdown.
