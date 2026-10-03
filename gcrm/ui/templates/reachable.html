@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}{{ t('reachable.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('reachable.title') }}</h1>
+  <span class="muted">{{ t('reachable.total', count=total) }}</span>
+  <a href="/organizations/" class="btn-secondary">{{ t('reachable.backToList') }}</a>
+</div>
+
+{% if load_failed %}
+<p class="error">{{ t('reachable.loadFailed') }}</p>
+{% endif %}
+
+<p class="muted">{{ t('reachable.intro') }}</p>
+
+{% if rows %}
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>{{ t('reachable.organization') }}</th>
+      <th>{{ t('reachable.fit') }}</th>
+      <th>{{ t('reachable.whoYouKnow') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in rows %}
+    <tr>
+      <td>
+        <strong><a href="/organizations/{{ o.id }}">{{ o.name }}</a></strong>
+        <div class="muted small">{% if o.city %}{{ o.city }}{% if o.country %}, {{ o.country }}{% endif %}{% else %}{{ t('reachable.noCity') }}{% endif %}{% if o.type %} · {{ o.type }}{% endif %}</div>
+      </td>
+      <td>{% if o.fit_score is not none %}{{ o.fit_score }}{% else %}—{% endif %}</td>
+      <td>
+        {% for person in o.people %}
+        <div>
+          <a href="/people/{{ person.id }}">{{ person.name }}</a>{% if person.title %} <span class="muted small">— {{ person.title }}</span>{% endif %}
+          {% if person.linkedin_url and person.linkedin_url.startswith('https://www.linkedin.com/') %}
+          <a href="{{ person.linkedin_url }}" target="_blank" rel="noopener noreferrer" class="small">{{ t('reachable.openLinkedin') }}</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}" class="btn-secondary">{{ t('common.prev') }}</a>{% endif %}
+  <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}" class="btn-secondary">{{ t('common.next') }}</a>{% endif %}
+</div>
+{% endif %}
+{% elif not load_failed %}
+<p class="muted">{{ t('reachable.empty') }}</p>
+{% endif %}
+{% endblock %}

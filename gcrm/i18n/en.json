@@ -570,5 +570,17 @@
   "areas.backToPicking": "Back to picking",
   "areas.resultsError": "couldn't load results",
   "research.organizations": "Organizations",
-  "areas.tooManyLevels": "Area scans are capped at 6 levels per run — deselect one first."
+  "areas.tooManyLevels": "Area scans are capped at 6 levels per run — deselect one first.",
+  "reachable.link": "Reachable fits",
+  "reachable.title": "Reachable fits",
+  "reachable.total": "{{count}} organizations",
+  "reachable.backToList": "All organizations",
+  "reachable.intro": "Organizations that fit (stage suspect, status ready) where you know someone on LinkedIn, best fit first. The outreach agent never drafts a cold email to these — you reach them yourself, ideally through the person you know.",
+  "reachable.organization": "Organization",
+  "reachable.fit": "Fit",
+  "reachable.whoYouKnow": "Who you know there",
+  "reachable.noCity": "no city yet",
+  "reachable.openLinkedin": "LinkedIn ↗",
+  "reachable.loadFailed": "The list could not be loaded. Try again.",
+  "reachable.empty": "No fitting organization has a LinkedIn connection yet. Run the scout on your LinkedIn candidates, or link more connections to organizations."
 }

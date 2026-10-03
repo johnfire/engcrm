@@ -5,6 +5,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   <span class="muted"
     >{{ t('organizations.totalPage', total=total, page=page, totalPages=total_pages) }}</span
   >
+  <a href="/organizations/reachable" class="btn-secondary">{{ t('reachable.link') }}</a>
 </div>
 
 <form class="filter-bar" method="get" action="/organizations/">

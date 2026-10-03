@@ -570,5 +570,17 @@
   "areas.backToPicking": "Zurück zur Auswahl",
   "areas.resultsError": "Ergebnisse konnten nicht geladen werden",
   "research.organizations": "Organisationen",
-  "areas.tooManyLevels": "Gebietsscans sind auf 6 Level pro Durchlauf begrenzt — zuerst eines abwählen."
+  "areas.tooManyLevels": "Gebietsscans sind auf 6 Level pro Durchlauf begrenzt — zuerst eines abwählen.",
+  "reachable.link": "Erreichbare Treffer",
+  "reachable.title": "Erreichbare Treffer",
+  "reachable.total": "{{count}} Organisationen",
+  "reachable.backToList": "Alle Organisationen",
+  "reachable.intro": "Passende Organisationen (Stufe Suspect, Status Ready), bei denen Sie jemanden auf LinkedIn kennen, beste Passung zuerst. Der Outreach-Agent entwirft für diese nie eine Kalt-E-Mail — Sie sprechen sie selbst an, am besten über die Person, die Sie kennen.",
+  "reachable.organization": "Organisation",
+  "reachable.fit": "Passung",
+  "reachable.whoYouKnow": "Wen Sie dort kennen",
+  "reachable.noCity": "noch keine Stadt",
+  "reachable.openLinkedin": "LinkedIn ↗",
+  "reachable.loadFailed": "Die Liste konnte nicht geladen werden. Bitte erneut versuchen.",
+  "reachable.empty": "Noch keine passende Organisation hat einen LinkedIn-Kontakt. Scout für Ihre LinkedIn-Kandidaten starten oder mehr Kontakte Organisationen zuordnen."
 }

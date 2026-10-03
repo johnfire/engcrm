@@ -383,3 +383,83 @@ class TestCityRoutes:
     def test_the_people_page_links_to_the_queue(self, admin_session):
         with patch("gcrm.api.routers.people.get_people", return_value=[]):
             assert "/people/linkedin/cities" in admin_session.get("/people/").text
+
+
+# --- reachable fits ----------------------------------------------------------
+
+class ReachableCursor(QueueCursor):
+    def fetchone(self):
+        return {"n": self.total}
+
+
+class TestReachableFits:
+    def fetch(self, rows, total=None, **kwargs):
+        cursor = ReachableCursor(rows, total=total)
+        result = with_db(cursor, lambda: db_linkedin.get_reachable_fits(**kwargs))
+        return result, cursor
+
+    def test_only_fitting_unsuppressed_organizations_with_a_confirmed_connection(self):
+        _, cursor = self.fetch([])
+        select = [s for s, _ in cursor.executed if "LIMIT" in s][0]
+        assert "c.pipeline_stage = 'suspect'" in select and "c.status = 'ready'" in select
+        assert "c.do_not_contact = FALSE" in select and "c.deleted_at IS NULL" in select
+        assert "k.is_linkedin_contact AND k.deleted_at IS NULL" in select
+        assert "ORDER BY c.fit_score DESC NULLS LAST" in select
+
+    def test_workspace_scopes_the_list_and_the_count(self):
+        _, cursor = self.fetch([], workspace_id=7)
+        assert all("c.workspace_id = %s" in s for s, _ in cursor.executed)
+        assert all(7 in p for _, p in cursor.executed)
+
+    def test_pages_by_offset(self):
+        _, cursor = self.fetch([], page=3)
+        params = [p for s, p in cursor.executed if "LIMIT" in s][0]
+        assert params == [db_linkedin.REACHABLE_PAGE_SIZE, 2 * db_linkedin.REACHABLE_PAGE_SIZE]
+
+    def test_returns_total_and_rows(self):
+        result, _ = self.fetch([{"id": 1, "name": "Acme", "people": []}], total=9)
+        assert result["total"] == 9 and result["rows"][0]["name"] == "Acme"
+
+
+REACHABLE_ROW = {"id": 8, "name": "Helios Kliniken", "city": "Augsburg", "country": "DE", "type": "clinic",
+                 "fit_score": 82, "website": None,
+                 "people": [{"id": 5, "name": "Ann Roth", "title": "CTO",
+                             "linkedin_url": "https://www.linkedin.com/in/ann"},
+                            {"id": 6, "name": "Bob Ng", "title": None,
+                             "linkedin_url": "javascript:alert(1)"}]}
+
+
+class TestReachableRoute:
+    def test_lists_fits_with_the_people_you_know_and_their_linkedin_links(self, admin_session):
+        with patch("gcrm.api.routers.organizations.get_reachable_fits",
+                   return_value={"total": 1, "rows": [REACHABLE_ROW]}):
+            response = admin_session.get("/organizations/reachable")
+        assert response.status_code == 200
+        assert "Helios Kliniken" in response.text and "Augsburg, DE" in response.text
+        assert "Ann Roth" in response.text and "CTO" in response.text
+        assert 'href="https://www.linkedin.com/in/ann"' in response.text
+        assert 'rel="noopener noreferrer"' in response.text
+
+    def test_only_linkedin_urls_become_links(self, admin_session):
+        with patch("gcrm.api.routers.organizations.get_reachable_fits",
+                   return_value={"total": 1, "rows": [REACHABLE_ROW]}):
+            response = admin_session.get("/organizations/reachable")
+        assert "javascript:" not in response.text
+
+    def test_is_not_swallowed_by_the_organization_id_route(self, admin_session):
+        with patch("gcrm.api.routers.organizations.get_reachable_fits",
+                   return_value={"total": 0, "rows": []}):
+            assert admin_session.get("/organizations/reachable").status_code == 200
+
+    def test_empty_state_and_failure(self, admin_session):
+        with patch("gcrm.api.routers.organizations.get_reachable_fits",
+                   return_value={"total": 0, "rows": []}):
+            assert "No fitting organization" in admin_session.get("/organizations/reachable").text
+        with patch("gcrm.api.routers.organizations.get_reachable_fits", side_effect=RuntimeError("x")):
+            response = admin_session.get("/organizations/reachable")
+        assert response.status_code == 200 and "could not be loaded" in response.text
+
+    def test_the_organization_list_links_to_it(self, admin_session):
+        with patch("gcrm.api.routers.organizations._fetch_organizations_page",
+                   return_value=([], {}, {}, [], 0)):
+            assert "/organizations/reachable" in admin_session.get("/organizations/").text

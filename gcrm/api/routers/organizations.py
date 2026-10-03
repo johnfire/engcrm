@@ -19,7 +19,11 @@ from gcrm.organization_state import (
 )
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_linkedin import get_linkedin_connections_for_org
+from gcrm.tools.db_linkedin import (
+    REACHABLE_PAGE_SIZE,
+    get_linkedin_connections_for_org,
+    get_reachable_fits,
+)
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.privacy_retention import erase_organization
 
@@ -230,6 +234,28 @@ def organization_list(
         "total": total,
         "sort": sort,
         "dir": dir,
+    })
+
+
+@router.get("/reachable", response_class=HTMLResponse)
+def reachable_fits(request: Request, page: int = Query(default=1, ge=1)):
+    """The warm-intro work list: organizations that are a fit and where you know
+    someone on LinkedIn, best fit first. You reach these yourself — the outreach
+    agent never drafts a cold email to them."""
+    load_failed = False
+    try:
+        result = get_reachable_fits(page, request.session.get("workspace_id"))
+    except Exception:
+        logger.exception("reachable fits failed")
+        result, load_failed = {"total": 0, "rows": []}, True
+    total_pages = max(1, -(-result["total"] // REACHABLE_PAGE_SIZE))
+    return templates.TemplateResponse("reachable.html", {
+        "request": request,
+        "rows": result["rows"],
+        "total": result["total"],
+        "page": min(page, total_pages),
+        "total_pages": total_pages,
+        "load_failed": load_failed,
     })
 
 

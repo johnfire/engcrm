@@ -574,3 +574,50 @@ def apply_city_decisions(decisions: list[dict]) -> dict:
     logger.info("linkedin city decisions: %s", counts)
     return counts
 
+
+# --- Reachable fits ----------------------------------------------------------
+
+REACHABLE_PAGE_SIZE = 50
+
+
+def get_reachable_fits(page: int = 1, workspace_id: int | None = None) -> dict:
+    """Organizations that are a fit (stage suspect, status ready — scored a fit,
+    not yet contacted) where you know someone on LinkedIn: the warm-intro work
+    list, best fit first. Each carries the people you know there. Organizations
+    that opted out are left off. Returns {total, rows}."""
+    offset = (max(page, 1) - 1) * REACHABLE_PAGE_SIZE
+    conditions = [
+        "c.pipeline_stage = 'suspect'", "c.status = 'ready'",
+        "c.deleted_at IS NULL", "c.do_not_contact = FALSE",
+        "EXISTS (SELECT 1 FROM people k WHERE k.contact_id = c.id "
+        "AND k.is_linkedin_contact AND k.deleted_at IS NULL)",
+    ]
+    params: list = []
+    if workspace_id is not None:
+        conditions.append("c.workspace_id = %s")
+        params.append(workspace_id)
+    where = " AND ".join(conditions)
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) AS n FROM contacts c WHERE {where}", params)
+        total = cur.fetchone()["n"]
+        cur.execute(
+            f"""
+            SELECT c.id, c.name, c.city, c.country, c.type, c.website, c.fit_score,
+                   (SELECT COALESCE(json_agg(json_build_object(
+                               'id', p.id, 'name', p.name, 'title', p.title,
+                               'linkedin_url', p.linkedin_url, 'connected_on', p.connected_on)
+                               ORDER BY p.name), '[]'::json)
+                      FROM people p
+                     WHERE p.contact_id = c.id AND p.is_linkedin_contact
+                       AND p.deleted_at IS NULL) AS people
+              FROM contacts c
+             WHERE {where}
+             ORDER BY c.fit_score DESC NULLS LAST, lower(c.name), c.id
+             LIMIT %s OFFSET %s
+            """,
+            params + [REACHABLE_PAGE_SIZE, offset],
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    return {"total": total, "rows": rows}
+
