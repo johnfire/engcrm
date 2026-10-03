@@ -149,7 +149,7 @@ export default function PeopleScreen() {
 function PersonRow({ person, onPress }: { person: Person; onPress: (id: number) => void }) {
   const { t } = useTranslation();
   const subtitle = [person.title, person.company].filter(Boolean).join(" · ");
-  const meta = [person.city, person.email].filter(Boolean).join("  ·  ");
+  const meta = [`#${person.id}`, person.city, person.email].join("  ·  ");
   const shownStage = person.pipeline_stage ?? null;
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(person.id)}>

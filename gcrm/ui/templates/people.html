@@ -83,6 +83,7 @@
 <table>
   <thead>
     <tr>
+      <th class="nowrap">{{ t('organizations.colId') }}</th>
       <th>{{ t('common.name') }}</th>
       <th>{{ t('personDetail.company') }}</th>
       <th>{{ t('common.pipelineStage') }}</th>
@@ -99,6 +100,7 @@
   <tbody>
     {% for p in people %}
     <tr>
+      <td class="muted nowrap">{{ p.id }}</td>
       <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}</td>
       <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% elif p.company_raw %}<span title="{{ t('linkedin.notLinked') }}">{{ p.company_raw }}</span>{% else %}—{% endif %}</td>
       <td>
