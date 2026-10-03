@@ -87,12 +87,54 @@ def _is_suppressed(cur, row: dict) -> bool:
     return cur.fetchone() is not None
 
 
-def _upsert_connection(cur, row: dict) -> str:
+def _company_change(cur, person_id: int, row: dict) -> str:
+    """Compare the employer this export shows with the one we hold for the
+    person, and record a difference for a human instead of acting on it.
+    Returns 'flagged' when a change is (still) pending, else ''.
+
+    Only a real difference counts: both sides must be actual companies, and the
+    same company spelled differently ("Acme GmbH" / "ACME") is not a move. A
+    change the user already said is not a move ("keep") is not flagged again."""
+    cur.execute(
+        "SELECT company_raw, ignored_company_key, pending_company_raw FROM people WHERE id = %s",
+        (person_id,),
+    )
+    known = cur.fetchone()
+    if not known:
+        return ""
+    seen, held = normalize_company(row["company"]), normalize_company(known["company_raw"])
+    if not seen or not held:
+        return ""  # a blank / "self-employed" side tells us nothing about a move
+    if seen == held:
+        if known["pending_company_raw"]:  # they are back at the stored employer
+            cur.execute(
+                "UPDATE people SET pending_company_raw = NULL, pending_title = NULL, "
+                "pending_seen_at = NULL WHERE id = %s", (person_id,))
+        return ""
+    if seen == (known["ignored_company_key"] or ""):
+        return ""
+    cur.execute(
+        """
+        UPDATE people SET
+            pending_seen_at = CASE WHEN pending_company_raw IS DISTINCT FROM %s
+                                   THEN NOW() ELSE pending_seen_at END,
+            pending_company_raw = %s,
+            pending_title = %s
+        WHERE id = %s
+        """,
+        (row["company"], row["company"], row["title"] or None, person_id),
+    )
+    return "flagged"
+
+
+def _upsert_connection(cur, row: dict) -> tuple[str, bool]:
     """Write one connection. Existing people are marked and have only their
-    blank fields filled — nothing you typed is overwritten. Returns 'created'
-    or 'updated'."""
+    blank fields filled — nothing you typed is overwritten; a different employer
+    is flagged for review, not applied. Returns ('created' | 'updated',
+    company_change_flagged)."""
     person_id = _find_existing_person(cur, row)
     if person_id is not None:
+        flagged = _company_change(cur, person_id, row) == "flagged"
         cur.execute(
             """
             UPDATE people SET
@@ -108,7 +150,7 @@ def _upsert_connection(cur, row: dict) -> str:
             (row["linkedin_url"], row["connected_on"], row["company"] or None,
              row["title"] or None, row["email"] or None, person_id),
         )
-        return "updated"
+        return "updated", flagged
     cur.execute(
         """
         INSERT INTO people
@@ -123,14 +165,15 @@ def _upsert_connection(cur, row: dict) -> str:
          row["linkedin_url"], row["connected_on"], row["company"] or None,
          get_workspace_id()),
     )
-    return "created"
+    return "created", False
 
 
 def import_connections(rows: list[dict]) -> dict:
     """Import parsed Connections.csv rows. Idempotent: re-importing a fresh
     export marks/updates the same people instead of duplicating them. Returns
-    counts — created, updated, failed, suppressed (skipped because deleted earlier)."""
-    counts = {"created": 0, "updated": 0, "failed": 0, "suppressed": 0}
+    counts — created, updated, failed, suppressed (skipped because deleted earlier),
+    company_changed (an existing person whose employer differs from the one we hold)."""
+    counts = {"created": 0, "updated": 0, "failed": 0, "suppressed": 0, "company_changed": 0}
     with db() as conn:
         cur = conn.cursor()
         for row in rows:
@@ -139,7 +182,9 @@ def import_connections(rows: list[dict]) -> dict:
                     if _is_suppressed(cur, row):
                         counts["suppressed"] += 1
                         continue
-                    counts[_upsert_connection(cur, row)] += 1
+                    outcome, flagged = _upsert_connection(cur, row)
+                    counts[outcome] += 1
+                    counts["company_changed"] += 1 if flagged else 0
             except Exception:
                 counts["failed"] += 1
                 logger.warning("linkedin import: row failed for %r", row.get("name"), exc_info=True)
@@ -620,4 +665,83 @@ def get_reachable_fits(page: int = 1, workspace_id: int | None = None) -> dict:
         )
         rows = [dict(r) for r in cur.fetchall()]
     return {"total": total, "rows": rows}
+
+
+# --- Job-change review -------------------------------------------------------
+
+JOB_CHANGE_PAGE_SIZE = 100
+
+
+def get_company_changes(page: int = 1) -> dict:
+    """People a newer export shows at a different employer than we hold, oldest
+    first, with the organization they are linked to now. Returns {total, rows}."""
+    offset = (max(page, 1) - 1) * JOB_CHANGE_PAGE_SIZE
+    where = "p.pending_company_raw IS NOT NULL AND p.deleted_at IS NULL AND p.is_linkedin_contact"
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) AS n FROM people p WHERE {where}")
+        total = cur.fetchone()["n"]
+        cur.execute(
+            f"""
+            SELECT p.id, p.name, p.title, p.company_raw, p.pending_company_raw, p.pending_title,
+                   p.pending_seen_at, p.contact_id, c.name AS organization
+              FROM people p LEFT JOIN contacts c ON c.id = p.contact_id
+             WHERE {where}
+             ORDER BY p.pending_seen_at, p.id
+             LIMIT %s OFFSET %s
+            """,
+            (JOB_CHANGE_PAGE_SIZE, offset),
+        )
+        return {"total": total, "rows": [serialize_row(dict(r)) for r in cur.fetchall()]}
+
+
+def apply_company_change_decisions(decisions: list[dict]) -> dict:
+    """Apply the review page. Each decision is {person_id, action, seen}:
+
+    move  the person changed jobs — they take the new company and position and
+          are unlinked from the old organization, ready to be matched to (or
+          create) the new one the next time companies are promoted
+    keep  not a real move — the old employer stays, and this change is never
+          flagged again
+
+    `seen` is the pending company the form showed; a decision only applies if it
+    is still pending, so a stale form cannot act on a newer change. Returns
+    counts — moved, kept, failed."""
+    counts = {"moved": 0, "kept": 0, "failed": 0}
+    with db() as conn:
+        cur = conn.cursor()
+        for decision in decisions:
+            try:
+                with _savepoint(cur):
+                    if decision["action"] == "move":
+                        cur.execute(
+                            """
+                            UPDATE people SET
+                                company_raw = pending_company_raw,
+                                title = COALESCE(NULLIF(pending_title, ''), title),
+                                contact_id = NULL, ignored_company_key = NULL,
+                                pending_company_raw = NULL, pending_title = NULL,
+                                pending_seen_at = NULL, updated_at = NOW()
+                            WHERE id = %s AND pending_company_raw = %s AND deleted_at IS NULL
+                            """,
+                            (decision["person_id"], decision["seen"]),
+                        )
+                        counts["moved"] += cur.rowcount
+                    elif decision["action"] == "keep":
+                        cur.execute(
+                            """
+                            UPDATE people SET
+                                ignored_company_key = %s,
+                                pending_company_raw = NULL, pending_title = NULL,
+                                pending_seen_at = NULL, updated_at = NOW()
+                            WHERE id = %s AND pending_company_raw = %s AND deleted_at IS NULL
+                            """,
+                            (normalize_company(decision["seen"]), decision["person_id"], decision["seen"]),
+                        )
+                        counts["kept"] += cur.rowcount
+            except Exception:
+                counts["failed"] += 1
+                logger.warning("company change decision failed %r", decision, exc_info=True)
+    logger.info("linkedin company changes: %s", counts)
+    return counts
 

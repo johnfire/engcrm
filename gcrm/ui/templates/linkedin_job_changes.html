@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ t('linkedin.jobChanges.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('linkedin.jobChanges.title') }}</h1>
+  <span class="muted">{{ t('linkedin.jobChanges.total', count=total) }}</span>
+  <a href="/people/?linkedin=1" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</div>
+
+{% if applied %}
+<div class="flash-success">{{ t('linkedin.jobChanges.applied', moved=applied.moved, kept=applied.kept) }}</div>
+{% if applied.failed %}<p class="error">{{ t('linkedin.jobChanges.failed', count=applied.failed) }}</p>{% endif %}
+{% endif %}
+{% if load_failed %}
+<p class="error">{{ t('linkedin.jobChanges.loadFailed') }}</p>
+{% endif %}
+
+<p class="muted">{{ t('linkedin.jobChanges.intro') }}</p>
+
+{% if rows %}
+<form method="post" action="/people/linkedin/job-changes">
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.jobChanges.apply') }}</button>
+  </div>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('common.name') }}</th>
+        <th>{{ t('linkedin.jobChanges.before') }}</th>
+        <th>{{ t('linkedin.jobChanges.now') }}</th>
+        <th>{{ t('linkedin.jobChanges.decision') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in rows %}
+      <tr>
+        <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong></td>
+        <td>
+          {{ p.company_raw }}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}
+          {% if p.organization %}<div class="muted small">{{ t('linkedin.jobChanges.linkedTo', name=p.organization) }}</div>{% endif %}
+        </td>
+        <td>
+          <strong>{{ p.pending_company_raw }}</strong>{% if p.pending_title %}<div class="muted small">{{ p.pending_title }}</div>{% endif %}
+        </td>
+        <td>
+          <input type="hidden" name="seen_{{ p.id }}" value="{{ p.pending_company_raw }}">
+          <select name="change_{{ p.id }}" aria-label="{{ t('linkedin.jobChanges.decision') }}">
+            <option value="">{{ t('linkedin.jobChanges.later') }}</option>
+            <option value="move">{{ t('linkedin.jobChanges.move') }}</option>
+            <option value="keep">{{ t('linkedin.jobChanges.keep') }}</option>
+          </select>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.jobChanges.apply') }}</button>
+  </div>
+</form>
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}" class="btn-secondary">{{ t('common.prev') }}</a>{% endif %}
+  <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}" class="btn-secondary">{{ t('common.next') }}</a>{% endif %}
+</div>
+{% endif %}
+{% elif not load_failed %}
+<p class="muted">{{ t('linkedin.jobChanges.empty') }}</p>
+{% endif %}
+{% endblock %}

@@ -275,7 +275,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 1, "updated": 1, "failed": 0, "suppressed": 0}
+        assert counts == {"created": 1, "updated": 1, "failed": 0, "suppressed": 0, "company_changed": 0}
         [update] = cursor.statements("UPDATE people SET")
         assert "is_linkedin_contact = TRUE" in update
         # Existing values are only filled in when blank, never overwritten.
@@ -294,7 +294,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 2, "updated": 0, "failed": 1, "suppressed": 0}
+        assert counts == {"created": 2, "updated": 0, "failed": 1, "suppressed": 0, "company_changed": 0}
         assert cursor.statements("ROLLBACK TO SAVEPOINT") == ["ROLLBACK TO SAVEPOINT linkedin_row"]
         assert len(cursor.statements("RELEASE SAVEPOINT")) == 2
 
@@ -323,7 +323,7 @@ class TestImportConnections:
             counts = db_linkedin.import_connections([row("Anna Roth", None, company="Acme")])
         finally:
             patcher.stop()
-        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 0}
+        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 0, "company_changed": 0}
 
     def test_reimporting_a_connection_with_no_url_email_or_real_company_does_not_duplicate(self):
         """Regression, found against real Postgres: "Self-employed" normalises to
@@ -339,7 +339,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 0, "updated": 1, "failed": 0, "suppressed": 0}
+        assert counts == {"created": 0, "updated": 1, "failed": 0, "suppressed": 0, "company_changed": 0}
 
     def test_the_connected_on_date_alone_corroborates_a_name(self):
         cursor = FakeCursor()
@@ -364,7 +364,7 @@ class TestImportConnections:
             ])
         finally:
             patcher.stop()
-        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 1}
+        assert counts == {"created": 1, "updated": 0, "failed": 0, "suppressed": 1, "company_changed": 0}
         [insert] = [(s, p) for s, p in cursor.executed if s.startswith("INSERT INTO people")]
         assert insert[1][0] == "Bob Ng"
 
@@ -372,7 +372,7 @@ class TestImportConnections:
         cursor = FakeCursor()
         patcher = patched_db(cursor)
         try:
-            assert db_linkedin.import_connections([]) == {"created": 0, "updated": 0, "failed": 0, "suppressed": 0}
+            assert db_linkedin.import_connections([]) == {"created": 0, "updated": 0, "failed": 0, "suppressed": 0, "company_changed": 0}
         finally:
             patcher.stop()
 
@@ -590,7 +590,7 @@ class TestImportRoutes:
 
     def test_import_parses_the_export_and_reports_counts(self, admin_web):
         with patch("gcrm.api.routers.people.import_connections",
-                   return_value={"created": 2, "updated": 1, "failed": 0, "suppressed": 0}) as mimport, \
+                   return_value={"created": 2, "updated": 1, "failed": 0, "suppressed": 0, "company_changed": 0}) as mimport, \
              patch("gcrm.api.routers.people.log_audit") as maudit:
             response = client.post(
                 "/people/import/linkedin", files={"connections": ("c.csv", CSV_BYTES, "text/csv")},
@@ -1161,3 +1161,209 @@ class TestApplyCompanyPlan:
     def test_a_noop_rerun_writes_no_audit_entry(self):
         _, audit = run_apply(ApplyCursor(), plan_company_promotion([], []))
         audit.assert_not_called()
+
+
+# --- changed-company flag ----------------------------------------------------
+
+class ChangeCursor:
+    """An existing person (found by URL) with a stored company, plus a log."""
+
+    def __init__(self, stored="Acme GmbH", ignored=None, pending=None, exists=True):
+        self.stored, self.ignored, self.pending, self.exists = stored, ignored, pending, exists
+        self.executed = []
+        self.rowcount = 1
+        self._row = None
+
+    def execute(self, sql, params=None):
+        sql = " ".join(sql.split())
+        self.executed.append((sql, params))
+        self._row = None
+        if sql.startswith("SELECT id FROM people WHERE lower(linkedin_url)"):
+            self._row = {"id": 7}
+        elif sql.startswith("SELECT company_raw, ignored_company_key"):
+            self._row = ({"company_raw": self.stored, "ignored_company_key": self.ignored,
+                          "pending_company_raw": self.pending} if self.exists else None)
+
+    def fetchone(self):
+        return self._row
+
+    def flagged(self):
+        return [(s, p) for s, p in self.executed if s.startswith("UPDATE people SET pending_seen_at")
+                or s.startswith("UPDATE people SET pending_company_raw")]
+
+    def clears(self):
+        return [s for s, _ in self.executed
+                if s.startswith("UPDATE people SET pending_company_raw = NULL")]
+
+
+def upsert(cursor, company, title="CTO"):
+    row = {"name": "Ann", "linkedin_url": "https://www.linkedin.com/in/ann", "email": "",
+           "company": company, "title": title, "connected_on": date(2024, 3, 5)}
+    return db_linkedin._upsert_connection(cursor, row)
+
+
+class TestCompanyChangeFlag:
+    def test_a_different_company_is_flagged_not_applied(self):
+        cursor = ChangeCursor(stored="Acme GmbH")
+        outcome, flagged = upsert(cursor, "Globex Corp", title="VP")
+        assert (outcome, flagged) == ("updated", True)
+        [(sql, params)] = cursor.flagged()
+        assert params == ("Globex Corp", "Globex Corp", "VP", 7)
+        # the stored company is only ever filled when blank, never replaced
+        main_update = [s for s, _ in cursor.executed if s.startswith("UPDATE people SET is_linkedin")][0]
+        assert "company_raw = COALESCE(NULLIF(company_raw, ''), %s)" in main_update
+
+    def test_the_same_company_spelled_differently_is_not_a_move(self):
+        cursor = ChangeCursor(stored="Acme GmbH")
+        assert upsert(cursor, "ACME") == ("updated", False)
+        assert cursor.flagged() == []
+
+    def test_a_blank_or_placeholder_side_is_not_a_move(self):
+        for new in ("", "Self-employed", None):
+            assert upsert(ChangeCursor(stored="Acme GmbH"), new) == ("updated", False)
+        assert upsert(ChangeCursor(stored=None), "Globex") == ("updated", False)
+        assert upsert(ChangeCursor(stored="Freelance"), "Globex") == ("updated", False)
+
+    def test_a_change_you_said_to_keep_is_not_flagged_again(self):
+        cursor = ChangeCursor(stored="Acme GmbH", ignored="globex")
+        assert upsert(cursor, "Globex Corp") == ("updated", False)
+        assert cursor.flagged() == []
+
+    def test_a_different_new_change_after_keep_is_flagged(self):
+        assert upsert(ChangeCursor(stored="Acme", ignored="globex"), "Initech")[1] is True
+
+    def test_returning_to_the_stored_company_clears_a_pending_flag(self):
+        cursor = ChangeCursor(stored="Acme GmbH", pending="Globex")
+        assert upsert(cursor, "Acme") == ("updated", False)
+        assert len(cursor.clears()) == 1
+
+    def test_first_seen_date_is_kept_while_the_same_change_stays_pending(self):
+        cursor = ChangeCursor(stored="Acme", pending="Globex Corp")
+        upsert(cursor, "Globex Corp")
+        [(sql, _)] = cursor.flagged()
+        assert "CASE WHEN pending_company_raw IS DISTINCT FROM %s THEN NOW() ELSE pending_seen_at END" in sql
+
+    def test_import_counts_the_flagged_people(self):
+        cursor = ChangeCursor(stored="Acme GmbH")
+        patcher = patched_db(cursor)
+        try:
+            counts = db_linkedin.import_connections([
+                {"name": "Ann", "linkedin_url": "https://www.linkedin.com/in/ann", "email": "",
+                 "company": "Globex", "title": "VP", "connected_on": date(2024, 3, 5)}])
+        finally:
+            patcher.stop()
+        assert counts["updated"] == 1 and counts["company_changed"] == 1
+
+
+class DecisionCursor:
+    def __init__(self, fail_for=None, rowcount=1):
+        self.executed, self.fail_for, self.rowcount = [], fail_for, rowcount
+
+    def execute(self, sql, params=None):
+        self.executed.append((" ".join(sql.split()), params))
+        if params and self.fail_for in params:
+            raise RuntimeError("boom")
+
+    def updates(self):
+        return [(s, p) for s, p in self.executed if s.startswith("UPDATE people")]
+
+
+class TestCompanyChangeDecisions:
+    def apply(self, decisions, **kwargs):
+        cursor = DecisionCursor(**kwargs)
+        patcher = patched_db(cursor)
+        try:
+            return db_linkedin.apply_company_change_decisions(decisions), cursor
+        finally:
+            patcher.stop()
+
+    def test_move_takes_the_new_company_and_unlinks_the_old_organization(self):
+        counts, cursor = self.apply([{"person_id": 7, "action": "move", "seen": "Globex"}])
+        assert counts == {"moved": 1, "kept": 0, "failed": 0}
+        [(sql, params)] = cursor.updates()
+        assert "company_raw = pending_company_raw" in sql and "contact_id = NULL" in sql
+        assert "title = COALESCE(NULLIF(pending_title, ''), title)" in sql
+        assert params == (7, "Globex")
+        assert "WHERE id = %s AND pending_company_raw = %s" in sql  # stale forms do nothing
+
+    def test_keep_remembers_the_company_so_it_is_not_flagged_again(self):
+        counts, cursor = self.apply([{"person_id": 7, "action": "keep", "seen": "Globex Corp"}])
+        assert counts["kept"] == 1
+        [(sql, params)] = cursor.updates()
+        assert params == ("globex", 7, "Globex Corp")  # the normalized key, not the spelling
+        assert "company_raw =" not in sql.replace("pending_company_raw", "")  # old company untouched
+
+    def test_a_stale_decision_changes_nothing(self):
+        counts, _ = self.apply([{"person_id": 7, "action": "move", "seen": "Old"}], rowcount=0)
+        assert counts == {"moved": 0, "kept": 0, "failed": 0}
+
+    def test_one_failure_is_isolated(self):
+        counts, cursor = self.apply([
+            {"person_id": 1, "action": "move", "seen": "A"},
+            {"person_id": 2, "action": "keep", "seen": "B"}], fail_for=1)
+        assert counts == {"moved": 0, "kept": 1, "failed": 1}
+        assert any("ROLLBACK TO SAVEPOINT" in s for s, _ in cursor.executed)
+
+
+class TestJobChangeRoutes:
+    ROW = {"id": 7, "name": "Ann Roth", "title": "CTO", "company_raw": "Acme GmbH",
+           "pending_company_raw": "Globex Corp", "pending_title": "VP", "contact_id": 3,
+           "organization": "Acme", "pending_seen_at": "2026-10-03T00:00:00+00:00"}
+
+    def test_page_shows_before_and_now_and_the_linked_organization(self, admin_web):
+        with patch("gcrm.api.routers.people.get_company_changes",
+                   return_value={"total": 1, "rows": [self.ROW]}):
+            response = client.get("/people/linkedin/job-changes")
+        assert response.status_code == 200
+        text = response.text
+        assert "Ann Roth" in text and "Acme GmbH" in text and "Globex Corp" in text
+        assert "linked to Acme" in text
+        assert 'name="change_7"' in text and 'name="seen_7" value="Globex Corp"' in text
+
+    def test_page_survives_failure_and_shows_the_empty_state(self, admin_web):
+        with patch("gcrm.api.routers.people.get_company_changes", side_effect=RuntimeError("x")):
+            assert "could not be loaded" in client.get("/people/linkedin/job-changes").text
+        with patch("gcrm.api.routers.people.get_company_changes", return_value={"total": 0, "rows": []}):
+            assert "different company than the one stored" in client.get("/people/linkedin/job-changes").text
+
+    def test_apply_turns_the_form_into_decisions(self, admin_web):
+        with patch("gcrm.api.routers.people.apply_company_change_decisions",
+                   return_value={"moved": 1, "kept": 1, "failed": 0}) as apply, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = client.post("/people/linkedin/job-changes", data={
+                "change_1": "move", "seen_1": "Globex",
+                "change_2": "keep", "seen_2": "Initech",
+                "change_3": "", "seen_3": "Later Inc",          # decide later
+                "change_4": "delete", "seen_4": "X",             # not an action
+                "change_5": "move",                              # no seen: ignored
+                "change_x": "move", "seen_x": "Y",               # not an id
+            }, follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/people/linkedin/job-changes?moved=1&kept=1&failed=0"
+        assert apply.call_args.args[0] == [
+            {"person_id": 1, "action": "move", "seen": "Globex"},
+            {"person_id": 2, "action": "keep", "seen": "Initech"},
+        ]
+
+    def test_apply_with_nothing_chosen_writes_nothing(self, admin_web):
+        with patch("gcrm.api.routers.people.apply_company_change_decisions") as apply, \
+             patch("gcrm.api.routers.people.log_audit"):
+            client.post("/people/linkedin/job-changes", data={"change_1": "", "seen_1": "A"})
+        apply.assert_not_called()
+
+    def test_the_import_result_links_to_the_review(self, admin_web):
+        with patch("gcrm.api.routers.people.import_connections", return_value={
+                "created": 0, "updated": 3, "failed": 0, "suppressed": 0, "company_changed": 2}):
+            response = client.post("/people/import/linkedin", files={
+                "connections": ("Connections.csv", EXPORT.encode(), "text/csv")})
+        assert "different company (to review): 2" in response.text
+        assert "/people/linkedin/job-changes" in response.text
+
+    def test_the_person_page_shows_a_pending_change(self, admin_web):
+        person = {"id": 7, "name": "Ann Roth", "title": "CTO", "contact_id": 3, "company": "Acme",
+                  "is_linkedin_contact": True, "pending_company_raw": "Globex Corp",
+                  "distance_km": None}
+        with patch("gcrm.api.routers.people.get_person", return_value=person), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+            response = client.get("/people/7")
+        assert "LinkedIn now shows Globex Corp" in response.text

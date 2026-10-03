@@ -14,9 +14,12 @@ from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_linkedin import (
     CITY_QUEUE_PAGE_SIZE,
+    JOB_CHANGE_PAGE_SIZE,
     apply_city_decisions,
+    apply_company_change_decisions,
     apply_match_decisions,
     get_city_review_queue,
+    get_company_changes,
     get_match_suggestions,
     import_connections,
 )
@@ -298,6 +301,65 @@ async def linkedin_cities_apply(request: Request, _admin: str = Depends(require_
     return local_redirect(
         "/people/linkedin/cities", saved=str(counts["saved"]),
         dismissed=str(counts["dismissed"]), failed=str(counts["failed"]),
+    )
+
+
+@router.get("/people/linkedin/job-changes", response_class=HTMLResponse)
+def linkedin_job_changes(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    moved: int | None = Query(default=None),
+    kept: int | None = Query(default=None),
+    failed: int | None = Query(default=None),
+):
+    """Connections whose newer export shows a different employer. Nothing is
+    applied automatically: a person you linked to an organization stays there
+    until you say they moved."""
+    load_failed = False
+    try:
+        result = get_company_changes(page)
+    except Exception:
+        logger.exception("linkedin job changes failed")
+        result, load_failed = {"total": 0, "rows": []}, True
+    total_pages = max(1, -(-result["total"] // JOB_CHANGE_PAGE_SIZE))
+    return templates.TemplateResponse("linkedin_job_changes.html", {
+        "request": request,
+        "rows": result["rows"],
+        "total": result["total"],
+        "page": min(page, total_pages),
+        "total_pages": total_pages,
+        "load_failed": load_failed,
+        "applied": None if moved is None else {"moved": moved, "kept": kept or 0, "failed": failed or 0},
+    })
+
+
+def _parse_job_change_decisions(form) -> list[dict]:
+    """`change_<id>` is '' (decide later), 'move' or 'keep'; `seen_<id>` is the
+    pending company the row showed."""
+    decisions = []
+    for key in form.keys():
+        if not key.startswith("change_") or not key[len("change_"):].isdigit():
+            continue
+        person_id = int(key[len("change_"):])
+        action = str(form.get(key) or "").strip()
+        seen = str(form.get(f"seen_{person_id}") or "")
+        if action in {"move", "keep"} and seen:
+            decisions.append({"person_id": person_id, "action": action, "seen": seen})
+    return decisions
+
+
+@router.post("/people/linkedin/job-changes")
+async def linkedin_job_changes_apply(request: Request, _admin: str = Depends(require_admin)):
+    decisions = _parse_job_change_decisions(await request.form())
+    counts = (apply_company_change_decisions(decisions) if decisions
+              else {"moved": 0, "kept": 0, "failed": 0})
+    log_audit(
+        None, None, "person.linkedin_job_changes_applied", "people",
+        f"moved:{counts['moved']} kept:{counts['kept']} failed:{counts['failed']}",
+    )
+    return local_redirect(
+        "/people/linkedin/job-changes", moved=str(counts["moved"]),
+        kept=str(counts["kept"]), failed=str(counts["failed"]),
     )
 
 

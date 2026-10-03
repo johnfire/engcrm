@@ -14,6 +14,12 @@
     {%- if person.distance_km is not none %} · {{ person.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif -%}
   </span>
 </div>
+{% if person.pending_company_raw %}
+<div class="linkedin-notice">
+  {{ t('linkedin.jobChanges.notice', company=person.pending_company_raw) }}
+  <a href="/people/linkedin/job-changes">{{ t('linkedin.jobChanges.review') }}</a>
+</div>
+{% endif %}
 
 {% if saved %}
 <div class="flash-success">{{ t('personDetail.saved') }}</div>
