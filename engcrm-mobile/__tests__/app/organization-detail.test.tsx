@@ -4,7 +4,9 @@ const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
 const mockUpdateState = jest.fn();
+const mockDeleteNote = jest.fn();
 jest.mock("../../services/api", () => ({
+  deleteOrganizationNote: (...args: any[]) => mockDeleteNote(...args),
   updateOrganizationState: (...args: any[]) => mockUpdateState(...args),
   fetchOrganization: (...args: any[]) => mockFetchContact(...args),
   runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
@@ -16,13 +18,17 @@ jest.mock("../../services/auth", () => ({
   getRole: (...args: any[]) => mockGetRole(...args),
 }));
 
+const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: "42" }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 import { Linking } from "react-native";
 
+import { Alert } from "react-native";
 import OrganizationDetailScreen from "../../app/(drawer)/organization-detail";
+import { notifyChanged, organizationKey } from "../../services/refreshBus";
 
 const ANALYSIS = {
   opportunity_score: 82,
@@ -342,6 +348,69 @@ describe("organization detail — stage and status", () => {
     fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(screen.getByText(/Couldn't save/)).toBeTruthy());
     expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
+  });
+});
+
+describe("organization detail — meeting log", () => {
+  const NOTE = {
+    id: 3, interaction_date: "2026-10-03", method: "in_person", direction: null,
+    summary: "Met the owner", outcome: "note", next_action: "send quote", next_action_date: "2026-10-10",
+  };
+  const EMAIL = { ...NOTE, id: 4, summary: "Intro email", outcome: "sent", method: "email", next_action: null, next_action_date: null };
+
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockGetRole.mockReset();
+    mockPush.mockReset();
+    mockDeleteNote.mockReset();
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, interactions: [NOTE, EMAIL] });
+  });
+
+  it("opens the meeting log for this organization (admin)", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Log a meeting")).toBeTruthy());
+    fireEvent.press(screen.getByText("Log a meeting"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(drawer)/log-meeting",
+      params: { kind: "organization", id: "42", name: "Acme Salon" },
+    });
+  });
+
+  it("does not offer it to anyone else", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    expect(screen.queryByText("Log a meeting")).toBeNull();
+  });
+
+  it("shows the follow-up date and what it is about in the history", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Follow up: 2026-10-10 — send quote")).toBeTruthy());
+  });
+
+  it("lets the admin delete a note — but only a note, never a sent email", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockDeleteNote.mockResolvedValue(undefined);
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getAllByText("Delete note").length).toBe(1));
+    fireEvent.press(screen.getByText("Delete note"));
+    const confirm = alert.mock.calls[0][2]!.find((b) => b.style === "destructive")!;
+    confirm.onPress!();
+    await waitFor(() => expect(mockDeleteNote).toHaveBeenCalledWith(42, 3));
+    alert.mockRestore();
+  });
+
+  it("reloads when a note or stage was saved on the meeting screen", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    expect(mockFetchContact).toHaveBeenCalledTimes(1);
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, name: "Acme Salon", interactions: [] });
+    notifyChanged(organizationKey(42));
+    await waitFor(() => expect(mockFetchContact).toHaveBeenCalledTimes(2));
   });
 });
 

@@ -22,6 +22,7 @@ import {
   transcribePersonNote,
   PersonInteraction,
 } from "../services/api";
+import { onChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 
 const METHODS = [
@@ -51,7 +52,10 @@ export function PersonNotesLog({ personId }: { personId: number }) {
 
   useEffect(() => {
     reload().finally(() => setLoading(false));
-  }, [reload]);
+    return onChanged(personKey(personId), () => {
+      reload();
+    });
+  }, [personId, reload]);
 
   async function toggleRecording() {
     if (busy) return;

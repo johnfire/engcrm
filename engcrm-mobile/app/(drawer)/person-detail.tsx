@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { deletePerson, fetchPerson, Person, updatePersonStage } from "../../services/api";
 import { PipelineStage } from "../../services/organizationState";
 import { getRole } from "../../services/auth";
+import { onChanged, personKey } from "../../services/refreshBus";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
@@ -33,15 +34,24 @@ export default function PersonDetailScreen() {
     getRole().then((role) => setIsAdmin(role === "admin"));
   }, []);
 
+  const load = useCallback(
+    () =>
+      fetchPerson(Number(id))
+        .then((loaded) => {
+          setPerson(loaded);
+          setLoadError(false);
+        })
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false)),
+    [id],
+  );
+
   useEffect(() => {
-    fetchPerson(Number(id))
-      .then((loaded) => {
-        setPerson(loaded);
-        setLoadError(false);
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, [id]);
+    load();
+    return onChanged(personKey(Number(id)), () => {
+      load();
+    });
+  }, [id, load]);
 
   function confirmDelete() {
     Alert.alert(t("personDetail.deleteConfirm"), undefined, [
@@ -133,8 +143,23 @@ export default function PersonDetailScreen() {
       )}
 
       {isAdmin && (
+        <TouchableOpacity
+          style={styles.logButton}
+          onPress={() =>
+            router.push({
+              pathname: "/(drawer)/log-meeting",
+              params: { kind: "person", id: String(person.id), name: person.name },
+            })
+          }
+          accessibilityRole="button"
+        >
+          <Text style={styles.logButtonText}>{t("meeting.logButton")}</Text>
+        </TouchableOpacity>
+      )}
+
+      {isAdmin && (
         <PersonStagePicker
-          key={`stage-${person.id}`}
+          key={`stage-${person.id}-${person.pipeline_stage ?? "none"}`}
           stage={person.pipeline_stage ?? null}
           organizationStage={person.company_pipeline_stage ?? null}
           onSave={saveStage}
@@ -178,6 +203,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textDecorationLine: "underline",
   },
+  logButton: {
+    alignItems: "center",
+    backgroundColor: "#7c6fff",
+    borderRadius: 10,
+    marginTop: 16,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  logButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   section: { marginTop: 20 },
   sectionTitle: {
     color: "#888",

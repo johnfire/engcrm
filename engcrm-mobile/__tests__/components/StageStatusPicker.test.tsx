@@ -87,3 +87,21 @@ describe("StageStatusPicker", () => {
     await waitFor(() => expect(screen.queryByText("Save")).toBeNull());
   });
 });
+
+describe("StageStatusPicker embedded", () => {
+  it("reports the pending change instead of saving, and clears it when put back", () => {
+    const onChange = jest.fn();
+    const onSave = jest.fn();
+    const screen = render(
+      <StageStatusPicker stage="candidate" status="none" onSave={onSave} embedded onChange={onChange} />,
+    );
+    expect(screen.queryByText("Save")).toBeNull();
+    fireEvent.press(screen.getByLabelText("Suspect"));
+    expect(onChange).toHaveBeenLastCalledWith({ pipeline_stage: "suspect", status: "ready" });
+    expect(screen.queryByText("Save")).toBeNull();
+    fireEvent.press(screen.getByLabelText("Candidate"));
+    fireEvent.press(screen.getByLabelText("—"));
+    expect(onChange).toHaveBeenLastCalledWith(null);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});

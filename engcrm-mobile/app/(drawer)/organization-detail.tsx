@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
+  Alert,
   View,
   Text,
   ScrollView,
@@ -8,8 +9,9 @@ import {
   Linking,
   TouchableOpacity,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  deleteOrganizationNote,
   fetchOrganization,
   runOpportunityAnalysis,
   updateOrganizationState,
@@ -20,6 +22,7 @@ import {
   LinkedInPerson,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
+import { onChanged, organizationKey } from "../../services/refreshBus";
 import {
   SUPPRESSION_FLAGS,
   flagLabelKey,
@@ -41,21 +44,49 @@ export default function OrganizationDetailScreen() {
   const [analysis, setAnalysis] = useState<OpportunityAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     getRole().then((role) => setIsAdmin(role === "admin"));
   }, []);
 
+  const load = useCallback(
+    () =>
+      fetchOrganization(Number(id))
+        .then((loaded) => {
+          setContact(loaded);
+          setAnalysis(loaded.opportunity_analysis);
+          setLoadError(false);
+        })
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false)),
+    [id],
+  );
+
+  // Load now, and again whenever a note or stage change was saved elsewhere (the meeting log).
   useEffect(() => {
-    fetchOrganization(Number(id))
-      .then((loaded) => {
-        setContact(loaded);
-        setAnalysis(loaded.opportunity_analysis);
-        setLoadError(false);
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }, [id]);
+    load();
+    return onChanged(organizationKey(Number(id)), () => {
+      load();
+    });
+  }, [id, load]);
+
+  function confirmDeleteNote(noteId: number) {
+    Alert.alert(t("meeting.deleteNoteConfirm"), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("meeting.deleteNote"),
+        style: "destructive",
+        onPress: () => {
+          deleteOrganizationNote(Number(id), noteId)
+            .catch(() => undefined)
+            .finally(() => {
+              load();
+            });
+        },
+      },
+    ]);
+  }
 
   async function handleRunAnalysis() {
     setAnalyzing(true);
@@ -125,8 +156,23 @@ export default function OrganizationDetailScreen() {
       )}
 
       {isAdmin && (
+        <TouchableOpacity
+          style={styles.logButton}
+          onPress={() =>
+            router.push({
+              pathname: "/(drawer)/log-meeting",
+              params: { kind: "organization", id: String(organization.id), name: organization.name },
+            })
+          }
+          accessibilityRole="button"
+        >
+          <Text style={styles.logButtonText}>{t("meeting.logButton")}</Text>
+        </TouchableOpacity>
+      )}
+
+      {isAdmin && (
         <StageStatusPicker
-          key={`state-${organization.id}`}
+          key={`state-${organization.id}-${organization.pipeline_stage}-${organization.status}`}
           stage={organization.pipeline_stage}
           status={organization.status}
           onSave={handleStateSave}
@@ -193,6 +239,20 @@ export default function OrganizationDetailScreen() {
               )}
               {interaction.outcome && (
                 <Text style={styles.interactionOutcome}>{interaction.outcome}</Text>
+              )}
+              {!!interaction.next_action_date && (
+                <Text style={styles.followUp}>
+                  {t("meeting.followUpDue", { date: interaction.next_action_date })}
+                  {interaction.next_action ? ` — ${interaction.next_action}` : ""}
+                </Text>
+              )}
+              {isAdmin && interaction.id !== undefined && interaction.outcome === "note" && (
+                <TouchableOpacity
+                  onPress={() => confirmDeleteNote(interaction.id as number)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.deleteNote}>{t("meeting.deleteNote")}</Text>
+                </TouchableOpacity>
               )}
             </View>
           ))}
@@ -411,6 +471,17 @@ const styles = StyleSheet.create({
   },
   name: { color: "#fff", fontSize: 22, fontWeight: "700", marginBottom: 4 },
   sub: { color: "#888", fontSize: 14, marginBottom: 12 },
+  logButton: {
+    alignItems: "center",
+    backgroundColor: "#7c6fff",
+    borderRadius: 10,
+    marginTop: 16,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  logButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  followUp: { color: "#e0b050", fontSize: 12, marginTop: 4 },
+  deleteNote: { color: "#ef8a8a", fontSize: 12, marginTop: 6 },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",

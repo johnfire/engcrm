@@ -503,11 +503,15 @@ export interface OpportunityAnalysis {
 }
 
 export interface Interaction {
+  // Absent on servers that predate meeting notes.
+  id?: number;
   interaction_date: string;
   method: string | null;
   direction: string | null;
   summary: string | null;
   outcome: string | null;
+  next_action?: string | null;
+  next_action_date?: string | null;
 }
 
 export interface AgentRun {
@@ -741,6 +745,37 @@ export async function addPersonNote(
 ): Promise<{ id: number }> {
   const resp = await client.post(`/api/people/${personId}/notes`, { note, method });
   return resp.data;
+}
+
+// --- Meeting notes on an organization (admin only) ---
+export type MeetingMethod = "in_person" | "phone" | "email" | "other";
+
+export async function addOrganizationNote(
+  id: number,
+  note: {
+    note: string;
+    method: MeetingMethod | null;
+    follow_up_date: string | null; // YYYY-MM-DD
+    follow_up_text: string | null;
+  },
+): Promise<{ id: number; follow_up_date: string | null }> {
+  const resp = await client.post(`/api/contacts/${id}/notes`, note);
+  return resp.data;
+}
+
+// Voice to text; nothing is stored until the note is saved.
+export async function transcribeOrganizationNote(
+  id: number,
+  audioUri: string,
+): Promise<{ transcript: string }> {
+  const form = new FormData();
+  form.append("audio", { uri: audioUri, name: "note.m4a", type: "audio/m4a" } as any);
+  const resp = await client.post(`/api/contacts/${id}/notes/transcribe`, form, { timeout: 120000 });
+  return resp.data;
+}
+
+export async function deleteOrganizationNote(id: number, noteId: number): Promise<void> {
+  await client.delete(`/api/contacts/${id}/notes/${noteId}`);
 }
 
 // Sets (or, with null, clears) the stage tag on a person. Admin only.

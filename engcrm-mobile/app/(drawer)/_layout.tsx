@@ -21,13 +21,13 @@ function LogoutButton() {
 // Back arrow for drill-down detail screens. They live in the drawer, so their
 // default header shows a hamburger — wrong for a detail view, and the drawer's
 // back behaviour would otherwise jump to the first screen (Approvals). This
-// returns explicitly to the owning list (Contacts / People) regardless of how
-// the detail was reached.
+// goes back to where the user came from (Search, a list, the previous screen) and
+// only falls back to the owning list when there is nothing to go back to.
 function HeaderBack({ to }: { to: Href }) {
   const router = useRouter();
   return (
     <TouchableOpacity
-      onPress={() => router.navigate(to)}
+      onPress={() => (router.canGoBack() ? router.back() : router.navigate(to))}
       style={{ paddingHorizontal: 16, paddingVertical: 8 }}
       accessibilityRole="button"
       accessibilityLabel="Back"
@@ -122,6 +122,14 @@ export default function DrawerLayout() {
           drawerItemStyle: { display: "none" },
           title: t("drawer.person"),
           headerLeft: () => <HeaderBack to="/(drawer)/people" />,
+        }}
+      />
+      <Drawer.Screen
+        name="log-meeting"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("meeting.title"),
+          headerLeft: () => <HeaderBack to="/(drawer)/search" />,
         }}
       />
       <Drawer.Screen

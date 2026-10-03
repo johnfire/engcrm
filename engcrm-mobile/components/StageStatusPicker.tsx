@@ -22,7 +22,11 @@ interface Props {
   stage: PipelineStage;
   status: OrganizationStatus;
   /** Sends only what changed. Throw (reject) to signal failure; the picker reverts. */
-  onSave: (change: StageStatusChange) => Promise<void>;
+  onSave?: (change: StageStatusChange) => Promise<void>;
+  /** Embedded in another form (the meeting log): no Save button of its own; the pending
+   *  change is reported through `onChange` (null when nothing differs) and saved by the form. */
+  embedded?: boolean;
+  onChange?: (change: StageStatusChange | null) => void;
 }
 
 /** Status choices for a stage: the ones that normally go with it first. */
@@ -37,7 +41,7 @@ export function orderedStatuses(stage: PipelineStage): OrganizationStatus[] {
  * normally goes with it (shown, and changeable), so a typical move is two taps:
  * the stage, then Save. An unusual pairing is allowed and only marked.
  */
-export function StageStatusPicker({ stage, status, onSave }: Props) {
+export function StageStatusPicker({ stage, status, onSave, embedded, onChange }: Props) {
   const { t } = useTranslation();
   const [saved, setSaved] = useState({ stage, status });
   const [draft, setDraft] = useState({ stage, status });
@@ -47,23 +51,36 @@ export function StageStatusPicker({ stage, status, onSave }: Props) {
   const changed = draft.stage !== saved.stage || draft.status !== saved.status;
   const unusual = !isTypicalPair(draft.stage, draft.status);
 
+  function changeFrom(next: { stage: PipelineStage; status: OrganizationStatus }) {
+    const change: StageStatusChange = {};
+    if (next.stage !== saved.stage) change.pipeline_stage = next.stage;
+    if (next.status !== saved.status) change.status = next.status;
+    return change;
+  }
+
+  function update(next: { stage: PipelineStage; status: OrganizationStatus }) {
+    setDraft(next);
+    setHasError(false);
+    if (embedded && onChange) {
+      const change = changeFrom(next);
+      onChange(Object.keys(change).length ? change : null);
+    }
+  }
+
   function pickStage(next: PipelineStage) {
     if (next === draft.stage) return;
     // Keep the status if it still fits the new stage; otherwise offer the usual one.
     const keeps = TYPICAL_STATUSES_BY_STAGE[next].includes(draft.status);
-    setDraft({ stage: next, status: keeps ? draft.status : TYPICAL_STATUSES_BY_STAGE[next][0] });
-    setHasError(false);
+    update({ stage: next, status: keeps ? draft.status : TYPICAL_STATUSES_BY_STAGE[next][0] });
   }
 
   function pickStatus(next: OrganizationStatus) {
-    setDraft({ ...draft, status: next });
-    setHasError(false);
+    update({ ...draft, status: next });
   }
 
   async function save() {
-    const change: StageStatusChange = {};
-    if (draft.stage !== saved.stage) change.pipeline_stage = draft.stage;
-    if (draft.status !== saved.status) change.status = draft.status;
+    if (!onSave) return;
+    const change = changeFrom(draft);
     setIsSaving(true);
     setHasError(false);
     try {
@@ -114,7 +131,7 @@ export function StageStatusPicker({ stage, status, onSave }: Props) {
         </Text>
       )}
 
-      {(changed || isSaving) && (
+      {!embedded && (changed || isSaving) && (
         <TouchableOpacity
           style={[styles.save, isSaving && styles.saveDisabled]}
           onPress={save}
@@ -129,7 +146,7 @@ export function StageStatusPicker({ stage, status, onSave }: Props) {
           )}
         </TouchableOpacity>
       )}
-      {hasError && (
+      {!embedded && hasError && (
         <Text style={styles.error} accessibilityLiveRegion="assertive">
           {t("stageStatus.saveFailed")}
         </Text>
