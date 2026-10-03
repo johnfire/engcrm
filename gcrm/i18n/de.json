@@ -642,5 +642,20 @@
   "linkedin.lookup.notFound": "Nicht gefunden (für Sie übrig): {{count}}",
   "linkedin.lookup.errors": "Fehlgeschlagen (beim nächsten Mal erneut): {{count}}",
   "linkedin.lookup.cost": "{{count}} berechnete Suchen ≈ {{usd}} $ zum geschätzten Listenpreis. Die Google-Cloud-Abrechnung zeigt, was es wirklich gekostet hat.",
-  "linkedin.lookup.stopped": "Der Lauf wurde vorzeitig beendet: {{reason}}"
+  "linkedin.lookup.stopped": "Der Lauf wurde vorzeitig beendet: {{reason}}",
+  "linkedin.web.title": "Websites und Adressen finden (kostenlos)",
+  "linkedin.web.intro": "Für jede Firma sucht die Suche deren eigene Website, liest das Impressum oder die Kontaktseite und übernimmt die dort gedruckte Adresse. Es entstehen keine Kosten: genutzt werden die Websuche und die Seiten der Firmen selbst. Die Stadt wird nur automatisch eingetragen, wenn die Seite die Firma nennt und eine klare Adresse zeigt; alles andere steht unten zum Übernehmen oder Korrigieren. Jede Firma dauert etwa 10 Sekunden, daher läuft ein Stapel im Hintergrund.",
+  "linkedin.web.running": "Läuft im Hintergrund…",
+  "linkedin.web.progress": "Noch zu suchen: {{left}}. Warten auf Ihre Prüfung: {{review}}. Diese Seite aktualisiert sich selbst.",
+  "linkedin.web.nothing": "Jede Firma wurde gesucht. Funde, die auf Ihre Prüfung warten: {{review}}.",
+  "linkedin.web.waiting": "Noch nie gesuchte Firmen: {{count}}",
+  "linkedin.web.retry": "Früher ohne Ergebnis gesucht, erneut an der Reihe: {{count}}",
+  "linkedin.web.review": "Funde, die auf Ihre Prüfung warten (siehe Liste unten): {{count}}",
+  "linkedin.web.limit": "So viele Firmen suchen:",
+  "linkedin.web.button": "Websites und Adressen finden",
+  "linkedin.web.note": "Bis zu {{max}} pro Start. Sie können diese Seite verlassen; die Suche läuft weiter und jedes Ergebnis wird sofort gespeichert.",
+  "linkedin.web.alreadyRunning": "Es läuft bereits eine Suche, daher wurde nichts Neues gestartet.",
+  "linkedin.web.found": "Im Web gefunden",
+  "linkedin.web.source": "Seite, von der gelesen wurde",
+  "linkedin.web.accept": "Übernehmen"
 }

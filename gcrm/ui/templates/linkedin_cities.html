@@ -31,6 +31,32 @@
 </div>
 {% endif %}
 
+{% if job_started == 0 %}<p class="error">{{ t('linkedin.web.alreadyRunning') }}</p>{% endif %}
+{% if web.running %}<meta http-equiv="refresh" content="10">{% endif %}
+<section class="detail-section">
+  <h2>{{ t('linkedin.web.title') }}</h2>
+  <p class="muted">{{ t('linkedin.web.intro') }}</p>
+  {% if web.running %}
+  <p class="flash-success"><strong>{{ t('linkedin.web.running') }}</strong>
+    {{ t('linkedin.web.progress', left=web.to_lookup, review=web.review) }}</p>
+  {% elif web.to_lookup + web.retry == 0 %}
+  <p class="muted">{{ t('linkedin.web.nothing', review=web.review) }}</p>
+  {% else %}
+  <ul>
+    <li>{{ t('linkedin.web.waiting', count=web.to_lookup) }}</li>
+    {% if web.retry %}<li>{{ t('linkedin.web.retry', count=web.retry) }}</li>{% endif %}
+    {% if web.review %}<li>{{ t('linkedin.web.review', count=web.review) }}</li>{% endif %}
+  </ul>
+  <form method="post" action="/people/linkedin/cities/web" class="filter-bar"
+        onsubmit='this.querySelector("button").disabled = true; return true;'>
+    <label for="web-limit">{{ t('linkedin.web.limit') }}</label>
+    <input id="web-limit" type="number" name="limit" value="25" min="1" max="{{ web.max }}" size="4" />
+    <button type="submit" class="btn-primary">{{ t('linkedin.web.button') }}</button>
+  </form>
+  <p class="muted small">{{ t('linkedin.web.note', max=web.max) }}</p>
+  {% endif %}
+</section>
+
 <section class="detail-section">
   <h2>{{ t('linkedin.lookup.title') }}</h2>
   <p class="muted">{{ t('linkedin.lookup.intro') }}</p>
@@ -66,6 +92,7 @@
       <tr>
         <th>{{ t('linkedin.cities.organization') }}</th>
         <th>{{ t('linkedin.cities.whoYouKnow') }}</th>
+        <th>{{ t('linkedin.web.found') }}</th>
         <th>{{ t('linkedin.cities.lookup') }}</th>
         <th>{{ t('common.city') }}</th>
         <th>{{ t('linkedin.cities.country') }}</th>
@@ -80,6 +107,17 @@
           {% for person in o.people %}
           <div><a href="/people/{{ person.id }}">{{ person.name }}</a>{% if person.title %} <span class="muted small">— {{ person.title }}</span>{% endif %}</div>
           {% endfor %}
+        </td>
+        <td class="small">
+          {% if o.web_website or o.web_city %}
+          {% if o.web_website %}<div><a href="{{ o.web_website }}" target="_blank" rel="noopener noreferrer">{{ o.web_website }}</a></div>{% endif %}
+          {% if o.web_city %}
+          <div>{% if o.web_street %}{{ o.web_street }}, {% endif %}{{ o.web_postal_code }} {{ o.web_city }}{% if o.web_country %}, {{ o.web_country }}{% endif %}</div>
+          {% if o.web_source %}<div class="muted"><a href="{{ o.web_source }}" target="_blank" rel="noopener noreferrer">{{ t('linkedin.web.source') }}</a></div>{% endif %}
+          <label><input type="checkbox" name="accept_{{ o.id }}" value="1"> {{ t('linkedin.web.accept') }}</label>
+          {% endif %}
+          {% if o.web_reason %}<div class="muted">{{ o.web_reason }}</div>{% endif %}
+          {% else %}<span class="muted">—</span>{% endif %}
         </td>
         <td class="muted small">
           {% if o.lookup_outcome %}{{ t('linkedin.cities.outcome.' ~ o.lookup_outcome) }}{% else %}{{ t('linkedin.cities.outcome.never') }}{% endif %}

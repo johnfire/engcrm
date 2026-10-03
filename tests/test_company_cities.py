@@ -365,11 +365,11 @@ class TestCityRoutes:
         assert response.status_code == 303
         assert response.headers["location"] == "/people/linkedin/cities?saved=2&dismissed=1&failed=0"
         assert apply.call_args.args[0] == [
-            {"contact_id": 1, "city": "Ulm", "country": "de", "dismiss": False},
-            {"contact_id": 2, "city": "Berlin", "country": "DE", "dismiss": False},
-            {"contact_id": 3, "city": "Köln", "country": "", "dismiss": False},
-            {"contact_id": 4, "city": "", "country": "", "dismiss": True},
-            {"contact_id": 5, "city": "Bonn", "country": "", "dismiss": False},
+            {"contact_id": 1, "city": "Ulm", "country": "de", "dismiss": False, "accept": False},
+            {"contact_id": 2, "city": "Berlin", "country": "DE", "dismiss": False, "accept": False},
+            {"contact_id": 3, "city": "Köln", "country": "", "dismiss": False, "accept": False},
+            {"contact_id": 4, "city": "", "country": "", "dismiss": True, "accept": False},
+            {"contact_id": 5, "city": "Bonn", "country": "", "dismiss": False, "accept": False},
         ]
 
     def test_apply_with_nothing_chosen_writes_nothing(self, admin_session):
@@ -714,3 +714,110 @@ class TestLookupButton:
         with patch("gcrm.api.routers.people.count_city_work", side_effect=RuntimeError("x")), \
              patch("gcrm.api.routers.people.get_city_review_queue", return_value={"total": 0, "rows": []}):
             assert admin_session.get("/people/linkedin/cities").status_code == 200
+
+
+# --- websites + addresses: the browser part -----------------------------------
+
+class TestWebPanel:
+    PANEL = {"max": 200, "running": False, "to_lookup": 627, "retry": 0, "review": 3, "cached_ready": 0}
+
+    def page(self, admin_session, panel=None, url="/people/linkedin/cities", rows=()):
+        with patch("gcrm.api.routers.people.get_city_review_queue",
+                   return_value={"total": len(rows), "rows": list(rows)}), \
+             patch("gcrm.api.routers.people._web_panel", return_value=panel or self.PANEL), \
+             patch("gcrm.api.routers.people._city_lookup_panel",
+                   return_value={"key_set": False, "max": 50, "per_1000": 35, "to_lookup": 0, "cached_ready": 0}):
+            return admin_session.get(url)
+
+    def test_the_free_search_comes_first_and_says_it_costs_nothing(self, admin_session):
+        text = self.page(admin_session).text
+        assert text.index("Find websites and addresses (free)") < text.index("Look up cities automatically")
+        assert "Nothing is billed" in text and "Companies never searched: 627" in text
+        assert 'action="/people/linkedin/cities/web"' in text
+
+    def test_while_it_runs_the_page_refreshes_itself_and_the_button_is_gone(self, admin_session):
+        text = self.page(admin_session, {**self.PANEL, "running": True}).text
+        assert 'http-equiv="refresh"' in text and "Running in the background" in text
+        assert 'action="/people/linkedin/cities/web"' not in text
+
+    def test_when_everything_was_searched_there_is_no_button(self, admin_session):
+        text = self.page(admin_session, {**self.PANEL, "to_lookup": 0}).text
+        assert "Every company has been searched" in text
+
+    def test_starting_a_job(self, admin_session):
+        with patch("gcrm.api.routers.people.start_web_job", return_value=True) as start, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities/web", data={"limit": "25"},
+                                          follow_redirects=False)
+        start.assert_called_once_with(25)
+        assert response.headers["location"] == "/people/linkedin/cities?started=1"
+
+    def test_a_second_start_while_running_is_explained(self, admin_session):
+        with patch("gcrm.api.routers.people.start_web_job", return_value=False), \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities/web", data={"limit": "25"},
+                                          follow_redirects=False)
+        assert response.headers["location"].endswith("started=0")
+        assert "already running" in self.page(admin_session, url=response.headers["location"]).text
+
+    def test_a_reading_in_the_queue_shows_the_site_the_address_and_a_use_this_box(self, admin_session):
+        row = {"id": 8, "name": "Asklepios", "lookup_outcome": None, "people_count": 2, "people": [],
+               "choices": [], "web_outcome": "needs_review", "web_website": "https://asklepios.com/",
+               "web_street": "Rübenkamp 226", "web_postal_code": "22307", "web_city": "Hamburg",
+               "web_country": None, "web_source": "https://asklepios.com/impressum",
+               "web_reason": "the country could not be established"}
+        text = self.page(admin_session, rows=[row]).text
+        assert "https://asklepios.com/" in text and "Rübenkamp 226, 22307 Hamburg" in text
+        assert 'name="accept_8"' in text and "the country could not be established" in text
+        assert 'rel="noopener noreferrer"' in text
+
+    def test_ticking_use_this_becomes_an_accept_decision(self, admin_session):
+        from gcrm.api.routers.people import _parse_city_decisions
+        form = {"accept_3": "1", "country_3": "de", "accept_4": "1", "city_4": "Bonn",
+                "accept_5": "1", "dismiss_5": "1"}
+
+        class F(dict):
+            def keys(self):
+                return super().keys()
+        decisions = {d["contact_id"]: d for d in _parse_city_decisions(F(form))}
+        assert decisions[3] == {"contact_id": 3, "city": "", "country": "de", "dismiss": False, "accept": True}
+        assert decisions[4]["accept"] is False and decisions[4]["city"] == "Bonn"  # a typed city wins
+        assert decisions[5]["accept"] is True and decisions[5]["dismiss"] is False
+
+
+class TestAcceptReading:
+    def accept(self, reading, typed_country=""):
+        class C:
+            rowcount = 1
+            executed = []
+
+            def execute(self, sql, params=None):
+                C.executed.append(" ".join(sql.split()))
+
+            def fetchone(self):
+                return reading
+        with patch("gcrm.tools.db_linkedin.apply_reading", return_value=1) as apply:
+            result = db_linkedin._accept_reading(C(), 8, typed_country)
+        return result, apply
+
+    READING = {"company_key": "asklepios", "website": "https://asklepios.com/", "street": "Rübenkamp 226",
+               "postal_code": "22307", "city": "Hamburg", "country": None, "source_url": "u"}
+
+    def test_a_human_supplied_country_completes_a_reading(self):
+        result, apply = self.accept(self.READING, "de")
+        assert result == 1
+        args = apply.call_args.args
+        assert args[2:8] == ("https://asklepios.com/", "Rübenkamp 226, 22307 Hamburg", "Hamburg", "DE", "u", "manual")
+
+    def test_a_reading_without_any_country_is_refused(self):
+        with pytest.raises(ValueError):
+            self.accept(self.READING, "")
+
+    def test_a_reading_the_page_gave_a_country_for_needs_no_typing(self):
+        result, apply = self.accept({**self.READING, "country": "DE"})
+        assert result == 1 and apply.call_args.args[5] == "DE"
+
+    def test_nothing_waiting_for_this_organization_is_a_noop(self):
+        result, apply = self.accept(None)
+        assert result == 0
+        apply.assert_not_called()

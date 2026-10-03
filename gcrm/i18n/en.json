@@ -642,5 +642,20 @@
   "linkedin.lookup.notFound": "Not found (left for you): {{count}}",
   "linkedin.lookup.errors": "Failed (will be retried next time): {{count}}",
   "linkedin.lookup.cost": "{{count}} billed lookups ≈ ${{usd}} at the estimated list price. Check the Google Cloud billing console for what it really cost.",
-  "linkedin.lookup.stopped": "The run stopped early: {{reason}}"
+  "linkedin.lookup.stopped": "The run stopped early: {{reason}}",
+  "linkedin.web.title": "Find websites and addresses (free)",
+  "linkedin.web.intro": "For each company the search looks for its own website, reads its Impressum or contact page, and takes the address printed there. Nothing is billed: it uses web search and the companies' own pages. A city is filled in automatically only when the page names the company and prints a clear address; anything less is shown below for you to accept or correct. Each company takes about 10 seconds, so a batch runs in the background.",
+  "linkedin.web.running": "Running in the background…",
+  "linkedin.web.progress": "Still to search: {{left}}. Waiting for your review: {{review}}. This page refreshes by itself.",
+  "linkedin.web.nothing": "Every company has been searched. Readings waiting for your review: {{review}}.",
+  "linkedin.web.waiting": "Companies never searched: {{count}}",
+  "linkedin.web.retry": "Searched before without a result, due another try: {{count}}",
+  "linkedin.web.review": "Readings waiting for your review (see the list below): {{count}}",
+  "linkedin.web.limit": "Search this many companies:",
+  "linkedin.web.button": "Find websites and addresses",
+  "linkedin.web.note": "Up to {{max}} per start. You can leave this page; the search keeps running and every result is saved as it is found.",
+  "linkedin.web.alreadyRunning": "A search is already running, so nothing new was started.",
+  "linkedin.web.found": "Found on the web",
+  "linkedin.web.source": "page it was read from",
+  "linkedin.web.accept": "Use this"
 }

@@ -23,6 +23,7 @@ from gcrm.linkedin import (
 from gcrm.organization_state import coerce_stage, coerce_status
 from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_company_web import apply_reading
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -575,6 +576,9 @@ def get_city_review_queue(page: int = 1) -> dict:
         cur.execute(
             f"""
             SELECT c.id, c.name, l.outcome AS lookup_outcome, l.candidates,
+                   wl.outcome AS web_outcome, wl.website AS web_website, wl.street AS web_street,
+                   wl.postal_code AS web_postal_code, wl.city AS web_city,
+                   wl.country AS web_country, wl.source_url AS web_source, wl.reason AS web_reason,
                    COUNT(p.id) AS people_count,
                    COALESCE(json_agg(json_build_object(
                        'id', p.id, 'name', p.name, 'title', p.title)
@@ -583,8 +587,9 @@ def get_city_review_queue(page: int = 1) -> dict:
               LEFT JOIN people p ON p.contact_id = c.id AND p.deleted_at IS NULL
                                 AND p.is_linkedin_contact
               LEFT JOIN company_city_lookups l ON l.company_key = c.company_key
+              LEFT JOIN company_web_lookups wl ON wl.company_key = c.company_key
              WHERE {_NEEDS_CITY}
-             GROUP BY c.id, l.company_key
+             GROUP BY c.id, l.company_key, wl.company_key
              ORDER BY people_count DESC, lower(c.name), c.id
              LIMIT %s OFFSET %s
             """,
@@ -608,6 +613,8 @@ def apply_city_decisions(decisions: list[dict]) -> dict:
     dismiss}: a city (and optional 2-letter country) is saved as entered by
     hand; `dismiss` stops asking about that organization. Only organizations
     still waiting are touched, so a stale form cannot overwrite a newer answer.
+    A decision with `accept` takes the website and address that were read from the
+    company's own pages (the country may be typed if the page did not give one).
     Returns counts — saved, dismissed, failed."""
     counts = {"saved": 0, "dismissed": 0, "failed": 0}
     with db() as conn:
@@ -625,6 +632,9 @@ def apply_city_decisions(decisions: list[dict]) -> dict:
                         continue
                     city = (decision.get("city") or "").strip()[:100]
                     country = (decision.get("country") or "").strip()
+                    if not city and decision.get("accept"):
+                        counts["saved"] += _accept_reading(cur, decision["contact_id"], country)
+                        continue
                     if not city:
                         continue
                     if country and not _COUNTRY_CODE.match(country):
@@ -767,4 +777,28 @@ def apply_company_change_decisions(decisions: list[dict]) -> dict:
                 logger.warning("company change decision failed %r", decision, exc_info=True)
     logger.info("linkedin company changes: %s", counts)
     return counts
+
+
+def _accept_reading(cur, contact_id: int, typed_country: str) -> int:
+    """Use the website and address read from the company's own pages, as confirmed
+    by a human. Only for an organization still waiting, and only a reading that
+    includes a town; a country is needed from the page or from the person."""
+    cur.execute(
+        f"""
+        SELECT c.company_key, w.website, w.street, w.postal_code, w.city, w.country, w.source_url
+          FROM contacts c JOIN company_web_lookups w ON w.company_key = c.company_key
+         WHERE c.id = %s AND {_NEEDS_CITY} AND w.city IS NOT NULL
+        """,
+        (contact_id,),
+    )
+    reading = cur.fetchone()
+    if not reading:
+        return 0
+    country = (typed_country or reading["country"] or "").strip()
+    if not _COUNTRY_CODE.match(country):
+        raise ValueError("the reading has no country; type a 2-letter code")
+    address = ", ".join(p for p in (reading["street"] or "",
+                                    f"{reading['postal_code'] or ''} {reading['city']}".strip()) if p)
+    return apply_reading(cur, reading["company_key"], reading["website"] or "", address,
+                         reading["city"], country.upper(), reading["source_url"] or "", "manual")
 

@@ -14,6 +14,7 @@ from gcrm.tools.company_places import ESTIMATED_USD_PER_1000
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_company_web import JOB_MAX, count_web_work, is_job_running, start_web_job
 from gcrm.tools.db_linkedin import (
     CITY_QUEUE_PAGE_SIZE,
     JOB_CHANGE_PAGE_SIZE,
@@ -259,6 +260,7 @@ def linkedin_cities(
     not_found: int | None = Query(default=None),
     errors: int | None = Query(default=None),
     stopped: str = Query(default=""),
+    started: int | None = Query(default=None),
 ):
     """Organizations created from LinkedIn that still need a city, most
     connections first. The lookup could not settle these (chains, unknown or
@@ -280,6 +282,8 @@ def linkedin_cities(
         "applied": None if saved is None else {
             "saved": saved, "dismissed": dismissed or 0, "failed": failed or 0},
         "lookup": _city_lookup_panel(),
+        "web": _web_panel(),
+        "job_started": started,
         "lookup_result": None if looked_up is None else {
             "looked_up": looked_up, "resolved": resolved or 0, "ambiguous": ambiguous or 0,
             "not_found": not_found or 0, "errors": errors or 0, "stopped": stopped,
@@ -297,6 +301,26 @@ def _city_lookup_panel() -> dict:
         work = {"to_lookup": 0, "cached_ready": 0, "failed": True}
     return {"key_set": bool(GOOGLE_MAPS_API_KEY), "max": WEB_LOOKUP_MAX,
             "per_1000": ESTIMATED_USD_PER_1000, **work}
+
+
+def _web_panel() -> dict:
+    """What the 'Find websites and addresses' button would do, and whether a job is
+    running right now (the page refreshes itself while it is)."""
+    try:
+        work, running = count_web_work(), is_job_running()
+    except Exception:
+        logger.exception("web lookup panel failed")
+        work, running = {"to_lookup": 0, "retry": 0, "review": 0, "cached_ready": 0, "failed": True}, False
+    return {"max": JOB_MAX, "running": running, **work}
+
+
+@router.post("/people/linkedin/cities/web")
+def linkedin_cities_web(limit: int = Form(50), _admin: str = Depends(require_admin)):
+    """Start the website + address search in the background (it takes ~10 s per
+    company). Nothing is billed: it uses web search and the companies' own pages."""
+    started = start_web_job(limit)
+    log_audit(None, None, "contact.linkedin_web_lookup", "contacts", f"limit:{limit} started:{started}")
+    return local_redirect("/people/linkedin/cities", started="1" if started else "0")
 
 
 @router.post("/people/linkedin/cities/lookup")
@@ -325,7 +349,7 @@ def _parse_city_decisions(form) -> list[dict]:
     row. Typed text wins over the pick; empty rows are left alone."""
     ids = {
         int(key.split("_", 1)[1]) for key in form.keys()
-        if key.split("_", 1)[0] in {"city", "pick", "country", "dismiss"}
+        if key.split("_", 1)[0] in {"city", "pick", "country", "dismiss", "accept"}
         and key.split("_", 1)[-1].isdigit()
     }
     decisions = []
@@ -336,10 +360,11 @@ def _parse_city_decisions(form) -> list[dict]:
         country = str(form.get(f"country_{contact_id}") or "").strip()
         if not typed and not country:
             country = picked_country.strip()
-        dismiss = bool(form.get(f"dismiss_{contact_id}")) and not city
-        if city or dismiss:
-            decisions.append({"contact_id": contact_id, "city": city,
-                              "country": country, "dismiss": dismiss})
+        accept = bool(form.get(f"accept_{contact_id}")) and not city
+        dismiss = bool(form.get(f"dismiss_{contact_id}")) and not city and not accept
+        if city or dismiss or accept:
+            decisions.append({"contact_id": contact_id, "city": city, "country": country,
+                              "dismiss": dismiss, "accept": accept})
     return decisions
 
 
