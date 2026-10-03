@@ -3,7 +3,9 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
+const mockUpdateState = jest.fn();
 jest.mock("../../services/api", () => ({
+  updateOrganizationState: (...args: any[]) => mockUpdateState(...args),
   fetchOrganization: (...args: any[]) => mockFetchContact(...args),
   runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
   updatePersonalPriority: (...args: any[]) => mockUpdatePersonalPriority(...args),
@@ -186,7 +188,9 @@ describe("organization detail — website link", () => {
 describe("organization detail — state", () => {
   beforeEach(() => {
     mockFetchContact.mockReset();
-    mockGetRole.mockReset().mockResolvedValue("admin");
+    // These check the read-only badges. The admin also gets a picker whose chips
+    // repeat the same words; that is covered in "stage and status" below.
+    mockGetRole.mockReset().mockResolvedValue("viewer");
   });
 
   it("shows the pipeline stage and the current status as separate facts", async () => {
@@ -297,3 +301,47 @@ describe("organization detail — LinkedIn notice", () => {
     expect(legacy.queryByText(/LinkedIn/)).toBeNull();
   });
 });
+
+describe("organization detail — stage and status", () => {
+  beforeEach(() => {
+    mockFetchContact.mockReset();
+    mockGetRole.mockReset();
+    mockUpdateState.mockReset();
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, pipeline_stage: "candidate", status: "none" });
+  });
+
+  it("lets the admin move the organization along the pipeline, and the badges follow", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockUpdateState.mockResolvedValue({ pipeline_stage: "suspect", status: "ready", typical: true });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Suspect"));
+    fireEvent.press(screen.getByText("Save"));
+    await waitFor(() =>
+      expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "suspect", status: "ready" }),
+    );
+    // the read-only badges above the picker now show the server's answer
+    await waitFor(() => expect(screen.getAllByText("Ready to contact").length).toBeGreaterThan(0));
+  });
+
+  it("shows the picker to the admin only; everyone else just sees the badges", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    expect(screen.queryByLabelText("Suspect")).toBeNull();
+    expect(screen.queryByText("Pipeline")).toBeNull();
+    expect(screen.getByText("Candidate")).toBeTruthy();
+  });
+
+  it("a failed save leaves the organization where it was", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockUpdateState.mockRejectedValue(new Error("offline"));
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Suspect"));
+    fireEvent.press(screen.getByText("Save"));
+    await waitFor(() => expect(screen.getByText(/Couldn't save/)).toBeTruthy());
+    expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
+  });
+});
+

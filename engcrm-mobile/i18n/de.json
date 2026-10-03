@@ -341,5 +341,15 @@
   "areaScan.couldntStartTitle": "Scan konnte nicht gestartet werden",
   "areaResults.empty": "Noch keine Unternehmen in diesem Gebiet gefunden.",
   "areaScan.tooManyLevelsTitle": "Zu viele Level",
-  "areaScan.tooManyLevelsMessage": "Gebietsscans sind auf {{max}} Level pro Durchlauf begrenzt — zuerst eines abwählen."
+  "areaScan.tooManyLevelsMessage": "Gebietsscans sind auf {{max}} Level pro Durchlauf begrenzt — zuerst eines abwählen.",
+  "stageStatus.title": "Pipeline",
+  "stageStatus.stage": "Stufe",
+  "stageStatus.status": "Status",
+  "stageStatus.save": "Speichern",
+  "stageStatus.unusual": "Eine ungewöhnliche Kombination — in Ordnung, wenn sie stimmt.",
+  "stageStatus.saveFailed": "Speichern fehlgeschlagen. Verbindung prüfen und erneut versuchen.",
+  "personStage.title": "Stufe",
+  "personStage.clear": "Keine Stufe",
+  "personStage.organization": "Ihre Organisation: {{stage}}",
+  "personStage.saveFailed": "Die Stufe konnte nicht gespeichert werden. Bitte erneut versuchen."
 }

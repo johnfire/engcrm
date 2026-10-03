@@ -341,5 +341,15 @@
   "areaScan.couldntStartTitle": "Couldn't start scan",
   "areaResults.empty": "No businesses found in this area yet.",
   "areaScan.tooManyLevelsTitle": "Too many levels",
-  "areaScan.tooManyLevelsMessage": "Area scans are capped at {{max}} levels per run — deselect one first."
+  "areaScan.tooManyLevelsMessage": "Area scans are capped at {{max}} levels per run — deselect one first.",
+  "stageStatus.title": "Pipeline",
+  "stageStatus.stage": "Stage",
+  "stageStatus.status": "Status",
+  "stageStatus.save": "Save",
+  "stageStatus.unusual": "An unusual combination — fine if it is right.",
+  "stageStatus.saveFailed": "Couldn't save. Check your connection and try again.",
+  "personStage.title": "Stage",
+  "personStage.clear": "No stage",
+  "personStage.organization": "Their organization: {{stage}}",
+  "personStage.saveFailed": "Couldn't save the stage. Try again."
 }

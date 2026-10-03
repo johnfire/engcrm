@@ -49,3 +49,19 @@ export function statusLabelKey(status: string): string {
 export function flagLabelKey(flag: string): string {
   return `flag.${flag}`;
 }
+
+/** What normally goes with what — mirrors TYPICAL_STATUSES_BY_STAGE in
+ *  gcrm/organization_state.py. Advisory: it orders the status choices and powers the
+ *  "usual combination" hint; it never stops anyone from picking something else. */
+export const TYPICAL_STATUSES_BY_STAGE: Record<PipelineStage, readonly OrganizationStatus[]> = {
+  candidate: ["none", "ready"],
+  suspect: ["ready", "contacted", "dormant", "on_hold"],
+  prospect: ["contacted", "dormant", "on_hold"],
+  opportunity: ["meeting", "proposal", "dormant", "on_hold"],
+  customer: ["none", "dormant", "on_hold"],
+  not_in_pipeline: ["dropped", "none"],
+};
+
+export function isTypicalPair(stage: PipelineStage, status: OrganizationStatus): boolean {
+  return TYPICAL_STATUSES_BY_STAGE[stage].includes(status);
+}

@@ -12,6 +12,7 @@ import { useLocalSearchParams } from "expo-router";
 import {
   fetchOrganization,
   runOpportunityAnalysis,
+  updateOrganizationState,
   updatePersonalPriority,
   OrganizationDetail,
   OpportunityAnalysis,
@@ -28,6 +29,7 @@ import {
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
+import { StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -74,6 +76,16 @@ export default function OrganizationDetailScreen() {
     );
   }
 
+  async function handleStateSave(change: StageStatusChange) {
+    const stored = await updateOrganizationState(Number(id), change);
+    // Keep the badges above in step with what the server now holds.
+    setContact((current) =>
+      current
+        ? { ...current, pipeline_stage: stored.pipeline_stage, status: stored.status }
+        : current,
+    );
+  }
+
   if (loading)
     return (
       <View style={styles.center}>
@@ -110,6 +122,15 @@ export default function OrganizationDetailScreen() {
             </Text>
           ))}
         </View>
+      )}
+
+      {isAdmin && (
+        <StageStatusPicker
+          key={`state-${organization.id}`}
+          stage={organization.pipeline_stage}
+          status={organization.status}
+          onSave={handleStateSave}
+        />
       )}
 
       <LinkedInNotice connections={organization.linkedin_connections} />

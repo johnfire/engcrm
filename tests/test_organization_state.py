@@ -54,6 +54,22 @@ class TestCoercion:
         assert "accepted" in caplog.text
 
 
+def read_mobile_typical() -> dict[str, tuple[str, ...]]:
+    """Pull the TYPICAL_STATUSES_BY_STAGE object out of the TypeScript vocabulary file."""
+    source = MOBILE_VOCABULARY.read_text()
+    block = re.search(r"export const TYPICAL_STATUSES_BY_STAGE[^=]*= \{(.*?)\};", source, re.S)
+    assert block, "TYPICAL_STATUSES_BY_STAGE not found in organizationState.ts"
+    return {stage: tuple(re.findall(r'"([a-z_]+)"', values))
+            for stage, values in re.findall(r"([a-z_]+): \[(.*?)\]", block.group(1), re.S)}
+
+
+class TestMobileTypicalCombinations:
+    def test_the_phones_usual_combinations_match_the_servers(self):
+        """The picker auto-selects and highlights from this table; if it drifted it would
+        suggest statuses the server calls unusual."""
+        assert read_mobile_typical() == dict(TYPICAL_STATUSES_BY_STAGE)
+
+
 class TestTypicalCombinations:
     def test_every_stage_has_expected_statuses(self):
         assert set(TYPICAL_STATUSES_BY_STAGE) == set(PIPELINE_STAGES)

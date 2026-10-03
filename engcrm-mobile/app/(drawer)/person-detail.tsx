@@ -10,11 +10,13 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deletePerson, fetchPerson, Person } from "../../services/api";
+import { deletePerson, fetchPerson, Person, updatePersonStage } from "../../services/api";
+import { PipelineStage } from "../../services/organizationState";
 import { getRole } from "../../services/auth";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
+import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 export default function PersonDetailScreen() {
   const { t } = useTranslation();
@@ -61,6 +63,11 @@ export default function PersonDetailScreen() {
         },
       },
     ]);
+  }
+
+  async function saveStage(stage: PipelineStage | null) {
+    const stored = await updatePersonStage(Number(id), stage);
+    setPerson((current) => (current ? { ...current, pipeline_stage: stored.pipeline_stage } : current));
   }
 
   if (loading)
@@ -123,6 +130,15 @@ export default function PersonDetailScreen() {
           <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
           <Text style={styles.fieldText}>{person.notes}</Text>
         </View>
+      )}
+
+      {isAdmin && (
+        <PersonStagePicker
+          key={`stage-${person.id}`}
+          stage={person.pipeline_stage ?? null}
+          organizationStage={person.company_pipeline_stage ?? null}
+          onSave={saveStage}
+        />
       )}
 
       <PersonNotesLog personId={person.id} />

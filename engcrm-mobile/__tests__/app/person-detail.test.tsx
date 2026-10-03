@@ -3,7 +3,9 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 
 const mockFetchPerson = jest.fn();
 const mockDeletePerson = jest.fn();
+const mockUpdateStage = jest.fn();
 jest.mock("../../services/api", () => ({
+  updatePersonStage: (...args: any[]) => mockUpdateStage(...args),
   fetchPerson: (...args: any[]) => mockFetchPerson(...args),
   deletePerson: (...args: any[]) => mockDeletePerson(...args),
 }));
@@ -117,3 +119,40 @@ describe("person detail — delete", () => {
     expect(screen.queryByText("Delete person")).toBeNull();
   });
 });
+
+describe("person detail — stage", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    mockFetchPerson.mockReset();
+    mockGetRole.mockReset();
+    mockUpdateStage.mockReset();
+    mockFetchPerson.mockResolvedValue({ ...PERSON, pipeline_stage: "candidate", company_pipeline_stage: "suspect" });
+  });
+
+  it("lets the admin change a person's stage with one tap", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockUpdateStage.mockResolvedValue({ pipeline_stage: "prospect" });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
+    expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
+    expect(screen.getByText("Their organization: Suspect")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Prospect"));
+    await waitFor(() => expect(mockUpdateStage).toHaveBeenCalledWith(7, "prospect"));
+  });
+
+  it("does not show the stage picker to anyone but the admin", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    expect(screen.queryByLabelText("Prospect")).toBeNull();
+  });
+
+  it("works for a person with no stage yet", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockFetchPerson.mockResolvedValue({ ...PERSON });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
+    expect(screen.getByLabelText("Prospect").props.accessibilityState.selected).toBe(false);
+  });
+});
+
