@@ -50,6 +50,30 @@ def test_organization_repository_persists_and_hides_soft_deleted_records(clean_d
     assert get_organizations_ready_for_outreach() == []
 
 
+def test_outreach_skips_organizations_where_a_linkedin_connection_works(clean_database):
+    """The warm route is yours to take on LinkedIn, so no cold email is drafted."""
+    known = save_organization("Known Co", "Munich", pipeline_stage="suspect", status="ready")
+    unknown = save_organization("Unknown Co", "Munich", pipeline_stage="suspect", status="ready")
+    unconfirmed = save_organization("Maybe Co", "Munich", pipeline_stage="suspect", status="ready")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO people (name, contact_id, is_linkedin_contact) VALUES ('Ann', %s, TRUE) RETURNING id",
+            (known,),
+        )
+        person_id = cursor.fetchone()["id"]
+        # not a LinkedIn connection, and an unlinked one: neither is a confirmed way in
+        cursor.execute("INSERT INTO people (name, contact_id, is_linkedin_contact) VALUES ('Bob', %s, FALSE)", (unknown,))
+        cursor.execute("INSERT INTO people (name, company_raw, is_linkedin_contact) VALUES ('Cy', 'Maybe Co', TRUE)")
+
+    ready = {organization["id"] for organization in get_organizations_ready_for_outreach()}
+    assert ready == {unknown, unconfirmed}
+
+    with db() as connection:
+        connection.cursor().execute("UPDATE people SET deleted_at = NOW() WHERE id = %s", (person_id,))
+    assert known in {organization["id"] for organization in get_organizations_ready_for_outreach()}
+
+
 def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database):
     """AI work is attributable even when it originates outside an HTTP request."""
     run_id = start_run("scout_agent", {"limit": 1})

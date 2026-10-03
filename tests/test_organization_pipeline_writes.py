@@ -85,6 +85,17 @@ class TestOutreachSelection:
         assert "do_not_contact = FALSE" in statement
         assert "email_bounced = FALSE" in statement
 
+    def test_skips_organizations_where_you_know_someone_on_linkedin(self):
+        conn, cur = make_mock_conn()
+        with patch("gcrm.tools.db_organizations.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_organizations.get_organizations_ready_for_outreach()
+        statement = executed_sql(cur)
+        assert "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = contacts.id" in statement
+        assert "p.is_linkedin_contact" in statement
+        # a person deleted from the CRM no longer counts as a way in
+        assert "p.deleted_at IS NULL" in statement
+
     def test_candidates_are_selected_by_stage(self):
         conn, cur = make_mock_conn()
         with patch("gcrm.tools.db_organizations.db") as mock_db:

@@ -255,6 +255,12 @@ def get_organizations_ready_for_outreach(
     'cold'. Now that those are flags that survive any status, this query is the
     thing standing between an opted-out organization and another email.
 
+    An organization where you know someone on LinkedIn is skipped too: a cold
+    first-contact email to a place with a warm route in would be the wrong
+    message, and you reach those yourself on LinkedIn. Only *confirmed* links
+    count (a person linked to the organization), not unconfirmed name matches.
+    An explicit draft_first_contact for one organization is unaffected.
+
     min_tier: 'normal' excludes tier='poor'; 'wealthy' returns only wealthy.
               NULL-tier contacts are always included unless min_tier is set.
     """
@@ -266,6 +272,8 @@ def get_organizations_ready_for_outreach(
             "email_bounced = FALSE",
             "deleted_at IS NULL",
             "id NOT IN (SELECT contact_id FROM approval_queue)",
+            "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = contacts.id "
+            "AND p.is_linkedin_contact AND p.deleted_at IS NULL)",
         ]
         params: list = []
         if city:
