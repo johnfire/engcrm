@@ -9,6 +9,8 @@ and skipped instead of aborting the whole import.
 import logging
 from contextlib import contextmanager
 
+from psycopg2.extras import Json
+
 from gcrm.db.connection import db, serialize_row
 from gcrm.linkedin import (
     CompanyPlan,
@@ -18,6 +20,7 @@ from gcrm.linkedin import (
     plan_company_promotion,
 )
 from gcrm.organization_state import coerce_stage, coerce_status
+from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
 from gcrm.tools.db_audit import log_audit
 from gcrm.workspace_context import get_workspace_id
 
@@ -362,4 +365,125 @@ def apply_company_plan(plan: CompanyPlan, limit: int | None = None) -> dict:
 def promote_linkedin_companies(limit: int | None = None) -> dict:
     """Plan and apply in one go; see apply_company_plan."""
     return apply_company_plan(get_company_promotion_plan(), limit=limit)
+
+
+# --- City resolution ---------------------------------------------------------
+
+MAX_CONSECUTIVE_LOOKUP_ERRORS = 5
+_NEEDS_CITY = (
+    "c.source = 'linkedin' AND c.city_status = 'needs_review' AND c.deleted_at IS NULL "
+    "AND c.company_key IS NOT NULL"
+)
+
+
+def count_city_work() -> dict:
+    """What a city-resolution run would do: `to_lookup` companies that have never
+    been looked up (each one billed request), `cached_ready` that already have an
+    accepted city waiting to be applied."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT COUNT(DISTINCT c.company_key) AS n FROM contacts c WHERE {_NEEDS_CITY} "
+            "AND NOT EXISTS (SELECT 1 FROM company_city_lookups l WHERE l.company_key = c.company_key)"
+        )
+        to_lookup = cur.fetchone()["n"]
+        cur.execute(
+            f"SELECT COUNT(DISTINCT c.company_key) AS n FROM contacts c WHERE {_NEEDS_CITY} "
+            "AND EXISTS (SELECT 1 FROM company_city_lookups l "
+            "            WHERE l.company_key = c.company_key AND l.outcome = 'resolved')"
+        )
+        return {"to_lookup": to_lookup, "cached_ready": cur.fetchone()["n"]}
+
+
+def apply_cached_cities() -> int:
+    """Fill the city of organizations still waiting for one from lookups we
+    already paid for. Never overwrites a city that is set. Returns rows updated."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            UPDATE contacts c
+               SET city = l.city, country = l.country, city_status = 'resolved', updated_at = NOW()
+              FROM company_city_lookups l
+             WHERE l.company_key = c.company_key AND l.outcome = 'resolved'
+               AND {_NEEDS_CITY} AND COALESCE(c.city, '') = ''
+            """
+        )
+        return cur.rowcount
+
+
+def resolve_company_cities(limit: int = 200, lookup=lookup_places) -> dict:
+    """Look up the city of LinkedIn-created organizations that have none, most
+    connections first, at most `limit` billed lookups. Every outcome is cached.
+
+    Anti-fragile: one failed lookup is counted and skipped; a failure that would
+    repeat for every company (bad key, quota spent) or five in a row stops the run
+    and keeps what was done. Returns counts — applied_cached, looked_up, resolved,
+    ambiguous, not_found, errors, stopped (reason or "")."""
+    counts = {"applied_cached": apply_cached_cities(), "looked_up": 0, "resolved": 0,
+              "ambiguous": 0, "not_found": 0, "errors": 0, "stopped": ""}
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT ON (c.company_key) c.company_key, c.name,
+                   (SELECT COUNT(*) FROM people p
+                     WHERE p.contact_id = c.id AND p.deleted_at IS NULL) AS people
+              FROM contacts c
+             WHERE {_NEEDS_CITY}
+               AND NOT EXISTS (SELECT 1 FROM company_city_lookups l
+                                WHERE l.company_key = c.company_key)
+             ORDER BY c.company_key, people DESC
+            """
+        )
+        todo = sorted((dict(r) for r in cur.fetchall()), key=lambda r: (-r["people"], r["name"]))[:limit]
+
+    consecutive_errors = 0
+    for item in todo:
+        try:
+            places = lookup(item["name"])
+        except PlacesError as error:
+            counts["errors"] += 1
+            consecutive_errors += 1
+            logger.warning("city lookup failed for %r: %s", item["name"], error)
+            if error.fatal or consecutive_errors >= MAX_CONSECUTIVE_LOOKUP_ERRORS:
+                counts["stopped"] = str(error)
+                break
+            continue
+        consecutive_errors = 0
+        decision = decide_city(item["company_key"], places)
+        try:
+            with db() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO company_city_lookups
+                        (company_key, outcome, city, country, place_id, candidates)
+                    VALUES (%s, %s, NULLIF(%s, ''), NULLIF(%s, ''), NULLIF(%s, ''), %s)
+                    ON CONFLICT (company_key) DO UPDATE SET
+                        outcome = EXCLUDED.outcome, city = EXCLUDED.city,
+                        country = EXCLUDED.country, place_id = EXCLUDED.place_id,
+                        candidates = EXCLUDED.candidates, looked_up_at = NOW()
+                    """,
+                    (item["company_key"], decision.outcome, decision.city, decision.country,
+                     decision.place_id, Json(decision.candidates)),
+                )
+                if decision.outcome == "resolved":
+                    cur.execute(
+                        "UPDATE contacts c SET city = %s, country = %s, city_status = 'resolved', "
+                        f"updated_at = NOW() WHERE c.company_key = %s AND {_NEEDS_CITY} "
+                        "AND COALESCE(c.city, '') = ''",
+                        (decision.city, decision.country, item["company_key"]),
+                    )
+        except Exception:
+            counts["errors"] += 1
+            logger.warning("city result not saved for %r", item["name"], exc_info=True)
+            continue
+        counts["looked_up"] += 1
+        counts[decision.outcome] += 1
+    logger.info("linkedin cities: %s", counts)
+    if counts["looked_up"] or counts["applied_cached"]:
+        log_audit(None, None, "linkedin.cities_resolved", None,
+                  f"looked_up={counts['looked_up']} resolved={counts['resolved']}")
+    return counts
 
