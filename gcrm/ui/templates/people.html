@@ -91,8 +91,8 @@
   <tbody>
     {% for p in people %}
     <tr>
-      <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}</td>
-      <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% else %}—{% endif %}</td>
+      <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}</td>
+      <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% elif p.company_raw %}<span title="{{ t('linkedin.notLinked') }}">{{ p.company_raw }}</span>{% else %}—{% endif %}</td>
       <td>
         {% if p.company_pipeline_stage %}
         <span class="badge badge-stage-{{ p.company_pipeline_stage }}">{{ t('stage.' ~ p.company_pipeline_stage) }}</span>

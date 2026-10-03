@@ -788,6 +788,23 @@ class TestPersonPages:
             response = client.get("/people/")
         assert "linkedin-badge" in response.text
 
+    def test_list_shows_the_imported_company_and_position_even_when_not_linked(self, admin_web):
+        listed = {**PERSON_ROW, "company": None, "contact_id": None, "company_raw": "GREENBAY healthcare GmbH",
+                  "title": "Gründer:in", "company_pipeline_stage": None, "company_opportunity_score": None,
+                  "company_personal_priority": None, "value_rating": None, "last_contact": None}
+        with patch("gcrm.api.routers.people.get_people", return_value=[listed]):
+            response = client.get("/people/")
+        assert "GREENBAY healthcare GmbH" in response.text and "Gründer:in" in response.text
+        assert "not linked to an organization" in response.text  # tooltip: text only, no organization yet
+
+    def test_list_prefers_the_linked_organization_over_the_raw_text(self, admin_web):
+        listed = {**PERSON_ROW, "company": "Acme GmbH", "contact_id": 4, "company_raw": "ACME",
+                  "company_pipeline_stage": None, "company_opportunity_score": None,
+                  "company_personal_priority": None, "value_rating": None, "last_contact": None}
+        with patch("gcrm.api.routers.people.get_people", return_value=[listed]):
+            response = client.get("/people/")
+        assert 'href="/organizations/4"' in response.text and "ACME<" not in response.text
+
 
 ORG_ROW = {
     "id": 1, "name": "Acme GmbH", "city": "Augsburg", "country": "DE", "type": "Handwerksbetrieb",
