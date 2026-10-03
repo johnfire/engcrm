@@ -93,15 +93,64 @@ class TestEndpoint:
     def test_requires_auth(self):
         assert client.post("/api/pipeline/scout/run", json={"city": "X"}).status_code in (401, 403)
 
-    def test_queues_stage(self):
-        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn:
+    def test_queues_stage_for_a_canonical_city(self):
+        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
+             patch("gcrm.api.routers.api_pipeline.add_city") as add, \
+             patch("gcrm.api.routers.api_pipeline.normalize_city",
+                   return_value=[{"name": "Augsburg", "state": "Bayern", "type": "city"}]):
             resp = client.post("/api/pipeline/research/run", headers=AUTH,
                                json={"city": "Augsburg", "level": 1})
         assert resp.status_code == 202
         assert resp.json()["stage"] == "research"
         assert spawn.call_args.kwargs["city"] == "Augsburg"
+        add.assert_called_once_with("Augsburg", "DE")
+
+    def test_variant_asks_for_confirmation_and_queues_nothing(self):
+        candidates = [{"name": "Landsberg am Lech", "state": "Bayern", "type": "town"}]
+        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
+             patch("gcrm.api.routers.api_pipeline.add_city") as add, \
+             patch("gcrm.api.routers.api_pipeline.normalize_city", return_value=candidates):
+            resp = client.post("/api/pipeline/research/run", headers=AUTH,
+                               json={"city": "Landsberg", "level": 1})
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "needs_confirmation", "typed": "Landsberg",
+                               "candidates": candidates}
+        spawn.assert_not_called()
+        add.assert_not_called()
+
+    def test_unplaceable_city_asks_for_confirmation(self):
+        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
+             patch("gcrm.api.routers.api_pipeline.normalize_city", return_value=[]):
+            resp = client.post("/api/pipeline/scout/run", headers=AUTH, json={"city": "Augsbrug"})
+        assert resp.json()["status"] == "needs_confirmation"
+        assert resp.json()["candidates"] == []
+        spawn.assert_not_called()
+
+    def test_confirmed_city_skips_the_lookup(self):
+        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
+             patch("gcrm.api.routers.api_pipeline.add_city") as add, \
+             patch("gcrm.api.routers.api_pipeline.normalize_city") as lookup:
+            resp = client.post("/api/pipeline/research/run", headers=AUTH,
+                               json={"city": "Landsberg am Lech", "level": 1, "confirmed": True})
+        assert resp.status_code == 202
+        lookup.assert_not_called()
+        add.assert_called_once_with("Landsberg am Lech", "DE")
+        assert spawn.call_args.kwargs["city"] == "Landsberg am Lech"
+
+    @pytest.mark.parametrize("stage", ["followup", "opportunity"])
+    def test_global_stages_skip_the_city_check(self, stage):
+        with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
+             patch("gcrm.api.routers.api_pipeline.add_city") as add, \
+             patch("gcrm.api.routers.api_pipeline.normalize_city") as lookup:
+            resp = client.post(f"/api/pipeline/{stage}/run", headers=AUTH, json={})
+        assert resp.status_code == 202
+        lookup.assert_not_called()
+        add.assert_not_called()
+        spawn.assert_called_once()
 
     def test_bad_request_is_422(self):
         # Real spawn_stage runs: research with no level -> ValueError -> 422
-        resp = client.post("/api/pipeline/research/run", headers=AUTH, json={"city": "Augsburg"})
+        with patch("gcrm.api.routers.api_pipeline.add_city"):
+            resp = client.post("/api/pipeline/research/run", headers=AUTH,
+                               json={"city": "Augsburg", "confirmed": True})
         assert resp.status_code == 422

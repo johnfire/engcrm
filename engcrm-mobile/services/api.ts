@@ -214,17 +214,37 @@ export async function fetchActivity(): Promise<AgentRun[]> {
 }
 
 // --- Pipeline ---
-// Run a single stage (research/scout/enrichment/outreach/followup) or the whole
-// city pipeline ("all"). Followup is global and ignores city/level.
+// Run a single stage (research/scout/enrichment/opportunity/outreach/followup)
+// or the whole city pipeline ("all"). Followup and opportunity are global and
+// ignore city/level. For a city the server may answer "needs_confirmation" with
+// spelling/variant candidates; resend the chosen name with confirmed: true.
+export interface CityCandidate {
+  name: string;
+  state: string;
+  type: string;
+}
+export type PipelineRunResult =
+  | { status: "queued" }
+  | { status: "needs_confirmation"; typed: string; candidates: CityCandidate[] };
+
 export async function runPipelineStage(
   stage: string,
-  opts: { city?: string; level?: number; country?: string } = {},
-): Promise<void> {
-  await client.post(`/api/pipeline/${stage}/run`, {
+  opts: { city?: string; level?: number; country?: string; confirmed?: boolean } = {},
+): Promise<PipelineRunResult> {
+  const resp = await client.post(`/api/pipeline/${stage}/run`, {
     city: opts.city ?? "",
     level: opts.level ?? null,
     country: opts.country ?? "DE",
+    confirmed: opts.confirmed ?? false,
   });
+  if (resp.data?.status === "needs_confirmation") {
+    return {
+      status: "needs_confirmation",
+      typed: resp.data.typed,
+      candidates: resp.data.candidates ?? [],
+    };
+  }
+  return { status: "queued" };
 }
 
 // --- Research overview (read-only city scan-status table — display parity with

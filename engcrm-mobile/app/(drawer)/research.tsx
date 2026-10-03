@@ -14,6 +14,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   runPipelineStage,
   fetchResearchOverview,
+  CityCandidate,
   ResearchOverview,
 } from "../../services/api";
 import { ResearchOverviewPanel } from "../../components/ResearchOverviewPanel";
@@ -39,6 +40,12 @@ export default function PipelineScreen() {
   const [level, setLevel] = useState(1);
   const [country, setCountry] = useState("DE");
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{
+    stage: string;
+    label: string;
+    typed: string;
+    candidates: CityCandidate[];
+  } | null>(null);
 
   const [overview, setOverview] = useState<ResearchOverview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
@@ -68,17 +75,29 @@ export default function PipelineScreen() {
     }, [loadOverview]),
   );
 
-  async function run(stage: string, label: string, needsCity = true) {
-    if (needsCity && !city.trim()) {
+  async function run(stage: string, label: string, needsCity = true, cityOverride?: string) {
+    const chosen = (cityOverride ?? city).trim();
+    if (needsCity && !chosen) {
       Alert.alert(t("research.cityRequiredTitle"), t("research.cityRequiredMessage"));
       return;
     }
     setBusy(stage);
+    setConfirm(null);
     try {
-      await runPipelineStage(stage, { city: city.trim(), level, country });
+      const result = await runPipelineStage(stage, {
+        city: needsCity ? chosen : "",
+        level,
+        country,
+        confirmed: cityOverride !== undefined,
+      });
+      if (result.status === "needs_confirmation") {
+        setConfirm({ stage, label, typed: result.typed, candidates: result.candidates });
+        return;
+      }
+      if (cityOverride !== undefined) setCity(chosen);
       Alert.alert(
         t("research.queuedTitle"),
-        t("research.queuedMessage", { label, forCity: needsCity ? ` for ${city.trim()}` : "" }),
+        t("research.queuedMessage", { label, forCity: needsCity ? ` for ${chosen}` : "" }),
       );
     } catch (error: any) {
       Alert.alert(
@@ -124,9 +143,42 @@ export default function PipelineScreen() {
         placeholder={t("research.cityPlaceholder")}
         placeholderTextColor="#555"
         value={city}
-        onChangeText={setCity}
+        onChangeText={(text) => {
+          setCity(text);
+          setConfirm(null);
+        }}
         autoCapitalize="words"
       />
+
+      {confirm && (
+        <View style={styles.confirmBox} testID="city-confirm">
+          <Text style={styles.confirmTitle}>
+            {confirm.candidates.length
+              ? t("research.confirmTitle", { typed: confirm.typed })
+              : t("research.confirmNoMatch", { typed: confirm.typed })}
+          </Text>
+          {confirm.candidates.map((candidate) => (
+            <TouchableOpacity
+              key={`${candidate.name}-${candidate.state}`}
+              style={styles.confirmBtn}
+              onPress={() => run(confirm.stage, confirm.label, true, candidate.name)}
+            >
+              <Text style={styles.confirmBtnText}>
+                {candidate.state ? `${candidate.name} · ${candidate.state}` : candidate.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.confirmBtn}
+            onPress={() => run(confirm.stage, confirm.label, true, confirm.typed)}
+          >
+            <Text style={styles.confirmBtnText}>{t("research.useAsTyped", { typed: confirm.typed })}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setConfirm(null)}>
+            <Text style={styles.confirmCancel}>{t("common.cancel")}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Text style={styles.label}>{t("research.level")}</Text>
       <View style={styles.row}>
@@ -205,6 +257,18 @@ export default function PipelineScreen() {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.stageText}>{t("research.outreachDraft")}</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.followupBtn, busy === "opportunity" && styles.btnBusy]}
+        onPress={() => run("opportunity", t("research.opportunity"), false)}
+        disabled={disabled}
+      >
+        {busy === "opportunity" ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.followupText}>{t("research.runOpportunityAllCities")}</Text>
         )}
       </TouchableOpacity>
 
@@ -315,6 +379,23 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff20",
   },
   followupText: { color: "#ccc", fontSize: 15, fontWeight: "600" },
+  confirmBox: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#7c6fff55",
+    gap: 8,
+  },
+  confirmTitle: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  confirmBtn: {
+    backgroundColor: "#ffffff10",
+    borderRadius: 10,
+    padding: 12,
+  },
+  confirmBtnText: { color: "#fff", fontSize: 15 },
+  confirmCancel: { color: "#888", fontSize: 14, textAlign: "center", paddingTop: 4 },
   hint: {
     color: "#555",
     fontSize: 12,
