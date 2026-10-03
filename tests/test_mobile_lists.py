@@ -31,7 +31,7 @@ class TestPeopleEndpoint:
     def test_without_a_page_the_whole_list_comes_back_as_older_builds_expect(self):
         response, people = self.get()
         assert response.status_code == 200
-        assert people.call_args.kwargs == {"linkedin": "", "stage": ""}
+        assert people.call_args.kwargs == {"linkedin": "", "stage": "", "city": ""}
 
     def test_a_page_asks_for_fifty_from_the_right_offset(self):
         _, people = self.get({"page": 3})
@@ -41,6 +41,16 @@ class TestPeopleEndpoint:
         _, people = self.get({"stage": "prospect", "linkedin": "unlinked", "search": "anna", "sort": "connected_on"})
         assert people.call_args.args[:3] == ("anna", "connected_on", "desc")
         assert people.call_args.kwargs["stage"] == "prospect" and people.call_args.kwargs["linkedin"] == "unlinked"
+
+    def test_a_city_is_passed_through(self):
+        _, people = self.get({"city": "Ulm"})
+        assert people.call_args.kwargs["city"] == "Ulm"
+
+    def test_the_city_list_comes_back_with_head_counts(self):
+        rows = [{"city": "Augsburg", "people": 3}, {"city": "Ulm", "people": 1}]
+        with patch("gcrm.api.routers.api_people.get_person_cities", return_value=rows):
+            response = client.get("/api/people/cities", headers=VIEWER)
+        assert response.status_code == 200 and response.json() == rows
 
     @pytest.mark.parametrize("params", [{"stage": "bogus"}, {"linkedin": "maybe"}, {"page": 0}])
     def test_unknown_values_are_refused_not_ignored(self, params):
@@ -69,6 +79,22 @@ class TestGetPeoplePaging:
         sql, params = self.run(limit=50, offset=100)
         assert sql.rstrip().endswith("LIMIT %s OFFSET %s")
         assert params[-2:] == [50, 100]
+
+    def test_a_city_filters_ignoring_case_and_spaces_with_a_bound_parameter(self):
+        sql, params = self.run(city="  Ulm ")
+        assert "lower(trim(person.city)) = lower(%s)" in sql
+        assert "Ulm" not in sql and params == ["Ulm"]
+
+    def test_a_blank_city_means_every_city(self):
+        sql, params = self.run(city="   ")
+        assert "person.city)" not in sql and params == []
+
+    def test_the_city_list_groups_spellings_that_differ_only_in_case(self):
+        conn, cursor = mock_conn([{"city": "Ulm", "people": 2}])
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            assert db_people.get_person_cities() == [{"city": "Ulm", "people": 2}]
+        assert "GROUP BY lower(trim(city))" in cursor.execute.call_args.args[0]
 
     def test_no_limit_means_no_limit_clause(self):
         sql, _ = self.run()

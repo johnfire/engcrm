@@ -54,6 +54,12 @@
     {% endfor %}
     <option value="none" {% if stage == "none" %}selected{% endif %}>{{ t('people.stage.none') }}</option>
   </select>
+  <select name="city" aria-label="{{ t('common.city') }}">
+    <option value="">{{ t('people.city.all') }}</option>
+    {% for c in cities %}
+    <option value="{{ c.city }}" {% if city|lower|trim == c.city|lower %}selected{% endif %}>{{ c.city }} ({{ c.people }})</option>
+    {% endfor %}
+  </select>
   <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
@@ -73,7 +79,7 @@
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
   <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
-  {% if query or company_priority or value_rating or linkedin %}
+  {% if query or company_priority or value_rating or linkedin or stage or city %}
   <a href="/people/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
   {% endif %}
 </form>

@@ -625,7 +625,7 @@ class TestDeletePerson:
             assert client.post("/people/999/delete", follow_redirects=False).status_code == 404
 
     def test_list_confirms_the_deletion(self, admin_web):
-        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[]):
             assert "Person deleted." in client.get("/people/?deleted=1").text
             assert "Person deleted." not in client.get("/people/").text
 

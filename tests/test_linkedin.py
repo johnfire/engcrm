@@ -778,7 +778,7 @@ class TestPersonPages:
         assert response.status_code == 400
 
     def test_list_passes_the_linkedin_filter(self, admin_web):
-        with patch("gcrm.api.routers.people.get_people", return_value=[]) as mget:
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[]) as mget:
             response = client.get("/people/?linkedin=unlinked")
         assert response.status_code == 200
         assert mget.call_args.args[6] == "unlinked"
@@ -787,7 +787,7 @@ class TestPersonPages:
     def test_list_marks_linkedin_people(self, admin_web):
         listed = {**PERSON_ROW, "company_pipeline_stage": None, "company_opportunity_score": None,
                   "company_personal_priority": None, "value_rating": None, "last_contact": None}
-        with patch("gcrm.api.routers.people.get_people", return_value=[listed]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[listed]):
             response = client.get("/people/")
         assert "linkedin-badge" in response.text
 
@@ -795,7 +795,7 @@ class TestPersonPages:
         listed = {**PERSON_ROW, "company": None, "contact_id": None, "company_raw": "GREENBAY healthcare GmbH",
                   "title": "Gründer:in", "company_pipeline_stage": None, "company_opportunity_score": None,
                   "company_personal_priority": None, "value_rating": None, "last_contact": None}
-        with patch("gcrm.api.routers.people.get_people", return_value=[listed]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[listed]):
             response = client.get("/people/")
         assert "GREENBAY healthcare GmbH" in response.text and "Gründer:in" in response.text
         assert "not linked to an organization" in response.text  # tooltip: text only, no organization yet
@@ -804,7 +804,7 @@ class TestPersonPages:
         listed = {**PERSON_ROW, "company": "Acme GmbH", "contact_id": 4, "company_raw": "ACME",
                   "company_pipeline_stage": None, "company_opportunity_score": None,
                   "company_personal_priority": None, "value_rating": None, "last_contact": None}
-        with patch("gcrm.api.routers.people.get_people", return_value=[listed]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[listed]):
             response = client.get("/people/")
         assert 'href="/organizations/4"' in response.text and "ACME<" not in response.text
 

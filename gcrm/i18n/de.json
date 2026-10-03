@@ -623,6 +623,7 @@
   "linkedin.companies.failed": "{{count}} Firmen konnten nicht verarbeitet werden; der Rest wurde übernommen.",
   "linkedin.companies.next": "Nächster Schritt: Städte ergänzen —",
   "linkedin.companies.loadFailed": "Die Vorschau konnte nicht geladen werden. Bitte erneut versuchen.",
+  "people.city.all": "Alle Städte",
   "people.stage.all": "Alle Stufen",
   "people.stage.none": "Keine Stufe",
   "people.stage.organization": "Organisation: {{stage}}",

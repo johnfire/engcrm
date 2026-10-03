@@ -32,7 +32,7 @@ from gcrm.tools.db_inbox import (
     set_visit_when_nearby,
 )
 from gcrm.tools.db_outreach import get_outreach_outcomes, record_warm_outcome
-from gcrm.tools.db_people import get_people, get_person, save_person
+from gcrm.tools.db_people import get_people, get_person, get_person_cities, save_person
 from gcrm.tools.db_users import (
     create_user,
     get_user_by_email,
@@ -288,6 +288,7 @@ __all__ = [
     "get_outreach_outcomes",
     "get_overdue_contacts",
     "get_people",
+    "get_person_cities",
     "get_person",
     "get_run_costs",
     "get_unprocessed_inbox",

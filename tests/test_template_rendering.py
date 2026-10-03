@@ -415,7 +415,7 @@ class TestPeoplePage:
                 "created_at": "2026-08-20T10:00:00+00:00",
             }
             for lang in ("en", "de"):
-                conn, cur = make_mock_conn([person])
+                conn, cur = make_mock_conn([person], [{"city": "Augsburg", "people": 1}])
                 with patch("gcrm.tools.db_people.db") as mock_db:
                     mock_db.return_value.__enter__.return_value = conn
                     r = client.get(f"/people/?lang={lang}")

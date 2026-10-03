@@ -9,7 +9,7 @@ from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.routers.api_record_edit import clean_fields
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES
-from gcrm.tools.db import get_people, get_person
+from gcrm.tools.db import get_people, get_person, get_person_cities
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import find_existing_person, save_person, update_person
 from gcrm.tools.privacy_retention import erase_person
@@ -27,19 +27,26 @@ def list_people(
     dir: str = "desc",
     stage: str = "",
     linkedin: str = "",
+    city: str = "",
     page: int | None = Query(default=None, ge=1),
     _role: str = Depends(require_jwt),
 ) -> list[dict]:
     """People, newest first by default. `stage` is a pipeline stage or "none" (no
     stage set); `linkedin` is "1" (LinkedIn connections) or "unlinked" (connections
-    not yet tied to an organization). Without `page` the whole list comes back, as
+    not yet tied to an organization); `city` limits to one city (see /cities). Without `page` the whole list comes back, as
     older app builds expect; with it, one page of PAGE_SIZE."""
     if stage and stage != "none" and stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     if linkedin not in ("", "1", "unlinked"):
         raise HTTPException(status_code=400, detail="Unknown linkedin filter")
     paging = {} if page is None else {"limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}
-    return get_people(search, sort, dir, linkedin=linkedin, stage=stage, **paging)
+    return get_people(search, sort, dir, linkedin=linkedin, stage=stage, city=city, **paging)
+
+
+@router.get("/cities")
+def list_people_cities(_role: str = Depends(require_jwt)) -> list[dict]:
+    """Each city people are in, with a head count, A to Z — what a city filter offers."""
+    return get_person_cities()
 
 
 # column -> maximum length. people.name and people.email are VARCHAR(200); the rest

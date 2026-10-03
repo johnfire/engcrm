@@ -267,6 +267,7 @@ def get_people(
     stage: str = "",
     limit: int | None = None,
     offset: int = 0,
+    city: str = "",
 ) -> list[dict]:
     """All people, optionally filtered by name/email/city text search and/or
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
@@ -274,6 +275,7 @@ def get_people(
     and/or `linkedin` ("1" = LinkedIn connections, "unlinked" = connections not
     yet tied to an organization, "" = everyone), and/or `stage` (a pipeline
     stage, "none" = no stage set, "" = any),
+    and/or `city` (exact match ignoring case and surrounding spaces, "" = any),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
     opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
@@ -304,6 +306,9 @@ def get_people(
     elif stage in PIPELINE_STAGES:
         conditions.append("person.pipeline_stage = %s")
         params.append(stage)
+    if city.strip():
+        conditions.append("lower(trim(person.city)) = lower(%s)")
+        params.append(city.strip())
     where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
 
     # NULLS LAST regardless of direction — an unrated/unlinked person should
@@ -316,6 +321,23 @@ def get_people(
         cur = conn.cursor()
         cur.execute(select + where + order_by, params)
         return [serialize_row(dict(row)) for row in cur.fetchall()]
+
+
+def get_person_cities() -> list[dict]:
+    """Every distinct city people have, with how many people are in it, A to Z.
+    Spellings that differ only in case or surrounding spaces count as one city."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT min(trim(city)) AS city, count(*) AS people
+            FROM person
+            WHERE city IS NOT NULL AND trim(city) <> ''
+            GROUP BY lower(trim(city))
+            ORDER BY lower(trim(city))
+            """
+        )
+        return [dict(row) for row in cur.fetchall()]
 
 
 def get_person(person_id: int, user_id: int | None = None) -> dict | None:

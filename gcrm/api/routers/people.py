@@ -34,6 +34,7 @@ from gcrm.tools.db_linkedin import (
 from gcrm.tools.db_people import (
     get_people,
     get_person,
+    get_person_cities,
     save_person,
     search_organizations,
     set_person_organization,
@@ -75,11 +76,12 @@ def people_list(
     value_rating: str = Query(default=""),
     linkedin: str = Query(default=""),
     stage: str = Query(default=""),
+    city: str = Query(default=""),
     deleted: bool = Query(default=False),
 ):
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
-        linkedin, stage=stage,
+        linkedin, stage=stage, city=city,
     )
     return templates.TemplateResponse("people.html", {
         "request": request,
@@ -91,6 +93,8 @@ def people_list(
         "value_rating": value_rating,
         "linkedin": linkedin,
         "stage": stage,
+        "city": city,
+        "cities": get_person_cities(),
         "stages": PIPELINE_STAGES,
         "deleted": deleted,
     })

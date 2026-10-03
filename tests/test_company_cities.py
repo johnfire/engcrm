@@ -381,7 +381,7 @@ class TestCityRoutes:
         apply.assert_not_called()
 
     def test_the_people_page_links_to_the_queue(self, admin_session):
-        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[]):
             assert "/people/linkedin/cities" in admin_session.get("/people/").text
 
 
@@ -526,7 +526,7 @@ class TestCompaniesPage:
         assert response.status_code == 303 and "failed=1" in response.headers["location"]
 
     def test_the_people_page_and_the_import_result_lead_to_it(self, admin_session):
-        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[]):
             assert "/people/linkedin/companies" in admin_session.get("/people/").text
 
 
@@ -541,7 +541,7 @@ class TestPersonStage:
                 "created_at": "2026-10-03", **extra}
 
     def page(self, admin_session, row, url="/people/"):
-        with patch("gcrm.api.routers.people.get_people", return_value=[row]) as mget:
+        with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[row]) as mget:
             return admin_session.get(url), mget
 
     def test_the_list_shows_the_stored_stage_as_an_editable_select(self, admin_session):
