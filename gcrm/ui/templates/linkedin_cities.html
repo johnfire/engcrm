@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ t('linkedin.cities.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('linkedin.cities.title') }}</h1>
+  <span class="muted">{{ t('linkedin.cities.total', count=total) }}</span>
+  <a href="/people/?linkedin=1" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
+</div>
+
+{% if applied %}
+<div class="flash-success">{{ t('linkedin.cities.applied', saved=applied.saved, dismissed=applied.dismissed) }}</div>
+{% if applied.failed %}<p class="error">{{ t('linkedin.cities.failed', count=applied.failed) }}</p>{% endif %}
+{% endif %}
+{% if load_failed %}
+<p class="error">{{ t('linkedin.cities.loadFailed') }}</p>
+{% endif %}
+
+<p class="muted">{{ t('linkedin.cities.intro') }}</p>
+
+{% if rows %}
+<form method="post" action="/people/linkedin/cities">
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.cities.apply') }}</button>
+  </div>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('linkedin.cities.organization') }}</th>
+        <th>{{ t('linkedin.cities.whoYouKnow') }}</th>
+        <th>{{ t('linkedin.cities.lookup') }}</th>
+        <th>{{ t('common.city') }}</th>
+        <th>{{ t('linkedin.cities.country') }}</th>
+        <th>{{ t('linkedin.cities.dismiss') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in rows %}
+      <tr>
+        <td><strong><a href="/organizations/{{ o.id }}">{{ o.name }}</a></strong></td>
+        <td>
+          {% for person in o.people %}
+          <div><a href="/people/{{ person.id }}">{{ person.name }}</a>{% if person.title %} <span class="muted small">— {{ person.title }}</span>{% endif %}</div>
+          {% endfor %}
+        </td>
+        <td class="muted small">
+          {% if o.lookup_outcome %}{{ t('linkedin.cities.outcome.' ~ o.lookup_outcome) }}{% else %}{{ t('linkedin.cities.outcome.never') }}{% endif %}
+        </td>
+        <td>
+          {% if o.choices %}
+          <select name="pick_{{ o.id }}" aria-label="{{ t('linkedin.cities.offered') }}">
+            <option value="">{{ t('linkedin.cities.offered') }}</option>
+            {% for choice in o.choices %}
+            <option value="{{ choice.city }}|{{ choice.country }}">{{ choice.city }}{% if choice.country %}, {{ choice.country }}{% endif %}</option>
+            {% endfor %}
+          </select>
+          {% endif %}
+          <input type="text" name="city_{{ o.id }}" maxlength="100" placeholder="{{ t('common.city') }}" aria-label="{{ t('common.city') }}">
+        </td>
+        <td><input type="text" name="country_{{ o.id }}" maxlength="2" size="3" placeholder="DE" aria-label="{{ t('linkedin.cities.country') }}"></td>
+        <td><input type="checkbox" name="dismiss_{{ o.id }}" value="1" aria-label="{{ t('linkedin.cities.dismiss') }}"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="detail-actions">
+    <button type="submit" class="btn-primary">{{ t('linkedin.cities.apply') }}</button>
+  </div>
+</form>
+{% if total_pages > 1 %}
+<div class="pagination">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}" class="btn-secondary">{{ t('common.prev') }}</a>{% endif %}
+  <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
+  {% if page < total_pages %}<a href="?page={{ page + 1 }}" class="btn-secondary">{{ t('common.next') }}</a>{% endif %}
+</div>
+{% endif %}
+{% elif not load_failed %}
+<p class="muted">{{ t('linkedin.cities.empty') }}</p>
+{% endif %}
+{% endblock %}

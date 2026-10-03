@@ -13,7 +13,10 @@ from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_linkedin import (
+    CITY_QUEUE_PAGE_SIZE,
+    apply_city_decisions,
     apply_match_decisions,
+    get_city_review_queue,
     get_match_suggestions,
     import_connections,
 )
@@ -227,6 +230,74 @@ async def linkedin_matches_apply(request: Request, _admin: str = Depends(require
     )
     return local_redirect(
         "/people/linkedin/matches", linked=str(counts["linked"]), rejected=str(counts["rejected"]),
+    )
+
+
+@router.get("/people/linkedin/cities", response_class=HTMLResponse)
+def linkedin_cities(
+    request: Request,
+    page: int = Query(default=1, ge=1),
+    saved: int | None = Query(default=None),
+    dismissed: int | None = Query(default=None),
+    failed: int | None = Query(default=None),
+):
+    """Organizations created from LinkedIn that still need a city, most
+    connections first. The lookup could not settle these (chains, unknown or
+    unlooked-up companies); a city typed here is saved as entered by hand."""
+    load_failed = False
+    try:
+        queue = get_city_review_queue(page)
+    except Exception:
+        logger.exception("linkedin city queue failed")
+        queue, load_failed = {"total": 0, "rows": []}, True
+    total_pages = max(1, -(-queue["total"] // CITY_QUEUE_PAGE_SIZE))
+    return templates.TemplateResponse("linkedin_cities.html", {
+        "request": request,
+        "rows": queue["rows"],
+        "total": queue["total"],
+        "page": min(page, total_pages),
+        "total_pages": total_pages,
+        "load_failed": load_failed,
+        "applied": None if saved is None else {
+            "saved": saved, "dismissed": dismissed or 0, "failed": failed or 0},
+    })
+
+
+def _parse_city_decisions(form) -> list[dict]:
+    """One `city_<id>` text box, one `pick_<id>` choice ('City|CC' from the
+    cities the lookup offered), `country_<id>`, and a `dismiss_<id>` checkbox per
+    row. Typed text wins over the pick; empty rows are left alone."""
+    ids = {
+        int(key.split("_", 1)[1]) for key in form.keys()
+        if key.split("_", 1)[0] in {"city", "pick", "country", "dismiss"}
+        and key.split("_", 1)[-1].isdigit()
+    }
+    decisions = []
+    for contact_id in sorted(ids):
+        typed = str(form.get(f"city_{contact_id}") or "").strip()
+        picked_city, _, picked_country = str(form.get(f"pick_{contact_id}") or "").partition("|")
+        city = typed or picked_city.strip()
+        country = str(form.get(f"country_{contact_id}") or "").strip()
+        if not typed and not country:
+            country = picked_country.strip()
+        dismiss = bool(form.get(f"dismiss_{contact_id}")) and not city
+        if city or dismiss:
+            decisions.append({"contact_id": contact_id, "city": city,
+                              "country": country, "dismiss": dismiss})
+    return decisions
+
+
+@router.post("/people/linkedin/cities")
+async def linkedin_cities_apply(request: Request, _admin: str = Depends(require_admin)):
+    decisions = _parse_city_decisions(await request.form())
+    counts = apply_city_decisions(decisions) if decisions else {"saved": 0, "dismissed": 0, "failed": 0}
+    log_audit(
+        None, None, "contact.linkedin_cities_applied", "contacts",
+        f"saved:{counts['saved']} dismissed:{counts['dismissed']} failed:{counts['failed']}",
+    )
+    return local_redirect(
+        "/people/linkedin/cities", saved=str(counts["saved"]),
+        dismissed=str(counts["dismissed"]), failed=str(counts["failed"]),
     )
 
 

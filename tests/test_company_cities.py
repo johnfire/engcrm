@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
+import gcrm.api.main as main
+from gcrm.api.auth import require_admin, require_login
 from gcrm.tools import company_places, db_linkedin
 from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
 
@@ -201,3 +204,182 @@ class TestResolveCompanyCities:
         counts = resolve(CityCursor([]), lookup)
         lookup.assert_not_called()
         assert counts["looked_up"] == 0
+
+
+# --- review queue ------------------------------------------------------------
+
+class QueueCursor:
+    def __init__(self, rows, total=None, fail_for=None):
+        self.rows = rows
+        self.total = len(rows) if total is None else total
+        self.fail_for = fail_for
+        self.executed = []
+        self.rowcount = 1
+        self._one = None
+
+    def execute(self, sql, params=None):
+        sql = " ".join(sql.split())
+        self.executed.append((sql, params))
+        if sql.startswith("SELECT COUNT(*)"):
+            self._one = {"n": self.total}
+        elif sql.startswith("UPDATE contacts c SET") and params and self.fail_for in params:
+            raise RuntimeError("boom")
+
+    def fetchone(self):
+        return self._one
+
+    def fetchall(self):
+        return [dict(r) for r in self.rows]
+
+    def updates(self):
+        return [(s, p) for s, p in self.executed if s.startswith("UPDATE contacts c SET")]
+
+
+def with_db(cursor, fn):
+    conn = MagicMock()
+    conn.cursor.return_value = cursor
+    with patch("gcrm.tools.db_linkedin.db") as mock_db:
+        mock_db.return_value.__enter__.return_value = conn
+        return fn()
+
+
+class TestCityReviewQueue:
+    def test_distinct_offered_cities_become_choices_and_candidates_are_dropped(self):
+        rows = [{"id": 1, "name": "Helios", "lookup_outcome": "ambiguous", "people_count": 3,
+                 "people": [{"id": 5, "name": "Ann", "title": "CTO"}],
+                 "candidates": [{"name": "Helios", "city": "Berlin", "country": "DE"},
+                                {"name": "Helios", "city": "Berlin", "country": "DE"},
+                                {"name": "Helios", "city": "", "country": "DE"},
+                                {"name": "Helios", "city": "Wien", "country": "AT"}]}]
+        queue = with_db(QueueCursor(rows, total=7), db_linkedin.get_city_review_queue)
+        assert queue["total"] == 7
+        [row] = queue["rows"]
+        assert row["choices"] == [{"city": "Berlin", "country": "DE"}, {"city": "Wien", "country": "AT"}]
+        assert "candidates" not in row
+
+    def test_never_looked_up_organizations_have_no_choices(self):
+        rows = [{"id": 2, "name": "Acme", "lookup_outcome": None, "people_count": 1,
+                 "people": [], "candidates": None}]
+        [row] = with_db(QueueCursor(rows), db_linkedin.get_city_review_queue)["rows"]
+        assert row["choices"] == [] and row["lookup_outcome"] is None
+
+    def test_pages_by_offset(self):
+        cursor = QueueCursor([])
+        with_db(cursor, lambda: db_linkedin.get_city_review_queue(3))
+        select = [(s, p) for s, p in cursor.executed if "LIMIT" in s][0]
+        assert select[1] == (db_linkedin.CITY_QUEUE_PAGE_SIZE, 2 * db_linkedin.CITY_QUEUE_PAGE_SIZE)
+
+
+class TestApplyCityDecisions:
+    def apply(self, decisions, **kwargs):
+        cursor = QueueCursor([], **kwargs)
+        return with_db(cursor, lambda: db_linkedin.apply_city_decisions(decisions)), cursor
+
+    def test_typed_city_is_saved_as_manual_and_only_while_still_waiting(self):
+        counts, cursor = self.apply([{"contact_id": 4, "city": " Ulm ", "country": "de"}])
+        assert counts == {"saved": 1, "dismissed": 0, "failed": 0}
+        [(sql, params)] = cursor.updates()
+        assert params == ("Ulm", "DE", 4)
+        assert "city_status = 'manual'" in sql and "city_status = 'needs_review'" in sql
+
+    def test_country_left_blank_keeps_the_existing_one(self):
+        _, cursor = self.apply([{"contact_id": 4, "city": "Ulm", "country": ""}])
+        [(sql, params)] = cursor.updates()
+        assert params[1] is None and "COALESCE(%s, c.country)" in sql
+
+    def test_dismiss_stops_asking_without_touching_the_city(self):
+        counts, cursor = self.apply([{"contact_id": 4, "dismiss": True}])
+        assert counts["dismissed"] == 1
+        [(sql, _)] = cursor.updates()
+        assert "city_status = 'dismissed'" in sql and "city = " not in sql.replace("city_status", "")
+
+    def test_bad_country_code_fails_that_row_only(self):
+        counts, cursor = self.apply([
+            {"contact_id": 1, "city": "Ulm", "country": "Germany"},
+            {"contact_id": 2, "city": "Bonn", "country": "DE"},
+        ])
+        assert counts == {"saved": 1, "dismissed": 0, "failed": 1}
+        assert [p[2] for _, p in cursor.updates()] == [2]
+
+    def test_a_database_error_on_one_row_is_rolled_back_and_the_rest_apply(self):
+        counts, cursor = self.apply(
+            [{"contact_id": 1, "city": "Ulm", "country": ""},
+             {"contact_id": 2, "city": "Bonn", "country": ""}], fail_for=1)
+        assert counts["saved"] == 1 and counts["failed"] == 1
+        assert any("ROLLBACK TO SAVEPOINT" in s for s, _ in cursor.executed)
+
+    def test_blank_city_without_dismiss_does_nothing(self):
+        counts, cursor = self.apply([{"contact_id": 1, "city": "  ", "country": "DE"}])
+        assert counts["saved"] == 0 and cursor.updates() == []
+
+
+# --- routes ------------------------------------------------------------------
+
+QUEUE_ROW = {"id": 8, "name": "Helios Kliniken GmbH", "lookup_outcome": "ambiguous", "people_count": 2,
+             "people": [{"id": 5, "name": "Ann Roth", "title": "CTO"}],
+             "choices": [{"city": "Berlin", "country": "DE"}]}
+
+
+@pytest.fixture
+def admin_session():
+    main.app.dependency_overrides[require_login] = lambda: "admin"
+    main.app.dependency_overrides[require_admin] = lambda: "admin"
+    yield TestClient(main.app)
+    main.app.dependency_overrides.pop(require_login, None)
+    main.app.dependency_overrides.pop(require_admin, None)
+
+
+class TestCityRoutes:
+    def test_page_shows_who_you_know_and_what_the_lookup_offered(self, admin_session):
+        with patch("gcrm.api.routers.people.get_city_review_queue",
+                   return_value={"total": 1, "rows": [QUEUE_ROW]}):
+            response = admin_session.get("/people/linkedin/cities")
+        assert response.status_code == 200
+        assert "Helios Kliniken GmbH" in response.text and "Ann Roth" in response.text
+        assert 'name="city_8"' in response.text and 'name="pick_8"' in response.text
+        assert 'value="Berlin|DE"' in response.text and "several cities" in response.text
+
+    def test_page_survives_a_failing_queue(self, admin_session):
+        with patch("gcrm.api.routers.people.get_city_review_queue", side_effect=RuntimeError("x")):
+            response = admin_session.get("/people/linkedin/cities")
+        assert response.status_code == 200 and "could not be loaded" in response.text
+
+    def test_empty_state(self, admin_session):
+        with patch("gcrm.api.routers.people.get_city_review_queue",
+                   return_value={"total": 0, "rows": []}):
+            assert "has a city" in admin_session.get("/people/linkedin/cities").text
+
+    def test_apply_turns_the_form_into_decisions(self, admin_session):
+        with patch("gcrm.api.routers.people.apply_city_decisions",
+                   return_value={"saved": 2, "dismissed": 1, "failed": 0}) as apply, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities", data={
+                "city_1": "Ulm", "country_1": "de",                  # typed
+                "pick_2": "Berlin|DE", "city_2": "", "country_2": "",  # picked: country rides along
+                "pick_3": "Berlin|DE", "city_3": "Köln", "country_3": "",  # typed wins, pick's country ignored
+                "dismiss_4": "1", "city_4": "",                      # dismissed
+                "dismiss_5": "1", "city_5": "Bonn",                  # a city beats a dismiss
+                "pick_6": "", "city_6": "", "country_6": "DE",       # nothing to save
+                "city_x": "Nope",                                    # not an id
+            }, follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/people/linkedin/cities?saved=2&dismissed=1&failed=0"
+        assert apply.call_args.args[0] == [
+            {"contact_id": 1, "city": "Ulm", "country": "de", "dismiss": False},
+            {"contact_id": 2, "city": "Berlin", "country": "DE", "dismiss": False},
+            {"contact_id": 3, "city": "Köln", "country": "", "dismiss": False},
+            {"contact_id": 4, "city": "", "country": "", "dismiss": True},
+            {"contact_id": 5, "city": "Bonn", "country": "", "dismiss": False},
+        ]
+
+    def test_apply_with_nothing_chosen_writes_nothing(self, admin_session):
+        with patch("gcrm.api.routers.people.apply_city_decisions") as apply, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/linkedin/cities", data={"city_1": ""},
+                                          follow_redirects=False)
+        assert response.status_code == 303
+        apply.assert_not_called()
+
+    def test_the_people_page_links_to_the_queue(self, admin_session):
+        with patch("gcrm.api.routers.people.get_people", return_value=[]):
+            assert "/people/linkedin/cities" in admin_session.get("/people/").text

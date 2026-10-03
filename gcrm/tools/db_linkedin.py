@@ -7,6 +7,7 @@ Every per-row write runs inside its own SAVEPOINT, so one bad row is counted
 and skipped instead of aborting the whole import.
 """
 import logging
+import re
 from contextlib import contextmanager
 
 from psycopg2.extras import Json
@@ -485,5 +486,91 @@ def resolve_company_cities(limit: int = 200, lookup=lookup_places) -> dict:
     if counts["looked_up"] or counts["applied_cached"]:
         log_audit(None, None, "linkedin.cities_resolved", None,
                   f"looked_up={counts['looked_up']} resolved={counts['resolved']}")
+    return counts
+
+
+# --- City review queue -------------------------------------------------------
+
+CITY_QUEUE_PAGE_SIZE = 100
+_COUNTRY_CODE = re.compile(r"^[A-Za-z]{2}$")
+
+
+def get_city_review_queue(page: int = 1) -> dict:
+    """Organizations created from LinkedIn that still need a city, the ones with
+    the most connections first, each with the people you know there and, when a
+    lookup was made, what it found. Returns {total, rows}."""
+    offset = (max(page, 1) - 1) * CITY_QUEUE_PAGE_SIZE
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT COUNT(*) AS n FROM contacts c WHERE {_NEEDS_CITY}")
+        total = cur.fetchone()["n"]
+        cur.execute(
+            f"""
+            SELECT c.id, c.name, l.outcome AS lookup_outcome, l.candidates,
+                   COUNT(p.id) AS people_count,
+                   COALESCE(json_agg(json_build_object(
+                       'id', p.id, 'name', p.name, 'title', p.title)
+                       ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL), '[]'::json) AS people
+              FROM contacts c
+              LEFT JOIN people p ON p.contact_id = c.id AND p.deleted_at IS NULL
+                                AND p.is_linkedin_contact
+              LEFT JOIN company_city_lookups l ON l.company_key = c.company_key
+             WHERE {_NEEDS_CITY}
+             GROUP BY c.id, l.company_key
+             ORDER BY people_count DESC, lower(c.name), c.id
+             LIMIT %s OFFSET %s
+            """,
+            (CITY_QUEUE_PAGE_SIZE, offset),
+        )
+        rows = [dict(r) for r in cur.fetchall()]
+    for row in rows:
+        # Places offered these; the distinct cities become one-click choices.
+        seen, choices = set(), []
+        for candidate in row.pop("candidates") or []:
+            key = (candidate.get("city") or "", candidate.get("country") or "")
+            if key[0] and key not in seen:
+                seen.add(key)
+                choices.append({"city": key[0], "country": key[1]})
+        row["choices"] = choices
+    return {"total": total, "rows": rows}
+
+
+def apply_city_decisions(decisions: list[dict]) -> dict:
+    """Apply the review page. Each decision is {contact_id, city, country,
+    dismiss}: a city (and optional 2-letter country) is saved as entered by
+    hand; `dismiss` stops asking about that organization. Only organizations
+    still waiting are touched, so a stale form cannot overwrite a newer answer.
+    Returns counts — saved, dismissed, failed."""
+    counts = {"saved": 0, "dismissed": 0, "failed": 0}
+    with db() as conn:
+        cur = conn.cursor()
+        for decision in decisions:
+            try:
+                with _savepoint(cur):
+                    if decision.get("dismiss"):
+                        cur.execute(
+                            f"UPDATE contacts c SET city_status = 'dismissed', updated_at = NOW() "
+                            f"WHERE c.id = %s AND {_NEEDS_CITY}",
+                            (decision["contact_id"],),
+                        )
+                        counts["dismissed"] += cur.rowcount
+                        continue
+                    city = (decision.get("city") or "").strip()[:100]
+                    country = (decision.get("country") or "").strip()
+                    if not city:
+                        continue
+                    if country and not _COUNTRY_CODE.match(country):
+                        raise ValueError(f"country must be a 2-letter code: {country!r}")
+                    cur.execute(
+                        f"UPDATE contacts c SET city = %s, country = COALESCE(%s, c.country), "
+                        f"city_status = 'manual', updated_at = NOW() "
+                        f"WHERE c.id = %s AND {_NEEDS_CITY}",
+                        (city, country.upper() or None, decision["contact_id"]),
+                    )
+                    counts["saved"] += cur.rowcount
+            except Exception:
+                counts["failed"] += 1
+                logger.warning("city decision failed %r", decision, exc_info=True)
+    logger.info("linkedin city decisions: %s", counts)
     return counts
 
