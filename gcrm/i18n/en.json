@@ -622,5 +622,8 @@
   "linkedin.companies.appliedLinked": "Linked to {{count}} organizations that already existed.",
   "linkedin.companies.failed": "{{count}} companies could not be processed; the rest went through.",
   "linkedin.companies.next": "Next step: fill in the cities —",
-  "linkedin.companies.loadFailed": "The preview could not be loaded. Try again."
+  "linkedin.companies.loadFailed": "The preview could not be loaded. Try again.",
+  "people.stage.all": "All stages",
+  "people.stage.none": "No stage set",
+  "people.stage.organization": "organization: {{stage}}"
 }

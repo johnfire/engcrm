@@ -144,6 +144,7 @@ def _upsert_connection(cur, row: dict) -> tuple[str, bool]:
                 company_raw  = COALESCE(NULLIF(company_raw, ''), %s),
                 title        = COALESCE(NULLIF(title, ''), %s),
                 email        = COALESCE(NULLIF(email, ''), %s),
+                pipeline_stage = COALESCE(pipeline_stage, 'candidate'),
                 updated_at   = NOW()
             WHERE id = %s
             """,
@@ -155,9 +156,9 @@ def _upsert_connection(cur, row: dict) -> tuple[str, bool]:
         """
         INSERT INTO people
             (name, title, email, country, source, is_linkedin_contact,
-             linkedin_url, connected_on, company_raw, workspace_id)
+             linkedin_url, connected_on, company_raw, pipeline_stage, workspace_id)
         VALUES (
-            %s, %s, %s, NULL, %s, TRUE, %s, %s, %s,
+            %s, %s, %s, NULL, %s, TRUE, %s, %s, %s, 'candidate',
             COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
         )
         """,

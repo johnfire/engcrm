@@ -947,3 +947,7 @@ html[lang="de"] .orgs-table th {
      the two buttons stack rather than taking width away from every other row. */
   width: 68px;
 }
+
+/* Inline stage editor in the People list */
+.stage-form { margin: 0; }
+.stage-select { font: inherit; padding: 0.15rem 0.35rem; }

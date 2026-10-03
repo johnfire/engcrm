@@ -282,6 +282,9 @@ class TestImportConnections:
         assert "COALESCE(NULLIF(title, ''), %s)" in update
         [insert] = cursor.statements("INSERT INTO people")
         assert "'default'" in insert  # workspace falls back to the default one
+        assert "'candidate'" in insert  # a new connection starts as a candidate
+        # an existing person only gets the default when they have no stage yet
+        assert "pipeline_stage = COALESCE(pipeline_stage, 'candidate')" in update
 
     def test_one_failing_row_is_rolled_back_and_the_rest_still_import(self):
         cursor = FakeCursor(fail_on_name="Bad Row")

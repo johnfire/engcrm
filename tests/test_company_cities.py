@@ -530,24 +530,88 @@ class TestCompaniesPage:
             assert "/people/linkedin/companies" in admin_session.get("/people/").text
 
 
-class TestEveryConnectionIsACandidate:
+class TestPersonStage:
+    """Every LinkedIn connection is a candidate, and the stage is a real field you can change."""
+
     def listed(self, **extra):
         return {"id": 1, "name": "Ann", "title": None, "company": None, "contact_id": None, "company_raw": None,
-                "is_linkedin_contact": True, "company_pipeline_stage": None, "company_opportunity_score": None,
-                "company_personal_priority": None, "value_rating": None, "last_contact": None,
-                "city": None, "relationship": None, "distance_km": None, "created_at": "2026-10-03", **extra}
+                "is_linkedin_contact": True, "pipeline_stage": "candidate", "company_pipeline_stage": None,
+                "company_opportunity_score": None, "company_personal_priority": None, "value_rating": None,
+                "last_contact": None, "city": None, "relationship": None, "distance_km": None,
+                "created_at": "2026-10-03", **extra}
 
-    def test_a_connection_without_an_organization_shows_as_candidate(self, admin_session):
-        with patch("gcrm.api.routers.people.get_people", return_value=[self.listed()]):
-            assert "badge-stage-candidate" in admin_session.get("/people/").text
+    def page(self, admin_session, row, url="/people/"):
+        with patch("gcrm.api.routers.people.get_people", return_value=[row]) as mget:
+            return admin_session.get(url), mget
 
-    def test_a_linked_connection_shows_its_organizations_stage(self, admin_session):
-        row = self.listed(company_pipeline_stage="suspect")
-        with patch("gcrm.api.routers.people.get_people", return_value=[row]):
-            text = admin_session.get("/people/").text
-        assert "badge-stage-suspect" in text and "badge-stage-candidate" not in text
+    def test_the_list_shows_the_stored_stage_as_an_editable_select(self, admin_session):
+        response, _ = self.page(admin_session, self.listed())
+        assert 'action="/people/1/stage"' in response.text
+        assert '<option value="candidate" selected>Candidate</option>' in response.text
+        for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
+            assert f'<option value="{stage}" ' in response.text
+        assert 'onchange="this.form.submit()"' in response.text
 
-    def test_people_who_are_not_connections_get_no_candidate_badge(self, admin_session):
-        row = self.listed(is_linkedin_contact=False)
-        with patch("gcrm.api.routers.people.get_people", return_value=[row]):
-            assert "badge-stage-candidate" not in admin_session.get("/people/").text
+    def test_a_person_without_a_stage_shows_a_blank_choice(self, admin_session):
+        response, _ = self.page(admin_session, self.listed(pipeline_stage=None, is_linkedin_contact=False))
+        assert '<option value="" selected>—</option>' in response.text
+
+    def test_the_organizations_stage_is_shown_separately_not_instead(self, admin_session):
+        response, _ = self.page(admin_session, self.listed(company_pipeline_stage="suspect"))
+        assert '<option value="candidate" selected>' in response.text  # the person's own
+        assert "organization: Suspect" in response.text
+
+    def test_the_form_returns_to_the_same_filtered_list(self, admin_session):
+        response, _ = self.page(admin_session, self.listed(), url="/people/?linkedin=1&stage=candidate")
+        assert 'name="next" value="/people/?linkedin=1&amp;stage=candidate"' in response.text
+
+    def test_the_stage_filter_reaches_the_query(self, admin_session):
+        response, mget = self.page(admin_session, self.listed(), url="/people/?stage=suspect")
+        assert mget.call_args.kwargs["stage"] == "suspect"
+        assert '<option value="suspect" selected>' in response.text
+
+    def test_changing_the_stage_from_the_list(self, admin_session):
+        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+             patch("gcrm.api.routers.people.log_audit"):
+            response = admin_session.post("/people/5/stage", data={
+                "stage": "prospect", "next": "/people/?linkedin=1"}, follow_redirects=False)
+        assert response.status_code == 303 and response.headers["location"] == "/people/?linkedin=1"
+        update.assert_called_once_with(5, {"pipeline_stage": "prospect"})
+
+    def test_clearing_the_stage(self, admin_session):
+        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+             patch("gcrm.api.routers.people.log_audit"):
+            admin_session.post("/people/5/stage", data={"stage": ""}, follow_redirects=False)
+        update.assert_called_once_with(5, {"pipeline_stage": ""})
+
+    def test_an_unknown_stage_is_refused_and_an_offsite_next_is_ignored(self, admin_session):
+        with patch("gcrm.api.routers.people.update_person") as update:
+            bad = admin_session.post("/people/5/stage", data={"stage": "bogus"}, follow_redirects=False)
+        assert bad.status_code == 400
+        update.assert_not_called()
+        with patch("gcrm.api.routers.people.update_person", return_value=True), \
+             patch("gcrm.api.routers.people.log_audit"):
+            sneaky = admin_session.post("/people/5/stage", data={
+                "stage": "suspect", "next": "https://evil.test/x"}, follow_redirects=False)
+        assert sneaky.headers["location"] == "/people/"
+
+    def test_a_missing_person_is_a_404(self, admin_session):
+        with patch("gcrm.api.routers.people.update_person", return_value=False):
+            response = admin_session.post("/people/99/stage", data={"stage": "suspect"}, follow_redirects=False)
+        assert response.status_code == 404
+
+    def test_the_person_page_has_a_stage_select_and_saving_it_is_optional(self, admin_session):
+        person = self.listed(title="CTO", distance_km=None)
+        with patch("gcrm.api.routers.people.get_person", return_value=person), \
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+            assert 'name="pipeline_stage"' in admin_session.get("/people/1").text
+        # an old cached form that never sent the field must not wipe the stage
+        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+             patch("gcrm.api.routers.people.log_audit"):
+            admin_session.post("/people/1/edit", data={"name": "Ann"}, follow_redirects=False)
+        assert "pipeline_stage" not in update.call_args.args[1]
+        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+             patch("gcrm.api.routers.people.log_audit"):
+            admin_session.post("/people/1/edit", data={"name": "Ann", "pipeline_stage": "customer"},
+                               follow_redirects=False)
+        assert update.call_args.args[1]["pipeline_stage"] == "customer"

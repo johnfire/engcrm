@@ -40,6 +40,15 @@
         <input id="person-title" type="text" name="title" value="{{ person.title or '' }}" />
       </div>
       <div class="field-row">
+        <label for="person-stage">{{ t('common.pipelineStage') }}</label>
+        <select id="person-stage" name="pipeline_stage">
+          <option value="" {% if not person.pipeline_stage %}selected{% endif %}>—</option>
+          {% for s in stages %}
+          <option value="{{ s }}" {% if person.pipeline_stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
         <label for="person-relationship">{{ t('people.relationship') }}</label>
         <input id="person-relationship" type="text" name="relationship" value="{{ person.relationship or '' }}" />
       </div>

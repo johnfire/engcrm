@@ -9,6 +9,7 @@ from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_DAYS
 from gcrm.linkedin import decode_export, parse_connections_csv
+from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
@@ -68,11 +69,12 @@ def people_list(
     company_priority: str = Query(default=""),
     value_rating: str = Query(default=""),
     linkedin: str = Query(default=""),
+    stage: str = Query(default=""),
     deleted: bool = Query(default=False),
 ):
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
-        linkedin,
+        linkedin, stage=stage,
     )
     return templates.TemplateResponse("people.html", {
         "request": request,
@@ -83,6 +85,8 @@ def people_list(
         "company_priority": company_priority,
         "value_rating": value_rating,
         "linkedin": linkedin,
+        "stage": stage,
+        "stages": PIPELINE_STAGES,
         "deleted": deleted,
     })
 
@@ -435,6 +439,7 @@ def person_detail(
         "interactions": get_person_interactions(person_id),
         "mail_sender_options": MAIL_SENDER_OPTIONS,
         "people_retention_days": PEOPLE_RETENTION_DAYS,
+        "stages": PIPELINE_STAGES,
     })
 
 
@@ -504,6 +509,23 @@ def update_person_value_rating(
     return {"value_rating": stored_rating}
 
 
+@router.post("/people/{person_id}/stage")
+def person_set_stage(
+    person_id: int,
+    stage: str = Form(""),
+    next: str = Form("/people/"),
+    _admin: str = Depends(require_admin),
+):
+    """Change a person's stage from the list (blank clears it) and come back to
+    the same filtered list."""
+    if stage and stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+    if not update_person(person_id, {"pipeline_stage": stage}):
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stage or "cleared")
+    return local_redirect(next, fallback="/people/")
+
+
 @router.post("/people/{person_id}/edit")
 def person_edit(
     person_id: int,
@@ -520,11 +542,14 @@ def person_edit(
     linkedin_url: str = Form(""),
     is_linkedin_contact: bool = Form(False),
     retention_hold: bool = Form(False),
+    pipeline_stage: str | None = Form(None),
     _admin: str = Depends(require_admin),
 ):
     """Save the edited person. Name is the one field the row cannot lose."""
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
+    if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     try:
         updated = update_person(person_id, {
             "name": name, "title": title, "email": email, "phone": phone,
@@ -532,6 +557,8 @@ def person_edit(
             "relationship": relationship, "met_at": met_at, "notes": notes,
             "linkedin_url": linkedin_url, "is_linkedin_contact": is_linkedin_contact,
             "retention_hold": retention_hold,
+            # absent from an old cached form -> leave the stored stage alone
+            **({} if pipeline_stage is None else {"pipeline_stage": pipeline_stage}),
         })
     except ValueError:
         raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")

@@ -8,6 +8,7 @@ import logging
 from gcrm.db.connection import db, serialize_row
 from gcrm.geo import distance_km_sql
 from gcrm.linkedin import normalize_linkedin_url
+from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -126,7 +127,8 @@ def update_person(person_id: int, values: dict) -> bool:
     person does not exist, so the caller can 404 rather than silently no-op.
 
     `is_linkedin_contact` and `retention_hold` are the non-text fields: written as
-    booleans when present. A non-blank `linkedin_url` is stored in its canonical form, and
+    booleans when present. `pipeline_stage` is one of PIPELINE_STAGES (blank clears
+    it) and raises ValueError otherwise. A non-blank `linkedin_url` is stored in its canonical form, and
     raises ValueError when it is not a linkedin.com link.
     """
     updates = {
@@ -142,6 +144,11 @@ def update_person(person_id: int, values: dict) -> bool:
     for column in BOOLEAN_COLUMNS:
         if column in values:
             updates[column] = bool(values[column])
+    if "pipeline_stage" in values:
+        stage = (values.get("pipeline_stage") or "").strip() or None
+        if stage is not None and stage not in PIPELINE_STAGES:
+            raise ValueError(f"unknown pipeline stage: {stage!r}")
+        updates["pipeline_stage"] = stage
     if not updates:
         return False
 
@@ -251,12 +258,14 @@ def get_people(
     company_priority: str = "",
     value_rating: str = "",
     linkedin: str = "",
+    stage: str = "",
 ) -> list[dict]:
     """All people, optionally filtered by name/email/city text search and/or
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
     only meaningful when user_id is given, since both are private per-user)
     and/or `linkedin` ("1" = LinkedIn connections, "unlinked" = connections not
-    yet tied to an organization, "" = everyone),
+    yet tied to an organization, "" = everyone), and/or `stage` (a pipeline
+    stage, "none" = no stage set, "" = any),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
     opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
@@ -277,6 +286,11 @@ def get_people(
     _rating_filter(conditions, params, "person_priority.priority", value_rating)
     if linkedin in _LINKEDIN_FILTERS:
         conditions.append(_LINKEDIN_FILTERS[linkedin])
+    if stage == "none":
+        conditions.append("person.pipeline_stage IS NULL")
+    elif stage in PIPELINE_STAGES:
+        conditions.append("person.pipeline_stage = %s")
+        params.append(stage)
     where = f"WHERE {' AND '.join(conditions)} " if conditions else ""
 
     # NULLS LAST regardless of direction — an unrated/unlinked person should

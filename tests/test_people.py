@@ -216,6 +216,44 @@ def admin_web():
     main.app.dependency_overrides.pop(require_admin, None)
 
 
+class TestPersonPipelineStage:
+    def update(self, values):
+        conn, cur = make_mock_conn()
+        cur.rowcount = 1
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            ok = db_people.update_person(3, values)
+        return ok, cur
+
+    def test_a_known_stage_is_written(self):
+        ok, cur = self.update({"pipeline_stage": "prospect"})
+        assert ok is True
+        assert "pipeline_stage = %s" in cur.execute.call_args.args[0]
+        assert cur.execute.call_args.args[1][0] == "prospect"
+
+    def test_blank_clears_the_stage(self):
+        _, cur = self.update({"pipeline_stage": "  "})
+        assert cur.execute.call_args.args[1][0] is None
+
+    def test_an_unknown_stage_is_refused_before_touching_the_database(self):
+        with pytest.raises(ValueError):
+            db_people.update_person(3, {"pipeline_stage": "bogus"})
+
+    def test_the_stage_filter_is_a_whitelist_and_none_means_unset(self):
+        for stage, fragment in (("none", "person.pipeline_stage IS NULL"),
+                                ("suspect", "person.pipeline_stage = %s")):
+            conn, cur = make_mock_conn()
+            with patch("gcrm.tools.db_people.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                db_people.get_people(stage=stage)
+            assert fragment in cur.execute.call_args.args[0]
+        conn, cur = make_mock_conn()
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.get_people(stage="x'; DROP TABLE people; --")
+        assert "pipeline_stage" not in cur.execute.call_args.args[0].split("ORDER BY")[0].split("WHERE")[-1]
+
+
 class TestUpdatePerson:
     def test_writes_only_whitelisted_columns(self):
         conn, cur = make_mock_conn()

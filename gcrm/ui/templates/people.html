@@ -47,6 +47,13 @@
     <option value="1" {% if linkedin == "1" %}selected{% endif %}>{{ t('linkedin.filter.connections') }}</option>
     <option value="unlinked" {% if linkedin == "unlinked" %}selected{% endif %}>{{ t('linkedin.filter.unlinked') }}</option>
   </select>
+  <select name="stage" aria-label="{{ t('common.pipelineStage') }}">
+    <option value="">{{ t('people.stage.all') }}</option>
+    {% for s in stages %}
+    <option value="{{ s }}" {% if stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
+    {% endfor %}
+    <option value="none" {% if stage == "none" %}selected{% endif %}>{{ t('people.stage.none') }}</option>
+  </select>
   <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
   <select name="sort" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
@@ -95,11 +102,17 @@
       <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}</td>
       <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% elif p.company_raw %}<span title="{{ t('linkedin.notLinked') }}">{{ p.company_raw }}</span>{% else %}—{% endif %}</td>
       <td>
-        {% if p.company_pipeline_stage %}
-        <span class="badge badge-stage-{{ p.company_pipeline_stage }}">{{ t('stage.' ~ p.company_pipeline_stage) }}</span>
-        {% elif p.is_linkedin_contact %}
-        <span class="badge badge-stage-candidate" title="{{ t('linkedin.candidateHint') }}">{{ t('stage.candidate') }}</span>
-        {% else %}<span class="muted">—</span>{% endif %}
+        <form method="post" action="/people/{{ p.id }}/stage" class="stage-form">
+          <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+          <select name="stage" class="stage-select badge-stage-{{ p.pipeline_stage or 'none' }}"
+                  aria-label="{{ t('common.pipelineStage') }}: {{ p.name }}" onchange="this.form.submit()">
+            <option value="" {% if not p.pipeline_stage %}selected{% endif %}>—</option>
+            {% for s in stages %}
+            <option value="{{ s }}" {% if p.pipeline_stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        {% if p.company_pipeline_stage %}<div class="muted small">{{ t('people.stage.organization', stage=t('stage.' ~ p.company_pipeline_stage)) }}</div>{% endif %}
       </td>
       <td>{{ p.company_opportunity_score if p.company_opportunity_score is not none else '—' }}</td>
       <td>
