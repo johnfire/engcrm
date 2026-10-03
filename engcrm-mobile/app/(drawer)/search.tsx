@@ -30,19 +30,22 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const latest = useRef(0); // an older, slower answer must never overwrite a newer one
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const query = text.trim();
+  // Searching is driven by typing (an event), not by an effect watching state.
+  function onChange(next: string) {
+    setText(next);
+    if (timer.current) clearTimeout(timer.current);
+    const query = next.trim();
+    const ticket = ++latest.current;
     if (query.length < MIN_CHARS) {
-      latest.current += 1;
       setResults(null);
       setLoading(false);
       setFailed(false);
       return;
     }
-    const ticket = ++latest.current;
     setLoading(true);
-    const timer = setTimeout(() => {
+    timer.current = setTimeout(() => {
       searchAll(query)
         .then((found) => {
           if (ticket !== latest.current) return;
@@ -57,8 +60,16 @@ export default function SearchScreen() {
           if (ticket === latest.current) setLoading(false);
         });
     }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [text]);
+  }
+
+  useEffect(
+    () => () => {
+      // Leaving the screen: no pending search, and no answer may land afterwards.
+      if (timer.current) clearTimeout(timer.current);
+      latest.current += 1;
+    },
+    [],
+  );
 
   const sections = results
     ? [
@@ -90,7 +101,7 @@ export default function SearchScreen() {
         style={styles.input}
         autoFocus
         value={text}
-        onChangeText={setText}
+        onChangeText={onChange}
         placeholder={t("search.placeholder")}
         placeholderTextColor="#666"
         returnKeyType="search"
