@@ -36,20 +36,20 @@
 </form>
 
 <style>
-  .pipeline-run { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 1rem 0; padding: 1rem; background: #1a1a2e; border-radius: 10px; }
-  .pipeline-run input[type="text"], .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid #ffffff20; background: #0f0f23; color: #fff; }
-  .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid #7c6fff55; background: #1a1a2e; color: #fff; cursor: pointer; }
-  .pipeline-run button.primary { background: #7c6fff; border-color: #7c6fff; font-weight: 600; }
+  .pipeline-run { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 1rem 0; padding: 1rem; background: var(--surface); border-radius: 10px; }
+  .pipeline-run input[type="text"], .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--bg-inset); color: var(--text); }
+  .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--text); cursor: pointer; }
+  .pipeline-run button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
   .radius-label { color: #ccc; font-size: 13px; display: flex; align-items: center; gap: 8px; }
   .radius-label input[type="range"] { width: 160px; }
   .run-banner { margin: 1rem 0; padding: 10px 14px; border-radius: 8px; }
   .run-banner.ok { background: #1c3a26; color: #6ee7a0; }
   .run-banner.err { background: #3a1c1c; color: #ef8a8a; }
-  .area-popup button { margin-top: 6px; padding: 4px 10px; border-radius: 6px; border: 1px solid #7c6fff; background: #7c6fff; color: #fff; cursor: pointer; font-size: 12px; }
-  .view-results-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid #ffffff20; background: #1a1a2e; color: #ccc; cursor: pointer; font-size: 12px; }
-  .view-results-btn:hover { border-color: #7c6fff; color: #fff; }
-  #results-banner { display: none; margin: 1rem 0; padding: 10px 14px; border-radius: 8px; background: #2a2440; color: #ddd; display: flex; justify-content: space-between; align-items: center; }
-  #results-banner button { padding: 6px 12px; border-radius: 6px; border: 1px solid #ffffff30; background: #1a1a2e; color: #fff; cursor: pointer; }
+  .area-popup button { margin-top: 6px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); cursor: pointer; font-size: 12px; }
+  .view-results-btn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--hairline); background: var(--surface); color: #ccc; cursor: pointer; font-size: 12px; }
+  .view-results-btn:hover { border-color: var(--accent); color: var(--text); }
+  #results-banner { display: none; margin: 1rem 0; padding: 10px 14px; border-radius: 8px; background: var(--surface-raised); color: #ddd; display: flex; justify-content: space-between; align-items: center; }
+  #results-banner button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--hairline-strong); background: var(--surface); color: var(--text); cursor: pointer; }
 </style>
 
 <div id="results-banner">
@@ -100,7 +100,7 @@
   const savedLayer = L.layerGroup().addTo(map);
   AREAS.forEach((area) => {
     const marker = L.circleMarker([area.latitude, area.longitude], {
-      radius: 6, color: '#7c6fff', fillColor: '#7c6fff', fillOpacity: 0.6,
+      radius: 6, color: '#c9a24a', fillColor: '#c9a24a', fillOpacity: 0.6,
     }).addTo(savedLayer);
     const label = area.label || '{{ t("areas.unnamed") }}';
     marker.bindPopup(
@@ -124,7 +124,7 @@
     pickLayer.clearLayers();
     pickMarker = L.marker(latlng, { draggable: true }).addTo(pickLayer);
     pickCircle = L.circle(latlng, {
-      radius: Number(radiusInput.value), color: '#7c6fff', fillColor: '#7c6fff', fillOpacity: 0.15,
+      radius: Number(radiusInput.value), color: '#c9a24a', fillColor: '#c9a24a', fillOpacity: 0.15,
     }).addTo(pickLayer);
     pickMarker.on('drag', (event) => {
       pickedLatLng = event.target.getLatLng();

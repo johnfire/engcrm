@@ -10,7 +10,7 @@
 
 {% if flash %}
   {% if flash.error %}
-    <div class="card" style="border-color:#c0392b"><strong>⚠ {{ flash.error }}</strong></div>
+    <div class="card" style="border-color:var(--danger)"><strong>⚠ {{ flash.error }}</strong></div>
   {% endif %}
   {% if flash.msg %}
     <div class="card">

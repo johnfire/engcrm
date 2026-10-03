@@ -70,7 +70,7 @@
       <td>
         <span class="badge inbox-badge--{{ m.classification or 'other' }}">{{ m.classification or '—' }}</span>
         {% if m.visit_when_nearby %}
-        <span title="{{ t('inbox.flaggedForVisit') }}" style="margin-left:0.3rem;color:#e67e22">&#9655;</span>
+        <span title="{{ t('inbox.flaggedForVisit') }}" style="margin-left:0.3rem;color:var(--warn)">&#9655;</span>
         {% endif %}
       </td>
       <td class="small">{{ m.subject or '—' }}</td>
@@ -86,26 +86,26 @@
 
 <style>
 .inbox-summary { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
-.inbox-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.25rem 0.65rem; border-radius:20px; font-size:0.8rem; text-decoration:none; border:1px solid transparent; }
+.inbox-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.25rem 0.65rem; border-radius:0; font-size:0.8rem; text-decoration:none; border:1px solid transparent; }
 .inbox-pill span { font-weight:bold; }
 .inbox-pill.active { border-color: currentColor; }
-.inbox-pill--interested  { background:#d4edda; color:#155724; }
-.inbox-pill--warm        { background:#fff3cd; color:#856404; }
-.inbox-pill--not_interested { background:#f8d7da; color:#721c24; }
-.inbox-pill--not_possible   { background:#e2e3e5; color:#383d41; }
-.inbox-pill--opt_out     { background:#f5c6cb; color:#491217; }
-.inbox-pill--other       { background:#d1ecf1; color:#0c5460; }
+.inbox-pill--interested  { background:rgba(95,174,120,0.14); color:#7fcf98; border:1px solid rgba(95,174,120,0.45); }
+.inbox-pill--warm        { background:rgba(201,162,74,0.14); color:#e6c877; border:1px solid rgba(201,162,74,0.45); }
+.inbox-pill--not_interested { background:rgba(224,100,90,0.14); color:#ec8a82; border:1px solid rgba(224,100,90,0.45); }
+.inbox-pill--not_possible   { background:rgba(160,149,120,0.14); color:#a09578; border:1px solid rgba(160,149,120,0.45); }
+.inbox-pill--opt_out     { background:rgba(224,100,90,0.14); color:#ec8a82; border:1px solid rgba(224,100,90,0.45); }
+.inbox-pill--other       { background:rgba(95,179,168,0.14); color:#7fcfc3; border:1px solid rgba(95,179,168,0.45); }
 
-.inbox-badge--interested  { background:#d4edda; color:#155724; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--warm        { background:#fff3cd; color:#856404; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--not_interested { background:#f8d7da; color:#721c24; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--not_possible   { background:#e2e3e5; color:#383d41; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--opt_out     { background:#f5c6cb; color:#491217; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--other       { background:#d1ecf1; color:#0c5460; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
-.inbox-badge--skipped     { background:#f0f0f0; color:#888; padding:0.15rem 0.4rem; border-radius:4px; font-size:0.75rem; }
+.inbox-badge--interested  { background:rgba(95,174,120,0.14); color:#7fcf98; border:1px solid rgba(95,174,120,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--warm        { background:rgba(201,162,74,0.14); color:#e6c877; border:1px solid rgba(201,162,74,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--not_interested { background:rgba(224,100,90,0.14); color:#ec8a82; border:1px solid rgba(224,100,90,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--not_possible   { background:rgba(160,149,120,0.14); color:#a09578; border:1px solid rgba(160,149,120,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--opt_out     { background:rgba(224,100,90,0.14); color:#ec8a82; border:1px solid rgba(224,100,90,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--other       { background:rgba(95,179,168,0.14); color:#7fcfc3; border:1px solid rgba(95,179,168,0.45); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
+.inbox-badge--skipped     { background:transparent; color:var(--muted); border:1px solid var(--border); padding:0.15rem 0.4rem; border-radius:0; font-size:0.75rem; }
 
-.inbox-row--interested  { background:#fafff9; }
-.inbox-row--warm        { background:#fffef5; }
-.inbox-row--opt_out     { background:#fff9f9; }
+.inbox-row--interested  { background:rgba(95,174,120,0.07); }
+.inbox-row--warm        { background:rgba(201,162,74,0.07); }
+.inbox-row--opt_out     { background:rgba(224,100,90,0.07); }
 </style>
 {% endblock %}

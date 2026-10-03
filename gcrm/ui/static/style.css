@@ -6,24 +6,61 @@
   padding: 0;
 }
 
+/* Art deco: warm black, champagne gold, cream type. Fonts are self-hosted (no
+   third-party request, so no visitor IP leaves for a font CDN). */
+@font-face {
+  font-family: "Poiret One";
+  src: url("/static/fonts/poiret-one-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Josefin Sans";
+  src: url("/static/fonts/josefin-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Josefin Sans";
+  src: url("/static/fonts/josefin-sans-latin-600-normal.woff2") format("woff2");
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --border: #2e2e2e;
-  --text: #e0e0e0;
-  --muted: #888;
-  --accent: #e05555;
-  --danger: #e05555;
-  --success: #4caf50;
-  --warn: #e0a840;
-  --font: "Courier New", Courier, monospace;
+  --bg: #0c0b09;
+  --bg-inset: #080706;
+  --surface: #15130e;
+  --surface-raised: #1d1a12;
+  --border: #3a3223;
+  --hairline: #c9a24a33;
+  --hairline-strong: #c9a24a66;
+  --wash: #c9a24a14;
+  --text: #ebe3cf;
+  --muted: #a09578;
+  --accent: #c9a24a;
+  --accent-bright: #e6c877;
+  --accent-line: #c9a24a66;
+  --accent-wash: #c9a24a26;
+  --on-accent: #14110a;
+  --danger: #e0645a;
+  --success: #5fae78;
+  --warn: #d98a3d;
+  --jade: #5fb3a8;
+  --font: "Josefin Sans", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Poiret One", "Josefin Sans", system-ui, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -10%, #c9a24a1f, transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 15px;
+  letter-spacing: 0.01em;
   line-height: 1.6;
 }
 
@@ -37,21 +74,35 @@ nav {
   justify-content: flex-end;
   gap: 0.5rem 1.5rem;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--border);
   background: var(--surface);
+  /* Double rule: a thick gold line with a hairline set just below it. */
+  border-bottom: 1px solid var(--accent);
+  box-shadow: 0 3px 0 var(--bg), 0 4px 0 var(--hairline-strong);
+  margin-bottom: 6px;
 }
 .nav-brand {
-  font-weight: bold;
-  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
   margin-right: auto;
 }
 nav a {
   color: var(--muted);
   text-decoration: none;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding-bottom: 0.15rem;
+  border-bottom: 1px solid transparent;
 }
-nav a:hover,
-nav a.active {
+nav a:hover {
   color: var(--text);
+}
+nav a.active {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent);
 }
 
 main {
@@ -67,7 +118,30 @@ main {
   margin-bottom: 1.5rem;
 }
 .page-header h1 {
-  font-size: 1.2rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+/* Gold rule under the title that fades out; a block under the h1 so it never
+   takes width from the header's links. */
+.page-header h1::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 0.3rem;
+  background: linear-gradient(to right, var(--accent), transparent);
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  color: var(--accent-bright);
+}
+a {
+  color: var(--accent-bright);
 }
 
 .muted {
@@ -83,9 +157,21 @@ main {
 
 /* Cards (approval items) */
 .card {
+  /* Gold brackets on the four corners, hairline frame between them. */
+  --bracket: 14px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 4px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) top left / var(--bracket) 1px,
+    linear-gradient(var(--accent), var(--accent)) top left / 1px var(--bracket),
+    linear-gradient(var(--accent), var(--accent)) top right / var(--bracket) 1px,
+    linear-gradient(var(--accent), var(--accent)) top right / 1px var(--bracket),
+    linear-gradient(var(--accent), var(--accent)) bottom left / var(--bracket) 1px,
+    linear-gradient(var(--accent), var(--accent)) bottom left / 1px var(--bracket),
+    linear-gradient(var(--accent), var(--accent)) bottom right / var(--bracket) 1px,
+    linear-gradient(var(--accent), var(--accent)) bottom right / 1px var(--bracket),
+    var(--surface);
+  background-repeat: no-repeat;
+  border-radius: 0;
   padding: 1rem;
   margin-bottom: 1rem;
 }
@@ -101,8 +187,8 @@ main {
 }
 .body-preview {
   white-space: pre-wrap;
-  font-family: var(--font);
-  font-size: 0.9em;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
   color: var(--muted);
   border-left: 2px solid var(--border);
   padding-left: 0.75rem;
@@ -149,11 +235,22 @@ label textarea {
   font-family: var(--font);
   font-size: 0.9em;
   padding: 0.4rem 0.6rem;
-  border-radius: 3px;
+  border-radius: 0;
 }
 input[type="text"] {
   width: auto;
   min-width: 200px;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .actions input[type="text"] {
   background: var(--bg);
@@ -162,16 +259,18 @@ input[type="text"] {
   font-family: var(--font);
   font-size: 0.85em;
   padding: 0.3rem 0.5rem;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 /* Buttons */
 button {
   font-family: var(--font);
-  font-size: 0.85em;
-  padding: 0.35rem 0.8rem;
+  font-size: 0.8em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.9rem;
   border: 1px solid;
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
 }
 .btn-primary {
@@ -181,7 +280,7 @@ button {
 }
 .btn-primary:hover {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .btn-secondary {
   background: transparent;
@@ -216,7 +315,7 @@ button {
   white-space: nowrap;
 }
 .flag-dot {
-  color: #e05555;
+  color: var(--danger);
   margin-right: 0.4rem;
 }
 .btn-tiny {
@@ -224,7 +323,7 @@ button {
   font-size: 0.75em;
   padding: 0.1rem 0.4rem;
   border: 1px solid;
-  border-radius: 3px;
+  border-radius: 0;
   cursor: pointer;
   background: transparent;
   color: var(--muted);
@@ -252,15 +351,21 @@ table {
 }
 th {
   text-align: left;
-  color: var(--muted);
-  font-weight: normal;
-  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--accent-line);
   padding: 0.4rem 0.75rem;
 }
 td {
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--hairline);
   vertical-align: top;
+}
+tbody tr:hover td {
+  background: var(--wash);
 }
 /* A value with no spaces in it — a URL, an address, a pasted token — breaks
    rather than running out of its cell and over the column next door. */
@@ -271,7 +376,9 @@ td {
 tr:last-child td {
   border-bottom: none;
 }
-code {
+code,
+pre {
+  font-family: var(--font-mono);
   color: var(--accent);
 }
 .summary {
@@ -289,9 +396,11 @@ code {
      which is what stops a long label ("Nicht in der Pipeline", "Ready to
      contact") from running out of a narrow column. */
   display: inline-block;
-  font-size: 0.8em;
-  padding: 0.1em 0.5em;
-  border-radius: 3px;
+  font-size: 0.7em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.1em 0.55em;
+  border-radius: 0;
 }
 .badge-running {
   background: var(--warn);
@@ -308,34 +417,34 @@ code {
 
 /* Badges — pipeline stage: filled, warming as the relationship advances */
 .badge-stage-candidate {
-  border: 1px solid #555;
-  color: #888;
+  border: 1px solid var(--muted);
+  color: var(--muted);
 }
 .badge-stage-suspect {
   border: 1px solid var(--accent);
   color: var(--accent);
 }
 .badge-stage-prospect {
-  border: 1px solid #b88fff;
-  color: #b88fff;
+  border: 1px solid var(--jade);
+  color: var(--jade);
 }
 .badge-stage-opportunity {
-  border: 1px solid #ffcc44;
-  color: #ffcc44;
+  border: 1px solid #c8794a;
+  color: #d98f64;
 }
 .badge-stage-customer {
   background: var(--success);
   color: var(--bg);
 }
 .badge-stage-not_in_pipeline {
-  border: 1px solid #444;
-  color: #555;
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
 
 /* Badges — current status: outlined, quieter than the stage beside it */
 .badge-none {
-  border: 1px solid #3a3a3a;
-  color: #666;
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
 .badge-ready {
   border: 1px solid var(--accent);
@@ -346,24 +455,24 @@ code {
   color: var(--warn);
 }
 .badge-meeting {
-  border: 1px solid #b88fff;
-  color: #b88fff;
+  border: 1px solid var(--jade);
+  color: var(--jade);
 }
 .badge-proposal {
-  border: 1px solid #ffcc44;
-  color: #ffcc44;
+  border: 1px solid #c8794a;
+  color: #d98f64;
 }
 .badge-dormant {
-  border: 1px solid #555;
-  color: #666;
+  border: 1px solid var(--muted);
+  color: var(--muted);
 }
 .badge-on_hold {
-  border: 1px solid #555;
-  color: #777;
+  border: 1px solid var(--muted);
+  color: var(--muted);
 }
 .badge-dropped {
-  border: 1px solid #444;
-  color: #555;
+  border: 1px solid var(--border);
+  color: var(--muted);
 }
 
 /* Badges — suppression flags, alongside whatever status is showing */
@@ -421,7 +530,7 @@ code {
   font-family: var(--font);
   font-size: 0.9em;
   padding: 0.35rem 0.6rem;
-  border-radius: 3px;
+  border-radius: 0;
   min-width: 200px;
 }
 .filter-bar select {
@@ -431,7 +540,7 @@ code {
   font-family: var(--font);
   font-size: 0.9em;
   padding: 0.35rem 0.6rem;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 /* Stats row */
@@ -454,7 +563,7 @@ code {
 }
 
 .cost-by-agent th {
-  color: #fff;
+  color: var(--accent-bright);
 }
 
 /* Wide page variant — for data-table views that need the full screen width
@@ -483,7 +592,7 @@ main.draft-detail-page {
   color: var(--text);
   font-family: var(--font);
   padding: 0.4rem 0.6rem;
-  border-radius: 3px;
+  border-radius: 0;
 }
 .draft-subject-input {
   width: 100%;
@@ -493,7 +602,7 @@ main.draft-detail-page {
   border: 1px solid var(--border);
   color: var(--text);
   font-family: var(--font);
-  border-radius: 3px;
+  border-radius: 0;
 }
 .draft-body-textarea {
   display: block;
@@ -506,7 +615,7 @@ main.draft-detail-page {
   border: 1px solid var(--border);
   color: var(--text);
   font-family: var(--font);
-  border-radius: 3px;
+  border-radius: 0;
   resize: vertical;
 }
 
@@ -572,7 +681,7 @@ main.person-detail-page {
   font-family: var(--font);
   font-size: 0.9em;
   padding: 0.4rem 0.6rem;
-  border-radius: 3px;
+  border-radius: 0;
 }
 .organization-edit-form textarea,
 .person-edit-form textarea {
@@ -637,7 +746,7 @@ main.person-detail-page {
 .opportunity-analysis__scores div,
 .opportunity-analysis__services article {
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0.65rem;
 }
 .opportunity-analysis__scores span,
@@ -720,16 +829,16 @@ main.person-detail-page {
   color: var(--text);
 }
 .star-btn.starred {
-  color: #f9e2af;
+  color: var(--accent-bright);
 }
 /* Help Centre: content stays usable without hover, a mouse, or JavaScript. */
 .help-search, .help-feedback { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: 1rem 0; }
-.help-search input, .help-feedback input, .help-editor input, .help-editor select, .help-editor textarea { background: #0f0f23; border: 1px solid #ffffff30; border-radius: 6px; color: #fff; padding: .55rem; }
+.help-search input, .help-feedback input, .help-editor input, .help-editor select, .help-editor textarea { background: var(--bg-inset); border: 1px solid var(--hairline-strong); border-radius: 6px; color: var(--text); padding: .55rem; }
 .help-search input { min-width: 18rem; }.help-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.help-article h2 { margin-top: .25rem; }.help-body { line-height: 1.55; white-space: pre-line; }.help-feedback { font-size: .9rem; border-top: 1px solid #ffffff20; padding-top: .8rem; }
-.help-editor { display: grid; gap: .8rem; max-width: 55rem; }.help-editor textarea { display: block; width: 100%; resize: vertical; }.help-editor fieldset { border: 1px solid #ffffff30; border-radius: 6px; }
+.help-article h2 { margin-top: .25rem; }.help-body { line-height: 1.55; white-space: pre-line; }.help-feedback { font-size: .9rem; border-top: 1px solid var(--hairline); padding-top: .8rem; }
+.help-editor { display: grid; gap: .8rem; max-width: 55rem; }.help-editor textarea { display: block; width: 100%; resize: vertical; }.help-editor fieldset { border: 1px solid var(--hairline-strong); border-radius: 6px; }
 .help-editor label { display: grid; gap: .35rem; }.help-tour ol { line-height: 1.7; }.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.context-help { background: #27234a; border-left: 3px solid #7c6fff; border-radius: 6px; padding: .7rem .9rem; margin: .8rem 0; color: #ddd; }
+.context-help { background: var(--surface-raised); border-left: 3px solid var(--accent); border-radius: 6px; padding: .7rem .9rem; margin: .8rem 0; color: var(--text); }
 .context-help a { margin-left: .4rem; }
 .opportunity-action p { margin: .35rem 0 .75rem; }
 .opportunity-spinner[hidden] { display: none; }
@@ -738,8 +847,8 @@ main.person-detail-page {
 @keyframes opportunity-spin { to { transform: rotate(360deg); } }
 .personal-priority {
   align-items: center;
-  background: #1a1a2e;
-  border: 1px solid #ffffff20;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
   border-radius: 8px;
   display: flex;
   flex-wrap: wrap;
@@ -750,28 +859,28 @@ main.person-detail-page {
 .personal-priority h2 { margin: 0 0 .2rem; }
 .personal-priority__choices { display: flex; flex-wrap: wrap; gap: .45rem; }
 .personal-priority__button, .personal-priority__clear {
-  background: #ffffff10;
-  border: 1px solid #ffffff30;
+  background: var(--wash);
+  border: 1px solid var(--hairline-strong);
   border-radius: 999px;
   color: var(--text);
   cursor: pointer;
   padding: .4rem .75rem;
 }
 .personal-priority__button.selected {
-  background: #7c6fff;
-  border-color: #a9a1ff;
-  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent-bright);
+  color: var(--on-accent);
 }
 .personal-priority__button:focus-visible, .personal-priority__clear:focus-visible {
-  outline: 2px solid #c8c3ff;
+  outline: 2px solid var(--accent-bright);
   outline-offset: 2px;
 }
 .personal-priority__button[aria-busy="true"] { cursor: wait; opacity: .75; }
 .personal-priority-badge {
-  background: #7c6fff25;
-  border: 1px solid #7c6fff80;
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
   border-radius: 999px;
-  color: #b9b4ff;
+  color: var(--accent-bright);
   font-size: .8rem;
   font-weight: 700;
   padding: .12rem .45rem;
@@ -895,7 +1004,7 @@ html[lang="de"] .orgs-table th {
   overflow-wrap: anywhere;
 }
 .orgs-table col.c-star {
-  width: 26px;
+  width: 34px;
 }
 .orgs-table col.c-id {
   width: 46px;
@@ -909,7 +1018,7 @@ html[lang="de"] .orgs-table th {
   width: 128px;
 }
 .orgs-table col.c-stage {
-  width: 92px;
+  width: 108px;
 }
 .orgs-table col.c-status {
   width: 100px;
@@ -918,7 +1027,7 @@ html[lang="de"] .orgs-table th {
   width: 48px;
 }
 .orgs-table col.c-mine {
-  width: 52px;
+  width: 58px;
 }
 .orgs-table col.c-date {
   /* Wide enough for a whole ISO date on one line — a nowrap value in a column
@@ -957,11 +1066,82 @@ html[lang="de"] .orgs-table th {
 .stage-select {
   font: inherit;
   padding: 0.15rem 0.35rem;
-  background: #000;
-  color: #fff;
+  background: var(--bg-inset);
+  color: var(--text);
   color-scheme: dark;
 }
 .stage-select option {
-  background: #000;
-  color: #fff;
+  background: var(--bg-inset);
+  color: var(--text);
+}
+
+/* ── Art deco: auth pages ─────────────────────────────────────────────────── */
+.login-box {
+  position: relative;
+  border: 1px solid var(--accent-line);
+  /* Stepped corners: a second frame inset by 6px. */
+  outline: 1px solid var(--hairline);
+  outline-offset: 5px;
+  box-shadow: 0 0 60px #c9a24a14;
+}
+.login-box h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-align: center;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+}
+.login-box h1::after {
+  content: "";
+  display: block;
+  width: 3rem;
+  height: 1px;
+  margin: 0.8rem auto 0;
+  background: var(--accent);
+}
+.login-box input[type="email"],
+.login-box input[type="password"],
+.login-box input[type="text"] {
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  border-radius: 0;
+}
+.login-box button[type="submit"] {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.login-box button[type="submit"]:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+body:has(.login-box)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Sunburst fanning up from the bottom centre. */
+  background: repeating-conic-gradient(
+    from 0deg at 50% 100%,
+    #c9a24a14 0deg 3deg,
+    transparent 3deg 10deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 100%, #000, transparent 75%);
+  mask-image: radial-gradient(ellipse 90% 90% at 50% 100%, #000, transparent 75%);
+}
+
+/* The 16-column table has no room for display tracking: keep the deco type
+   but pull the letter-spacing in so labels break between words, not letters. */
+.orgs-table th {
+  letter-spacing: 0.05em;
+  font-size: 0.68rem;
+}
+.orgs-table .badge {
+  letter-spacing: 0.03em;
+  font-size: 0.66em;
 }

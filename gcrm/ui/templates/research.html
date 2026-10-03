@@ -77,22 +77,22 @@
 </form>
 
 <style>
-  .pipeline-run { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 1rem 0; padding: 1rem; background: #1a1a2e; border-radius: 10px; }
-  .pipeline-run input, .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid #ffffff20; background: #0f0f23; color: #fff; }
-  .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid #7c6fff55; background: #1a1a2e; color: #fff; cursor: pointer; }
-  .pipeline-run button:hover { border-color: #7c6fff; }
-  .pipeline-run button.primary { background: #7c6fff; border-color: #7c6fff; font-weight: 600; }
-  .pipeline-run button.ghost { border-color: #ffffff20; color: #ccc; }
+  .pipeline-run { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 1rem 0; padding: 1rem; background: var(--surface); border-radius: 10px; }
+  .pipeline-run input, .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--bg-inset); color: var(--text); }
+  .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--text); cursor: pointer; }
+  .pipeline-run button:hover { border-color: var(--accent); }
+  .pipeline-run button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .pipeline-run button.ghost { border-color: var(--hairline); color: #ccc; }
   .run-banner { margin: 1rem 0; padding: 10px 14px; border-radius: 8px; }
   .run-banner.ok { background: #1c3a26; color: #6ee7a0; }
   .run-banner.err { background: #3a1c1c; color: #ef8a8a; }
-  .city-confirm { margin: 1rem 0; padding: 1rem; background: #2a2440; border: 1px solid #7c6fff; border-radius: 10px; }
+  .city-confirm { margin: 1rem 0; padding: 1rem; background: var(--surface-raised); border: 1px solid var(--accent); border-radius: 10px; }
   .city-confirm p { margin: 0 0 10px; color: #ddd; }
   .city-confirm-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .city-confirm-row form { margin: 0; }
-  .city-confirm button { padding: 8px 14px; border-radius: 8px; border: 1px solid #7c6fff55; background: #1a1a2e; color: #fff; cursor: pointer; }
-  .city-confirm button.primary { background: #7c6fff; border-color: #7c6fff; font-weight: 600; }
-  .city-confirm button.ghost { border-color: #ffffff20; color: #ccc; }
+  .city-confirm button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--text); cursor: pointer; }
+  .city-confirm button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .city-confirm button.ghost { border-color: var(--hairline); color: #ccc; }
   .cancel-link { color: #888; font-size: 13px; }
 </style>
 
