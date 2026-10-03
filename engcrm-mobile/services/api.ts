@@ -641,6 +641,42 @@ export interface VoiceResult {
   candidates: VoiceCandidate[];
 }
 
+// --- Search (organizations and people in one box) ---
+export interface SearchOrganization {
+  id: number;
+  name: string;
+  city: string | null;
+  country: string | null;
+  type: string | null;
+  pipeline_stage: PipelineStage;
+  status: OrganizationStatus;
+  // Confirmed LinkedIn connections there: "do I know someone?"
+  linkedin_connection_count: number;
+}
+
+export interface SearchPerson {
+  id: number;
+  name: string;
+  title: string | null;
+  city: string | null;
+  company: string | null;
+  contact_id: number | null;
+  is_linkedin_contact: boolean;
+  pipeline_stage: PipelineStage | null;
+  company_pipeline_stage: PipelineStage | null;
+}
+
+export interface SearchResults {
+  query: string;
+  organizations: SearchOrganization[];
+  people: SearchPerson[];
+}
+
+export async function searchAll(q: string): Promise<SearchResults> {
+  const resp = await client.get("/api/search", { params: { q } });
+  return resp.data;
+}
+
 // --- People (individuals on scanned cards, linked to their company organization) ---
 export type PersonSortKey = "created_at" | "name";
 

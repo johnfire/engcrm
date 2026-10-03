@@ -53,6 +53,10 @@ export default function DrawerLayout() {
       }}
     >
       <Drawer.Screen
+        name="search"
+        options={{ title: t("drawer.searchTitle"), drawerLabel: t("drawer.search") }}
+      />
+      <Drawer.Screen
         name="organizations"
         options={{ title: t("drawer.organizations"), drawerLabel: t("drawer.organizations") }}
       />

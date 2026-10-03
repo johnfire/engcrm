@@ -351,5 +351,15 @@
   "personStage.title": "Stage",
   "personStage.clear": "No stage",
   "personStage.organization": "Their organization: {{stage}}",
-  "personStage.saveFailed": "Couldn't save the stage. Try again."
+  "personStage.saveFailed": "Couldn't save the stage. Try again.",
+  "drawer.search": "🔎 Search",
+  "drawer.searchTitle": "Search",
+  "search.placeholder": "Name, company or city",
+  "search.hint": "Type at least two letters to find a person or a company.",
+  "search.nothing": "Nothing found for “{{query}}”.",
+  "search.failed": "Couldn't search. Check your connection and try again.",
+  "search.organizations": "Organizations",
+  "search.people": "People",
+  "search.linkedinCount": "in {{count}}",
+  "search.linkedinPerson": "in"
 }

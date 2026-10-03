@@ -351,5 +351,15 @@
   "personStage.title": "Stufe",
   "personStage.clear": "Keine Stufe",
   "personStage.organization": "Ihre Organisation: {{stage}}",
-  "personStage.saveFailed": "Die Stufe konnte nicht gespeichert werden. Bitte erneut versuchen."
+  "personStage.saveFailed": "Die Stufe konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "drawer.search": "🔎 Suche",
+  "drawer.searchTitle": "Suche",
+  "search.placeholder": "Name, Firma oder Stadt",
+  "search.hint": "Mindestens zwei Buchstaben eingeben, um eine Person oder Firma zu finden.",
+  "search.nothing": "Nichts gefunden für „{{query}}“.",
+  "search.failed": "Suche fehlgeschlagen. Verbindung prüfen und erneut versuchen.",
+  "search.organizations": "Organisationen",
+  "search.people": "Personen",
+  "search.linkedinCount": "in {{count}}",
+  "search.linkedinPerson": "in"
 }
