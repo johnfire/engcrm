@@ -17,6 +17,8 @@ from gcrm.linkedin import (
     normalize_company,
     plan_company_promotion,
 )
+from gcrm.organization_state import coerce_stage, coerce_status
+from gcrm.tools.db_audit import log_audit
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -273,4 +275,91 @@ def get_company_promotion_plan() -> CompanyPlan:
         )
         organizations = [dict(row) for row in cur.fetchall()]
     return plan_company_promotion(people, organizations)
+
+
+ORGANIZATION_SOURCE = "linkedin"
+
+
+def _link_people(cur, contact_id: int, people_ids: list[int]) -> int:
+    """Attach still-unlinked LinkedIn people to an organization, except those who
+    were once explicitly unlinked from it (their rejection stands)."""
+    cur.execute(
+        "UPDATE people SET contact_id = %s, updated_at = NOW() "
+        "WHERE id = ANY(%s) AND is_linkedin_contact AND contact_id IS NULL "
+        "AND deleted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM person_match_rejections r "
+        "                WHERE r.person_id = people.id AND r.contact_id = %s)",
+        (contact_id, people_ids, contact_id),
+    )
+    return cur.rowcount
+
+
+def _create_company_organization(cur, group: dict) -> tuple[int, bool]:
+    """Insert (or find, if a concurrent run just made it) the organization for
+    one employer. The partial unique index on (workspace_id, company_key) is the
+    guard, so re-running can never produce a second one."""
+    cur.execute(
+        """
+        INSERT INTO contacts
+            (name, pipeline_stage, status, source, company_key, city_status, workspace_id)
+        VALUES (%s, %s, %s, %s, %s, 'needs_review',
+                COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default')))
+        ON CONFLICT (workspace_id, company_key)
+            WHERE source = 'linkedin' AND company_key IS NOT NULL AND deleted_at IS NULL
+        DO NOTHING
+        RETURNING id
+        """,
+        (group["name"], coerce_stage("candidate"), coerce_status("none"),
+         ORGANIZATION_SOURCE, group["key"], get_workspace_id()),
+    )
+    created = cur.fetchone()
+    if created:
+        return created["id"], True
+    cur.execute(
+        "SELECT id FROM contacts WHERE source = 'linkedin' AND company_key = %s "
+        "AND deleted_at IS NULL ORDER BY id LIMIT 1",
+        (group["key"],),
+    )
+    return cur.fetchone()["id"], False
+
+
+def apply_company_plan(plan: CompanyPlan, limit: int | None = None) -> dict:
+    """Carry out a promotion plan. Each employer is its own SAVEPOINT, so one bad
+    row is counted and skipped. `limit` caps how many organizations are
+    *created* (linking existing ones is free). Returns counts — created, linked,
+    people_linked, failed, ambiguous_skipped."""
+    counts = {"created": 0, "linked": 0, "people_linked": 0, "failed": 0,
+              "ambiguous_skipped": len(plan.ambiguous)}
+    with db() as conn:
+        cur = conn.cursor()
+        for group in plan.link:
+            try:
+                with _savepoint(cur):
+                    linked = _link_people(cur, group["contact_id"], group["people_ids"])
+                    counts["people_linked"] += linked
+                    counts["linked"] += 1 if linked else 0
+            except Exception:
+                counts["failed"] += 1
+                logger.warning("linkedin companies: link failed for %r", group["name"], exc_info=True)
+        for group in plan.create:
+            if limit is not None and counts["created"] >= limit:
+                break
+            try:
+                with _savepoint(cur):
+                    contact_id, is_new = _create_company_organization(cur, group)
+                    counts["people_linked"] += _link_people(cur, contact_id, group["people_ids"])
+                    counts["created"] += 1 if is_new else 0
+            except Exception:
+                counts["failed"] += 1
+                logger.warning("linkedin companies: create failed for %r", group["name"], exc_info=True)
+    logger.info("linkedin companies: %s", counts)
+    if counts["created"] or counts["people_linked"]:  # a no-op rerun leaves no audit noise
+        log_audit(None, None, "linkedin.companies_promoted", None,
+                  f"created={counts['created']} people_linked={counts['people_linked']}")
+    return counts
+
+
+def promote_linkedin_companies(limit: int | None = None) -> dict:
+    """Plan and apply in one go; see apply_company_plan."""
+    return apply_company_plan(get_company_promotion_plan(), limit=limit)
 

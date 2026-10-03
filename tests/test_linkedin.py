@@ -1072,3 +1072,92 @@ class TestGetCompanyPromotionPlan:
         assert [g["key"] for g in plan.create] == ["acme"]
         assert len(cursor.executed) == 2
         assert all(sql.upper().startswith("SELECT") for sql, _ in cursor.executed)
+
+
+class ApplyCursor:
+    """Hands out ids for organization inserts and can fail one of them."""
+
+    def __init__(self, fail_on_name=None, existing_key_id=None):
+        self.executed = []
+        self.fail_on_name = fail_on_name
+        self.existing_key_id = existing_key_id  # simulate "someone just made it"
+        self.rowcount = 0
+        self._next_id = 100
+        self._row = None
+
+    def execute(self, sql, params=None):
+        sql = " ".join(sql.split())
+        self.executed.append((sql, params))
+        self._row = None
+        if sql.startswith("INSERT INTO contacts"):
+            if params[0] == self.fail_on_name:
+                raise RuntimeError("boom")
+            if self.existing_key_id:
+                return
+            self._next_id += 1
+            self._row = {"id": self._next_id}
+        elif sql.startswith("SELECT id FROM contacts WHERE source = 'linkedin'"):
+            self._row = {"id": self.existing_key_id}
+        elif sql.startswith("UPDATE people"):
+            self.rowcount = len(params[1])
+
+    def fetchone(self):
+        return self._row
+
+    def statements(self, prefix):
+        return [(sql, p) for sql, p in self.executed if sql.startswith(prefix)]
+
+
+def run_apply(cursor, plan, **kwargs):
+    patcher = patched_db(cursor)
+    try:
+        with patch("gcrm.tools.db_linkedin.log_audit") as audit:
+            return db_linkedin.apply_company_plan(plan, **kwargs), audit
+    finally:
+        patcher.stop()
+
+
+class TestApplyCompanyPlan:
+    plan = plan_company_promotion(people_at("Acme", "Acme GmbH", "Globex"), organizations=[])
+
+    def test_creates_candidates_needing_a_city_and_links_their_people(self):
+        cursor = ApplyCursor()
+        counts, audit = run_apply(cursor, self.plan)
+        assert counts["created"] == 2 and counts["people_linked"] == 3 and counts["failed"] == 0
+        [(insert, params), _] = cursor.statements("INSERT INTO contacts")
+        assert "'needs_review'" in insert and "ON CONFLICT (workspace_id, company_key)" in insert
+        assert params[1:5] == ("candidate", "none", "linkedin", "acme")
+        links = cursor.statements("UPDATE people")
+        assert [p[1] for _, p in links] == [[1, 2], [3]]
+        # An explicit unlink is never undone by a later promotion.
+        assert "person_match_rejections" in links[0][0]
+        audit.assert_called_once()
+
+    def test_one_failing_employer_is_rolled_back_and_the_rest_still_apply(self):
+        cursor = ApplyCursor(fail_on_name="Acme")
+        counts, _ = run_apply(cursor, self.plan)
+        assert counts["created"] == 1 and counts["failed"] == 1
+        assert any("ROLLBACK TO SAVEPOINT" in sql for sql, _ in cursor.executed)
+
+    def test_limit_caps_new_organizations(self):
+        counts, _ = run_apply(ApplyCursor(), self.plan, limit=1)
+        assert counts["created"] == 1
+
+    def test_an_organization_that_already_exists_is_reused_not_duplicated(self):
+        cursor = ApplyCursor(existing_key_id=42)
+        counts, _ = run_apply(cursor, self.plan)
+        assert counts["created"] == 0 and counts["people_linked"] == 3
+        assert {p[0] for _, p in cursor.statements("UPDATE people")} == {42}
+
+    def test_links_to_existing_organizations_cost_no_creation(self):
+        orgs = [{"id": 9, "name": "Acme GmbH", "city": "x", "source": None, "company_key": None}]
+        plan = plan_company_promotion(people_at("Acme"), orgs)
+        cursor = ApplyCursor()
+        counts, _ = run_apply(cursor, plan)
+        assert counts == {"created": 0, "linked": 1, "people_linked": 1, "failed": 0,
+                          "ambiguous_skipped": 0}
+        assert cursor.statements("INSERT INTO contacts") == []
+
+    def test_a_noop_rerun_writes_no_audit_entry(self):
+        _, audit = run_apply(ApplyCursor(), plan_company_promotion([], []))
+        audit.assert_not_called()
