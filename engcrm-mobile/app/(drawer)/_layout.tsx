@@ -61,6 +61,10 @@ export default function DrawerLayout() {
         options={{ title: t("drawer.organizations"), drawerLabel: t("drawer.organizations") }}
       />
       <Drawer.Screen
+        name="reachable"
+        options={{ title: t("drawer.reachableTitle"), drawerLabel: t("drawer.reachable") }}
+      />
+      <Drawer.Screen
         name="approvals"
         options={{ title: t("drawer.approvals"), drawerLabel: t("drawer.approvals") }}
       />

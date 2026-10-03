@@ -1,7 +1,7 @@
 """Mobile JSON API for people — the individuals on scanned cards, each linked to
 their company contact. People arrive through the card-confirm flow or are added by
 hand here; the phone can also edit them, change their stage, and delete them."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payload
@@ -17,14 +17,29 @@ from gcrm.tools.privacy_retention import erase_person
 router = APIRouter(prefix="/api/people", tags=["mobile-people"])
 
 
+PAGE_SIZE = 50
+
+
 @router.get("")
 def list_people(
     search: str = "",
     sort: str = "created_at",
     dir: str = "desc",
+    stage: str = "",
+    linkedin: str = "",
+    page: int | None = Query(default=None, ge=1),
     _role: str = Depends(require_jwt),
 ) -> list[dict]:
-    return get_people(search, sort, dir)
+    """People, newest first by default. `stage` is a pipeline stage or "none" (no
+    stage set); `linkedin` is "1" (LinkedIn connections) or "unlinked" (connections
+    not yet tied to an organization). Without `page` the whole list comes back, as
+    older app builds expect; with it, one page of PAGE_SIZE."""
+    if stage and stage != "none" and stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+    if linkedin not in ("", "1", "unlinked"):
+        raise HTTPException(status_code=400, detail="Unknown linkedin filter")
+    paging = {} if page is None else {"limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}
+    return get_people(search, sort, dir, linkedin=linkedin, stage=stage, **paging)
 
 
 # column -> maximum length. people.name and people.email are VARCHAR(200); the rest

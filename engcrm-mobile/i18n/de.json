@@ -434,5 +434,20 @@
   "recordForm.openExisting": "Öffnen",
   "search.addTitle": "Nicht gefunden? „{{query}}“ hinzufügen:",
   "search.addOrganization": "Als Organisation hinzufügen",
-  "search.addPerson": "Als Person hinzufügen"
+  "search.addPerson": "Als Person hinzufügen",
+  "drawer.reachable": "🤝 Erreichbare Treffer",
+  "drawer.reachableTitle": "Erreichbare Treffer",
+  "reachable.intro": "Organisationen, die passen und bei denen du jemanden auf LinkedIn kennst, beste zuerst. Schreib sie selbst an – es wird nichts automatisch per E-Mail verschickt.",
+  "reachable.empty": "Noch nichts hier. Organisationen erscheinen, sobald sie als passend bewertet sind und du dort jemanden kennst.",
+  "organizations.linkedinFilter": "LinkedIn",
+  "organizations.linkedinAny": "Alle",
+  "organizations.linkedinKnow": "Ich kenne jemanden",
+  "organizations.flagFilter": "Markierungen",
+  "people.noStage": "Ohne Stufe",
+  "people.linkedinFilter": "LinkedIn",
+  "people.everyone": "Alle",
+  "people.linkedinOnly": "Kontakte",
+  "people.linkedinUnlinked": "Keiner Organisation zugeordnet",
+  "people.sortConnected": "Zuletzt vernetzt",
+  "people.sortCompany": "Firma"
 }

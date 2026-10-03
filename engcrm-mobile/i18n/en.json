@@ -434,5 +434,20 @@
   "recordForm.openExisting": "Open",
   "search.addTitle": "Not found? Add “{{query}}”:",
   "search.addOrganization": "Add as organization",
-  "search.addPerson": "Add as person"
+  "search.addPerson": "Add as person",
+  "drawer.reachable": "🤝 Reachable fits",
+  "drawer.reachableTitle": "Reachable fits",
+  "reachable.intro": "Organizations that look like a fit where you know someone on LinkedIn, best fit first. Message these yourself — nothing is emailed to them automatically.",
+  "reachable.empty": "Nothing here yet. Organizations show up once they are scored a fit and you know someone there.",
+  "organizations.linkedinFilter": "LinkedIn",
+  "organizations.linkedinAny": "All",
+  "organizations.linkedinKnow": "I know someone",
+  "organizations.flagFilter": "Flags",
+  "people.noStage": "No stage",
+  "people.linkedinFilter": "LinkedIn",
+  "people.everyone": "Everyone",
+  "people.linkedinOnly": "Connections",
+  "people.linkedinUnlinked": "Not linked to an organization",
+  "people.sortConnected": "Recently connected",
+  "people.sortCompany": "Company"
 }

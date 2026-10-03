@@ -265,6 +265,8 @@ def get_people(
     value_rating: str = "",
     linkedin: str = "",
     stage: str = "",
+    limit: int | None = None,
+    offset: int = 0,
 ) -> list[dict]:
     """All people, optionally filtered by name/email/city text search and/or
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
@@ -276,7 +278,12 @@ def get_people(
     opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
     opportunity score, most recent logged interaction date, and (when user_id
-    is given) that user's private company-priority and person-value ratings."""
+    is given) that user's private company-priority and person-value ratings.
+
+    `limit`/`offset` return one page. The order always ends on person.id: many
+    people share a created_at or a connected_on date (a LinkedIn import stamps
+    them together), and without a unique last key two pages could repeat or skip
+    a person."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
@@ -301,7 +308,10 @@ def get_people(
 
     # NULLS LAST regardless of direction — an unrated/unlinked person should
     # never jump to the top of a descending sort just for lacking a value.
-    order_by = f"ORDER BY {sort_col} {sort_dir} NULLS LAST"
+    order_by = f"ORDER BY {sort_col} {sort_dir} NULLS LAST, person.id"
+    if limit is not None:
+        order_by += " LIMIT %s OFFSET %s"
+        params += [int(limit), max(int(offset), 0)]
     with db() as conn:
         cur = conn.cursor()
         cur.execute(select + where + order_by, params)
