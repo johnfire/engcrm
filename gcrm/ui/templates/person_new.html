@@ -16,50 +16,59 @@
   </div>
 </section>
 
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if existing %}
+<div class="linkedin-notice" role="alert">
+  {{ t('personNew.duplicateNotice') }}
+  <a href="/people/{{ existing.id }}">{{ existing.name }}{% if existing.company %} · {{ existing.company }}{% endif %}{% if existing.city %} · {{ existing.city }}{% endif %}</a>
+  <p class="muted small">{{ t('personNew.duplicateHint') }}</p>
+</div>
+{% endif %}
+
 <form method="post" action="/people/new" class="person-edit-form">
   <div class="detail-grid">
     <section class="detail-section">
       <h2>{{ t('personDetail.details') }}</h2>
       <div class="field-row field-row--wide">
         <label for="person-name">{{ t('common.name') }}</label>
-        <input id="person-name" type="text" name="name" value="" required />
+        <input id="person-name" type="text" name="name" value="{{ values.name or '' }}" maxlength="{{ limits.name }}" required />
       </div>
       <div class="field-row">
         <label for="person-title">{{ t('personDetail.jobTitle') }}</label>
-        <input id="person-title" type="text" name="title" value="" />
+        <input id="person-title" type="text" name="title" value="{{ values.title or '' }}" maxlength="{{ limits.title }}" />
       </div>
       <div class="field-row">
         <label for="person-stage">{{ t('common.pipelineStage') }}</label>
         <select id="person-stage" name="pipeline_stage">
-          <option value="" selected>—</option>
+          <option value="" {% if not values.pipeline_stage %}selected{% endif %}>—</option>
           {% for s in stages %}
-          <option value="{{ s }}">{{ t('stage.' ~ s) }}</option>
+          <option value="{{ s }}" {% if values.pipeline_stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="field-row">
         <label for="person-relationship">{{ t('people.relationship') }}</label>
-        <input id="person-relationship" type="text" name="relationship" value="" />
+        <input id="person-relationship" type="text" name="relationship" value="{{ values.relationship or '' }}" maxlength="{{ limits.relationship }}" />
       </div>
       <div class="field-row">
         <label for="person-email">{{ t('common.email') }}</label>
-        <input id="person-email" type="email" name="email" value="" />
+        <input id="person-email" type="email" name="email" value="{{ values.email or '' }}" maxlength="{{ limits.email }}" />
       </div>
       <div class="field-row">
         <label for="person-phone">{{ t('common.phone') }}</label>
-        <input id="person-phone" type="text" name="phone" value="" />
+        <input id="person-phone" type="text" name="phone" value="{{ values.phone or '' }}" maxlength="{{ limits.phone }}" />
       </div>
       <div class="field-row field-row--wide">
         <label for="person-website">{{ t('common.website') }}</label>
-        <input id="person-website" type="text" name="website" value="" />
+        <input id="person-website" type="text" name="website" value="{{ values.website or '' }}" maxlength="{{ limits.website }}" />
       </div>
       <div class="field-row">
         <label for="person-city">{{ t('common.city') }}</label>
-        <input id="person-city" type="text" name="city" value="" />
+        <input id="person-city" type="text" name="city" value="{{ values.city or '' }}" maxlength="{{ limits.city }}" />
       </div>
       <div class="field-row">
         <label for="person-country">{{ t('common.country') }}</label>
-        <input id="person-country" type="text" name="country" value="" maxlength="2" />
+        <input id="person-country" type="text" name="country" value="{{ values.country or '' }}" maxlength="2" placeholder="DE" />
       </div>
     </section>
 
@@ -67,18 +76,21 @@
       <h2>{{ t('personDetail.context') }}</h2>
       <div class="field-row field-row--wide">
         <label for="person-met-at">{{ t('people.metAt') }}</label>
-        <input id="person-met-at" type="text" name="met_at" value=""
+        <input id="person-met-at" type="text" name="met_at" value="{{ values.met_at or '' }}" maxlength="{{ limits.met_at }}"
                placeholder="{{ t('personDetail.metAtPlaceholder') }}" />
       </div>
       <div class="field-row field-row--wide field-row--tall">
         <label for="person-notes">{{ t('common.notes') }}</label>
-        <textarea id="person-notes" name="notes" rows="6"></textarea>
+        <textarea id="person-notes" name="notes" rows="6" maxlength="{{ limits.notes }}">{{ values.notes or '' }}</textarea>
       </div>
     </section>
   </div>
 
   <div class="detail-actions">
     <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+    {% if existing %}
+    <button type="submit" name="allow_duplicate" value="1" class="btn-secondary">{{ t('personNew.saveAsNew') }}</button>
+    {% endif %}
     <a href="/people/" class="btn-secondary">{{ t('personDetail.backToList') }}</a>
   </div>
 </form>

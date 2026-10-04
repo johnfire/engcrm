@@ -102,6 +102,16 @@ class TestSavePerson:
         assert "pipeline_stage" in insert.args[0]
         assert "prospect" in insert.args[1]
 
+    def test_allow_duplicate_skips_the_lookup_and_inserts(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [{"id": 17}]  # only the INSERT ... RETURNING id
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            person_id = db_people.save_person(name="Ben", email="ben@x.de", allow_duplicate=True)
+        assert person_id == 17
+        assert len(cur.execute.call_args_list) == 1
+        assert "INSERT INTO people" in cur.execute.call_args.args[0]
+
     def test_no_stage_is_stored_as_null(self):
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [None, {"id": 16}]
@@ -386,49 +396,126 @@ class TestExtractEmailEndpoint:
         assert resp.json()["fields"]["error"] == email_extract._EXTRACTION_FAILED
 
 
+class TestPersonStageInstantSave:
+    """The detail page's stage select saves the moment it is picked (PUT, JSON)."""
+
+    def put(self, body, updated=True):
+        with patch("gcrm.api.routers.people.update_person", return_value=updated) as update, \
+             patch("gcrm.api.routers.people.log_audit") as audit:
+            resp = client.put("/people/5/stage", json=body)
+        return resp, update, audit
+
+    def test_sets_the_stage(self, admin_web):
+        resp, update, audit = self.put({"stage": "opportunity"})
+        assert resp.status_code == 200 and resp.json() == {"pipeline_stage": "opportunity"}
+        update.assert_called_once_with(5, {"pipeline_stage": "opportunity"})
+        assert audit.call_args.args[2] == "person.stage_changed"
+
+    def test_null_clears_the_stage(self, admin_web):
+        resp, update, _ = self.put({"stage": None})
+        assert resp.json() == {"pipeline_stage": None}
+        update.assert_called_once_with(5, {"pipeline_stage": ""})
+
+    def test_an_unknown_stage_is_refused(self, admin_web):
+        resp, update, _ = self.put({"stage": "bogus"})
+        assert resp.status_code == 400
+        update.assert_not_called()
+
+    def test_a_missing_person_is_a_404(self, admin_web):
+        resp, _, _ = self.put({"stage": "suspect"}, updated=False)
+        assert resp.status_code == 404
+
+    def test_admin_only(self):
+        resp = client.put("/people/5/stage", json={"stage": "suspect"}, follow_redirects=False)
+        assert resp.status_code in (303, 307, 401, 403)
+
+
 class TestPersonNewPage:
     def test_form_renders(self, admin_web):
         resp = client.get("/people/new")
         assert resp.status_code == 200
         assert 'action="/people/new"' in resp.text
         assert 'name="pipeline_stage"' in resp.text
-        assert '<option value="prospect">' in resp.text
+        assert '<option value="prospect" >' in resp.text
+
+    @staticmethod
+    def post_new(data, existing_id=None, existing=None, saved_id=42):
+        """POST /people/new with the DB edges patched. Returns (response, save mock,
+        lookup mock)."""
+        with patch("gcrm.api.routers.people.db"), \
+             patch("gcrm.api.routers.people.find_existing_person", return_value=existing_id) as mfind, \
+             patch("gcrm.api.routers.people.get_person", return_value=existing), \
+             patch("gcrm.api.routers.people.save_person", return_value=saved_id) as msave, \
+             patch("gcrm.api.routers.people.log_audit"):
+            resp = client.post("/people/new", data=data, follow_redirects=False)
+        return resp, msave, mfind
 
     def test_create_saves_and_redirects(self, admin_web):
-        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
-             patch("gcrm.api.routers.people.log_audit"):
-            resp = client.post(
-                "/people/new",
-                data={"name": "Anna Roth", "email": "anna@acme.de"},
-                follow_redirects=False,
-            )
+        resp, msave, _ = self.post_new({"name": "Anna Roth", "email": "anna@acme.de"})
         assert resp.status_code == 303
         assert resp.headers["location"] == "/people/42?saved=1"
         assert msave.call_args.kwargs["name"] == "Anna Roth"
         assert msave.call_args.kwargs["source"] == "manual"
 
     def test_create_passes_the_chosen_stage(self, admin_web):
-        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
-             patch("gcrm.api.routers.people.log_audit"):
-            resp = client.post(
-                "/people/new",
-                data={"name": "Anna Roth", "pipeline_stage": "suspect"},
-                follow_redirects=False,
-            )
+        resp, msave, _ = self.post_new({"name": "Anna Roth", "pipeline_stage": "suspect"})
         assert resp.status_code == 303
         assert msave.call_args.kwargs["pipeline_stage"] == "suspect"
 
     def test_create_without_a_stage_leaves_it_blank(self, admin_web):
-        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
-             patch("gcrm.api.routers.people.log_audit"):
-            client.post("/people/new", data={"name": "Anna Roth"}, follow_redirects=False)
+        _, msave, _ = self.post_new({"name": "Anna Roth"})
         assert msave.call_args.kwargs["pipeline_stage"] == ""
 
+    def test_create_stores_every_typed_field_trimmed(self, admin_web):
+        typed = {"name": " Anna Roth ", "title": " CTO ", "email": " anna@acme.de ", "phone": "+49 821",
+                 "website": "acme.de", "city": "Augsburg", "country": "at", "relationship": "collector",
+                 "met_at": "Kunstmesse", "notes": "Likes blue"}
+        _, msave, _ = self.post_new(typed)
+        kwargs = msave.call_args.kwargs
+        assert kwargs["name"] == "Anna Roth" and kwargs["title"] == "CTO" and kwargs["email"] == "anna@acme.de"
+        assert kwargs["country"] == "AT"  # upper-cased, as the phone does
+        for field in ("phone", "website", "city", "relationship", "met_at", "notes"):
+            assert kwargs[field] == typed[field]
+        assert kwargs["source"] == "manual" and kwargs["allow_duplicate"] is False
+
+    def test_a_blank_country_is_stored_as_de(self, admin_web):
+        _, msave, _ = self.post_new({"name": "Ben", "city": "Ulm", "country": ""})
+        assert msave.call_args.kwargs["country"] == "DE"
+
+    @pytest.mark.parametrize("data, reason", [
+        ({"name": "X" * 201}, "name is too long"),
+        ({"name": "Cara", "email": "not an email"}, "email address does not look right"),
+        ({"name": "Cara", "country": "D1"}, "2-letter code"),
+        ({"name": "Cara", "notes": "n" * 20001}, "notes is too long"),
+    ])
+    def test_a_refused_save_comes_back_with_the_reason_and_everything_typed(self, admin_web, data, reason):
+        resp, msave, _ = self.post_new({**data, "met_at": "Kunstmesse Augsburg"})
+        assert resp.status_code == 400
+        assert reason in resp.text
+        assert 'value="Kunstmesse Augsburg"' in resp.text
+        msave.assert_not_called()
+
+    def test_a_match_is_shown_instead_of_silently_dropping_what_was_typed(self, admin_web):
+        """Regression: the web form used to hand the typed details to save_person,
+        which deduped onto the existing person, discarded them, and still said Saved."""
+        existing = {"id": 7, "name": "Anna Roth", "company": "Acme", "city": "Augsburg"}
+        resp, msave, _ = self.post_new(
+            {"name": "Anna R.", "email": "anna@acme.de", "notes": "NEW INFO"}, existing_id=7, existing=existing,
+        )
+        assert resp.status_code == 409
+        msave.assert_not_called()
+        assert 'href="/people/7"' in resp.text and "Acme" in resp.text
+        assert "NEW INFO" in resp.text and 'value="anna@acme.de"' in resp.text
+        assert 'name="allow_duplicate" value="1"' in resp.text
+
+    def test_save_as_a_new_person_skips_the_match(self, admin_web):
+        resp, msave, mfind = self.post_new({"name": "ben", "city": "Munich", "allow_duplicate": "1"}, existing_id=2)
+        assert resp.status_code == 303
+        mfind.assert_not_called()
+        assert msave.call_args.kwargs["allow_duplicate"] is True
+
     def test_create_rejects_an_unknown_stage(self, admin_web):
-        with patch("gcrm.api.routers.people.save_person") as msave:
-            resp = client.post(
-                "/people/new", data={"name": "Anna", "pipeline_stage": "bogus"}, follow_redirects=False,
-            )
+        resp, msave, _ = self.post_new({"name": "Anna", "pipeline_stage": "bogus"})
         assert resp.status_code == 400
         msave.assert_not_called()
 

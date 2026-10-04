@@ -67,6 +67,7 @@ def save_person(
     contact_id: int | None = None,
     source: str = "",
     pipeline_stage: str = "",
+    allow_duplicate: bool = False,
 ) -> int:
     """
     Insert a person, optionally linked to their company contact. Returns the new
@@ -83,13 +84,17 @@ def save_person(
 
     `pipeline_stage` is one of PIPELINE_STAGES or blank (no stage), and raises
     ValueError otherwise — checked before anything is written.
+
+    `allow_duplicate` skips the dedup and always inserts: for a person typed in by
+    hand after being shown the match and confirming it is someone else (two
+    different people can share a name).
     """
     stage = pipeline_stage.strip() or None
     if stage is not None and stage not in PIPELINE_STAGES:
         raise ValueError(f"unknown pipeline stage: {stage!r}")
     with db() as conn:
         cur = conn.cursor()
-        existing_id = find_existing_person(cur, name, email, contact_id)
+        existing_id = None if allow_duplicate else find_existing_person(cur, name, email, contact_id)
         if existing_id:
             logger.debug("save_person: duplicate — %s (%s, contact_id=%s)", name, email, contact_id)
             return _refresh_met_at(cur, existing_id, met_at)

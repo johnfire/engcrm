@@ -39,14 +39,18 @@
         <label for="person-title">{{ t('personDetail.jobTitle') }}</label>
         <input id="person-title" type="text" name="title" value="{{ person.title or '' }}" />
       </div>
+      {# No name: the stage is not part of this form. It saves on its own the moment it
+         is picked (script below), like the dropdown on the people list. #}
       <div class="field-row">
         <label for="person-stage">{{ t('common.pipelineStage') }}</label>
-        <select id="person-stage" name="pipeline_stage">
+        <select id="person-stage" data-person-id="{{ person.id }}"
+                data-saved-stage="{{ person.pipeline_stage or '' }}" aria-describedby="person-stage-status">
           <option value="" {% if not person.pipeline_stage %}selected{% endif %}>—</option>
           {% for s in stages %}
           <option value="{{ s }}" {% if person.pipeline_stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
           {% endfor %}
         </select>
+        <span id="person-stage-status" class="muted small" role="status" aria-live="polite"></span>
       </div>
       <div class="field-row">
         <label for="person-relationship">{{ t('people.relationship') }}</label>
@@ -151,6 +155,34 @@
 </form>
 
 <form id="person-unlink-form" method="post" action="/people/{{ person.id }}/unlink"></form>
+
+<script>
+  (() => {
+    const select = document.getElementById("person-stage");
+    const status = document.getElementById("person-stage-status");
+    if (!select || !status) return;
+    select.addEventListener("change", async () => {
+      const previous = select.dataset.savedStage;
+      select.disabled = true;
+      status.textContent = "{{ t('personDetail.stageSaving') }}";
+      try {
+        const response = await fetch(`/people/${select.dataset.personId}/stage`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage: select.value || null }),
+        });
+        if (!response.ok) throw new Error("save failed");
+        select.dataset.savedStage = select.value;
+        status.textContent = "{{ t('personDetail.stageSaved') }}";
+      } catch {
+        select.value = previous;
+        status.textContent = "{{ t('personDetail.stageSaveFailed') }}";
+      } finally {
+        select.disabled = false;
+      }
+    });
+  })();
+</script>
 
 <form method="post" action="/people/{{ person.id }}/delete" style="margin-top: 1rem"
       onsubmit="return confirm('{{ t('personDetail.deleteConfirm') }}')">

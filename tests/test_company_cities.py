@@ -604,7 +604,15 @@ class TestPersonStage:
         person = self.listed(title="CTO", distance_km=None)
         with patch("gcrm.api.routers.people.get_person", return_value=person), \
              patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
-            assert 'name="pipeline_stage"' in admin_session.get("/people/1").text
+            page = admin_session.get("/people/1").text
+        # the select saves on its own (PUT /people/{id}/stage) the moment it is picked,
+        # so it carries no name: the Save button's form never sends or overwrites it
+        assert 'id="person-stage"' in page
+        assert '<option value="candidate" selected>Candidate</option>' in page
+        for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
+            assert f'<option value="{stage}" ' in page
+        assert 'name="pipeline_stage"' not in page
+        assert "/stage`, {" in page and 'method: "PUT"' in page
         # an old cached form that never sent the field must not wipe the stage
         with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
              patch("gcrm.api.routers.people.log_audit"):

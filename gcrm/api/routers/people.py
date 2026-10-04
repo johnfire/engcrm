@@ -6,8 +6,11 @@ from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
+from gcrm.api.routers.api_people import PERSON_LIMITS, PersonFields
+from gcrm.api.routers.api_record_edit import clean_fields
 from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_DAYS
+from gcrm.db.connection import db
 from gcrm.linkedin import decode_export, parse_connections_csv
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.company_places import ESTIMATED_USD_PER_1000
@@ -32,6 +35,7 @@ from gcrm.tools.db_linkedin import (
     run_city_lookup,
 )
 from gcrm.tools.db_people import (
+    find_existing_person,
     get_people,
     get_person,
     get_person_cities,
@@ -64,6 +68,10 @@ MATCH_PAGE_SIZE = 100
 
 class PersonValueRatingBody(BaseModel):
     priority: int | None = None
+
+
+class PersonStageBody(BaseModel):
+    stage: str | None = None  # null or blank clears the stage
 
 
 @router.get("/people/", response_class=HTMLResponse)
@@ -110,15 +118,29 @@ def extract_email(body: dict = Body(...), _admin: str = Depends(require_admin)) 
     return {"fields": result["fields"]}
 
 
+def _new_person_page(
+    request: Request, values: dict | None = None, error: str | None = None,
+    existing: dict | None = None, status_code: int = 200,
+):
+    """The New person form. After a refused save it comes back with everything
+    typed still in place, plus the reason (`error`) or the person it matched
+    (`existing`)."""
+    return templates.TemplateResponse(
+        "person_new.html",
+        {"request": request, "stages": PIPELINE_STAGES, "values": values or {},
+         "error": error, "existing": existing, "limits": PERSON_LIMITS},
+        status_code=status_code,
+    )
+
+
 @router.get("/people/new", response_class=HTMLResponse)
 def person_new(request: Request):
-    return templates.TemplateResponse(
-        "person_new.html", {"request": request, "stages": PIPELINE_STAGES}
-    )
+    return _new_person_page(request)
 
 
 @router.post("/people/new")
 def person_create(
+    request: Request,
     name: str = Form(""),
     title: str = Form(""),
     email: str = Form(""),
@@ -130,19 +152,42 @@ def person_create(
     met_at: str = Form(""),
     notes: str = Form(""),
     pipeline_stage: str = Form(""),
+    allow_duplicate: bool = Form(False),
     _admin: str = Depends(require_admin),
 ):
-    if not name.strip():
-        raise HTTPException(status_code=400, detail="Name is required")
+    """Save a person typed in by hand. Same rules as the phone (POST /api/people):
+    lengths and email checked, country upper-cased and DE when blank. Nothing typed
+    is ever dropped: a refused save, or a match on someone already stored, brings
+    the form back filled in rather than discarding it."""
+    typed = {
+        "name": name, "title": title, "email": email, "phone": phone, "website": website,
+        "city": city, "country": country, "relationship": relationship, "met_at": met_at,
+        "notes": notes,
+    }
+    values = {**typed, "pipeline_stage": pipeline_stage}
+    try:
+        fields = clean_fields(PersonFields(**typed), PERSON_LIMITS, require_name=True)
+    except HTTPException as refused:
+        return _new_person_page(request, values, error=refused.detail, status_code=400)
     if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+        return _new_person_page(request, values, error="Unknown pipeline stage", status_code=400)
+    text = {column: value or "" for column, value in fields.items()}
+
+    if not allow_duplicate:
+        with db() as conn:
+            existing_id = find_existing_person(conn.cursor(), text["name"], text["email"], None)
+        if existing_id:
+            existing = get_person(existing_id) or {"id": existing_id, "name": text["name"]}
+            return _new_person_page(request, values, existing=existing, status_code=409)
+
     person_id = save_person(
-        name=name.strip(), title=title.strip(), email=email.strip(), phone=phone.strip(),
-        website=website.strip(), city=city.strip(), country=country.strip(),
-        relationship=relationship.strip(), notes=notes.strip(), met_at=met_at.strip(),
-        source="manual", pipeline_stage=pipeline_stage,
+        name=text["name"], title=text["title"], email=text["email"], phone=text["phone"],
+        website=text["website"], city=text["city"], country=text["country"] or "DE",
+        relationship=text["relationship"], notes=text["notes"], met_at=text["met_at"],
+        source="manual", pipeline_stage=pipeline_stage, allow_duplicate=allow_duplicate,
     )
-    log_audit(None, None, "person.created", f"person:{person_id}", "created")
+    log_audit(None, None, "person.created", f"person:{person_id}",
+              "created:confirmed-not-duplicate" if allow_duplicate else "created")
     return local_redirect(f"/people/{person_id}", saved="1")
 
 
@@ -605,6 +650,23 @@ def person_set_stage(
         raise HTTPException(status_code=404, detail="Person not found")
     log_audit(None, None, "person.stage_changed", f"person:{person_id}", stage or "cleared")
     return local_redirect(next, fallback="/people/")
+
+
+@router.put("/people/{person_id}/stage")
+def person_put_stage(
+    person_id: int,
+    body: PersonStageBody,
+    _admin: str = Depends(require_admin),
+):
+    """Change a person's stage from their detail page the moment it is picked, without
+    leaving the page — so edits not yet saved in the other fields are kept."""
+    stage = (body.stage or "").strip()
+    if stage and stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+    if not update_person(person_id, {"pipeline_stage": stage}):
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stage or "cleared")
+    return {"pipeline_stage": stage or None}
 
 
 @router.post("/people/{person_id}/edit")
