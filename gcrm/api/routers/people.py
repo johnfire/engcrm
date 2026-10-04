@@ -74,6 +74,14 @@ class PersonStageBody(BaseModel):
     stage: str | None = None  # null or blank clears the stage
 
 
+def remember_people_stage(request: Request, stage: str | None) -> str:
+    selected_stage = stage if stage is not None else request.session.get("people_stage", "")
+    if selected_stage not in (*PIPELINE_STAGES, "none", ""):
+        selected_stage = ""
+    request.session["people_stage"] = selected_stage
+    return selected_stage
+
+
 @router.get("/people/", response_class=HTMLResponse)
 def people_list(
     request: Request,
@@ -83,10 +91,11 @@ def people_list(
     company_priority: str = Query(default=""),
     value_rating: str = Query(default=""),
     linkedin: str = Query(default=""),
-    stage: str = Query(default=""),
+    stage: str | None = Query(default=None),
     city: str = Query(default=""),
     deleted: bool = Query(default=False),
 ):
+    stage = remember_people_stage(request, stage)
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
         linkedin, stage=stage, city=city,

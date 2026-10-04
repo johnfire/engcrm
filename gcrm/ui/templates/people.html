@@ -21,7 +21,7 @@
 <form class="filter-bar" method="get" action="/people/">
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
   <select name="company_priority" aria-label="{{ t('people.companyPriority') }}">
-    <option value="">{{ t('people.allCompanyPriorities') }}</option>
+    <option value="">{{ t('people.allCompanyPrioritiesShort') }}</option>
     {% for priority in [1, 2, 3, 4, 5] %}
     <option value="{{ priority }}" {% if company_priority == priority|string %}selected{% endif %}>
       P{{ priority }}
@@ -69,7 +69,7 @@
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
     <option value="met_at" {% if sort == "met_at" %}selected{% endif %}>{{ t('people.metAt') }}</option>
     <option value="opportunity_score" {% if sort == "opportunity_score" %}selected{% endif %}>{{ t('organizationDetail.opportunityScore') }}</option>
-    <option value="company_priority" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriority') }}</option>
+    <option value="company_priority" title="{{ t('people.companyPriority') }}" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriorityShort') }}</option>
     <option value="value_rating" {% if sort == "value_rating" %}selected{% endif %}>{{ t('contactValue.short') }}</option>
     <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
     <option value="connected_on" {% if sort == "connected_on" %}selected{% endif %}>{{ t('linkedin.connectedOn') }}</option>
@@ -80,7 +80,7 @@
   </select>
   <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
   {% if query or company_priority or value_rating or linkedin or stage or city %}
-  <a href="/people/" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
+  <a href="/people/?stage=" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
   {% endif %}
 </form>
 
@@ -100,7 +100,7 @@
       {{ sort_th('company', t('personDetail.company')) }}
       <th>{{ t('common.pipelineStage') }}</th>
       {{ sort_th('opportunity_score', t('organizationDetail.opportunityScore'), 'desc') }}
-      {{ sort_th('company_priority', t('people.companyPriority'), 'desc') }}
+      {{ sort_th('company_priority', t('people.companyPriorityShort'), 'desc') }}
       {{ sort_th('city', t('common.city')) }}
       <th>{{ t('people.relationship') }}</th>
       {{ sort_th('value_rating', t('contactValue.short'), 'desc') }}
