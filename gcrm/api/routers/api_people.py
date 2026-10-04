@@ -73,6 +73,9 @@ class PersonFields(BaseModel):
     linkedin_url: str | None = None
     # create only: the organization this person works at
     contact_id: int | None = None
+    # create only: their starting stage (blank/null = none). An existing person's
+    # stage changes through PATCH /{id}/stage.
+    pipeline_stage: str | None = None
 
 
 def _organization_exists(contact_id: int, workspace_id: int | None) -> bool:
@@ -97,6 +100,9 @@ def create_person(
     409 and their id — the typed details are not merged into them or dropped
     silently."""
     fields = clean_fields(body, PERSON_LIMITS, require_name=True)
+    stage = (body.pipeline_stage or "").strip()
+    if stage and stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     if fields.get("linkedin_url"):
         # Validate before saving: save_person does not take a linkedin_url.
         from gcrm.linkedin import normalize_linkedin_url
@@ -121,6 +127,7 @@ def create_person(
         city=fields.get("city") or "", country=fields.get("country") or "DE",
         relationship=fields.get("relationship") or "", notes=fields.get("notes") or "",
         met_at=fields.get("met_at") or "", contact_id=body.contact_id, source="manual",
+        pipeline_stage=stage,
     )
     if fields.get("linkedin_url"):
         update_person(person_id, {"linkedin_url": fields["linkedin_url"]})

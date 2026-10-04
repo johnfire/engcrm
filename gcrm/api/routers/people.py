@@ -112,7 +112,9 @@ def extract_email(body: dict = Body(...), _admin: str = Depends(require_admin)) 
 
 @router.get("/people/new", response_class=HTMLResponse)
 def person_new(request: Request):
-    return templates.TemplateResponse("person_new.html", {"request": request})
+    return templates.TemplateResponse(
+        "person_new.html", {"request": request, "stages": PIPELINE_STAGES}
+    )
 
 
 @router.post("/people/new")
@@ -127,15 +129,18 @@ def person_create(
     relationship: str = Form(""),
     met_at: str = Form(""),
     notes: str = Form(""),
+    pipeline_stage: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
+    if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     person_id = save_person(
         name=name.strip(), title=title.strip(), email=email.strip(), phone=phone.strip(),
         website=website.strip(), city=city.strip(), country=country.strip(),
         relationship=relationship.strip(), notes=notes.strip(), met_at=met_at.strip(),
-        source="manual",
+        source="manual", pipeline_stage=pipeline_stage,
     )
     log_audit(None, None, "person.created", f"person:{person_id}", "created")
     return local_redirect(f"/people/{person_id}", saved="1")

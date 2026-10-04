@@ -92,6 +92,30 @@ class TestSavePerson:
         assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
         assert (48.1, 10.8) == insert.args[1][12:14]
 
+    def test_stores_a_starting_stage(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 15}]
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth", pipeline_stage="prospect")
+        insert = cur.execute.call_args_list[-1]
+        assert "pipeline_stage" in insert.args[0]
+        assert "prospect" in insert.args[1]
+
+    def test_no_stage_is_stored_as_null(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 16}]
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth")
+        assert cur.execute.call_args_list[-1].args[1][14] is None
+
+    def test_an_unknown_stage_is_refused_before_any_write(self):
+        with patch("gcrm.tools.db_people.db") as mock_db:
+            with pytest.raises(ValueError):
+                db_people.save_person(name="Anna Roth", pipeline_stage="bogus")
+        mock_db.assert_not_called()
+
     def test_skips_geocoding_when_deduped(self):
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [{"id": 7}]  # email match
@@ -367,6 +391,8 @@ class TestPersonNewPage:
         resp = client.get("/people/new")
         assert resp.status_code == 200
         assert 'action="/people/new"' in resp.text
+        assert 'name="pipeline_stage"' in resp.text
+        assert '<option value="prospect">' in resp.text
 
     def test_create_saves_and_redirects(self, admin_web):
         with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
@@ -380,6 +406,31 @@ class TestPersonNewPage:
         assert resp.headers["location"] == "/people/42?saved=1"
         assert msave.call_args.kwargs["name"] == "Anna Roth"
         assert msave.call_args.kwargs["source"] == "manual"
+
+    def test_create_passes_the_chosen_stage(self, admin_web):
+        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
+             patch("gcrm.api.routers.people.log_audit"):
+            resp = client.post(
+                "/people/new",
+                data={"name": "Anna Roth", "pipeline_stage": "suspect"},
+                follow_redirects=False,
+            )
+        assert resp.status_code == 303
+        assert msave.call_args.kwargs["pipeline_stage"] == "suspect"
+
+    def test_create_without_a_stage_leaves_it_blank(self, admin_web):
+        with patch("gcrm.api.routers.people.save_person", return_value=42) as msave, \
+             patch("gcrm.api.routers.people.log_audit"):
+            client.post("/people/new", data={"name": "Anna Roth"}, follow_redirects=False)
+        assert msave.call_args.kwargs["pipeline_stage"] == ""
+
+    def test_create_rejects_an_unknown_stage(self, admin_web):
+        with patch("gcrm.api.routers.people.save_person") as msave:
+            resp = client.post(
+                "/people/new", data={"name": "Anna", "pipeline_stage": "bogus"}, follow_redirects=False,
+            )
+        assert resp.status_code == 400
+        msave.assert_not_called()
 
     def test_create_rejects_blank_name(self, admin_web):
         with patch("gcrm.api.routers.people.save_person") as msave:

@@ -66,6 +66,7 @@ def save_person(
     met_at: str = "",
     contact_id: int | None = None,
     source: str = "",
+    pipeline_stage: str = "",
 ) -> int:
     """
     Insert a person, optionally linked to their company contact. Returns the new
@@ -79,7 +80,13 @@ def save_person(
     A new row is geocoded from `city`/`country` (via Nominatim) so distance-
     from-home can be shown and sorted on — best-effort, city-level accuracy;
     failures leave latitude/longitude NULL rather than blocking the save.
+
+    `pipeline_stage` is one of PIPELINE_STAGES or blank (no stage), and raises
+    ValueError otherwise — checked before anything is written.
     """
+    stage = pipeline_stage.strip() or None
+    if stage is not None and stage not in PIPELINE_STAGES:
+        raise ValueError(f"unknown pipeline stage: {stage!r}")
     with db() as conn:
         cur = conn.cursor()
         existing_id = find_existing_person(cur, name, email, contact_id)
@@ -97,16 +104,17 @@ def save_person(
             """
             INSERT INTO people
                 (name, title, email, phone, website, city, country, relationship,
-                 notes, met_at, contact_id, source, latitude, longitude, workspace_id)
+                 notes, met_at, contact_id, source, latitude, longitude, pipeline_stage,
+                 workspace_id)
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
             (name, title or None, email or None, phone or None, website or None,
              city or None, country or None, relationship or None, notes or None,
-             met_at or None, contact_id, source or None, latitude, longitude,
+             met_at or None, contact_id, source or None, latitude, longitude, stage,
              get_workspace_id()),
         )
         person_id = cur.fetchone()["id"]

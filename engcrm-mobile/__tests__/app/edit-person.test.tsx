@@ -80,6 +80,22 @@ describe("edit person", () => {
     await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({ name: "Ben Weiss" }));
   });
 
+  it("adds a person with a starting stage; editing an existing person shows no stage picker", async () => {
+    mockParams = { name: "Ben Weiss" };
+    mockCreate.mockResolvedValue({ id: 57 });
+    const screen = render(<EditPersonScreen />);
+    await waitFor(() => expect(screen.getByDisplayValue("Ben Weiss")).toBeTruthy());
+    fireEvent.press(screen.getByText("Prospect"));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Prospect", selected: true })).toBeTruthy());
+    fireEvent.press(screen.getByText("Add person"));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({ name: "Ben Weiss", pipeline_stage: "prospect" }));
+
+    mockParams = { id: "7" };
+    const edit = render(<EditPersonScreen />);
+    await waitFor(() => expect(edit.getByDisplayValue("Anna Roth")).toBeTruthy());
+    expect(edit.queryByText("Prospect")).toBeNull();
+  });
+
   it("offers to open a person who already exists", async () => {
     mockParams = { name: "Anna Roth" };
     mockCreate.mockRejectedValue({ response: { status: 409, data: { detail: { existing_id: 7 } } } });

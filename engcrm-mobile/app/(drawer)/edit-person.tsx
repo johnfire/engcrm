@@ -4,8 +4,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { createPerson, duplicateOf, editPerson, fetchPerson, Person } from "../../services/api";
 import { getRole } from "../../services/auth";
+import { PipelineStage } from "../../services/organizationState";
 import { notifyChanged, personKey } from "../../services/refreshBus";
 import { PERSON_FIELDS } from "../../services/recordFields";
+import { PersonStagePicker } from "../../components/PersonStagePicker";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 
@@ -21,8 +23,9 @@ function valuesOf(person: Person): Values {
   return values;
 }
 
-/** Add a person by hand (no id), optionally at an organization (companyId), or
- *  change one (id). Admin only. */
+/** Add a person by hand (no id), optionally at an organization (companyId) and
+ *  with a starting stage, or change one (id). Admin only. An existing person's
+ *  stage is set on their detail screen, where a tap saves it at once. */
 export default function EditPersonScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -34,6 +37,7 @@ export default function EditPersonScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<PipelineStage | null>(null);
 
   useEffect(() => {
     getRole().then((role) => setIsAdmin(role === "admin"));
@@ -78,7 +82,11 @@ export default function EditPersonScreen() {
     setError(null);
     try {
       if (id === null) {
-        const created = await createPerson({ ...changed, ...(companyId !== null ? { contact_id: companyId } : {}) });
+        const created = await createPerson({
+          ...changed,
+          ...(companyId !== null ? { contact_id: companyId } : {}),
+          ...(stage !== null ? { pipeline_stage: stage } : {}),
+        });
         goToDetail(created.id);
       } else {
         await editPerson(id, changed);
@@ -127,6 +135,7 @@ export default function EditPersonScreen() {
       onSubmit={save}
     >
       {!!at && <Text style={styles.at}>{t("recordForm.worksAt", { company: at })}</Text>}
+      {id === null && <PersonStagePicker stage={stage} onSave={async (next) => setStage(next)} />}
     </RecordForm>
   );
 }

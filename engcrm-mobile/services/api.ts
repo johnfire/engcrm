@@ -847,7 +847,9 @@ export async function editOrganization(id: number, changed: OrganizationFields):
   await client.patch(`/api/contacts/${id}`, changed);
 }
 
-export async function createPerson(fields: PersonFields & { contact_id?: number }): Promise<{ id: number }> {
+export async function createPerson(
+  fields: PersonFields & { contact_id?: number; pipeline_stage?: PipelineStage },
+): Promise<{ id: number }> {
   const resp = await client.post("/api/people", fields);
   return resp.data;
 }

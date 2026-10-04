@@ -200,6 +200,18 @@ class TestPeople:
         assert kwargs["title"] == "CTO" and kwargs["contact_id"] == 4
         assert kwargs["country"] == "AT" and kwargs["source"] == "manual"
 
+    def test_creates_a_person_with_a_starting_stage(self):
+        response, save, _ = self.create({"name": "Anna Roth", "pipeline_stage": "prospect"})
+        assert response.status_code == 200
+        assert save.call_args.kwargs["pipeline_stage"] == "prospect"
+        response, save, _ = self.create({"name": "Anna Roth"})
+        assert save.call_args.kwargs["pipeline_stage"] == ""
+
+    def test_an_unknown_starting_stage_is_refused(self):
+        response, save, _ = self.create({"name": "Anna Roth", "pipeline_stage": "bogus"})
+        assert response.status_code == 400
+        save.assert_not_called()
+
     def test_name_is_required_and_viewer_is_refused(self):
         response, save, _ = self.create({"title": "CTO"})
         assert response.status_code == 400
