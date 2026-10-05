@@ -10,8 +10,11 @@ from fastapi.responses import HTMLResponse
 from gcrm.activity_types import ACTIVITY_TYPES, ORGANIZATION_METHODS, parse_minutes
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
-from gcrm.api.templates import templates
+from gcrm.api.templates import eur, templates
+from gcrm.charts import bar_chart, spark
 from gcrm.db.connection import db
+from gcrm.i18n import DEFAULT_LANGUAGE, translate
+from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.tools.statistics import (
     PERIODS,
@@ -21,6 +24,7 @@ from gcrm.tools.statistics import (
     period_bounds,
     set_minute_defaults,
 )
+from gcrm.tools.statistics_history import BUCKETS, get_series
 
 router = APIRouter(tags=["statistics"], dependencies=[Depends(require_login)])
 
@@ -50,19 +54,66 @@ def _period(period: str, start: str, end: str, today: date) -> tuple[str, date, 
     return period, first, last
 
 
+_BUCKET_LABEL = {"week": "%d.%m.", "month": "%m/%y", "year": "%Y"}
+
+
+def _trend_charts(series: dict, lang: str) -> dict:
+    """The over-time charts: one bar chart per measure, and a small line per
+    pipeline stage (each with its own scale — small multiples, not one crowded axis)."""
+    fmt = _BUCKET_LABEL[series["bucket"]]
+    periods = series["periods"]
+
+    def bars(key: str, title_key: str, unit: str = "", money: bool = False) -> dict:
+        def show(v):
+            return f"{eur(v)}" if money else f"{v}{unit}"
+        points = [{"label": p["start"].strftime(fmt), "value": float(p[key]),
+                   "tip": f'{p["start"].strftime(fmt)}: {show(p[key])}'} for p in periods]
+        most = max((p[key] for p in periods), default=0)
+        if points:
+            points[0]["max_label"] = f'{translate("statistics.max", lang)} {show(most)}'
+        title = translate(title_key, lang)
+        return {"title": title, "svg": bar_chart(points, title), "rows": [(pt["label"], show(p[key]))
+                                                                          for pt, p in zip(points, periods)]}
+
+    charts = [
+        bars("hours", "statistics.chart.hours", " h"),
+        bars("won_eur", "statistics.chart.won", money=True),
+        bars("activities", "statistics.chart.activities"),
+        bars("new_organizations", "statistics.chart.newOrganizations"),
+        bars("new_people", "statistics.chart.newPeople"),
+    ]
+    pipeline = []
+    for entity in ("organization", "person"):
+        for stage in PIPELINE_STAGES:
+            by_bucket = series["pipeline"].get(entity, {}).get(stage, {})
+            if not by_bucket:
+                continue
+            ordered = sorted(by_bucket.items())
+            name = f'{translate("statistics.entity." + entity, lang)} · {translate("stage." + stage, lang)}'
+            points = [{"label": b.strftime(fmt), "value": n, "tip": f"{b.strftime(fmt)}: {n}"} for b, n in ordered]
+            pipeline.append({"title": name, "now": ordered[-1][1], "svg": spark(points, name)})
+    return {"charts": charts, "pipeline": pipeline, "logged_since": series["logged_since"]}
+
+
 @router.get("/statistics", response_class=HTMLResponse)
 def statistics_page(
     request: Request,
     period: str = Query(default="month"),
     start: str = Query(default=""),
     end: str = Query(default=""),
+    trend: str = Query(default="month"),
     saved: bool = Query(default=False),
 ):
     period, first, last = _period(period, start, end, date.today())
-    stats = get_statistics(_workspace_id(request), first, last)
+    trend = trend if trend in BUCKETS else "month"
+    workspace_id = _workspace_id(request)
+    stats = get_statistics(workspace_id, first, last)
+    lang = request.session.get("ui_language", DEFAULT_LANGUAGE)
+    trends = _trend_charts(get_series(workspace_id, trend), lang)
     return templates.TemplateResponse("statistics.html", {
         "request": request, "stats": stats, "period": period, "periods": PERIODS,
-        "activity_types": ACTIVITY_TYPES, "saved": saved,
+        "activity_types": ACTIVITY_TYPES, "saved": saved, "trend": trend, "trends": trends,
+        "buckets": list(BUCKETS),
     })
 
 

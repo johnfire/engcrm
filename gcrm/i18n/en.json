@@ -755,5 +755,18 @@
   "statistics.neverContacted": "nothing logged yet",
   "statistics.nothingStuck": "Nothing stuck.",
   "statistics.defaultsTitle": "Default minutes per activity",
-  "statistics.defaultsHint": "Used for every entry without a typed duration."
+  "statistics.defaultsHint": "Used for every entry without a typed duration.",
+  "statistics.overTime": "Over time",
+  "statistics.bucket.week": "Weekly",
+  "statistics.bucket.month": "Monthly",
+  "statistics.bucket.year": "Yearly",
+  "statistics.asTable": "As a table",
+  "statistics.max": "max",
+  "statistics.chart.hours": "Hours worked",
+  "statistics.chart.won": "€ won",
+  "statistics.chart.activities": "Activities",
+  "statistics.chart.newOrganizations": "New organizations",
+  "statistics.chart.newPeople": "New people",
+  "statistics.pipelineOverTime": "Pipeline over time (daily log, each stage on its own scale)",
+  "statistics.pipelineLogHint": "The daily pipeline log started on {{date}}; each period shows its last logged day."
 }

@@ -121,7 +121,7 @@ def delete_sale(contact_id: int, sale_id: int) -> bool:
 
 # --- The numbers ---------------------------------------------------------------
 
-def _activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
+def activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
     """A CTE `acts(day, kind, minutes, typed, contact_id)` over both activity logs of
     one workspace: inbound messages and next-step entries are not work; a person's
     activities count towards their organization."""
@@ -217,7 +217,7 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
     """Everything the Statistics page shows for [start, end]."""
     today = today or date.today()
     defaults = get_minute_defaults(workspace_id)
-    acts_sql, acts_params = _activities_sql(defaults)
+    acts_sql, acts_params = activities_sql(defaults)
     base = acts_params + [workspace_id, workspace_id, *NOT_ACTIVITIES]
     prev_start, prev_end = previous_period(start, end)
     with db() as conn:

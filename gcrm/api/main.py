@@ -1,4 +1,6 @@
 import logging
+import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -47,9 +49,20 @@ from gcrm.api.routers import (
 from gcrm.audit_context import CorrelationIdFilter, audit_scope
 from gcrm.config import SESSION_COOKIE_SECURE, SESSION_SECRET
 from gcrm.i18n import SUPPORTED_LANGUAGES
+from gcrm.tools.statistics_history import start_snapshot_loop
 from gcrm.workspace_context import set_workspace_id
 
-app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Keep the daily pipeline log while the app runs (PIPELINE_SNAPSHOTS=off to
+    skip, e.g. in a one-off container). A failing snapshot is logged, never fatal."""
+    if os.getenv("PIPELINE_SNAPSHOTS", "on") != "off":
+        start_snapshot_loop()
+    yield
+
+
+app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None, lifespan=lifespan)
 for handler in logging.getLogger().handlers:
     handler.addFilter(CorrelationIdFilter())
 

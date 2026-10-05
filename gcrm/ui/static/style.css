@@ -1261,3 +1261,24 @@ th.sortable .sort-arrow { margin-left: .35em; font-size: .8em; color: var(--acce
   .record-form { grid-template-columns: minmax(0, 1fr); }
   .stat-bars li { grid-template-columns: 5.5rem 1fr 3rem; }
 }
+
+/* Over time: server-drawn SVG charts (gcrm/charts.py). One hue per chart; the
+   hover target is the whole column; labels in text colours. */
+.stat-trends__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.stat-trends__buckets { display: flex; gap: 0.4rem; }
+.stat-trends__buckets a { text-decoration: none; padding: 0.3rem 0.8rem; }
+.stat-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; margin-top: 0.8rem; }
+.stat-chart, .stat-multiple { margin: 0; }
+.stat-chart figcaption, .stat-multiple figcaption { font-size: 0.9em; margin-bottom: 0.3rem; color: var(--text); }
+.stat-chart__table summary { color: var(--muted); font-size: 0.8em; cursor: pointer; margin-top: 0.2rem; }
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-bar { fill: var(--accent); }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-label { fill: var(--muted); font-size: 17px; font-family: var(--font); }
+.chart-hit { fill: transparent; }
+.chart-mark:hover .chart-hit { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.stat-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.8rem; }
+.stat-multiple { background: var(--bg); border: 1px solid var(--border); padding: 0.5rem 0.6rem; }
+.stat-multiple figcaption strong { float: right; }

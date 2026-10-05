@@ -19,6 +19,7 @@ os.environ.setdefault("DEEPSEEK_API_KEY", "test-deepseek-key")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-not-for-production")
 os.environ.setdefault("SESSION_SECRET", "test-session-secret-not-for-production")
 os.environ.setdefault("EMAIL_ENABLED", "false")
+os.environ.setdefault("PIPELINE_SNAPSHOTS", "off")  # no background snapshot loop in tests
 
 import pytest
 

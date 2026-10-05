@@ -755,5 +755,18 @@
   "statistics.neverContacted": "noch nichts erfasst",
   "statistics.nothingStuck": "Nichts hängt fest.",
   "statistics.defaultsTitle": "Standardminuten pro Aktivität",
-  "statistics.defaultsHint": "Gilt für jeden Eintrag ohne eingetragene Dauer."
+  "statistics.defaultsHint": "Gilt für jeden Eintrag ohne eingetragene Dauer.",
+  "statistics.overTime": "Verlauf",
+  "statistics.bucket.week": "Wöchentlich",
+  "statistics.bucket.month": "Monatlich",
+  "statistics.bucket.year": "Jährlich",
+  "statistics.asTable": "Als Tabelle",
+  "statistics.max": "max.",
+  "statistics.chart.hours": "Arbeitsstunden",
+  "statistics.chart.won": "Umsatz €",
+  "statistics.chart.activities": "Aktivitäten",
+  "statistics.chart.newOrganizations": "Neue Organisationen",
+  "statistics.chart.newPeople": "Neue Personen",
+  "statistics.pipelineOverTime": "Pipeline im Verlauf (Tageslog, jede Stufe mit eigener Skala)",
+  "statistics.pipelineLogHint": "Das tägliche Pipeline-Log läuft seit {{date}}; jeder Zeitraum zeigt seinen letzten erfassten Tag."
 }
