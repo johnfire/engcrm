@@ -19,7 +19,9 @@ const mockFetchOrg = jest.fn();
 const mockFetchPerson = jest.fn();
 const mockTranscribeOrg = jest.fn();
 const mockTranscribePerson = jest.fn();
+const mockSetNextStep = jest.fn();
 jest.mock("../../services/api", () => ({
+  setPersonNextStep: (...a: any[]) => mockSetNextStep(...a),
   addOrganizationNote: (...a: any[]) => mockAddOrgNote(...a),
   addPersonNote: (...a: any[]) => mockAddPersonNote(...a),
   updateOrganizationState: (...a: any[]) => mockUpdateState(...a),
@@ -249,13 +251,53 @@ describe("log a meeting — person", () => {
     off();
   });
 
-  it("offers the person's stage but no follow-up date", async () => {
+  it("offers the person's stage and a next step", async () => {
     mockUpdatePersonStage.mockResolvedValue({ pipeline_stage: "prospect" });
     const screen = setup("person");
     await waitFor(() => expect(screen.getByText("Their organization: Suspect")).toBeTruthy());
-    expect(screen.queryByText("Follow up")).toBeNull();
+    expect(screen.getByText("Next step")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Prospect"));
     await waitFor(() => expect(mockUpdatePersonStage).toHaveBeenCalledWith(7, "prospect"));
+  });
+
+  it("a person's follow-up becomes their next step, saved after the note", async () => {
+    mockSetNextStep.mockResolvedValue({ next_step: "Invite to coffee", next_step_date: dateInDays(7), logged: true });
+    const screen = setup("person");
+    await typeNote(screen, "Met at the fair");
+    fireEvent.press(screen.getByLabelText("1 week"));
+    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Invite to coffee");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null);
+    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Invite to coffee", dateInDays(7));
+  });
+
+  it("can set only a next step, with no note", async () => {
+    mockSetNextStep.mockResolvedValue({ next_step: "Follow up", next_step_date: dateInDays(1), logged: true });
+    const screen = setup("person");
+    fireEvent.press(await screen.findByLabelText("Tomorrow"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockAddPersonNote).not.toHaveBeenCalled();
+    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Follow up", dateInDays(1));
+  });
+
+  it("if the note saved but the next step failed, says so and retries only the next step", async () => {
+    mockSetNextStep.mockRejectedValueOnce(new Error("offline"));
+    mockSetNextStep.mockResolvedValueOnce({ next_step: "Call", next_step_date: dateInDays(3), logged: true });
+    const screen = setup("person");
+    await typeNote(screen, "Quick chat");
+    fireEvent.press(screen.getByLabelText("3 days"));
+    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Call");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() =>
+      expect(screen.getByText("Note saved, but the next step couldn't be saved. Try again.")).toBeTruthy(),
+    );
+    expect(mockBack).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockAddPersonNote).toHaveBeenCalledTimes(1);
+    expect(mockSetNextStep).toHaveBeenCalledTimes(2);
   });
 });
 

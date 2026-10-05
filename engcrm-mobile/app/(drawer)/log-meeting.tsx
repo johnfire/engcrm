@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   addOrganizationNote,
   addPersonNote,
+  setPersonNextStep,
   fetchOrganization,
   fetchPerson,
   MeetingMethod,
@@ -32,6 +33,7 @@ import { useVoiceDictation } from "../../services/useVoiceDictation";
 import { PipelineStage } from "../../services/organizationState";
 import { useTranslation } from "../../i18n/I18nContext";
 import { Chip, StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
+import { dateInDays, FOLLOW_UPS, followUpDate } from "../../services/followUps";
 import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
@@ -49,22 +51,8 @@ const PERSON_METHOD: Record<MeetingMethod, string> = {
   other: "other",
 };
 
-export const FOLLOW_UPS: { id: string; days: number | null; labelKey: string }[] = [
-  { id: "none", days: null, labelKey: "meeting.followNone" },
-  { id: "1d", days: 1, labelKey: "meeting.followTomorrow" },
-  { id: "3d", days: 3, labelKey: "meeting.followThreeDays" },
-  { id: "1w", days: 7, labelKey: "meeting.followWeek" },
-  { id: "2w", days: 14, labelKey: "meeting.followTwoWeeks" },
-  { id: "1m", days: 30, labelKey: "meeting.followMonth" },
-];
-
-/** The local calendar date `days` from now as YYYY-MM-DD (not UTC: after 22:00 in
- *  Bavaria "tomorrow" in UTC would be the wrong day). */
-export function dateInDays(days: number, from: Date = new Date()): string {
-  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+// Kept importable from here for the screen's tests.
+export { dateInDays, FOLLOW_UPS };
 
 type Kind = "organization" | "person";
 
@@ -133,7 +121,7 @@ export default function LogMeetingScreen() {
 
   const hasNote = note.trim().length > 0;
   // Something to send: a note, or a stage change (alone, or left over after the note went through).
-  const canSave = !saving && (hasNote || !!pendingChange);
+  const canSave = !saving && (hasNote || !!pendingChange || (kind === "person" && followUp !== "none"));
   const title = params.name ? `${params.name}` : t(kind === "organization" ? "drawer.organization" : "drawer.person");
 
   function finish() {
@@ -155,12 +143,12 @@ export default function LogMeetingScreen() {
     if (hasNote && !noteSaved) {
       try {
         if (kind === "organization") {
-          const days = FOLLOW_UPS.find((f) => f.id === followUp)?.days ?? null;
+          const date = followUpDate(followUp);
           await addOrganizationNote(targetId, {
             note: note.trim(),
             method,
-            follow_up_date: days === null ? null : dateInDays(days),
-            follow_up_text: days === null ? null : followUpText.trim() || null,
+            follow_up_date: date,
+            follow_up_text: date === null ? null : followUpText.trim() || null,
           });
         } else {
           await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null);
@@ -174,7 +162,18 @@ export default function LogMeetingScreen() {
         return;
       }
     }
-    // 2. the stage change, if any (organizations; a person's stage saves when tapped)
+    // 2. a person's follow-up becomes their next step. Saving the same step again
+    //    changes nothing on the server, so a retry is safe.
+    if (kind === "person" && followUp !== "none") {
+      try {
+        await setPersonNextStep(targetId, followUpText.trim() || t("meeting.followUp"), followUpDate(followUp));
+      } catch (err: any) {
+        setError(err?.response?.data?.detail || t("meeting.nextStepFailedNoteSaved"));
+        setSaving(false);
+        return;
+      }
+    }
+    // 3. the stage change, if any (organizations; a person's stage saves when tapped)
     if (kind === "organization" && pendingChange) {
       try {
         await updateOrganizationState(targetId, pendingChange);
@@ -245,9 +244,9 @@ export default function LogMeetingScreen() {
         </TouchableOpacity>
         {!!dictation.error && <Text style={styles.error}>{dictation.error}</Text>}
 
-        {kind === "organization" && (
+        {(kind === "organization" || kind === "person") && (
           <View style={styles.block}>
-            <Text style={styles.label}>{t("meeting.followUp")}</Text>
+            <Text style={styles.label}>{kind === "person" ? t("meeting.nextStep") : t("meeting.followUp")}</Text>
             <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("meeting.followUp")}>
               {FOLLOW_UPS.map(({ id, labelKey }) => (
                 <Chip
@@ -262,7 +261,7 @@ export default function LogMeetingScreen() {
             {followUp !== "none" && (
               <>
                 <Text style={styles.hint}>
-                  {t("meeting.followUpOn", { date: dateInDays(FOLLOW_UPS.find((f) => f.id === followUp)?.days ?? 0) })}
+                  {t("meeting.followUpOn", { date: followUpDate(followUp) })}
                 </Text>
                 <TextInput
                   style={styles.smallInput}

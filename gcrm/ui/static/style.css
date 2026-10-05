@@ -1077,6 +1077,50 @@ html[lang="de"] .orgs-table th {
   width: 68px;
 }
 
+/* A person's next step: the plan, its due date, and overdue in the warning colour.
+   A card like the edit form's sections, with the step, the date and the buttons on
+   one row (stacked on a narrow screen). */
+.next-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.next-step h2 { font-size: 1rem; margin-bottom: 0.6rem; }
+.next-step__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 11rem auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+.next-step__form .field-row { min-width: 0; margin: 0; }
+.next-step__form label { margin-bottom: 0.2rem; font-size: 0.85em; }
+.next-step__form input {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.9em;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0;
+}
+.next-step__form input:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  outline-offset: 1px;
+}
+.next-step__form .detail-actions { margin: 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .next-step__form { grid-template-columns: minmax(0, 1fr); }
+}
+.next-step__current { margin: 0 0 0.6rem; }
+.next-step__due { color: var(--muted); font-size: 0.9em; }
+.next-step__due--overdue { color: var(--warn); font-weight: 600; }
+.next-step-cell { min-width: 10rem; max-width: 16rem; }
+
 /* Inline stage editor in the People and Organizations lists */
 .stage-form { margin: 0; }
 /* Black with white text: easy on the eyes. Listed after the .badge-stage-*

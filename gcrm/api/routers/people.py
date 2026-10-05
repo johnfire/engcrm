@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -51,6 +52,7 @@ from gcrm.tools.db_people_interactions import (
     log_person_note,
 )
 from gcrm.tools.email_extract import extract_person_from_email
+from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
 from gcrm.tools.transcribe import transcribe
 
@@ -103,6 +105,7 @@ def people_list(
     return templates.TemplateResponse("people.html", {
         "request": request,
         "people": people,
+        "today": date.today().isoformat(),
         "query": q,
         "sort": sort,
         "dir": dir,
@@ -575,7 +578,28 @@ def person_detail(
         "mail_sender_options": MAIL_SENDER_OPTIONS,
         "people_retention_days": PEOPLE_RETENTION_DAYS,
         "stages": PIPELINE_STAGES,
+        "today": date.today().isoformat(),
     })
+
+
+@router.post("/people/{person_id}/next-step")
+def person_set_next_step(
+    person_id: int,
+    next_step: str = Form(""),
+    next_step_date: str = Form(""),
+    done: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Set what happens next with this person, or mark it done (clears it). Each
+    change is also written to the note log by set_person_next_step."""
+    try:
+        due = date.fromisoformat(next_step_date) if next_step_date.strip() and not done else None
+        result = set_person_next_step(person_id, "" if done else next_step, due)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    return local_redirect(f"/people/{person_id}", saved="1")
 
 
 @router.get("/people/{person_id}/link", response_class=HTMLResponse)

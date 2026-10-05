@@ -225,6 +225,7 @@ SORT_COLUMNS = {
     "value_rating":     "person_priority.priority",
     "distance":         "distance_km",
     "connected_on":     "person.connected_on",
+    "next_step_date":   "person.next_step_date",
 }
 
 # `linkedin` filter values -> WHERE fragment. "unlinked" is the review queue:

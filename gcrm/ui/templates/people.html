@@ -99,6 +99,7 @@
       {{ sort_th('name', t('common.name')) }}
       {{ sort_th('company', t('personDetail.company')) }}
       <th>{{ t('common.pipelineStage') }}</th>
+      {{ sort_th('next_step_date', t('people.nextStep')) }}
       {{ sort_th('opportunity_score', t('organizationDetail.opportunityScore'), 'desc') }}
       {{ sort_th('company_priority', t('people.companyPriorityShort'), 'desc') }}
       {{ sort_th('city', t('common.city')) }}
@@ -127,6 +128,11 @@
           </select>
         </form>
         {% if p.company_pipeline_stage %}<div class="muted small">{{ t('people.stage.organization', stage=t('stage.' ~ p.company_pipeline_stage)) }}</div>{% endif %}
+      </td>
+      <td class="small next-step-cell">
+        {%- if p.next_step %}{{ p.next_step }}
+        {%- if p.next_step_date %}<div class="next-step__due{% if p.next_step_date < today %} next-step__due--overdue{% endif %}">{{ t('nextStep.due', date=p.next_step_date) }}</div>{% endif %}
+        {%- else %}<span class="muted">—</span>{% endif %}
       </td>
       <td>{{ p.company_opportunity_score if p.company_opportunity_score is not none else '—' }}</td>
       <td>

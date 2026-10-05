@@ -757,6 +757,9 @@ export interface Person {
   pipeline_stage?: PipelineStage | null;
   // The stage of the organization they work at, when linked.
   company_pipeline_stage?: PipelineStage | null;
+  // What happens next with them, and optionally by when (YYYY-MM-DD). Absent on older servers.
+  next_step?: string | null;
+  next_step_date?: string | null;
 }
 
 export interface PersonInteraction {
@@ -819,6 +822,20 @@ export async function deleteOrganizationNote(id: number, noteId: number): Promis
 }
 
 // Sets (or, with null, clears) the stage tag on a person. Admin only.
+// Set (or, with a blank step, clear — logged as done) what happens next with a
+// person. Every change also lands in their note log on the server.
+export async function setPersonNextStep(
+  personId: number,
+  nextStep: string | null,
+  nextStepDate: string | null,
+): Promise<{ next_step: string | null; next_step_date: string | null; logged: boolean }> {
+  const resp = await client.put(`/api/people/${personId}/next-step`, {
+    next_step: nextStep,
+    next_step_date: nextStepDate,
+  });
+  return resp.data;
+}
+
 export async function updatePersonStage(
   personId: number,
   stage: PipelineStage | null,

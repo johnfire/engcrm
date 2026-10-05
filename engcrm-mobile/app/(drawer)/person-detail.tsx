@@ -17,6 +17,7 @@ import { onChanged, personKey } from "../../services/refreshBus";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
+import { PersonNextStep } from "../../components/PersonNextStep";
 import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 export default function PersonDetailScreen() {
@@ -127,6 +128,17 @@ export default function PersonDetailScreen() {
         ) : (
           <Text style={styles.fieldText}>{person.website}</Text>
         ))}
+
+      <PersonNextStep
+        key={`next-${person.id}-${person.next_step ?? ""}-${person.next_step_date ?? ""}`}
+        personId={person.id}
+        step={person.next_step ?? null}
+        date={person.next_step_date ?? null}
+        canEdit={isAdmin}
+        onSaved={(step, date) =>
+          setPerson((current) => (current ? { ...current, next_step: step, next_step_date: date } : current))
+        }
+      />
 
       {person.met_at && (
         <View style={styles.section}>

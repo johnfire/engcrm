@@ -673,5 +673,15 @@
   "knownPeople.source.sign_research": "durch Recherche gefunden",
   "knownPeople.metAt": "getroffen: {{place}}",
   "organizations.colPeople": "Personen",
-  "organizations.morePeople": "+{{count}} weitere"
+  "organizations.morePeople": "+{{count}} weitere",
+  "nextStep.title": "Nächster Schritt",
+  "nextStep.label": "Was als Nächstes passiert",
+  "nextStep.placeholder": "z. B. auf einen Kaffee einladen",
+  "nextStep.dateLabel": "Bis (optional)",
+  "nextStep.save": "Nächsten Schritt speichern",
+  "nextStep.done": "Erledigt",
+  "nextStep.doneLog": "Schritt erledigt",
+  "nextStep.due": "bis {{date}}",
+  "nextStep.overdue": "überfällig",
+  "people.nextStep": "Nächster Schritt"
 }

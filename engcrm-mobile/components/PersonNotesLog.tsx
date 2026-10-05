@@ -32,8 +32,18 @@ const METHODS = [
   { value: "other", labelKey: "personDetail.notes.methodOther" },
 ];
 
+// Entries written by a next-step change carry their own methods.
+const LOG_ONLY_LABELS: Record<string, string> = {
+  next_step: "nextStep.title",
+  next_step_done: "nextStep.doneLog",
+};
+
 export function PersonNotesLog({ personId }: { personId: number }) {
   const { t } = useTranslation();
+  const methodLabel = (method: string) => {
+    const key = METHODS.find((m) => m.value === method)?.labelKey ?? LOG_ONLY_LABELS[method];
+    return key ? t(key) : method;
+  };
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [notes, setNotes] = useState<PersonInteraction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,7 +198,7 @@ export function PersonNotesLog({ personId }: { personId: number }) {
           <View key={note.id} style={styles.entry}>
             <View style={styles.entryHeader}>
               <Text style={styles.entryDate}>{note.occurred_at.slice(0, 16).replace("T", " ")}</Text>
-              {!!note.method && <Text style={styles.entryMethod}>{note.method}</Text>}
+              {!!note.method && <Text style={styles.entryMethod}>{methodLabel(note.method)}</Text>}
               <TouchableOpacity onPress={() => confirmDelete(note)}>
                 <Text style={styles.entryDelete}>{t("personDetail.notes.delete")}</Text>
               </TouchableOpacity>

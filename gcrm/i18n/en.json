@@ -673,5 +673,15 @@
   "knownPeople.source.sign_research": "found by research",
   "knownPeople.metAt": "met at {{place}}",
   "organizations.colPeople": "People",
-  "organizations.morePeople": "+{{count}} more"
+  "organizations.morePeople": "+{{count}} more",
+  "nextStep.title": "Next step",
+  "nextStep.label": "What happens next",
+  "nextStep.placeholder": "e.g. invite to coffee",
+  "nextStep.dateLabel": "By (optional)",
+  "nextStep.save": "Save next step",
+  "nextStep.done": "Done",
+  "nextStep.doneLog": "Next step done",
+  "nextStep.due": "by {{date}}",
+  "nextStep.overdue": "overdue",
+  "people.nextStep": "Next step"
 }

@@ -461,5 +461,21 @@
   "organizationDetail.knownPeople.source.sign_research": "durch Recherche gefunden",
   "organizationDetail.knownPeople.metAt": "getroffen: {{place}}",
   "organizationDetail.knownPeople.openPerson": "{{name}} öffnen",
-  "organizationDetail.knownPeople.email": "E-Mail an {{name}}"
+  "organizationDetail.knownPeople.email": "E-Mail an {{name}}",
+  "nextStep.title": "Nächster Schritt",
+  "nextStep.none": "Noch nichts geplant",
+  "nextStep.add": "Nächsten Schritt anlegen",
+  "nextStep.change": "Ändern",
+  "nextStep.done": "Erledigt",
+  "nextStep.doneLog": "Schritt erledigt",
+  "nextStep.save": "Speichern",
+  "nextStep.placeholder": "z. B. auf einen Kaffee einladen",
+  "nextStep.label": "Was als Nächstes passiert",
+  "nextStep.dateLabel": "Bis wann",
+  "nextStep.due": "bis {{date}}",
+  "nextStep.overdue": "überfällig",
+  "nextStep.keepDate": "{{date}} behalten",
+  "nextStep.saveFailed": "Nächster Schritt konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "meeting.nextStep": "Nächster Schritt",
+  "meeting.nextStepFailedNoteSaved": "Notiz gespeichert, aber der nächste Schritt nicht. Bitte erneut versuchen."
 }

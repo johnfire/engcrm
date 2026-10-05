@@ -27,6 +27,39 @@
 
 {% include 'partials/contact_value_rating.html' %}
 
+{# What happens next with this person. Its own form, like the note log: each change
+   is also written to the note log below, so the history of plans stays. #}
+<section class="detail-section next-step" id="next-step">
+  <h2>{{ t('nextStep.title') }}</h2>
+  {% if person.next_step %}
+  <p class="next-step__current">
+    <strong>{{ person.next_step }}</strong>
+    {%- if person.next_step_date %}
+    <span class="next-step__due{% if person.next_step_date < today %} next-step__due--overdue{% endif %}">
+      {{ t('nextStep.due', date=person.next_step_date) }}{% if person.next_step_date < today %} · {{ t('nextStep.overdue') }}{% endif %}
+    </span>
+    {%- endif %}
+  </p>
+  {% endif %}
+  <form method="post" action="/people/{{ person.id }}/next-step" class="next-step__form">
+    <div class="field-row field-row--wide">
+      <label for="next-step-text">{{ t('nextStep.label') }}</label>
+      <input id="next-step-text" type="text" name="next_step" maxlength="500"
+             value="{{ person.next_step or '' }}" placeholder="{{ t('nextStep.placeholder') }}" />
+    </div>
+    <div class="field-row">
+      <label for="next-step-date">{{ t('nextStep.dateLabel') }}</label>
+      <input id="next-step-date" type="date" name="next_step_date" value="{{ person.next_step_date or '' }}" />
+    </div>
+    <div class="detail-actions">
+      <button type="submit" class="btn-primary">{{ t('nextStep.save') }}</button>
+      {% if person.next_step %}
+      <button type="submit" name="done" value="1" class="btn-secondary">✓ {{ t('nextStep.done') }}</button>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
 <form method="post" action="/people/{{ person.id }}/edit" class="person-edit-form">
   <div class="detail-grid">
     <section class="detail-section">
@@ -216,6 +249,11 @@
   </form>
 
   {% if interactions %}
+  {% set method_labels = {
+    'call': t('personDetail.notes.methodCall'), 'visit': t('personDetail.notes.methodVisit'),
+    'email': t('personDetail.notes.methodEmail'), 'other': t('personDetail.notes.methodOther'),
+    'next_step': t('nextStep.title'), 'next_step_done': t('nextStep.doneLog'),
+  } %}
   <div class="table-scroll">
 <table>
     <thead>
@@ -232,7 +270,7 @@
         <td class="muted small nowrap">
           {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
         </td>
-        <td class="muted">{{ entry.method or '—' }}</td>
+        <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}</td>
         <td>{{ entry.note }}</td>
         <td>
           <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"

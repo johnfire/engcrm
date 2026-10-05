@@ -1,6 +1,8 @@
 """Mobile JSON API for people — the individuals on scanned cards, each linked to
 their company contact. People arrive through the card-confirm flow or are added by
 hand here; the phone can also edit them, change their stage, and delete them."""
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -12,6 +14,7 @@ from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db import get_people, get_person, get_person_cities
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import find_existing_person, save_person, update_person
+from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
 
 router = APIRouter(prefix="/api/people", tags=["mobile-people"])
@@ -183,6 +186,25 @@ def set_person_stage(
         raise HTTPException(status_code=404, detail="Person not found")
     log_audit(None, None, "person.stage_changed", f"person:{person_id}", body.stage or "cleared")
     return {"pipeline_stage": body.stage}
+
+
+class NextStepBody(BaseModel):
+    next_step: str | None = None  # blank or null clears it (logged as done)
+    next_step_date: date | None = None
+
+
+@router.put("/{person_id}/next-step")
+def set_next_step(person_id: int, body: NextStepBody, _role: str = Depends(require_jwt_admin)) -> dict:
+    """Set or clear what happens next with a person. Each change is also written to
+    their note log."""
+    try:
+        result = set_person_next_step(person_id, body.next_step or "", body.next_step_date)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Person not found")
+    due = result["next_step_date"]
+    return {**result, "next_step_date": due.isoformat() if due else None}
 
 
 @router.delete("/{person_id}")

@@ -461,5 +461,21 @@
   "organizationDetail.knownPeople.source.sign_research": "found by research",
   "organizationDetail.knownPeople.metAt": "met at {{place}}",
   "organizationDetail.knownPeople.openPerson": "Open {{name}}",
-  "organizationDetail.knownPeople.email": "Email {{name}}"
+  "organizationDetail.knownPeople.email": "Email {{name}}",
+  "nextStep.title": "Next step",
+  "nextStep.none": "Nothing planned yet",
+  "nextStep.add": "Add next step",
+  "nextStep.change": "Change",
+  "nextStep.done": "Done",
+  "nextStep.doneLog": "Next step done",
+  "nextStep.save": "Save",
+  "nextStep.placeholder": "e.g. invite to coffee",
+  "nextStep.label": "What happens next",
+  "nextStep.dateLabel": "By when",
+  "nextStep.due": "by {{date}}",
+  "nextStep.overdue": "overdue",
+  "nextStep.keepDate": "Keep {{date}}",
+  "nextStep.saveFailed": "Couldn't save the next step. Try again.",
+  "meeting.nextStep": "Next step",
+  "meeting.nextStepFailedNoteSaved": "Note saved, but the next step couldn't be saved. Try again."
 }
