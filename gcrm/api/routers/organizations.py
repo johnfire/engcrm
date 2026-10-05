@@ -145,6 +145,11 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 (SELECT COUNT(*) FROM people lp
                   WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                 ) AS linkedin_connection_count,
+                (SELECT COALESCE(json_agg(json_build_object('id', kp.id, 'name', kp.name)
+                          ORDER BY CASE kp.source WHEN 'card_capture' THEN 0 WHEN 'manual' THEN 1 ELSE 2 END,
+                                   kp.name), '[]'::json)
+                   FROM people kp WHERE kp.contact_id = c.id AND kp.deleted_at IS NULL
+                ) AS known_people,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}

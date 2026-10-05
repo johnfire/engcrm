@@ -671,5 +671,7 @@
   "knownPeople.source.card_capture": "met in person",
   "knownPeople.source.manual": "added by hand",
   "knownPeople.source.sign_research": "found by research",
-  "knownPeople.metAt": "met at {{place}}"
+  "knownPeople.metAt": "met at {{place}}",
+  "organizations.colPeople": "People",
+  "organizations.morePeople": "+{{count}} more"
 }

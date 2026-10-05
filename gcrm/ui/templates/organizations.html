@@ -120,6 +120,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
     <col class="c-star" />
     <col class="c-id" />
     <col class="c-name" />
+    <col class="c-people" />
     <col class="c-city" />
     <col class="c-type" />
     <col class="c-stage" />
@@ -139,6 +140,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th class="star-col">{{ sort_link('starred', '★', 'desc') }}</th>
       <th>{{ sort_link('id', t('organizations.colId')) }}</th>
       <th>{{ sort_link('name', t('common.name')) }}</th>
+      <th>{{ t('organizations.colPeople') }}</th>
       <th>{{ sort_link('city', t('common.city')) }}</th>
       <th>{{ sort_link('type', t('common.type')) }}</th>
       <th>{{ t('common.pipelineStage') }}</th>
@@ -161,6 +163,12 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td class="muted small">{{ c.id }}</td>
       <td>
         <strong><a href="/organizations/{{ c.id }}">{{ c.name }}</a></strong>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}
+      </td>
+      <td class="small known-people-cell">
+        {%- set known = c.known_people or [] %}
+        {%- for p in known[:3] %}<a href="/people/{{ p.id }}" title="{{ p.name }}">{{ p.name }}</a>{% endfor %}
+        {%- if known | length > 3 %}<a class="muted" href="/organizations/{{ c.id }}">{{ t('organizations.morePeople', count=known|length - 3) }}</a>{% endif %}
+        {%- if not known %}<span class="muted">—</span>{% endif %}
       </td>
       <td>
         {{ c.city }}{% if c.country %}

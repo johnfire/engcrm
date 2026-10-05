@@ -671,5 +671,7 @@
   "knownPeople.source.card_capture": "persönlich getroffen",
   "knownPeople.source.manual": "von Hand angelegt",
   "knownPeople.source.sign_research": "durch Recherche gefunden",
-  "knownPeople.metAt": "getroffen: {{place}}"
+  "knownPeople.metAt": "getroffen: {{place}}",
+  "organizations.colPeople": "Personen",
+  "organizations.morePeople": "+{{count}} weitere"
 }

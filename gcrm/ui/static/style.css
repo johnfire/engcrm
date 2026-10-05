@@ -979,8 +979,8 @@ table.orgs-table {
   /* Below the minimum the wrapper scrolls rather than crushing 16 columns;
      above the maximum the leftover width would all land on Name, which just
      makes the eye travel further between columns. */
-  min-width: 1500px;
-  max-width: 1800px;
+  min-width: 1680px;
+  max-width: 1980px;
 }
 /* Sort links are nowrap everywhere else, which in a fixed-width column means a
    two-word heading overlaps its neighbour instead of wrapping. */
@@ -1008,6 +1008,17 @@ html[lang="de"] .orgs-table th {
 }
 .orgs-table col.c-id {
   width: 46px;
+}
+.orgs-table col.c-people {
+  /* Up to three names, one per line, then "+N more"; a longer name ends in
+     an ellipsis and shows in full on hover. */
+  width: 180px;
+}
+.orgs-table .known-people-cell a {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .orgs-table col.c-city {
   /* Wide enough for a 15-character town name on one line — Klosterlechfeld

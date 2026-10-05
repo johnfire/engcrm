@@ -263,6 +263,28 @@ class TestOrganizationsPage:
         finally:
             clear_login_session()
 
+    def test_people_at_each_organization_link_to_their_records(self):
+        with_login_session()
+        try:
+            people = [{"id": n, "name": f"Person {n}"} for n in range(1, 6)]
+            conn, cur = make_mock_conn(
+                [{**CONTACT_ROW, "known_people": people}, {**CONTACT_ROW, "id": 2, "known_people": []}],
+                [], [], fetchone_sequence=[{"cnt": 2}],
+            )
+            with patch("gcrm.api.routers.organizations.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                response = client.get("/organizations/?lang=en")
+
+            assert response.status_code == 200, response.text
+            assert '<a href="/people/1" title="Person 1">Person 1</a>' in response.text
+            assert '<a href="/people/3" title="Person 3">Person 3</a>' in response.text
+            assert "/people/4" not in response.text
+            assert f'href="/organizations/{CONTACT_ROW["id"]}">+2 more</a>' in response.text
+            organization_query = " ".join(cur.execute.call_args_list[1].args[0].split())
+            assert "FROM people kp WHERE kp.contact_id = c.id AND kp.deleted_at IS NULL" in organization_query
+        finally:
+            clear_login_session()
+
     def test_each_organization_has_a_stage_picker(self):
         with_login_session()
         try:
