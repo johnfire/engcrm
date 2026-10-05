@@ -1,16 +1,25 @@
-{# "Who do I know here?" — LinkedIn connections at this organization. Confirmed
-   people first; unconfirmed name-lookalikes are listed separately and labelled
+{# "Who do I know here?" — everyone linked to this organization (business card,
+   typed in, LinkedIn), each with a link to their record and the ways to get in
+   touch. Unconfirmed LinkedIn name-lookalikes are listed separately and labelled
    as such, so a wrong guess can't pass for a known contact. #}
 {% if linkedin and (linkedin.linked or linkedin.possible) %}
 <div class="linkedin-notice" role="note">
   {% if linkedin.linked %}
-  <strong>{{ t('linkedin.notice.title') }}</strong>
-  <ul>
+  <strong>{{ t('knownPeople.title') }}</strong>
+  <ul class="known-people">
     {% for p in linkedin.linked %}
     <li>
       <a href="/people/{{ p.id }}">{{ p.name }}</a>{% if p.title %} · {{ p.title }}{% endif %}
-      {%- set profile = p.linkedin_url | browsable_url %}
-      {%- if profile %} · <a href="{{ profile }}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>{% endif %}
+      {%- if p.pipeline_stage %} <span class="badge badge-stage-{{ p.pipeline_stage }}">{{ t('stage.' ~ p.pipeline_stage) }}</span>{% endif %}
+      {%- if p.source in ('card_capture', 'manual', 'sign_research') %} <span class="badge">{{ t('knownPeople.source.' ~ p.source) }}</span>{% endif %}
+      {%- if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}
+      {%- if p.met_at %} <span class="muted small">{{ t('knownPeople.metAt', place=p.met_at) }}</span>{% endif %}
+      <div class="small">
+        {%- set profile = p.linkedin_url | browsable_url %}
+        {%- if profile %}<a href="{{ profile }}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>{% endif %}
+        {%- if profile and p.email %} · {% endif %}
+        {%- if p.email %}<a href="mailto:{{ p.email }}">✉ {{ p.email }}</a>{% endif %}
+      </div>
     </li>
     {% endfor %}
   </ul>

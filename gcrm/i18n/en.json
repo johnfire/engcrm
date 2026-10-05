@@ -666,5 +666,10 @@
   "linkedin.web.alreadyRunning": "A search is already running, so nothing new was started.",
   "linkedin.web.found": "Found on the web",
   "linkedin.web.source": "page it was read from",
-  "linkedin.web.accept": "Use this"
+  "linkedin.web.accept": "Use this",
+  "knownPeople.title": "People you know here",
+  "knownPeople.source.card_capture": "met in person",
+  "knownPeople.source.manual": "added by hand",
+  "knownPeople.source.sign_research": "found by research",
+  "knownPeople.metAt": "met at {{place}}"
 }

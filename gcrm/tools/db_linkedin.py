@@ -274,16 +274,20 @@ def apply_match_decisions(decisions: list[dict]) -> dict:
     return counts
 
 
-def get_linkedin_connections_for_org(contact_id: int) -> dict:
-    """Who do I know at this organization? `linked` are LinkedIn people confirmed
-    at it; `possible` are unlinked LinkedIn people whose company string looks
-    like its name — shown as unconfirmed, because a walk-in notice that is
-    sometimes wrong beats none, as long as it says which is which."""
+def get_known_people_for_org(contact_id: int) -> dict:
+    """Who do I know at this organization? `linked` is everyone linked to it —
+    met in person (business card) first, then added by hand, then the rest
+    (LinkedIn, research) — with what is needed to get in touch from the
+    organization page. `possible` are unlinked LinkedIn people whose company
+    string looks like its name — shown as unconfirmed, because a walk-in notice
+    that is sometimes wrong beats none, as long as it says which is which."""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, name, title, linkedin_url, connected_on FROM people "
-            "WHERE contact_id = %s AND is_linkedin_contact AND deleted_at IS NULL ORDER BY name",
+            "SELECT id, name, title, email, linkedin_url, connected_on, source, met_at, "
+            "pipeline_stage, is_linkedin_contact FROM people "
+            "WHERE contact_id = %s AND deleted_at IS NULL "
+            "ORDER BY CASE source WHEN 'card_capture' THEN 0 WHEN 'manual' THEN 1 ELSE 2 END, name",
             (contact_id,),
         )
         linked = [serialize_row(dict(row)) for row in cur.fetchall()]

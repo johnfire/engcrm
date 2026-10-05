@@ -151,7 +151,6 @@
   "organizationDetail.notFound": "Contact not found",
   "organizationDetail.score": "Score: {{score}}",
   "organizationDetail.history": "History",
-  "organizationDetail.linkedin.title": "You know someone here on LinkedIn",
   "organizationDetail.linkedin.possibleTitle": "Possible LinkedIn connections (unconfirmed: similar company name)",
   "organizationDetail.linkedin.companyLabel": "Company on LinkedIn: {{company}}",
   "organizationDetail.linkedin.openProfile": "Open LinkedIn profile of {{name}}",
@@ -455,5 +454,12 @@
   "people.linkedinUnlinked": "Not linked to an organization",
   "people.sortConnected": "Recently connected",
   "people.sortCompany": "Company",
-  "people.sortCity": "City"
+  "people.sortCity": "City",
+  "organizationDetail.knownPeople.title": "People you know here",
+  "organizationDetail.knownPeople.source.card_capture": "met in person",
+  "organizationDetail.knownPeople.source.manual": "added by hand",
+  "organizationDetail.knownPeople.source.sign_research": "found by research",
+  "organizationDetail.knownPeople.metAt": "met at {{place}}",
+  "organizationDetail.knownPeople.openPerson": "Open {{name}}",
+  "organizationDetail.knownPeople.email": "Email {{name}}"
 }

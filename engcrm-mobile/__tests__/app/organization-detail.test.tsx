@@ -256,12 +256,12 @@ describe("organization detail — LinkedIn notice", () => {
     });
 
     const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByText("You know someone here on LinkedIn")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("People you know here")).toBeTruthy());
     expect(screen.getByText("Anna Roth · CTO")).toBeTruthy();
     expect(screen.queryByText(/Possible LinkedIn connections/)).toBeNull();
   });
 
-  it("opens the profile of a confirmed connection", async () => {
+  it("opens the person's record from their name, and their profile from the LinkedIn button", async () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
     mockFetchContact.mockResolvedValue({
       ...BASE_CONTACT,
@@ -271,8 +271,35 @@ describe("organization detail — LinkedIn notice", () => {
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth · CTO")).toBeTruthy());
     fireEvent.press(screen.getByText("Anna Roth · CTO"));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "3" } });
+    expect(openURL).not.toHaveBeenCalled();
 
+    fireEvent.press(screen.getByText("LinkedIn ↗"));
     await waitFor(() => expect(openURL).toHaveBeenCalledWith("https://www.linkedin.com/in/anna-roth"));
+    openURL.mockRestore();
+  });
+
+  it("lists a person met in person with stage, source, where met and an email button", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    mockFetchContact.mockResolvedValue({
+      ...BASE_CONTACT,
+      linkedin_connections: {
+        linked: [{
+          id: 57, name: "Dr. Ralf Jahr", title: null, linkedin_url: null, connected_on: null,
+          email: "jahr@example.test", source: "card_capture", met_at: "Digitaltag",
+          pipeline_stage: "prospect", is_linkedin_contact: false,
+        }],
+        possible: [],
+      },
+    });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Dr. Ralf Jahr")).toBeTruthy());
+    expect(screen.getByText("Prospect · met in person · met at Digitaltag")).toBeTruthy();
+    expect(screen.queryByText("LinkedIn ↗")).toBeNull();
+
+    fireEvent.press(screen.getByText("✉ jahr@example.test"));
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("mailto:jahr@example.test"));
     openURL.mockRestore();
   });
 
@@ -288,7 +315,7 @@ describe("organization detail — LinkedIn notice", () => {
     );
     expect(screen.getByText("Bob Ng")).toBeTruthy();
     expect(screen.getByText("Company on LinkedIn: Acme Ltd")).toBeTruthy();
-    expect(screen.queryByText("You know someone here on LinkedIn")).toBeNull();
+    expect(screen.queryByText("People you know here")).toBeNull();
   });
 
   it("shows no notice when there are no connections, or the server predates the feature", async () => {

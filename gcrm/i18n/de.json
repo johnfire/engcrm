@@ -666,5 +666,10 @@
   "linkedin.web.alreadyRunning": "Es läuft bereits eine Suche, daher wurde nichts Neues gestartet.",
   "linkedin.web.found": "Im Web gefunden",
   "linkedin.web.source": "Seite, von der gelesen wurde",
-  "linkedin.web.accept": "Übernehmen"
+  "linkedin.web.accept": "Übernehmen",
+  "knownPeople.title": "Bekannte Personen hier",
+  "knownPeople.source.card_capture": "persönlich getroffen",
+  "knownPeople.source.manual": "von Hand angelegt",
+  "knownPeople.source.sign_research": "durch Recherche gefunden",
+  "knownPeople.metAt": "getroffen: {{place}}"
 }

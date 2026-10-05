@@ -487,6 +487,13 @@ export interface LinkedInPerson {
   linkedin_url: string | null;
   connected_on: string | null;
   company_raw?: string | null;
+  // Set on `linked` people since the list widened from LinkedIn connections to
+  // everyone linked to the organization; absent on older servers.
+  email?: string | null;
+  source?: string | null;
+  met_at?: string | null;
+  pipeline_stage?: string | null;
+  is_linkedin_contact?: boolean;
 }
 
 export interface LinkedInConnections {
@@ -501,6 +508,7 @@ export interface OrganizationDetail extends Organization {
   preferred_contact_method?: string | null;
   interactions: Interaction[];
   opportunity_analysis: OpportunityAnalysis | null;
+  // Everyone we know at the organization (the key keeps its LinkedIn-era name).
   // Absent on servers that predate the LinkedIn import.
   linkedin_connections?: LinkedInConnections;
 }

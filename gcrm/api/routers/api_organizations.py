@@ -12,7 +12,7 @@ from gcrm.organization_state import PIPELINE_STAGES, STATUSES, SUPPRESSION_FLAGS
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
-from gcrm.tools.db_linkedin import get_linkedin_connections_for_org, get_reachable_fits
+from gcrm.tools.db_linkedin import get_known_people_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_organizations import set_organization_state
 from gcrm.tools.db_personal_priorities import set_personal_priority
@@ -228,11 +228,13 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
         get_latest_opportunity_analysis(contact_id)
     )
     # "Do I know someone here?" is a bonus on this screen: a failed lookup
-    # returns no connections rather than failing the whole organization.
+    # returns no people rather than failing the whole organization. The key keeps
+    # its LinkedIn-era name so installed app builds still read it; `linked` now
+    # holds everyone linked to the organization, not only LinkedIn connections.
     try:
-        organization["linkedin_connections"] = get_linkedin_connections_for_org(contact_id)
+        organization["linkedin_connections"] = get_known_people_for_org(contact_id)
     except Exception:
-        logger.exception("linkedin connection lookup failed for contact %s", contact_id)
+        logger.exception("known people lookup failed for contact %s", contact_id)
         organization["linkedin_connections"] = {"linked": [], "possible": []}
     return organization
 

@@ -288,10 +288,11 @@ export default function OrganizationDetailScreen() {
   );
 }
 
-// "Who do I know here?" — LinkedIn connections at this organization, shown at the
-// top so it is the first thing seen when walking in cold. Confirmed people are
-// listed first; unconfirmed name-lookalikes sit under their own heading so a wrong
-// guess cannot pass for a known contact. Renders nothing when there are none.
+// "Who do I know here?" — everyone linked to this organization (business card,
+// typed in, LinkedIn), shown at the top so it is the first thing seen when walking
+// in cold. Tapping a name opens the person; LinkedIn and email are their own
+// buttons. Unconfirmed LinkedIn name-lookalikes sit under their own heading so a
+// wrong guess cannot pass for a known contact. Renders nothing when there are none.
 function LinkedInNotice({ connections }: { connections?: LinkedInConnections }) {
   const { t } = useTranslation();
   if (!connections || (connections.linked.length === 0 && connections.possible.length === 0)) {
@@ -301,9 +302,9 @@ function LinkedInNotice({ connections }: { connections?: LinkedInConnections }) 
     <View style={styles.linkedinNotice} accessibilityRole="summary">
       {connections.linked.length > 0 && (
         <>
-          <Text style={styles.linkedinTitle}>{t("organizationDetail.linkedin.title")}</Text>
+          <Text style={styles.linkedinTitle}>{t("organizationDetail.knownPeople.title")}</Text>
           {connections.linked.map((person) => (
-            <LinkedInPersonRow key={person.id} person={person} />
+            <KnownPersonRow key={person.id} person={person} />
           ))}
         </>
       )}
@@ -313,7 +314,7 @@ function LinkedInNotice({ connections }: { connections?: LinkedInConnections }) 
             {t("organizationDetail.linkedin.possibleTitle")}
           </Text>
           {connections.possible.map((person) => (
-            <LinkedInPersonRow key={person.id} person={person} showCompany />
+            <KnownPersonRow key={person.id} person={person} showCompany />
           ))}
         </>
       )}
@@ -321,26 +322,57 @@ function LinkedInNotice({ connections }: { connections?: LinkedInConnections }) 
   );
 }
 
-function LinkedInPersonRow({ person, showCompany }: { person: LinkedInPerson; showCompany?: boolean }) {
+const SOURCE_LABELS = new Set(["card_capture", "manual", "sign_research"]);
+
+function KnownPersonRow({ person, showCompany }: { person: LinkedInPerson; showCompany?: boolean }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const label = person.title ? `${person.name} · ${person.title}` : person.name;
+  const details = [
+    person.pipeline_stage ? t(`stage.${person.pipeline_stage}`) : null,
+    person.source && SOURCE_LABELS.has(person.source)
+      ? t(`organizationDetail.knownPeople.source.${person.source}`)
+      : null,
+    person.is_linkedin_contact ? "LinkedIn" : null,
+    person.met_at ? t("organizationDetail.knownPeople.metAt", { place: person.met_at }) : null,
+  ].filter(Boolean);
+  const profile = browsableUrl(person.linkedin_url);
   return (
     <View style={styles.linkedinRow}>
-      {browsableUrl(person.linkedin_url) ? (
-        <TouchableOpacity
-          accessibilityRole="link"
-          accessibilityLabel={t("organizationDetail.linkedin.openProfile", { name: person.name })}
-          onPress={() => openWebsite(person.linkedin_url)}
-        >
-          <Text style={styles.linkedinLink}>{label}</Text>
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.linkedinName}>{label}</Text>
-      )}
+      <TouchableOpacity
+        accessibilityRole="link"
+        accessibilityLabel={t("organizationDetail.knownPeople.openPerson", { name: person.name })}
+        onPress={() => router.push({ pathname: "/(drawer)/person-detail", params: { id: String(person.id) } })}
+      >
+        <Text style={styles.linkedinLink}>{label}</Text>
+      </TouchableOpacity>
+      {details.length > 0 && <Text style={styles.linkedinCompany}>{details.join(" · ")}</Text>}
       {showCompany && !!person.company_raw && (
         <Text style={styles.linkedinCompany}>
           {t("organizationDetail.linkedin.companyLabel", { company: person.company_raw })}
         </Text>
+      )}
+      {(profile || person.email) && (
+        <View style={styles.knownPersonActions}>
+          {profile && (
+            <TouchableOpacity
+              accessibilityRole="link"
+              accessibilityLabel={t("organizationDetail.linkedin.openProfile", { name: person.name })}
+              onPress={() => openWebsite(person.linkedin_url)}
+            >
+              <Text style={styles.knownPersonAction}>LinkedIn ↗</Text>
+            </TouchableOpacity>
+          )}
+          {!!person.email && (
+            <TouchableOpacity
+              accessibilityRole="link"
+              accessibilityLabel={t("organizationDetail.knownPeople.email", { name: person.name })}
+              onPress={() => Linking.openURL(`mailto:${person.email}`)}
+            >
+              <Text style={styles.knownPersonAction}>✉ {person.email}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
@@ -610,6 +642,8 @@ const styles = StyleSheet.create({
   linkedinName: { color: "#ddd", fontSize: 14 },
   linkedinLink: { color: "#5aa9f0", fontSize: 14, textDecorationLine: "underline" },
   linkedinCompany: { color: "#888", fontSize: 12, marginTop: 1 },
+  knownPersonActions: { flexDirection: "row", flexWrap: "wrap", columnGap: 16, marginTop: 3 },
+  knownPersonAction: { color: "#5aa9f0", fontSize: 13, paddingVertical: 4 },
 
   // --- Opportunity analysis ---
   analysisCard: {

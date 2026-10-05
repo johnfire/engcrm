@@ -429,7 +429,7 @@ class TestSoftDeletedPeople:
         patcher = patched_db(cursor)
         try:
             db_linkedin.get_match_suggestions()
-            db_linkedin.get_linkedin_connections_for_org(10)
+            db_linkedin.get_known_people_for_org(10)
         finally:
             patcher.stop()
         people_queries = [
@@ -489,7 +489,7 @@ class TestConnectionsForOrg:
         cursor = cursor_answering(linked, unlinked, fetchone_results=[{"id": 10, "name": "Acme GmbH", "city": "A"}])
         patcher = patched_db(cursor)
         try:
-            result = db_linkedin.get_linkedin_connections_for_org(10)
+            result = db_linkedin.get_known_people_for_org(10)
         finally:
             patcher.stop()
         assert [p["name"] for p in result["linked"]] == ["Anna"]
@@ -500,7 +500,7 @@ class TestConnectionsForOrg:
         cursor = cursor_answering([], fetchone_results=[None])
         patcher = patched_db(cursor)
         try:
-            assert db_linkedin.get_linkedin_connections_for_org(99) == {"linked": [], "possible": []}
+            assert db_linkedin.get_known_people_for_org(99) == {"linked": [], "possible": []}
         finally:
             patcher.stop()
 
@@ -833,7 +833,7 @@ def organization_page(row):
 
 def get_organization_page(connections=None, error=None):
     lookup = patch(
-        "gcrm.api.routers.organizations.get_linkedin_connections_for_org",
+        "gcrm.api.routers.organizations.get_known_people_for_org",
         return_value=connections, side_effect=error,
     )
     with patch("gcrm.api.routers.organizations.db") as mock_db, lookup:
@@ -852,10 +852,36 @@ class TestWalkInNotice:
             "possible": [],
         })
         assert response.status_code == 200
-        assert "You know someone here on LinkedIn" in response.text
+        assert "People you know here" in response.text
         assert 'href="/people/3">Anna Roth</a>' in response.text
         assert 'href="https://www.linkedin.com/in/anna-roth"' in response.text
         assert "Possible LinkedIn connections" not in response.text
+
+    def test_a_person_met_in_person_is_listed_with_ways_to_get_in_touch(self, admin_web):
+        response = get_organization_page({
+            "linked": [{"id": 57, "name": "Dr. Ralf Jahr", "title": "CEO", "email": "jahr@example.test",
+                        "linkedin_url": "https://www.linkedin.com/in/ralf-jahr", "connected_on": None,
+                        "source": "card_capture", "met_at": "Digitaltag Augsburg",
+                        "pipeline_stage": "prospect", "is_linkedin_contact": True}],
+            "possible": [],
+        })
+        assert 'href="/people/57">Dr. Ralf Jahr</a>' in response.text
+        assert 'badge-stage-prospect">Prospect</span>' in response.text
+        assert "met in person" in response.text
+        assert "met at Digitaltag Augsburg" in response.text
+        assert 'href="https://www.linkedin.com/in/ralf-jahr"' in response.text
+        assert 'href="mailto:jahr@example.test"' in response.text
+
+    def test_a_person_without_linkedin_or_email_still_links_to_their_record(self, admin_web):
+        response = get_organization_page({
+            "linked": [{"id": 8, "name": "Eva Klein", "title": None, "email": None, "linkedin_url": None,
+                        "connected_on": None, "source": "manual", "met_at": None,
+                        "pipeline_stage": None, "is_linkedin_contact": False}],
+            "possible": [],
+        })
+        assert 'href="/people/8">Eva Klein</a>' in response.text
+        assert "added by hand" in response.text
+        assert "mailto:" not in response.text and "LinkedIn ↗" not in response.text
 
     def test_unconfirmed_lookalikes_are_labelled_as_such(self, admin_web):
         response = get_organization_page({
@@ -866,7 +892,7 @@ class TestWalkInNotice:
         assert "Possible LinkedIn connections" in response.text
         assert "unconfirmed" in response.text
         assert "Company on LinkedIn: Acme Ltd" in response.text
-        assert "You know someone here on LinkedIn" not in response.text
+        assert "People you know here" not in response.text
 
     def test_no_connections_means_no_notice(self, admin_web):
         response = get_organization_page({"linked": [], "possible": []})
@@ -882,10 +908,10 @@ class TestWalkInNotice:
         lookup = {"linked": [{"id": 3, "name": "Anna Roth", "title": None, "linkedin_url": None,
                               "connected_on": None}], "possible": []}
         with patch("gcrm.api.routers.organizations.db") as mock_db, \
-             patch("gcrm.api.routers.organizations.get_linkedin_connections_for_org", return_value=lookup):
+             patch("gcrm.api.routers.organizations.get_known_people_for_org", return_value=lookup):
             mock_db.return_value.__enter__.return_value = organization_page(ORG_ROW)
             response = client.get("/organizations/1?lang=de")
-        assert "Hier gibt es LinkedIn-Kontakte" in response.text
+        assert "Bekannte Personen hier" in response.text
         client.get("/login?lang=en")  # leave the shared session in English
 
 
@@ -900,7 +926,7 @@ class TestMobileApi:
         cur.fetchall.return_value = []
         with patch.object(api_organizations, "db") as mock_db, \
              patch.object(api_organizations, "get_latest_opportunity_analysis", return_value=None), \
-             patch.object(api_organizations, "get_linkedin_connections_for_org", return_value=connections):
+             patch.object(api_organizations, "get_known_people_for_org", return_value=connections):
             mock_db.return_value.__enter__.return_value = conn
             response = client.get("/api/contacts/1", headers=AUTH)
         assert response.status_code == 200
@@ -915,7 +941,7 @@ class TestMobileApi:
         cur.fetchall.return_value = []
         with patch.object(api_organizations, "db") as mock_db, \
              patch.object(api_organizations, "get_latest_opportunity_analysis", return_value=None), \
-             patch.object(api_organizations, "get_linkedin_connections_for_org", side_effect=RuntimeError("x")):
+             patch.object(api_organizations, "get_known_people_for_org", side_effect=RuntimeError("x")):
             mock_db.return_value.__enter__.return_value = conn
             response = client.get("/api/contacts/1", headers=AUTH)
         assert response.status_code == 200
