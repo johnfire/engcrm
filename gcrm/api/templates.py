@@ -1,16 +1,25 @@
 """Single Jinja2Templates instance shared by every router and the web app, so
 the template directory and custom filters are configured in exactly one place."""
 import json
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import quote_plus
 
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
+from gcrm.activity_types import activity_type
 from gcrm.api.web_links import browsable_url
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 
 UI_DIR = Path(__file__).parent.parent / "ui"
+
+
+def eur(value) -> str:
+    """An amount in euros, German style: 2.400,50 € (a whole amount drops the cents)."""
+    amount = Decimal(str(value or 0))
+    text = f"{amount:,.0f}" if amount == amount.to_integral_value() else f"{amount:,.2f}"
+    return text.replace(",", "\u2009").replace(".", ",").replace("\u2009", ".") + " €"
 
 
 def tojson_filter(value) -> Markup:
@@ -50,6 +59,8 @@ templates = AppTemplates(directory=str(UI_DIR / "templates"))
 templates.env.filters["urlenc"] = quote_plus
 templates.env.filters["browsable_url"] = browsable_url
 templates.env.filters["tojson"] = tojson_filter
+templates.env.filters["eur"] = eur
+templates.env.globals["activity_type"] = activity_type
 
 # Cache-busting query param for /static assets, so a deploy that changes CSS/JS
 # doesn't sit behind a browser's stale cached copy of a URL that never changes.

@@ -191,7 +191,7 @@
   "personDetail.notes.title": "Interaction log",
   "personDetail.notes.notePlaceholder": "What happened, or dictate it",
   "personDetail.notes.methodCall": "Call",
-  "personDetail.notes.methodVisit": "Visit",
+  "personDetail.notes.methodVisit": "Drop-in",
   "personDetail.notes.methodEmail": "Email",
   "personDetail.notes.methodOther": "Other",
   "personDetail.notes.save": "Add note",
@@ -367,7 +367,7 @@
   "search.linkedinPerson": "in",
   "meeting.title": "Log a meeting",
   "meeting.method": "What kind",
-  "meeting.methodVisit": "Visit",
+  "meeting.methodVisit": "Drop-in",
   "meeting.methodCall": "Call",
   "meeting.methodEmail": "Email",
   "meeting.methodOther": "Other",
@@ -499,5 +499,9 @@
   "organizationDetail.notes.placeholder": "What happened, what was said…",
   "organizationDetail.notes.save": "Save note",
   "organizationDetail.notes.saved": "Saved ✓ — it's in the history below",
-  "organizationDetail.notes.saveFailed": "Couldn't save the note. Your text is still here — try again."
+  "organizationDetail.notes.saveFailed": "Couldn't save the note. Your text is still here — try again.",
+  "meeting.methodMeeting": "Sit-down meeting",
+  "meeting.methodVideo": "Video call",
+  "meeting.minutes": "Minutes",
+  "meeting.minutesPlaceholder": "Minutes (optional — else the usual time)"
 }

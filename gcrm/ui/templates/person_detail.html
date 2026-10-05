@@ -235,11 +235,18 @@
       <label for="person-note-method">{{ t('personDetail.notes.methodLabel') }}</label>
       <select id="person-note-method" name="method">
         <option value="">{{ t('personDetail.notes.methodUnspecified') }}</option>
-        <option value="call">{{ t('personDetail.notes.methodCall') }}</option>
-        <option value="visit">{{ t('personDetail.notes.methodVisit') }}</option>
-        <option value="email">{{ t('personDetail.notes.methodEmail') }}</option>
+        <option value="visit">{{ t('activity.drop_in') }}</option>
+        <option value="meeting">{{ t('activity.meeting') }}</option>
+        <option value="call">{{ t('activity.phone') }}</option>
+        <option value="video">{{ t('activity.video') }}</option>
+        <option value="email">{{ t('activity.email') }}</option>
         <option value="other">{{ t('personDetail.notes.methodOther') }}</option>
       </select>
+    </div>
+    <div class="field-row">
+      <label for="person-note-minutes">{{ t('activity.minutesLabel') }}</label>
+      <input id="person-note-minutes" type="number" name="duration_minutes" min="0" max="1440" step="1"
+             placeholder="{{ t('activity.minutesPlaceholder') }}" />
     </div>
     <div class="detail-actions">
       <button type="button" id="person-note-record" class="btn-secondary">🎙 {{ t('personDetail.notes.record') }}</button>
@@ -250,8 +257,8 @@
 
   {% if interactions %}
   {% set method_labels = {
-    'call': t('personDetail.notes.methodCall'), 'visit': t('personDetail.notes.methodVisit'),
-    'email': t('personDetail.notes.methodEmail'), 'other': t('personDetail.notes.methodOther'),
+    'call': t('activity.phone'), 'visit': t('activity.drop_in'), 'meeting': t('activity.meeting'),
+    'video': t('activity.video'), 'email': t('activity.email'), 'other': t('personDetail.notes.methodOther'),
     'next_step': t('nextStep.title'), 'next_step_done': t('nextStep.doneLog'),
   } %}
   <div class="table-scroll">
@@ -270,7 +277,7 @@
         <td class="muted small nowrap">
           {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
         </td>
-        <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}</td>
+        <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}{% if entry.duration_minutes is number %} · {{ t('activity.minutes', minutes=entry.duration_minutes) }}{% endif %}</td>
         <td>{{ entry.note }}</td>
         <td>
           <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"

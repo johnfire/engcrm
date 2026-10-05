@@ -5,6 +5,7 @@ organization voice-memo flow (api_voice.py)."""
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from gcrm.activity_types import PERSON_METHODS, parse_minutes
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.tools.db_people import get_person
@@ -39,6 +40,7 @@ def transcribe_note(
 class NoteBody(BaseModel):
     note: str
     method: str | None = None
+    duration_minutes: int | None = None  # how long it took; blank uses the type's default
 
 
 @router.post("/{person_id}/notes")
@@ -48,7 +50,14 @@ def add_note(person_id: int, body: NoteBody, _role: str = Depends(require_jwt_ad
     note = body.note.strip()
     if not note:
         raise HTTPException(status_code=400, detail="Note is required")
-    note_id = log_person_note(person_id, (body.method or "").strip() or None, note)
+    method = (body.method or "").strip() or None
+    if method is not None and method not in PERSON_METHODS:
+        raise HTTPException(status_code=400, detail="Unknown method")
+    try:
+        minutes = parse_minutes(body.duration_minutes)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
+    note_id = log_person_note(person_id, method, note, duration_minutes=minutes)
     return {"id": note_id}
 
 

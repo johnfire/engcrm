@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -26,6 +27,7 @@ from gcrm.tools.db_linkedin import (
 )
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.privacy_retention import erase_organization
+from gcrm.tools.statistics import get_sales
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +311,6 @@ def organization_print(
         )
         organizations = [dict(row) for row in cur.fetchall()]
 
-    from datetime import date
     active_filters = []
     if status:
         active_filters.append(f"status: {status}")
@@ -375,7 +376,9 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
             raise HTTPException(status_code=404, detail="Contact not found")
         organization = dict(row)
         cur.execute(
-            "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date FROM interactions WHERE contact_id = %s ORDER BY interaction_date DESC LIMIT 20",
+            "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date, "
+            "duration_minutes FROM interactions WHERE contact_id = %s AND deleted_at IS NULL "
+            "ORDER BY interaction_date DESC, id DESC LIMIT 20",
             (contact_id,),
         )
         interactions = [dict(row) for row in cur.fetchall()]
@@ -399,10 +402,18 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
     except Exception:
         logger.exception("known people lookup failed for contact %s", contact_id)
         linkedin = {"linked": [], "possible": []}
+    # Sales are a bonus here too: if they can't be read, the page still renders.
+    try:
+        sales = get_sales(contact_id)
+    except Exception:
+        logger.exception("sales lookup failed for contact %s", contact_id)
+        sales = []
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
         "interactions": interactions,
+        "sales": sales,
+        "today": date.today().isoformat(),
         "linkedin": linkedin,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "pipeline_stages": PIPELINE_STAGES,

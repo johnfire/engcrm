@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
+from gcrm.activity_types import ORGANIZATION_METHODS, parse_minutes
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.db.connection import db
@@ -270,7 +271,7 @@ def update_personal_priority(
     return {"personal_priority": stored_priority}
 
 
-MEETING_METHODS = ("in_person", "phone", "email", "other")
+MEETING_METHODS = ORGANIZATION_METHODS
 MAX_FOLLOW_UP_DAYS = 3650
 
 
@@ -279,6 +280,7 @@ class MeetingNoteBody(BaseModel):
     method: str | None = None
     follow_up_date: str | None = None   # YYYY-MM-DD
     follow_up_text: str | None = None
+    duration_minutes: int | None = None  # how long it took; blank uses the type's default
 
 
 def _require_organization(contact_id: int, payload: dict) -> None:
@@ -319,8 +321,13 @@ def add_organization_note(
         today = date.today()
         if follow_up < today - timedelta(days=1) or follow_up > today + timedelta(days=MAX_FOLLOW_UP_DAYS):
             raise HTTPException(status_code=400, detail="follow_up_date is out of range")
+    try:
+        minutes = parse_minutes(body.duration_minutes)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
     _require_organization(contact_id, payload)
-    note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None)
+    note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None,
+                               duration_minutes=minutes)
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
 
 

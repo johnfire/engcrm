@@ -1214,3 +1214,50 @@ body:has(.login-box)::before {
 th.sortable a { color: inherit; text-decoration: none; white-space: nowrap; }
 th.sortable a:hover { color: var(--accent-bright); }
 th.sortable .sort-arrow { margin-left: .35em; font-size: .8em; color: var(--accent-bright); }
+
+/* ── Statistics, and recording what it counts (sales, logged activities) ───── */
+.record-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-top: 2rem; }
+.record-card h2 { font-size: 1rem; margin-bottom: 0.6rem; }
+.record-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; align-items: end; margin-top: 0.6rem; }
+.record-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; min-width: 0; }
+.record-form__wide { grid-column: 1 / -1; }
+.record-form input, .record-form select, .record-form textarea,
+.stat-defaults input, .stat-periods input {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font); font-size: 0.95em; padding: 0.4rem 0.6rem; border-radius: 0; min-width: 0;
+}
+.sales-list { list-style: none; padding: 0; margin: 0 0 0.4rem; }
+.sales-list li { padding: 0.25rem 0; border-bottom: 1px solid var(--border); }
+
+.stat-periods { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.stat-periods__custom { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.stat-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 0.75rem 0.9rem;
+  display: flex; flex-direction: column; gap: 0.15rem; }
+.stat-tile__label { color: var(--muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-tile__value { font-size: 1.5rem; color: var(--text); }
+.stat-delta { color: var(--muted); font-size: 0.8em; }
+.stat-delta--up { color: var(--text); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.stat-grid table, .statistics-page table { width: 100%; }
+.statistics-page .num { text-align: right; font-variant-numeric: tabular-nums; }
+.statistics-page h3 { font-size: 0.95rem; margin: 1rem 0 0.4rem; }
+
+/* Hours per week: one series, so one hue; thin bars with rounded data ends on a
+   recessive track; values in text colour beside them. */
+.stat-bars { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.stat-bars li { display: grid; grid-template-columns: 6.5rem 1fr 3.5rem; align-items: center; gap: 0.6rem; padding: 3px 0; }
+.stat-bars__label { color: var(--muted); font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.stat-bars__track { background: color-mix(in srgb, var(--border) 45%, transparent); height: 10px; border-radius: 0 4px 4px 0; }
+.stat-bars__bar { display: block; height: 10px; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
+.stat-bars__value { text-align: right; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.stat-changes, .stat-stuck { list-style: none; padding: 0; margin: 0; }
+.stat-changes li, .stat-stuck li { padding: 0.2rem 0; }
+.stat-changes--dropped { color: var(--muted); }
+.stat-defaults { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
+.stat-defaults label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; }
+.stat-defaults input { width: 6rem; }
+@media (max-width: 700px) {
+  .record-form { grid-template-columns: minmax(0, 1fr); }
+  .stat-bars li { grid-template-columns: 5.5rem 1fr 3rem; }
+}

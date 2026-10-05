@@ -537,7 +537,7 @@ class TestDbPeopleInteractions:
         assert note_id == 5
         insert = cur.execute.call_args_list[0]
         assert "INSERT INTO people_interactions" in insert.args[0]
-        assert insert.args[1] == (3, "visit", "Great chat about the new series.")
+        assert insert.args[1] == (3, "visit", "Great chat about the new series.", None)  # no typed duration
         update = cur.execute.call_args_list[1]
         assert "UPDATE people SET updated_at" in update.args[0]
         mlog.assert_called_once()
@@ -611,7 +611,7 @@ class TestPersonNotesWebRoutes:
                                 follow_redirects=False)
         assert resp.status_code == 303
         assert resp.headers["location"] == "/people/3?saved=1"
-        mlog.assert_called_once_with(3, "visit", "Great visit")
+        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None)
 
     def test_add_note_rejects_blank(self, admin_web):
         with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW), \
@@ -663,7 +663,7 @@ class TestPersonNotesMobileRoutes:
                                 json={"note": "Great visit", "method": "visit"})
         assert resp.status_code == 200
         assert resp.json()["id"] == 9
-        mlog.assert_called_once_with(3, "visit", "Great visit")
+        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None)
 
     def test_add_note_rejects_blank(self):
         with patch("gcrm.api.routers.api_people_interactions.get_person", return_value=PERSON_ROW), \

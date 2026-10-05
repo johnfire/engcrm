@@ -41,6 +41,7 @@ from gcrm.api.routers import (
     organizations,
     people,
     research,
+    statistics,
     users,
 )
 from gcrm.audit_context import CorrelationIdFilter, audit_scope
@@ -106,6 +107,7 @@ app.include_router(activity.router)
 app.include_router(organizations.router)
 app.include_router(people.router)
 app.include_router(research.router)
+app.include_router(statistics.router)
 app.include_router(areas.router)
 app.include_router(inbox.router)
 app.include_router(marketing.router)

@@ -38,18 +38,29 @@ import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "in_person", labelKey: "meeting.methodVisit" },
+  { value: "meeting", labelKey: "meeting.methodMeeting" },
   { value: "phone", labelKey: "meeting.methodCall" },
+  { value: "video", labelKey: "meeting.methodVideo" },
   { value: "email", labelKey: "meeting.methodEmail" },
   { value: "other", labelKey: "meeting.methodOther" },
 ];
 
-// People keep their own, older note vocabulary.
+// People keep their own, older note vocabulary for the first types.
 const PERSON_METHOD: Record<MeetingMethod, string> = {
   in_person: "visit",
+  meeting: "meeting",
   phone: "call",
+  video: "video",
   email: "email",
   other: "other",
 };
+
+/** Typed minutes as a number, null when blank or not a whole number 0–1440. */
+export function typedMinutes(text: string): number | null {
+  if (!/^\d{1,4}$/.test(text.trim())) return null;
+  const minutes = Number(text.trim());
+  return minutes <= 1440 ? minutes : null;
+}
 
 // Kept importable from here for the screen's tests.
 export { dateInDays, FOLLOW_UPS };
@@ -73,6 +84,7 @@ export default function LogMeetingScreen() {
   const [subject, setSubject] = useState<OrganizationDetail | Person | null>(null);
   const [note, setNote] = useState("");
   const [method, setMethod] = useState<MeetingMethod | null>(null);
+  const [minutes, setMinutes] = useState("");
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
   const [pendingChange, setPendingChange] = useState<StageStatusChange | null>(null);
@@ -149,9 +161,10 @@ export default function LogMeetingScreen() {
             method,
             follow_up_date: date,
             follow_up_text: date === null ? null : followUpText.trim() || null,
+            duration_minutes: typedMinutes(minutes),
           });
         } else {
-          await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null);
+          await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null, typedMinutes(minutes));
         }
         setNoteSaved(true);
         setNote("");
@@ -213,6 +226,19 @@ export default function LogMeetingScreen() {
             />
           ))}
         </View>
+        {!!method && method !== "other" && (
+          <TextInput
+            style={styles.smallInput}
+            value={minutes}
+            onChangeText={setMinutes}
+            keyboardType="number-pad"
+            maxLength={4}
+            placeholder={t("meeting.minutesPlaceholder")}
+            placeholderTextColor="#666"
+            editable={!saving}
+            accessibilityLabel={t("meeting.minutes")}
+          />
+        )}
 
         <TextInput
           style={styles.input}

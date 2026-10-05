@@ -8,13 +8,16 @@ from gcrm.tools.db_audit import log_audit
 logger = logging.getLogger(__name__)
 
 
-def log_person_note(person_id: int, method: str | None, note: str) -> int:
-    """Insert a note and touch the person's updated_at. Returns the new row id."""
+def log_person_note(person_id: int, method: str | None, note: str, duration_minutes: int | None = None) -> int:
+    """Insert a note and touch the person's updated_at. Returns the new row id.
+    `duration_minutes` is how long it took, when typed (statistics use the type's
+    default otherwise)."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO people_interactions (person_id, method, note) VALUES (%s, %s, %s) RETURNING id",
-            (person_id, method or None, note),
+            "INSERT INTO people_interactions (person_id, method, note, duration_minutes) "
+            "VALUES (%s, %s, %s, %s) RETURNING id",
+            (person_id, method or None, note, duration_minutes),
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
@@ -27,7 +30,7 @@ def get_person_interactions(person_id: int) -> list[dict]:
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, occurred_at, method, note FROM people_interactions "
+            "SELECT id, occurred_at, method, note, duration_minutes FROM people_interactions "
             "WHERE person_id = %s AND deleted_at IS NULL ORDER BY occurred_at DESC",
             (person_id,),
         )

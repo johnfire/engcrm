@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}{{ t('statistics.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}statistics-page{% endblock %}
+
+{# The previous period's figure beside this one: ▲/▼ when it differs, = when not. #}
+{% macro delta(now, before, unit='', money=false) -%}
+  {%- set shown = (before | eur) if money else (before ~ unit) -%}
+  {%- if now != before -%}
+  <span class="stat-delta {{ 'stat-delta--up' if now > before else 'stat-delta--down' }}"
+        title="{{ t('statistics.previous') }}: {{ shown }}">{{ '▲' if now > before else '▼' }} {{ shown }}</span>
+  {%- else -%}
+  <span class="stat-delta" title="{{ t('statistics.previous') }}">= {{ shown }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% block content %}
+{% set cur = stats.current %}{% set prev = stats.previous %}
+<div class="page-header">
+  <h1>{{ t('statistics.title') }}</h1>
+  <span class="muted">{{ stats.start }} – {{ stats.end }} · {{ t('statistics.comparedWith') }} {{ stats.previous_start }} – {{ stats.previous_end }}</span>
+</div>
+{% if saved %}<div class="flash-success">{{ t('statistics.saved') }}</div>{% endif %}
+
+<form method="get" action="/statistics" class="stat-periods" aria-label="{{ t('statistics.period') }}">
+  {% for p in periods %}
+  <button type="submit" name="period" value="{{ p }}" class="{{ 'btn-primary' if period == p else 'btn-secondary' }}">{{ t('statistics.period.' ~ p) }}</button>
+  {% endfor %}
+  <span class="stat-periods__custom">
+    <input type="date" name="start" value="{{ stats.start if period == 'custom' else '' }}" aria-label="{{ t('statistics.from') }}">
+    –
+    <input type="date" name="end" value="{{ stats.end if period == 'custom' else '' }}" aria-label="{{ t('statistics.to') }}">
+    <button type="submit" name="period" value="custom" class="{{ 'btn-primary' if period == 'custom' else 'btn-secondary' }}">{{ t('statistics.show') }}</button>
+  </span>
+</form>
+
+{# Headline numbers, each next to the previous period's. #}
+<div class="stat-tiles">
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.activities') }}</span>
+    <strong class="stat-tile__value">{{ cur.activities }}</strong>{{ delta(cur.activities, prev.activities) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.hours') }}{% if cur.estimated %} <span class="muted" title="{{ t('statistics.estimatedHint') }}">≈</span>{% endif %}</span>
+    <strong class="stat-tile__value">{{ cur.hours }}</strong>{{ delta(cur.hours, prev.hours, ' h') }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.won') }}</span>
+    <strong class="stat-tile__value">{{ cur.won_eur | eur }}</strong>{{ delta(cur.won_eur, prev.won_eur, money=true) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.sales') }}</span>
+    <strong class="stat-tile__value">{{ cur.sales }}</strong>{{ delta(cur.sales, prev.sales) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.eurPerHour') }}</span>
+    <strong class="stat-tile__value">{{ (cur.eur_per_hour | eur) if cur.eur_per_hour is not none else '—' }}</strong></div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.promotions') }}</span>
+    <strong class="stat-tile__value">{{ cur.promotions }}</strong>{{ delta(cur.promotions, prev.promotions) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.newOrganizations') }}</span>
+    <strong class="stat-tile__value">{{ cur.new_organizations }}</strong>{{ delta(cur.new_organizations, prev.new_organizations) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.newPeople') }}</span>
+    <strong class="stat-tile__value">{{ cur.new_people }}</strong>{{ delta(cur.new_people, prev.new_people) }}</div>
+</div>
+
+<div class="stat-grid">
+  <section class="detail-section">
+    <h2>{{ t('statistics.effort') }}</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>{{ t('activity.typeLabel') }}</th><th class="num">{{ t('statistics.count') }}</th>
+        <th class="num">{{ t('statistics.hours') }}</th><th class="num">{{ t('statistics.previous') }}</th></tr></thead>
+      <tbody>
+      {% for kind in activity_types %}{% set e = cur.effort[kind] %}
+        <tr><td>{{ t('activity.' ~ kind) }} <span class="muted small">({{ t('activity.minutes', minutes=stats.defaults[kind]) }})</span></td>
+          <td class="num">{{ e.count }}</td>
+          <td class="num">{{ (e.minutes / 60) | round(1) }}{% if e.estimated %} <span class="muted" title="{{ t('statistics.estimatedHint') }}">≈</span>{% endif %}</td>
+          <td class="num muted">{{ prev.effort[kind].count }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted small">{{ t('statistics.estimatedHint') }}</p>
+  </section>
+
+  <section class="detail-section">
+    <h2>{{ t('statistics.hoursPerWeek') }}</h2>
+    {% if stats.weeks %}
+    {% set most = stats.weeks | map(attribute='minutes') | max %}
+    <ul class="stat-bars">
+      {% for w in stats.weeks %}
+      <li title="{{ t('statistics.weekOf', date=w.week) }}: {{ (w.minutes / 60) | round(1) }} h, {{ w.count }} {{ t('statistics.activities') }}">
+        <span class="stat-bars__label">{{ w.week }}</span>
+        <span class="stat-bars__track"><span class="stat-bars__bar" style="width: {{ (100 * w.minutes / most) | round(1) if most else 0 }}%"></span></span>
+        <span class="stat-bars__value">{{ (w.minutes / 60) | round(1) }} h</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">{{ t('statistics.nothingYet') }}</p>{% endif %}
+  </section>
+
+  <section class="detail-section">
+    <h2>{{ t('statistics.pipeline') }}</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>{{ t('common.pipelineStage') }}</th><th class="num">{{ t('nav.organizations') }}</th><th class="num">{{ t('nav.people') }}</th></tr></thead>
+      <tbody>
+      {% for s in ['candidate', 'suspect', 'prospect', 'opportunity', 'customer', 'not_in_pipeline'] %}
+        <tr><td>{{ t('stage.' ~ s) }}</td><td class="num">{{ stats.stages_now.organization.get(s, 0) }}</td>
+          <td class="num">{{ stats.stages_now.person.get(s, 0) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <h3>{{ t('statistics.stageChanges') }}</h3>
+    {% if cur.stage_changes %}
+    <ul class="stat-changes">
+      {% for c in cur.stage_changes %}
+      <li class="stat-changes--{{ c.direction }}">{{ t('statistics.entity.' ~ c.entity_type) }}:
+        {{ t('stage.' ~ c.from_stage) if c.from_stage else '—' }} → {{ t('stage.' ~ c.to_stage) if c.to_stage else '—' }}
+        <strong>{{ c.n }}</strong> <span class="muted small">{{ t('statistics.direction.' ~ c.direction) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted small">{{ t('statistics.noStageChanges') }}</p>{% endif %}
+    <p class="muted small">{{ t('statistics.stageHistoryHint') }}</p>
+  </section>
+
+  <section class="detail-section">
+    <h2>{{ t('statistics.newContacts') }}</h2>
+    {% if stats.new_by_source %}
+    <div class="table-scroll"><table>
+      <tbody>
+      {% for r in stats.new_by_source %}
+        <tr><td>{{ t('statistics.entity.' ~ r.kind) }}</td><td>{{ r.source }}</td><td class="num">{{ r.n }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<p class="muted">{{ t('statistics.nothingYet') }}</p>{% endif %}
+  </section>
+</div>
+
+<section class="detail-section">
+  <h2>{{ t('statistics.salesTitle') }}</h2>
+  <p class="muted small">{{ t('statistics.salesHint') }}</p>
+  {% if stats.sales %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ t('nav.organizations') }}</th><th class="num">€</th><th>{{ t('sales.wonOn') }}</th>
+      <th class="num">{{ t('statistics.weeks') }}</th><th class="num">{{ t('statistics.activities') }}</th>
+      <th class="num">{{ t('statistics.hours') }}</th><th class="num">{{ t('statistics.eurPerHour') }}</th><th>{{ t('sales.description') }}</th></tr></thead>
+    <tbody>
+    {% for s in stats.sales %}
+      <tr><td><a href="/organizations/{{ s.contact_id }}">{{ s.organization }}</a></td>
+        <td class="num">{{ s.amount_eur | eur }}</td><td class="nowrap">{{ s.won_on }}</td>
+        <td class="num">{{ s.weeks if s.weeks is not none else '—' }}</td><td class="num">{{ s.activities }}</td>
+        <td class="num">{{ s.hours }}</td><td class="num">{{ (s.eur_per_hour | eur) if s.eur_per_hour is not none else '—' }}</td>
+        <td class="muted small">{{ s.description or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">{{ t('statistics.noSales') }}</p>{% endif %}
+</section>
+
+<section class="detail-section">
+  <h2>{{ t('statistics.stuck', days=stats.stuck_after_days) }}</h2>
+  {% if stats.stuck %}
+  <ul class="stat-stuck">
+    {% for o in stats.stuck %}
+    <li><a href="/organizations/{{ o.id }}">{{ o.name }}</a> · {{ t('stage.' ~ o.pipeline_stage) }} ·
+      <span class="muted">{{ t('statistics.lastActivity', date=o.last_day) if o.last_day else t('statistics.neverContacted') }}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">{{ t('statistics.nothingStuck') }}</p>{% endif %}
+</section>
+
+{% if request.session.get('role') == 'admin' %}
+<section class="detail-section">
+  <h2>{{ t('statistics.defaultsTitle') }}</h2>
+  <p class="muted small">{{ t('statistics.defaultsHint') }}</p>
+  <form method="post" action="/statistics/minutes" class="stat-defaults">
+    {% for kind in activity_types %}
+    <label>{{ t('activity.' ~ kind) }}
+      <input type="number" name="minutes_{{ kind }}" min="0" max="1440" step="1" value="{{ stats.defaults[kind] }}">
+    </label>
+    {% endfor %}
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

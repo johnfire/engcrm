@@ -26,8 +26,10 @@ import { onChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 
 const METHODS = [
-  { value: "call", labelKey: "personDetail.notes.methodCall" },
   { value: "visit", labelKey: "personDetail.notes.methodVisit" },
+  { value: "meeting", labelKey: "meeting.methodMeeting" },
+  { value: "call", labelKey: "personDetail.notes.methodCall" },
+  { value: "video", labelKey: "meeting.methodVideo" },
   { value: "email", labelKey: "personDetail.notes.methodEmail" },
   { value: "other", labelKey: "personDetail.notes.methodOther" },
 ];

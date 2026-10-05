@@ -191,7 +191,7 @@
   "personDetail.notes.title": "Kontaktverlauf",
   "personDetail.notes.notePlaceholder": "Was ist passiert, oder diktieren",
   "personDetail.notes.methodCall": "Anruf",
-  "personDetail.notes.methodVisit": "Besuch",
+  "personDetail.notes.methodVisit": "Vorbeischauen",
   "personDetail.notes.methodEmail": "E-Mail",
   "personDetail.notes.methodOther": "Sonstiges",
   "personDetail.notes.save": "Notiz hinzufügen",
@@ -367,7 +367,7 @@
   "search.linkedinPerson": "in",
   "meeting.title": "Termin festhalten",
   "meeting.method": "Art",
-  "meeting.methodVisit": "Besuch",
+  "meeting.methodVisit": "Vorbeischauen",
   "meeting.methodCall": "Anruf",
   "meeting.methodEmail": "E-Mail",
   "meeting.methodOther": "Sonstiges",
@@ -499,5 +499,9 @@
   "organizationDetail.notes.placeholder": "Was passiert ist, was besprochen wurde…",
   "organizationDetail.notes.save": "Notiz speichern",
   "organizationDetail.notes.saved": "Gespeichert ✓ — steht unten im Verlauf",
-  "organizationDetail.notes.saveFailed": "Notiz konnte nicht gespeichert werden. Dein Text ist noch da — bitte erneut versuchen."
+  "organizationDetail.notes.saveFailed": "Notiz konnte nicht gespeichert werden. Dein Text ist noch da — bitte erneut versuchen.",
+  "meeting.methodMeeting": "Termin vor Ort",
+  "meeting.methodVideo": "Videocall",
+  "meeting.minutes": "Minuten",
+  "meeting.minutesPlaceholder": "Minuten (optional — sonst die übliche Dauer)"
 }

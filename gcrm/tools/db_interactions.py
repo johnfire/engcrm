@@ -24,6 +24,7 @@ def log_meeting_note(
     note: str,
     follow_up_date=None,
     follow_up_text: str | None = None,
+    duration_minutes: int | None = None,
 ) -> int:
     """Record a note about a meeting, call or visit on an organization, with an
     optional follow-up date. Direction is left empty (it is neither an outbound nor
@@ -33,9 +34,10 @@ def log_meeting_note(
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO interactions "
-            "(contact_id, interaction_date, method, summary, outcome, next_action, next_action_date) "
-            "VALUES (%s, CURRENT_DATE, %s, %s, 'note', %s, %s) RETURNING id",
-            (contact_id, method, note, follow_up_text or None, follow_up_date),
+            "(contact_id, interaction_date, method, summary, outcome, next_action, next_action_date, "
+            "duration_minutes) "
+            "VALUES (%s, CURRENT_DATE, %s, %s, 'note', %s, %s, %s) RETURNING id",
+            (contact_id, method, note, follow_up_text or None, follow_up_date, duration_minutes),
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))

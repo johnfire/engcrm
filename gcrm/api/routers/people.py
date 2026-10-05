@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from gcrm.activity_types import PERSON_METHODS, parse_minutes
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.routers.api_people import PERSON_LIMITS, PersonFields
@@ -773,13 +774,20 @@ def add_note(
     person_id: int,
     note: str = Form(""),
     method: str = Form(""),
+    duration_minutes: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     if get_person(person_id) is None:
         raise HTTPException(status_code=404, detail="Person not found")
     if not note.strip():
         raise HTTPException(status_code=400, detail="Note is required")
-    log_person_note(person_id, method.strip() or None, note.strip())
+    if method.strip() and method.strip() not in PERSON_METHODS:
+        raise HTTPException(status_code=400, detail="Unknown method")
+    try:
+        minutes = parse_minutes(duration_minutes)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Minutes must be a whole number from 0 to 1440")
+    log_person_note(person_id, method.strip() or None, note.strip(), duration_minutes=minutes)
     return local_redirect(f"/people/{person_id}", saved="1")
 
 

@@ -112,13 +112,13 @@ class TestOrganizationNotes:
     def test_logs_a_note(self):
         response, log = self.add({"note": "  Met the owner, wants a demo  ", "method": "in_person"})
         assert response.status_code == 200 and response.json() == {"id": 11, "follow_up_date": None}
-        log.assert_called_once_with(7, "in_person", "Met the owner, wants a demo", None, None)
+        log.assert_called_once_with(7, "in_person", "Met the owner, wants a demo", None, None, duration_minutes=None)
 
     def test_with_a_follow_up_date(self):
         when = (date.today() + timedelta(days=7)).isoformat()
         response, log = self.add({"note": "Call back", "follow_up_date": when, "follow_up_text": " send quote "})
         assert response.json()["follow_up_date"] == when
-        log.assert_called_once_with(7, None, "Call back", date.fromisoformat(when), "send quote")
+        log.assert_called_once_with(7, None, "Call back", date.fromisoformat(when), "send quote", duration_minutes=None)
 
     @pytest.mark.parametrize("body", [
         {"note": ""}, {"note": "   "},
@@ -200,7 +200,7 @@ class TestMeetingNoteStorage:
         assert note_id == 5
         sql, params = cursor.execute.call_args_list[0].args
         assert "CURRENT_DATE" in sql and "'note'" in sql and "direction" not in sql
-        assert params == (7, "in_person", "Met", "send quote", date(2026, 11, 1))
+        assert params == (7, "in_person", "Met", "send quote", date(2026, 11, 1), None)  # no typed duration
         touched = cursor.execute.call_args_list[1].args[0]
         assert "UPDATE contacts SET updated_at" in touched and "status" not in touched.replace("updated", "")
 

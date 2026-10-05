@@ -791,13 +791,15 @@ export async function addPersonNote(
   personId: number,
   note: string,
   method: string | null,
+  durationMinutes: number | null = null, // how long it took; blank uses the type's default
 ): Promise<{ id: number }> {
-  const resp = await client.post(`/api/people/${personId}/notes`, { note, method });
+  const resp = await client.post(`/api/people/${personId}/notes`, { note, method, duration_minutes: durationMinutes });
   return resp.data;
 }
 
 // --- Meeting notes on an organization (admin only) ---
-export type MeetingMethod = "in_person" | "phone" | "email" | "other";
+// in_person is a drop-in (first contact at their place); meeting is a sit-down meeting.
+export type MeetingMethod = "in_person" | "meeting" | "phone" | "video" | "email" | "other";
 
 export async function addOrganizationNote(
   id: number,
@@ -806,6 +808,7 @@ export async function addOrganizationNote(
     method: MeetingMethod | null;
     follow_up_date: string | null; // YYYY-MM-DD
     follow_up_text: string | null;
+    duration_minutes?: number | null; // how long it took; blank uses the type's default
   },
 ): Promise<{ id: number; follow_up_date: string | null }> {
   const resp = await client.post(`/api/contacts/${id}/notes`, note);

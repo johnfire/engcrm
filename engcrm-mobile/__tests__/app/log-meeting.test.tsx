@@ -58,7 +58,7 @@ jest.mock("expo-audio", () => ({
   setAudioModeAsync: jest.fn(async () => {}),
 }));
 
-import LogMeetingScreen, { dateInDays } from "../../app/(drawer)/log-meeting";
+import LogMeetingScreen, { dateInDays, typedMinutes } from "../../app/(drawer)/log-meeting";
 import { onChanged, organizationKey, personKey } from "../../services/refreshBus";
 
 const ORG = { id: 42, name: "Acme Salon", pipeline_stage: "candidate", status: "none" };
@@ -93,7 +93,7 @@ describe("log a meeting — organization", () => {
     const off = onChanged(organizationKey(42), changed);
     const screen = setup();
     await typeNote(screen, "  Met the owner, wants a demo  ");
-    fireEvent.press(screen.getByLabelText("Visit"));
+    fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByLabelText("1 week"));
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "send quote");
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
@@ -106,6 +106,7 @@ describe("log a meeting — organization", () => {
       method: "in_person",
       follow_up_date: dateInDays(7),
       follow_up_text: "send quote",
+      duration_minutes: null,
     });
     expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "suspect", status: "ready" });
     // the note is sent first, so a failing stage change can never lose it
@@ -122,6 +123,7 @@ describe("log a meeting — organization", () => {
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddOrgNote).toHaveBeenCalledWith(42, {
       note: "Quick call, no news", method: null, follow_up_date: null, follow_up_text: null,
+      duration_minutes: null,
     });
     expect(mockUpdateState).not.toHaveBeenCalled();
   });
@@ -242,13 +244,23 @@ describe("log a meeting — person", () => {
     const off = onChanged(personKey(7), changed);
     const screen = setup("person");
     await typeNote(screen, "Coffee with Anna");
-    fireEvent.press(screen.getByLabelText("Visit"));
+    fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit");
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit", null);
     expect(mockAddOrgNote).not.toHaveBeenCalled();
     expect(changed).toHaveBeenCalledTimes(1);
     off();
+  });
+
+  it("sends typed minutes with a sit-down meeting or a video call", async () => {
+    const screen = setup("person");
+    await typeNote(screen, "Video call with Anna");
+    fireEvent.press(screen.getByLabelText("Video call"));
+    fireEvent.changeText(screen.getByLabelText("Minutes"), "40");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Video call with Anna", "video", 40);
   });
 
   it("offers the person's stage and a next step", async () => {
@@ -268,7 +280,7 @@ describe("log a meeting — person", () => {
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Invite to coffee");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null);
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null);
     expect(mockSetNextStep).toHaveBeenCalledWith(7, "Invite to coffee", dateInDays(7));
   });
 
@@ -347,5 +359,13 @@ describe("dateInDays", () => {
     expect(dateInDays(1, new Date(2026, 0, 31, 23, 30))).toBe("2026-02-01");
     expect(dateInDays(7, new Date(2026, 11, 28, 9, 0))).toBe("2027-01-04");
     expect(dateInDays(0, new Date(2026, 9, 3))).toBe("2026-10-03");
+  });
+});
+
+describe("typedMinutes", () => {
+  it("is a whole number of minutes up to a day, or null", () => {
+    expect(typedMinutes("45")).toBe(45);
+    expect(typedMinutes(" 0 ")).toBe(0);
+    for (const bad of ["", "abc", "-5", "1.5", "1441", "99999"]) expect(typedMinutes(bad)).toBeNull();
   });
 });
