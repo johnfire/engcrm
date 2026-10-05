@@ -31,7 +31,7 @@ class TestPeopleEndpoint:
     def test_without_a_page_the_whole_list_comes_back_as_older_builds_expect(self):
         response, people = self.get()
         assert response.status_code == 200
-        assert people.call_args.kwargs == {"linkedin": "", "stage": "", "city": ""}
+        assert people.call_args.kwargs == {"value_rating": "", "linkedin": "", "stage": "", "city": ""}
 
     def test_a_page_asks_for_fifty_from_the_right_offset(self):
         _, people = self.get({"page": 3})

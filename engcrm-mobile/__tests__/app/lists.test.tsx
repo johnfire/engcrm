@@ -134,6 +134,32 @@ describe("people list", () => {
     );
   });
 
+  it("finds candidates I rated 3 or better: stage and rating together", async () => {
+    const screen = render(<PeopleScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getAllByText("Candidate")[0]);
+    fireEvent.press(screen.getByText("3 Medium or better"));
+    await waitFor(() =>
+      expect(mockFetchPeople).toHaveBeenLastCalledWith(
+        expect.objectContaining({ stage: "candidate", value_rating: "3+", page: 1 }),
+      ),
+    );
+    fireEvent.press(screen.getByText("My rating, best first"));
+    await waitFor(() =>
+      expect(mockFetchPeople).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sort: "value_rating", dir: "asc", value_rating: "3+" }),
+      ),
+    );
+  });
+
+  it("shows my rating on each rated person", async () => {
+    mockFetchPeople.mockResolvedValue([person(7, "Anna Roth", { value_rating: 2 }), person(8, "Ben Weiss")]);
+    const screen = render(<PeopleScreen />);
+    await waitFor(() => expect(screen.getByText("2 High")).toBeTruthy());
+    // Only Anna's row carries a badge ("1 Exceptional" is the filter chip, not a badge).
+    expect(screen.getAllByText(/^[2-5] (High|Medium|Low|Minimal)$/)).toHaveLength(1);
+  });
+
   it("opens a candidate's LinkedIn profile straight from the list, without opening the person", async () => {
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
     mockFetchPeople.mockResolvedValue([

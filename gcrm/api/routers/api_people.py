@@ -13,7 +13,12 @@ from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db import get_people, get_person, get_person_cities
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_people import find_existing_person, save_person, update_person
+from gcrm.tools.db_people import (
+    find_existing_person,
+    save_person,
+    set_person_value_rating,
+    update_person,
+)
 from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
 
@@ -31,8 +36,9 @@ def list_people(
     stage: str = "",
     linkedin: str = "",
     city: str = "",
+    value_rating: str = "",
     page: int | None = Query(default=None, ge=1),
-    _role: str = Depends(require_jwt),
+    payload: dict = Depends(require_jwt_payload),
 ) -> list[dict]:
     """People, newest first by default. `stage` is a pipeline stage or "none" (no
     stage set); `linkedin` is "1" (LinkedIn connections) or "unlinked" (connections
@@ -43,7 +49,10 @@ def list_people(
     if linkedin not in ("", "1", "unlinked"):
         raise HTTPException(status_code=400, detail="Unknown linkedin filter")
     paging = {} if page is None else {"limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}
-    return get_people(search, sort, dir, linkedin=linkedin, stage=stage, city=city, **paging)
+    # Ratings are private: each user sees and filters by their own.
+    user_id, _ = _personal_identity(payload)
+    return get_people(search, sort, dir, user_id, value_rating=value_rating,
+                      linkedin=linkedin, stage=stage, city=city, **paging)
 
 
 @router.get("/cities")
@@ -159,8 +168,8 @@ def edit_person(
 
 
 @router.get("/{person_id}")
-def person_detail(person_id: int, _role: str = Depends(require_jwt)) -> dict:
-    person = get_person(person_id)
+def person_detail(person_id: int, payload: dict = Depends(require_jwt_payload)) -> dict:
+    person = get_person(person_id, _personal_identity(payload)[0])
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     return person
@@ -186,6 +195,28 @@ def set_person_stage(
         raise HTTPException(status_code=404, detail="Person not found")
     log_audit(None, None, "person.stage_changed", f"person:{person_id}", body.stage or "cleared")
     return {"pipeline_stage": body.stage}
+
+
+class ValueRatingBody(BaseModel):
+    rating: int | None = None  # 1 (exceptional) .. 5 (minimal); null clears it
+
+
+@router.put("/{person_id}/value-rating")
+def set_value_rating(person_id: int, body: ValueRatingBody, payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Set or clear the caller's private rating of this person as a contact. A
+    rating belongs to a person's own account, so the shared admin login has none."""
+    user_id, workspace_id = _personal_identity(payload)
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    try:
+        found, stored = set_person_value_rating(user_id, workspace_id, person_id, body.rating)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+    if not found:
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, "person.value_rating_changed", f"person:{person_id}",
+              "cleared" if stored is None else f"set:{stored}")
+    return {"value_rating": stored}
 
 
 class NextStepBody(BaseModel):

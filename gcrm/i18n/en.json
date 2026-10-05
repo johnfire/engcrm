@@ -683,5 +683,6 @@
   "nextStep.doneLog": "Next step done",
   "nextStep.due": "by {{date}}",
   "nextStep.overdue": "overdue",
-  "people.nextStep": "Next step"
+  "people.nextStep": "Next step",
+  "contactValue.orBetter": "{{rating}} or better"
 }

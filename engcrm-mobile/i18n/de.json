@@ -479,5 +479,19 @@
   "meeting.nextStep": "Nächster Schritt",
   "meeting.nextStepFailedNoteSaved": "Notiz gespeichert, aber der nächste Schritt nicht. Bitte erneut versuchen.",
   "people.openLinkedin": "LinkedIn-Profil von {{name}} öffnen",
-  "personDetail.linkedin": "LinkedIn-Profil"
+  "personDetail.linkedin": "LinkedIn-Profil",
+  "contactValue.title": "Meine Bewertung",
+  "contactValue.privateHint": "Nur du kannst diese Bewertung sehen.",
+  "contactValue.exceptional": "Außergewöhnlich",
+  "contactValue.high": "Hoch",
+  "contactValue.medium": "Mittel",
+  "contactValue.low": "Niedrig",
+  "contactValue.minimal": "Minimal",
+  "contactValue.clear": "Bewertung löschen",
+  "people.ratingFilter": "Meine Bewertung",
+  "people.anyRating": "Alle",
+  "people.ratingOrBetter": "{{label}} oder besser",
+  "people.unrated": "Unbewertet",
+  "people.sortRating": "Meine Bewertung, beste zuerst",
+  "people.ratingBadge": "{{rating}} {{label}}"
 }

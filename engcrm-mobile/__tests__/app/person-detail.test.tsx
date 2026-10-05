@@ -4,7 +4,9 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 const mockFetchPerson = jest.fn();
 const mockDeletePerson = jest.fn();
 const mockUpdateStage = jest.fn();
+const mockUpdateRating = jest.fn();
 jest.mock("../../services/api", () => ({
+  updatePersonValueRating: (...args: any[]) => mockUpdateRating(...args),
   updatePersonStage: (...args: any[]) => mockUpdateStage(...args),
   fetchPerson: (...args: any[]) => mockFetchPerson(...args),
   deletePerson: (...args: any[]) => mockDeletePerson(...args),
@@ -203,5 +205,36 @@ describe("person detail — LinkedIn", () => {
     const screen = render(<PersonDetailScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
     expect(screen.queryByLabelText("Open the LinkedIn profile of Anna Roth")).toBeNull();
+  });
+});
+
+describe("person detail — my rating", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    mockGetRole.mockReset().mockResolvedValue("admin");
+    mockUpdateRating.mockReset();
+  });
+
+  it("shows my rating and saves a new one", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, value_rating: 3 });
+    mockUpdateRating.mockResolvedValue(1);
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("My rating")).toBeTruthy());
+    expect(screen.getByLabelText("3 Medium").props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByLabelText("1 Exceptional"));
+
+    await waitFor(() => expect(mockUpdateRating).toHaveBeenCalledWith(7, 1));
+  });
+
+  it("puts the old rating back and says so when saving fails", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, value_rating: 3 });
+    mockUpdateRating.mockRejectedValue(new Error("403"));
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("My rating")).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("1 Exceptional"));
+
+    await waitFor(() => expect(screen.getByLabelText("3 Medium").props.accessibilityState.selected).toBe(true));
   });
 });

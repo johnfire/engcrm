@@ -38,6 +38,12 @@
       {{ rating }}
     </option>
     {% endfor %}
+    {# 1 is the best rating, so "or better" means that number or lower. #}
+    {% for rating in [2, 3, 4] %}
+    <option value="{{ rating }}+" {% if value_rating == rating|string ~ '+' %}selected{% endif %}>
+      {{ t('contactValue.orBetter', rating=rating) }}
+    </option>
+    {% endfor %}
     <option value="unrated" {% if value_rating == "unrated" %}selected{% endif %}>
       {{ t('personalPriority.unrated') }}
     </option>

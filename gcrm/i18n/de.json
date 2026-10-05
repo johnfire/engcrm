@@ -683,5 +683,6 @@
   "nextStep.doneLog": "Schritt erledigt",
   "nextStep.due": "bis {{date}}",
   "nextStep.overdue": "überfällig",
-  "people.nextStep": "Nächster Schritt"
+  "people.nextStep": "Nächster Schritt",
+  "contactValue.orBetter": "{{rating}} oder besser"
 }

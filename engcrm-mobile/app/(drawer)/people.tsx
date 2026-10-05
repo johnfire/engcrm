@@ -22,12 +22,24 @@ const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string 
   { key: "created_at", dir: "desc", labelKey: "common.sortNewest" },
   { key: "name", dir: "asc", labelKey: "common.sortAZ" },
   { key: "connected_on", dir: "desc", labelKey: "people.sortConnected" },
+  { key: "value_rating", dir: "asc", labelKey: "people.sortRating" },
   { key: "company", dir: "asc", labelKey: "people.sortCompany" },
   { key: "city", dir: "asc", labelKey: "people.sortCity" },
 ];
 
 // "" = any stage, "none" = people with no stage set, then the shared vocabulary.
 const STAGE_FILTERS = ["", "none", ...PIPELINE_STAGES];
+
+// My rating runs 1 (exceptional) .. 5 (minimal), so "or better" is that number or lower.
+const RATING_LABELS = ["contactValue.exceptional", "contactValue.high", "contactValue.medium",
+  "contactValue.low", "contactValue.minimal"];
+const RATING_FILTERS: { value: string; label: (t: (key: string, vars?: Record<string, unknown>) => string) => string }[] = [
+  { value: "", label: (t) => t("people.anyRating") },
+  { value: "1", label: (t) => `1 ${t(RATING_LABELS[0])}` },
+  { value: "2+", label: (t) => `2 ${t("people.ratingOrBetter", { label: t(RATING_LABELS[1]) })}` },
+  { value: "3+", label: (t) => `3 ${t("people.ratingOrBetter", { label: t(RATING_LABELS[2]) })}` },
+  { value: "unrated", label: (t) => t("people.unrated") },
+];
 
 export default function PeopleScreen() {
   const router = useRouter();
@@ -36,12 +48,14 @@ export default function PeopleScreen() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
   const [linkedin, setLinkedin] = useState("");
+  const [rating, setRating] = useState("");
   const [sort, setSort] = useState<PersonSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
   const fetchPage = useCallback(
-    (page: number): Promise<Person[]> => fetchPeople({ search, sort, dir, stage, linkedin, page }),
-    [search, sort, dir, stage, linkedin],
+    (page: number): Promise<Person[]> =>
+      fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, page }),
+    [search, sort, dir, stage, linkedin, rating],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(fetchPage, PEOPLE_PAGE_SIZE);
 
@@ -95,6 +109,11 @@ export default function PeopleScreen() {
             isActive={stage === filter}
             onPress={() => setStage(filter)}
           />
+        ))}
+      </ChipRow>
+      <ChipRow label={t("people.ratingFilter")}>
+        {RATING_FILTERS.map(({ value, label }) => (
+          <FilterChip key={value || "any"} label={label(t)} isActive={rating === value} onPress={() => setRating(value)} />
         ))}
       </ChipRow>
       <ChipRow label={t("people.linkedinFilter")}>
@@ -167,6 +186,11 @@ function PersonRow({ person, onPress }: { person: Person; onPress: (id: number) 
           <Text style={styles.linkedin}>{t("search.linkedinPerson")}</Text>
         )}
         {!!shownStage && <Text style={styles.stage}>{t(stageLabelKey(shownStage))}</Text>}
+        {person.value_rating != null && (
+          <Text style={styles.rating}>
+            {t("people.ratingBadge", { rating: person.value_rating, label: t(RATING_LABELS[person.value_rating - 1]) })}
+          </Text>
+        )}
       </View>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!meta && <Text style={styles.meta}>{meta}</Text>}
@@ -232,6 +256,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   stage: { color: "#7c6fff", fontSize: 12, fontWeight: "600" },
+  rating: { color: "#e0b84a", fontSize: 12, fontWeight: "700" },
   profileButton: {
     alignItems: "center",
     alignSelf: "flex-start",

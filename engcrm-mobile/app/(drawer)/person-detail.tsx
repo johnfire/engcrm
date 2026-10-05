@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deletePerson, fetchPerson, Person, updatePersonStage } from "../../services/api";
+import { deletePerson, fetchPerson, Person, updatePersonStage, updatePersonValueRating } from "../../services/api";
 import { PipelineStage } from "../../services/organizationState";
 import { getRole } from "../../services/auth";
 import { onChanged, personKey } from "../../services/refreshBus";
@@ -18,6 +18,7 @@ import { openWebsite, browsableUrl, linkedinLabel } from "../../services/webLink
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { PersonNextStep } from "../../components/PersonNextStep";
+import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 export default function PersonDetailScreen() {
@@ -76,6 +77,11 @@ export default function PersonDetailScreen() {
     ]);
   }
 
+  async function saveRating(rating: number | null) {
+    const stored = await updatePersonValueRating(Number(id), rating);
+    setPerson((current) => (current ? { ...current, value_rating: stored } : current));
+  }
+
   async function saveStage(stage: PipelineStage | null) {
     const stored = await updatePersonStage(Number(id), stage);
     setPerson((current) => (current ? { ...current, pipeline_stage: stored.pipeline_stage } : current));
@@ -128,6 +134,13 @@ export default function PersonDetailScreen() {
         ) : (
           <Text style={styles.fieldText}>{person.website}</Text>
         ))}
+
+      <PersonalPrioritySelector
+        key={`rating-${person.id}`}
+        kind="person"
+        priority={person.value_rating ?? null}
+        onSave={saveRating}
+      />
 
       <PersonNextStep
         key={`next-${person.id}-${person.next_step ?? ""}-${person.next_step_date ?? ""}`}

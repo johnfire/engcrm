@@ -479,5 +479,19 @@
   "meeting.nextStep": "Next step",
   "meeting.nextStepFailedNoteSaved": "Note saved, but the next step couldn't be saved. Try again.",
   "people.openLinkedin": "Open the LinkedIn profile of {{name}}",
-  "personDetail.linkedin": "LinkedIn profile"
+  "personDetail.linkedin": "LinkedIn profile",
+  "contactValue.title": "My rating",
+  "contactValue.privateHint": "Only you can see this rating.",
+  "contactValue.exceptional": "Exceptional",
+  "contactValue.high": "High",
+  "contactValue.medium": "Medium",
+  "contactValue.low": "Low",
+  "contactValue.minimal": "Minimal",
+  "contactValue.clear": "Clear rating",
+  "people.ratingFilter": "My rating",
+  "people.anyRating": "Any",
+  "people.ratingOrBetter": "{{label}} or better",
+  "people.unrated": "Unrated",
+  "people.sortRating": "My rating, best first",
+  "people.ratingBadge": "{{rating}} {{label}}"
 }

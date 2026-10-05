@@ -714,7 +714,7 @@ export async function searchAll(q: string): Promise<SearchResults> {
 }
 
 // --- People (individuals on scanned cards, linked to their company organization) ---
-export type PersonSortKey = "created_at" | "name" | "connected_on" | "company" | "city";
+export type PersonSortKey = "created_at" | "name" | "connected_on" | "company" | "city" | "value_rating";
 
 export const PEOPLE_PAGE_SIZE = 50;
 export const ORGANIZATIONS_PAGE_SIZE = 50;
@@ -725,6 +725,8 @@ export async function fetchPeople(params: {
   dir?: "asc" | "desc";
   stage?: string; // a pipeline stage, or "none" for people with no stage set
   linkedin?: string; // "1": LinkedIn connections; "unlinked": not yet tied to an organization
+  // My rating: "1".."5" exactly, "2+" / "3+" that rating or better (1 is best), "unrated"
+  value_rating?: string;
   page?: number; // omit for the whole list
 } = {}): Promise<Person[]> {
   const resp = await client.get("/api/people", { params });
@@ -755,6 +757,8 @@ export interface Person {
   connected_on?: string | null;
   // Their LinkedIn profile; absent on servers that predate the LinkedIn import.
   linkedin_url?: string | null;
+  // My private rating of them as a contact: 1 (exceptional) .. 5 (minimal); null if unrated.
+  value_rating?: number | null;
   // The person's own stage tag; null when none is set (and on servers that predate it).
   pipeline_stage?: PipelineStage | null;
   // The stage of the organization they work at, when linked.
@@ -824,6 +828,12 @@ export async function deleteOrganizationNote(id: number, noteId: number): Promis
 }
 
 // Sets (or, with null, clears) the stage tag on a person. Admin only.
+// Set or clear my private rating of a person (needs a personal account, not the shared admin).
+export async function updatePersonValueRating(personId: number, rating: number | null): Promise<number | null> {
+  const resp = await client.put(`/api/people/${personId}/value-rating`, { rating });
+  return resp.data.value_rating ?? null;
+}
+
 // Set (or, with a blank step, clear — logged as done) what happens next with a
 // person. Every change also lands in their note log on the server.
 export async function setPersonNextStep(
