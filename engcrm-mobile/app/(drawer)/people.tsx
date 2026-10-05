@@ -16,6 +16,7 @@ import { PIPELINE_STAGES, stageLabelKey } from "../../services/organizationState
 import { usePagedList } from "../../services/usePagedList";
 import { ChipRow, FilterChip } from "../../components/FilterChips";
 import { useTranslation } from "../../i18n/I18nContext";
+import { linkedinLabel, openWebsite } from "../../services/webLinks";
 
 const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string }[] = [
   { key: "created_at", dir: "desc", labelKey: "common.sortNewest" },
@@ -147,22 +148,42 @@ export default function PeopleScreen() {
   );
 }
 
+// A row opens the person; when they have a LinkedIn profile, its own button opens
+// that straight away (in the LinkedIn app when installed, where Message is), so a
+// list of candidates can be worked through without opening each record.
 function PersonRow({ person, onPress }: { person: Person; onPress: (id: number) => void }) {
   const { t } = useTranslation();
   const subtitle = [person.title, person.company].filter(Boolean).join(" · ");
-  const meta = [`#${person.id}`, person.city, person.email].join("  ·  ");
+  const meta = [`#${person.id}`, person.city, person.email].filter(Boolean).join("  ·  ");
   const shownStage = person.pipeline_stage ?? null;
+  const profile = linkedinLabel(person.linkedin_url);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(person.id)}>
       <View style={styles.line}>
         <Text style={styles.name} numberOfLines={1}>
           {person.name}
         </Text>
-        {!!person.is_linkedin_contact && <Text style={styles.linkedin}>{t("search.linkedinPerson")}</Text>}
+        {!!person.is_linkedin_contact && !profile && (
+          <Text style={styles.linkedin}>{t("search.linkedinPerson")}</Text>
+        )}
         {!!shownStage && <Text style={styles.stage}>{t(stageLabelKey(shownStage))}</Text>}
       </View>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!meta && <Text style={styles.meta}>{meta}</Text>}
+      {!!profile && (
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={() => openWebsite(person.linkedin_url)}
+          accessibilityRole="link"
+          accessibilityLabel={t("people.openLinkedin", { name: person.name })}
+          hitSlop={{ top: 6, bottom: 6 }}
+        >
+          <Text style={styles.profileIn}>in</Text>
+          <Text style={styles.profileText} numberOfLines={1}>
+            {profile} ↗
+          </Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -211,6 +232,30 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   stage: { color: "#7c6fff", fontSize: 12, fontWeight: "600" },
+  profileButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderColor: "#0a66c2",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+    maxWidth: "100%",
+    minHeight: 40,
+    paddingHorizontal: 10,
+  },
+  profileIn: {
+    backgroundColor: "#0a66c2",
+    borderRadius: 3,
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  profileText: { color: "#5aa9f0", flexShrink: 1, fontSize: 13 },
   subtitle: { color: "#b9adff", fontSize: 13, marginTop: 3 },
   meta: { color: "#888", fontSize: 12, marginTop: 6 },
   empty: {

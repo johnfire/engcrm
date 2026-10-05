@@ -1,4 +1,4 @@
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 
 const mockFetchPerson = jest.fn();
@@ -178,5 +178,30 @@ describe("person detail — edit", () => {
     const screen = render(<PersonDetailScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
     expect(screen.queryByText("Edit")).toBeNull();
+  });
+});
+
+describe("person detail — LinkedIn", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+  });
+
+  it("shows the profile and opens it with one tap", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, linkedin_url: "https://www.linkedin.com/in/anna-roth" });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("linkedin.com/in/anna-roth ↗")).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText("Open the LinkedIn profile of Anna Roth"));
+
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("https://www.linkedin.com/in/anna-roth"));
+  });
+
+  it("shows nothing for a person without a profile", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, linkedin_url: null });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    expect(screen.queryByLabelText("Open the LinkedIn profile of Anna Roth")).toBeNull();
   });
 });

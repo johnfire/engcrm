@@ -36,3 +36,11 @@ export async function openWebsite(storedWebsite: string | null | undefined): Pro
     return false;
   }
 }
+
+/** A LinkedIn profile URL shortened for display: "linkedin.com/in/anna-roth".
+ *  Null when the stored value can't be opened. */
+export function linkedinLabel(stored: string | null | undefined): string | null {
+  const url = browsableUrl(stored);
+  if (!url) return null;
+  return url.replace(/^https?:\/\/(www\.|[a-z]{2}\.)?/i, "").replace(/[/?#]+$/, "");
+}

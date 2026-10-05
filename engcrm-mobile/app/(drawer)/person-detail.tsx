@@ -14,7 +14,7 @@ import { deletePerson, fetchPerson, Person, updatePersonStage } from "../../serv
 import { PipelineStage } from "../../services/organizationState";
 import { getRole } from "../../services/auth";
 import { onChanged, personKey } from "../../services/refreshBus";
-import { openWebsite, browsableUrl } from "../../services/webLinks";
+import { openWebsite, browsableUrl, linkedinLabel } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { PersonNextStep } from "../../components/PersonNextStep";
@@ -140,6 +140,20 @@ export default function PersonDetailScreen() {
         }
       />
 
+      {!!linkedinLabel(person.linkedin_url) && (
+        <TouchableOpacity
+          style={styles.linkedinButton}
+          accessibilityRole="link"
+          accessibilityLabel={t("people.openLinkedin", { name: person.name })}
+          onPress={() => openWebsite(person.linkedin_url)}
+        >
+          <Text style={styles.linkedinIn}>in</Text>
+          <Text style={styles.linkedinText} numberOfLines={1}>
+            {linkedinLabel(person.linkedin_url)} ↗
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {person.met_at && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("personDetail.metAt")}</Text>
@@ -225,6 +239,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textDecorationLine: "underline",
   },
+  linkedinButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderColor: "#0a66c2",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+    marginTop: 2,
+    maxWidth: "100%",
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  linkedinIn: {
+    backgroundColor: "#0a66c2",
+    borderRadius: 3,
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "800",
+    overflow: "hidden",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  linkedinText: { color: "#5aa9f0", flexShrink: 1, fontSize: 14 },
   logButton: {
     alignItems: "center",
     backgroundColor: "#7c6fff",

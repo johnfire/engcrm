@@ -1,6 +1,6 @@
 import { Linking } from "react-native";
 
-import { browsableUrl, openWebsite } from "../../services/webLinks";
+import { browsableUrl, linkedinLabel, openWebsite } from "../../services/webLinks";
 
 const openURL = jest.spyOn(Linking, "openURL");
 
@@ -56,5 +56,19 @@ describe("openWebsite", () => {
   it("reports failure instead of throwing when the browser refuses", async () => {
     openURL.mockRejectedValue(new Error("no handler"));
     expect(await openWebsite("acme.de")).toBe(false);
+  });
+});
+
+describe("linkedinLabel", () => {
+  it("shortens a profile url for display", () => {
+    expect(linkedinLabel("https://www.linkedin.com/in/ralf-jahr-66040610/")).toBe("linkedin.com/in/ralf-jahr-66040610");
+    expect(linkedinLabel("https://de.linkedin.com/in/bernd")).toBe("linkedin.com/in/bernd");
+    expect(linkedinLabel("linkedin.com/in/anna")).toBe("linkedin.com/in/anna");
+  });
+
+  it("is null when there is nothing that can be opened", () => {
+    expect(linkedinLabel(null)).toBeNull();
+    expect(linkedinLabel("  ")).toBeNull();
+    expect(linkedinLabel("javascript:alert(1)")).toBeNull();
   });
 });

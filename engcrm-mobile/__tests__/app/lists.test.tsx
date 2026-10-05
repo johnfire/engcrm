@@ -1,4 +1,4 @@
-import { FlatList } from "react-native";
+import { FlatList, Linking } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockFetchOrganizations = jest.fn();
@@ -132,6 +132,22 @@ describe("people list", () => {
     await waitFor(() =>
       expect(mockFetchPeople).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "city", dir: "asc" })),
     );
+  });
+
+  it("opens a candidate's LinkedIn profile straight from the list, without opening the person", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    mockFetchPeople.mockResolvedValue([
+      person(7, "Anna Roth", { linkedin_url: "https://www.linkedin.com/in/anna-roth/" }),
+    ]);
+    const screen = render(<PeopleScreen />);
+    await waitFor(() => expect(screen.getByText("linkedin.com/in/anna-roth ↗")).toBeTruthy());
+    expect(screen.queryAllByText("in")).toHaveLength(1); // the button's mark, not a second badge
+
+    fireEvent.press(screen.getByLabelText("Open the LinkedIn profile of Anna Roth"));
+
+    await waitFor(() => expect(openURL).toHaveBeenCalledWith("https://www.linkedin.com/in/anna-roth/"));
+    expect(mockPush).not.toHaveBeenCalled();
+    openURL.mockRestore();
   });
 
   it("opens a person, and offers the admin an add button", async () => {

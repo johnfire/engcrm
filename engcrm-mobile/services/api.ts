@@ -753,6 +753,8 @@ export interface Person {
   created_at: string;
   is_linkedin_contact?: boolean;
   connected_on?: string | null;
+  // Their LinkedIn profile; absent on servers that predate the LinkedIn import.
+  linkedin_url?: string | null;
   // The person's own stage tag; null when none is set (and on servers that predate it).
   pipeline_stage?: PipelineStage | null;
   // The stage of the organization they work at, when linked.

@@ -477,5 +477,7 @@
   "nextStep.keepDate": "{{date}} behalten",
   "nextStep.saveFailed": "Nächster Schritt konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "meeting.nextStep": "Nächster Schritt",
-  "meeting.nextStepFailedNoteSaved": "Notiz gespeichert, aber der nächste Schritt nicht. Bitte erneut versuchen."
+  "meeting.nextStepFailedNoteSaved": "Notiz gespeichert, aber der nächste Schritt nicht. Bitte erneut versuchen.",
+  "people.openLinkedin": "LinkedIn-Profil von {{name}} öffnen",
+  "personDetail.linkedin": "LinkedIn-Profil"
 }
