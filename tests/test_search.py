@@ -7,6 +7,8 @@ offline tests below pin the contract; `test_live_search_returns_results` is the
 one that actually notices that failure mode, so it is worth running whenever the
 dependency moves.
 """
+import logging
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -119,12 +121,38 @@ class TestReverseGeocode:
             assert search.reverse_geocode(48.37, 10.90) is None
 
 
+LIVE_QUERY = "Fraunhofer IIS Erlangen"
+LIVE_RETRY_PAUSE_SECONDS = 5
+
+
+def _live_search(caplog) -> tuple[list[dict], str | None]:
+    """One live query. Returns the results and the backend error web_search swallowed, if any."""
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=search.logger.name):
+        results = search.web_search(LIVE_QUERY, max_results=5)
+    errors = [record.getMessage() for record in caplog.records if record.name == search.logger.name]
+    return results, (errors[0] if errors else None)
+
+
 @pytest.mark.network
-def test_live_search_returns_results():
+def test_live_search_returns_results(caplog):
     """A real query against the live backend — the check the offline tests cannot make.
 
     Uses a long-lived institutional site so it is not flaky on content churn.
+
+    `ddgs` raises when it finds nothing, so an empty list from web_search always
+    comes with a logged backend error. An empty list *without* one is the silent
+    regression this test exists for, and fails at once. An empty list *with* one
+    is usually a rate limit or timeout on whichever engines ddgs picked this time,
+    so that case gets one retry after a short pause before it fails.
     """
-    results = search.web_search("Fraunhofer IIS Erlangen", max_results=5)
-    assert results, "web_search returned nothing — the search backend is broken again"
+    results, error = _live_search(caplog)
+    if not results:
+        assert error, "web_search returned nothing without any backend error — the silent-empty regression is back"
+        time.sleep(LIVE_RETRY_PAUSE_SECONDS)
+        results, retry_error = _live_search(caplog)
+        assert results, (
+            "web_search returned nothing twice — the search backend is broken again "
+            f"(first: {error}; retry: {retry_error})"
+        )
     assert any(r["url"].startswith("http") for r in results)
