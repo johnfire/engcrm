@@ -1018,7 +1018,16 @@ html[lang="de"] .orgs-table th {
   width: 128px;
 }
 .orgs-table col.c-stage {
-  width: 108px;
+  /* Holds the stage picker. Every label fits at the picker's smaller size
+     except German "Nicht in der Pipeline", which ends in an ellipsis rather
+     than take more width from Name. The 36px over the old badge column came
+     out of Notes, so Name keeps its width. */
+  width: 144px;
+}
+.orgs-table .stage-select {
+  max-width: 100%;
+  font-size: 0.85em;
+  text-overflow: ellipsis;
 }
 .orgs-table col.c-status {
   width: 100px;
@@ -1049,7 +1058,7 @@ html[lang="de"] .orgs-table th {
   /* Notes is clipped to a single line, so a fixed preview width is enough —
      every other spare pixel goes to Name, the one column that must stay
      readable. Keeping it fixed also makes the table's minimum predictable. */
-  width: 184px;
+  width: 148px;
 }
 .orgs-table col.c-actions {
   /* Usually empty — only flagged rows carry the keep/delete buttons, and there
@@ -1057,7 +1066,7 @@ html[lang="de"] .orgs-table th {
   width: 68px;
 }
 
-/* Inline stage editor in the People list */
+/* Inline stage editor in the People and Organizations lists */
 .stage-form { margin: 0; }
 /* Black with white text: easy on the eyes. Listed after the .badge-stage-*
    rules (same specificity), so it wins over their grey/coloured text; the

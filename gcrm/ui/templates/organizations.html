@@ -167,7 +167,17 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         <span class="muted">{{ c.country }}</span>{% endif %}
       </td>
       <td class="muted cell-clip" title="{{ c.type or '' }}">{{ c.type or '—' }}</td>
-      <td><span class="badge badge-stage-{{ c.pipeline_stage }}">{{ t('stage.' ~ c.pipeline_stage) }}</span></td>
+      <td>
+        <form method="post" action="/organizations/{{ c.id }}/stage" class="stage-form">
+          <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+          <select name="stage" class="stage-select badge-stage-{{ c.pipeline_stage }}"
+                  aria-label="{{ t('common.pipelineStage') }}: {{ c.name }}" onchange="this.form.submit()">
+            {% for s in pipeline_stages %}
+            <option value="{{ s }}" {% if c.pipeline_stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </td>
       <td>
         <span class="badge badge-{{ c.status }}">{{ t('status.' ~ c.status) }}</span>
         {%- for flag in ['do_not_contact', 'email_bounced', 'research_exhausted'] %}

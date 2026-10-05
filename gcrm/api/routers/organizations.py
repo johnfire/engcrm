@@ -21,7 +21,7 @@ from gcrm.supervisor.organization_opportunity_analysis import analyse_organizati
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_linkedin import (
     REACHABLE_PAGE_SIZE,
-    get_linkedin_connections_for_org,
+    get_known_people_for_org,
     get_reachable_fits,
 )
 from gcrm.tools.db_personal_priorities import set_personal_priority
@@ -219,6 +219,7 @@ def organization_list(
         "organizations": organizations,
         "status_counts": status_counts,
         "stage_counts": stage_counts,
+        "pipeline_stages": PIPELINE_STAGES,
         "suppression_flags": SUPPRESSION_FLAGS,
         "types": types,
         "active_status": status,
@@ -389,9 +390,9 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
     # The walk-in notice is a bonus on this page: if the lookup fails, the page
     # still renders without it.
     try:
-        linkedin = get_linkedin_connections_for_org(contact_id)
+        linkedin = get_known_people_for_org(contact_id)
     except Exception:
-        logger.exception("linkedin connection lookup failed for contact %s", contact_id)
+        logger.exception("known people lookup failed for contact %s", contact_id)
         linkedin = {"linked": [], "possible": []}
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
@@ -542,6 +543,31 @@ def organization_edit(
     _persist_organization_edit(contact_id, text_fields, fit_score, flags)
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return local_redirect(f"/organizations/{contact_id}", saved="1")
+
+
+@router.post("/{contact_id}/stage")
+def organization_set_stage(
+    contact_id: int,
+    stage: str = Form(""),
+    next: str = Form("/organizations/"),
+    _admin: str = Depends(require_admin),
+):
+    """Change an organization's stage from the list and come back to the same
+    filtered list. Only the stage changes; the status is left as it was, as the
+    edit form would if just the stage were touched."""
+    if stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE contacts SET pipeline_stage = %s, updated_at = NOW() "
+            "WHERE id = %s AND deleted_at IS NULL",
+            (stage, contact_id),
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Organization not found")
+    log_audit(None, None, "contact.stage_changed", f"contact:{contact_id}", stage)
+    return local_redirect(next, fallback="/organizations/")
 
 
 @router.post("/{contact_id}/delete")
