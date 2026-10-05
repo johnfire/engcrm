@@ -61,7 +61,7 @@ def _component(place: dict, *types: str) -> dict | None:
     return None
 
 
-def _describe(place: dict) -> dict:
+def describe_place(place: dict) -> dict:
     city = _component(place, *CITY_TYPES)
     country = _component(place, "country")
     return {
@@ -89,7 +89,7 @@ def decide_city(company_key: str, places: list[dict]) -> CityDecision:
     ambiguous  the name appears in several cities (a chain) — a human decides
     not_found  nothing carries the name, or the named place has no city
     """
-    described = [_describe(place) for place in places]
+    described = [describe_place(place) for place in places]
     offered = [{k: d[k] for k in ("name", "city", "country")} for d in described]
     named = [d for d in described if _name_matches(company_key, d["name"])]
     if not named:
