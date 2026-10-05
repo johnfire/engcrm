@@ -37,9 +37,11 @@ export function orderedStatuses(stage: PipelineStage): OrganizationStatus[] {
 
 /**
  * Two rows of chips — where the organization is in the pipeline, and what is going
- * on with it — and one Save. Picking a different stage also picks the status that
- * normally goes with it (shown, and changeable), so a typical move is two taps:
- * the stage, then Save. An unusual pairing is allowed and only marked.
+ * on with it. On its own (the organization screen) every tap saves at once; embedded
+ * in the meeting log the change is reported to the form and saved with it. Picking a
+ * different stage also picks the status that normally goes with it (shown, and
+ * changeable). An unusual pairing is allowed and only marked. A failed save puts the
+ * last saved choice back and says so.
  */
 export function StageStatusPicker({ stage, status, onSave, embedded, onChange }: Props) {
   const { t } = useTranslation();
@@ -47,8 +49,8 @@ export function StageStatusPicker({ stage, status, onSave, embedded, onChange }:
   const [draft, setDraft] = useState({ stage, status });
   const [isSaving, setIsSaving] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
-  const changed = draft.stage !== saved.stage || draft.status !== saved.status;
   const unusual = !isTypicalPair(draft.stage, draft.status);
 
   function changeFrom(next: { stage: PipelineStage; status: OrganizationStatus }) {
@@ -61,9 +63,12 @@ export function StageStatusPicker({ stage, status, onSave, embedded, onChange }:
   function update(next: { stage: PipelineStage; status: OrganizationStatus }) {
     setDraft(next);
     setHasError(false);
-    if (embedded && onChange) {
+    setJustSaved(false);
+    if (embedded) {
       const change = changeFrom(next);
-      onChange(Object.keys(change).length ? change : null);
+      onChange?.(Object.keys(change).length ? change : null);
+    } else {
+      void save(next);
     }
   }
 
@@ -78,14 +83,14 @@ export function StageStatusPicker({ stage, status, onSave, embedded, onChange }:
     update({ ...draft, status: next });
   }
 
-  async function save() {
-    if (!onSave) return;
-    const change = changeFrom(draft);
+  async function save(next: { stage: PipelineStage; status: OrganizationStatus }) {
+    const change = changeFrom(next);
+    if (!onSave || !Object.keys(change).length) return;
     setIsSaving(true);
-    setHasError(false);
     try {
       await onSave(change);
-      setSaved(draft);
+      setSaved(next);
+      setJustSaved(true);
     } catch {
       setDraft(saved);
       setHasError(true);
@@ -131,20 +136,11 @@ export function StageStatusPicker({ stage, status, onSave, embedded, onChange }:
         </Text>
       )}
 
-      {!embedded && (changed || isSaving) && (
-        <TouchableOpacity
-          style={[styles.save, isSaving && styles.saveDisabled]}
-          onPress={save}
-          disabled={isSaving}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isSaving, busy: isSaving }}
-        >
-          {isSaving ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.saveText}>{t("stageStatus.save")}</Text>
-          )}
-        </TouchableOpacity>
+      {!embedded && (isSaving || justSaved) && (
+        <View style={styles.status} accessibilityLiveRegion="polite">
+          {isSaving && <ActivityIndicator color="#7c6fff" size="small" />}
+          <Text style={styles.statusText}>{isSaving ? t("stageStatus.saving") : t("stageStatus.saved")}</Text>
+        </View>
       )}
       {!embedded && hasError && (
         <Text style={styles.error} accessibilityLiveRegion="assertive">
@@ -209,15 +205,7 @@ const styles = StyleSheet.create({
   choiceText: { color: "#aaa", fontSize: 13, fontWeight: "600" },
   choiceTextSelected: { color: "#fff" },
   hint: { color: "#e0b050", fontSize: 12, marginTop: 10 },
-  save: {
-    alignItems: "center",
-    backgroundColor: "#7c6fff",
-    borderRadius: 10,
-    marginTop: 14,
-    minHeight: 44,
-    justifyContent: "center",
-  },
-  saveDisabled: { opacity: 0.6 },
-  saveText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  status: { alignItems: "center", flexDirection: "row", gap: 7, marginTop: 10 },
+  statusText: { color: "#888", fontSize: 12 },
   error: { color: "#ef8a8a", fontSize: 12, marginTop: 8 },
 });

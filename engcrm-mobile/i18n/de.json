@@ -349,7 +349,6 @@
   "stageStatus.title": "Pipeline",
   "stageStatus.stage": "Stufe",
   "stageStatus.status": "Status",
-  "stageStatus.save": "Speichern",
   "stageStatus.unusual": "Eine ungewöhnliche Kombination — in Ordnung, wenn sie stimmt.",
   "stageStatus.saveFailed": "Speichern fehlgeschlagen. Verbindung prüfen und erneut versuchen.",
   "personStage.title": "Stufe",
@@ -493,5 +492,12 @@
   "people.ratingOrBetter": "{{label}} oder besser",
   "people.unrated": "Unbewertet",
   "people.sortRating": "Meine Bewertung, beste zuerst",
-  "people.ratingBadge": "{{rating}} {{label}}"
+  "people.ratingBadge": "{{rating}} {{label}}",
+  "stageStatus.saving": "Wird gespeichert…",
+  "stageStatus.saved": "Gespeichert ✓",
+  "organizationDetail.notes.title": "Notiz hinzufügen",
+  "organizationDetail.notes.placeholder": "Was passiert ist, was besprochen wurde…",
+  "organizationDetail.notes.save": "Notiz speichern",
+  "organizationDetail.notes.saved": "Gespeichert ✓ — steht unten im Verlauf",
+  "organizationDetail.notes.saveFailed": "Notiz konnte nicht gespeichert werden. Dein Text ist noch da — bitte erneut versuchen."
 }

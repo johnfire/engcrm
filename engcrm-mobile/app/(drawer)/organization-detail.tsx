@@ -31,6 +31,7 @@ import {
 } from "../../services/organizationState";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { useTranslation } from "../../i18n/I18nContext";
+import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
 
@@ -232,6 +233,8 @@ export default function OrganizationDetailScreen() {
           <Text style={styles.field}>{organization.website}</Text>
         ))}
       {organization.phone && <Text style={styles.field}>{organization.phone}</Text>}
+      {isAdmin && <OrganizationNoteBox organizationId={organization.id} />}
+
       {organization.notes && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("common.notes")}</Text>

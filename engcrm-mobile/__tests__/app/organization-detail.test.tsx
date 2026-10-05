@@ -5,7 +5,9 @@ const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
 const mockUpdateState = jest.fn();
 const mockDeleteNote = jest.fn();
+const mockAddNote = jest.fn();
 jest.mock("../../services/api", () => ({
+  addOrganizationNote: (...args: any[]) => mockAddNote(...args),
   deleteOrganizationNote: (...args: any[]) => mockDeleteNote(...args),
   updateOrganizationState: (...args: any[]) => mockUpdateState(...args),
   fetchOrganization: (...args: any[]) => mockFetchContact(...args),
@@ -348,8 +350,7 @@ describe("organization detail — stage and status", () => {
     mockUpdateState.mockResolvedValue({ pipeline_stage: "suspect", status: "ready", typical: true });
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
-    fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
+    fireEvent.press(screen.getByLabelText("Suspect")); // saves at once — no Save button
     await waitFor(() =>
       expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "suspect", status: "ready" }),
     );
@@ -372,7 +373,6 @@ describe("organization detail — stage and status", () => {
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(screen.getByText(/Couldn't save/)).toBeTruthy());
     expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
   });
@@ -455,3 +455,47 @@ describe("organization detail — meeting log", () => {
   });
 });
 
+
+describe("organization detail — add a note", () => {
+  beforeEach(() => {
+    mockAddNote.mockReset();
+    mockFetchContact.mockReset().mockResolvedValue({ ...BASE_CONTACT });
+  });
+
+  it("saves a typed note to the history and reloads the organization", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockAddNote.mockResolvedValue({ id: 9, follow_up_date: null });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Add a note")).toBeTruthy());
+    const loadsBefore = mockFetchContact.mock.calls.length;
+
+    fireEvent.changeText(screen.getByLabelText("Add a note"), "  Owner wants a quote  ");
+    fireEvent.press(screen.getByText("Save note"));
+
+    await waitFor(() =>
+      expect(mockAddNote).toHaveBeenCalledWith(42, {
+        note: "Owner wants a quote", method: null, follow_up_date: null, follow_up_text: null,
+      }),
+    );
+    await waitFor(() => expect(mockFetchContact.mock.calls.length).toBeGreaterThan(loadsBefore));
+    expect(screen.getByLabelText("Add a note").props.value).toBe("");
+  });
+
+  it("keeps the text and says so when saving fails", async () => {
+    mockGetRole.mockResolvedValue("admin");
+    mockAddNote.mockRejectedValue(new Error("offline"));
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByLabelText("Add a note")).toBeTruthy());
+    fireEvent.changeText(screen.getByLabelText("Add a note"), "Call back Monday");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(screen.getByText(/Couldn't save the note/)).toBeTruthy());
+    expect(screen.getByLabelText("Add a note").props.value).toBe("Call back Monday");
+  });
+
+  it("is for the admin only", async () => {
+    mockGetRole.mockResolvedValue("viewer");
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    expect(screen.queryByLabelText("Add a note")).toBeNull();
+  });
+});

@@ -19,48 +19,52 @@ describe("StageStatusPicker", () => {
     expect(orderedStatuses("suspect").slice(0, 4)).toEqual(["ready", "contacted", "dormant", "on_hold"]);
   });
 
-  it("shows no Save button until something changes", () => {
-    const { screen } = setup();
+  it("has no Save button: there is nothing to save until a chip is tapped", () => {
+    const { screen, onSave } = setup();
     expect(screen.queryByText("Save")).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("moving to a new stage also picks the status that normally goes with it — two taps", async () => {
+  it("tapping a new stage saves at once, with the status that normally goes with it", async () => {
     const { screen, onSave } = setup("candidate", "none");
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ pipeline_stage: "suspect", status: "ready" }));
+    await waitFor(() => expect(screen.getByText("Saved ✓")).toBeTruthy());
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the status when it still fits the new stage, and sends only what changed", async () => {
     const { screen, onSave } = setup("prospect", "contacted");
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ pipeline_stage: "suspect" }));
   });
 
-  it("can change the status alone", async () => {
+  it("tapping a status alone saves just the status", async () => {
     const { screen, onSave } = setup("opportunity", "meeting");
     fireEvent.press(screen.getByLabelText("Proposal"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ status: "proposal" }));
   });
 
-  it("marks an unusual pairing but still lets you save it", async () => {
+  it("tapping what is already selected saves nothing", () => {
+    const { screen, onSave } = setup("opportunity", "meeting");
+    fireEvent.press(screen.getByLabelText("Opportunity"));
+    fireEvent.press(screen.getByLabelText("Meeting"));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("marks an unusual pairing and still saves it", async () => {
     const { screen, onSave } = setup("customer", "none");
     expect(screen.queryByText(/unusual combination/i)).toBeNull();
     fireEvent.press(screen.getByLabelText("Proposal"));
     expect(screen.getByText(/unusual combination/i)).toBeTruthy();
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ status: "proposal" }));
   });
 
-  it("hides Save again after a successful save and treats the new values as current", async () => {
+  it("treats what was saved as current: the next tap sends only its own change", async () => {
     const { screen, onSave } = setup("candidate", "none");
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
-    await waitFor(() => expect(screen.queryByText("Save")).toBeNull());
+    await waitFor(() => expect(screen.getByText("Saved ✓")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Contacted"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenLastCalledWith({ status: "contacted" }));
   });
 
@@ -68,23 +72,23 @@ describe("StageStatusPicker", () => {
     const onSave = jest.fn().mockRejectedValue(new Error("offline"));
     const { screen } = setup("candidate", "none", onSave);
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(screen.getByText(/Couldn't save/)).toBeTruthy());
     expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
     expect(screen.getByLabelText("Suspect").props.accessibilityState.selected).toBe(false);
-    expect(screen.queryByText("Save")).toBeNull(); // nothing pending any more
+    expect(screen.queryByText("Saved ✓")).toBeNull();
   });
 
-  it("cannot be tapped twice while saving", async () => {
+  it("cannot be tapped again while a save is running", async () => {
     let finish: () => void = () => {};
     const onSave = jest.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
     const { screen } = setup("candidate", "none", onSave);
     fireEvent.press(screen.getByLabelText("Suspect"));
-    fireEvent.press(screen.getByText("Save"));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Saving…")).toBeTruthy();
     expect(screen.getByLabelText("Customer").props.accessibilityState.disabled).toBe(true);
     finish();
-    await waitFor(() => expect(screen.queryByText("Save")).toBeNull());
+    await waitFor(() => expect(screen.getByText("Saved ✓")).toBeTruthy());
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
 
