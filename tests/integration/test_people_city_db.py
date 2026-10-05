@@ -29,6 +29,19 @@ def _city(person_id: int) -> tuple:
 
 def test_blank_cities_are_filled_and_differing_ones_left_alone(clean_database, monkeypatch):
     monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
+    _people_trigger("DISABLE")  # recreate the blanks that existed before migration 058
+    try:
+        _check_survey_and_fill()
+    finally:
+        _people_trigger("ENABLE")
+
+
+def _people_trigger(state: str) -> None:
+    with db() as connection:
+        connection.cursor().execute(f"ALTER TABLE people {state} TRIGGER people_city_from_company")
+
+
+def _check_survey_and_fill():
     vienna = _company("Wiener Firma", "Wien", "AT")
     augsburg = _company("Augsburger Firma", "Augsburg")
     nowhere = _company("Ortlose Firma", None)
@@ -50,3 +63,43 @@ def test_blank_cities_are_filled_and_differing_ones_left_alone(clean_database, m
     assert _city(branch)[0] == "Friedberg"
     assert _city(same)[0] == "86150 Augsburg"
     assert survey()["fill"] == []
+
+
+def test_a_new_person_takes_the_company_city(clean_database, monkeypatch):
+    monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
+    vienna = _company("Wiener Firma", "Wien", "AT")
+
+    created = save_person("New Person", contact_id=vienna, allow_duplicate=True)
+    with_city = save_person("Card Person", city="Graz", contact_id=vienna, allow_duplicate=True)
+
+    assert _city(created) == ("Wien", "AT")
+    assert _city(with_city)[0] == "Graz"
+
+
+def test_linking_a_person_later_fills_a_blank_city(clean_database):
+    augsburg = _company("Augsburger Firma", "Augsburg")
+    deleted = _company("Geloeschte Firma", "Ulm")
+    person = save_person("Loose Person", allow_duplicate=True)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE contacts SET deleted_at = NOW() WHERE id = %s", (deleted,))
+        cursor.execute("UPDATE people SET contact_id = %s WHERE id = %s", (deleted, person))
+    assert _city(person)[0] is None
+
+    with db() as connection:
+        connection.cursor().execute("UPDATE people SET contact_id = %s WHERE id = %s", (augsburg, person))
+    assert _city(person) == ("Augsburg", "DE")
+
+
+def test_a_company_getting_its_city_passes_it_to_people_without_one(clean_database, monkeypatch):
+    monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
+    company = _company("Neue Firma", None, None)
+    blank = save_person("Blank Person", contact_id=company, allow_duplicate=True)
+    elsewhere = save_person("Elsewhere Person", city="Friedberg", contact_id=company, allow_duplicate=True)
+
+    with db() as connection:
+        connection.cursor().execute("UPDATE contacts SET city = 'Augsburg', country = 'DE' WHERE id = %s",
+                                    (company,))
+
+    assert _city(blank) == ("Augsburg", "DE")
+    assert _city(elsewhere)[0] == "Friedberg"

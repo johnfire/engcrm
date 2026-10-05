@@ -2,7 +2,8 @@
 
 Most people arrive without a city — LinkedIn's Connections.csv has no location —
 while their company's city is resolved later. This fills a blank person city
-(and country) from the company they are linked to (`people.contact_id`).
+(and country) from the company they are linked to (`people.contact_id`) — once,
+for rows from before migration 058, whose triggers keep it so from then on.
 
 A person whose city is already set and *differs* from the company's is never
 changed here: the city came from a business card or was typed in by hand, which
