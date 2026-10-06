@@ -141,12 +141,21 @@ describe("edit organization", () => {
       await waitFor(() => expect(screen.getByDisplayValue("Neue Firma")).toBeTruthy());
       expect(screen.queryByLabelText("Do not contact")).toBeNull();
       fireEvent.changeText(screen.getByLabelText("City"), "Ulm");
-      fireEvent.press(screen.getByText("Add organization"));
+      fireEvent.press(screen.getByText("Add business"));
       await waitFor(() =>
         expect(mockReplace).toHaveBeenCalledWith({ pathname: "/(drawer)/organization-detail", params: { id: "99" } }),
       );
-      expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", city: "Ulm" });
+      expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", city: "Ulm", pipeline_stage: "candidate" });
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("saves the selected stage with the new business", async () => {
+      const screen = render(<EditOrganizationScreen />);
+      await waitFor(() => expect(screen.getByDisplayValue("Neue Firma")).toBeTruthy());
+      fireEvent.press(screen.getByText("Customer"));
+      expect(mockCreate).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByText("Add business"));
+      await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", pipeline_stage: "customer" }));
     });
 
     it("offers to open an organization that already exists instead of adding a second", async () => {
@@ -155,7 +164,7 @@ describe("edit organization", () => {
       });
       const screen = render(<EditOrganizationScreen />);
       await waitFor(() => expect(screen.getByDisplayValue("Neue Firma")).toBeTruthy());
-      fireEvent.press(screen.getByText("Add organization"));
+      fireEvent.press(screen.getByText("Add business"));
       await waitFor(() => expect(alert).toHaveBeenCalled());
       expect(alert.mock.calls[0][1]).toBe("Neue Firma, Ulm already exists. Open it instead?");
       (alert.mock.calls[0][2] as any[]).find((b) => b.text === "Open").onPress();
@@ -168,11 +177,11 @@ describe("edit organization", () => {
       });
       const screen = render(<EditOrganizationScreen />);
       await waitFor(() => expect(screen.getByDisplayValue("Neue Firma")).toBeTruthy());
-      fireEvent.press(screen.getByText("Add organization"));
+      fireEvent.press(screen.getByText("Add business"));
       await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
       expect(alert.mock.calls[0][1]).toMatch(/was deleted/);
       mockCreate.mockRejectedValueOnce({ response: { status: 409, data: { detail: { existing_id: null } } } });
-      fireEvent.press(screen.getByText("Add organization"));
+      fireEvent.press(screen.getByText("Add business"));
       await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
       expect(alert.mock.calls[1][1]).toMatch(/ignored-chains/);
       expect(mockReplace).not.toHaveBeenCalled();

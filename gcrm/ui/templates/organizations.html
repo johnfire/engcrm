@@ -2,6 +2,9 @@
 endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
   <h1>{{ t('organizations.title') }}</h1>
+  {% if request.session.get('role') == 'admin' %}
+  <a href="/organizations/new" class="btn-primary">{{ t('businessForm.add') }}</a>
+  {% endif %}
   <span class="muted"
     >{{ t('organizations.totalPage', total=total, page=page, totalPages=total_pages) }}</span
   >

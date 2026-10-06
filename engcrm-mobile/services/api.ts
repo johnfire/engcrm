@@ -873,7 +873,7 @@ export type OrganizationFields = Partial<
     | "decision_maker" | "preferred_contact_method" | "notes",
     string
   >
-> & { do_not_contact?: boolean };
+> & { do_not_contact?: boolean; pipeline_stage?: PipelineStage };
 
 export type PersonFields = Partial<
   Record<

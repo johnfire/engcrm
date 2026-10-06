@@ -52,7 +52,20 @@ class TestCreateOrganization:
         assert response.status_code == 200 and response.json() == {"id": 77}
         args, kwargs = save.call_args
         assert args == ("Acme GmbH", "Ulm")
+        assert kwargs["pipeline_stage"] == "candidate"
         assert kwargs["country"] == "DE" and kwargs["email"] == "a@acme.de" and kwargs["notes"] == "met at fair"
+
+    @pytest.mark.parametrize("stage", ["candidate", "suspect", "prospect", "opportunity", "customer", "not_in_pipeline"])
+    def test_saves_chosen_stage(self, stage):
+        response, save, _, _ = self.post({"name": "Acme", "pipeline_stage": stage})
+        assert response.status_code == 200
+        assert save.call_args.kwargs["pipeline_stage"] == stage
+
+    @pytest.mark.parametrize("stage", ["", "bad-stage"])
+    def test_invalid_stage_never_saves(self, stage):
+        response, save, _, _ = self.post({"name": "Acme", "pipeline_stage": stage})
+        assert response.status_code == 400
+        save.assert_not_called()
 
     def test_name_is_required(self):
         for body in ({}, {"name": ""}, {"name": "   "}, {"city": "Ulm"}):
@@ -104,7 +117,7 @@ class TestCreateOrganization:
         response, _, flag, write = self.post(
             {"name": "A", "decision_maker": "Dr. Roth", "do_not_contact": True})
         assert response.status_code == 200
-        write.assert_called_once_with(77, {"decision_maker": "Dr. Roth"}, None)
+        write.assert_called_once_with(77, {"decision_maker": "Dr. Roth", "source": "manual"}, None)
         flag.assert_called_once_with(77, "do_not_contact", True)
 
 

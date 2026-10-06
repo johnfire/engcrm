@@ -544,5 +544,9 @@
   "contactFeed.previous": "← Zurück",
   "contactFeed.next": "Weiter →",
   "contactFeed.page": "Seite {{page}}",
-  "drawer.contacts": "Kontakte"
+  "drawer.contacts": "Kontakte",
+  "businessForm.add": "Unternehmen hinzufügen",
+  "businessForm.stage": "Pipeline-Stufe",
+  "businessForm.openExisting": "Vorhandenes Unternehmen öffnen",
+  "businessForm.failed": "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten — bitte erneut versuchen."
 }

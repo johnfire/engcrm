@@ -3,6 +3,8 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockFetch = jest.fn();
 const mockPush = jest.fn();
+const mockRole = jest.fn();
+jest.mock("../../services/auth", () => ({ getRole: () => mockRole() }));
 jest.mock("../../services/contact-feed", () => ({
   ...jest.requireActual("../../services/contact-feed"),
   fetchContactFeed: (...args: unknown[]) => mockFetch(...args),
@@ -24,6 +26,7 @@ const contact = (kind: ContactEntry["kind"], id: number, name: string): ContactE
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRole.mockResolvedValue("admin");
   mockFetch.mockResolvedValue([contact("person", 1, "Ann Example"), contact("organization", 1, "Academy")]);
 });
 
@@ -75,4 +78,18 @@ it("shows an empty state when neither people nor organizations match", async () 
   mockFetch.mockResolvedValue([]);
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("No contacts found.")).toBeTruthy());
+});
+
+it("opens manual business entry for admins", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Add business")).toBeTruthy());
+  fireEvent.press(screen.getByText("Add business"));
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/edit-organization", params: {} });
+});
+
+it("hides business entry from viewers", async () => {
+  mockRole.mockResolvedValue("viewer");
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
+  expect(screen.queryByText("Add business")).toBeNull();
 });

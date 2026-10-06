@@ -1,7 +1,7 @@
 """Mobile JSON API: create and edit organizations (contacts) by hand.
 
-The web app has no "new organization" form, so the phone's is new; the edit rules
-mirror the web edit form. Differences, all deliberate:
+Creation is shared with the web form; the edit rules mirror the web edit form.
+Differences, all deliberate:
 
   * PATCH touches only the fields the phone sends. The web form posts every field,
     so a stale form can overwrite a newer value; here a field that is not sent is
@@ -15,15 +15,18 @@ mirror the web edit form. Differences, all deliberate:
 """
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
+from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
+from gcrm.organization_state import DEFAULT_STAGE, PIPELINE_STAGES
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_organizations import save_organization, set_suppression_flag
 from gcrm.tools.search import geocode
+from gcrm.workspace_context import get_workspace_id, set_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,7 @@ class OrganizationFields(BaseModel):
     preferred_contact_method: str | None = None
     notes: str | None = None
     do_not_contact: bool | None = None
+    pipeline_stage: str | None = None  # Creation only; existing stages use the stage endpoint.
 
 
 def clean_fields(body: BaseModel, limits: dict[str, int], *, require_name: bool) -> dict:
@@ -102,17 +106,24 @@ def _existing_organization(name: str, city: str, email: str) -> dict | None:
 
 @router.post("")
 def create_organization(
+    request: Request,
     body: OrganizationFields,
     _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    """Add an organization by hand. It enters as a candidate, like every other
-    new organization. An organization that already exists (same email, or same
-    name in the same city) is reported with a 409 and its id, never overwritten
-    and never silently duplicated."""
-    fields = clean_fields(body, TEXT_LIMITS, require_name=True)
-    name = fields["name"]
-    city = fields.get("city") or ""
-    email = fields.get("email") or ""
+    """Add a business in the selected stage, preserving existing records."""
+    actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
+    _, workspace_id = _personal_identity(payload)
+    previous_workspace = get_workspace_id()
+    try:
+        set_workspace_id(workspace_id)
+        with audit_scope(actor, "user", request.state.correlation_id):
+            return save_manual_organization(body)
+    finally:
+        set_workspace_id(previous_workspace)
+
+
+def reject_existing_organization(name: str, city: str, email: str) -> None:
     existing = _existing_organization(name, city, email)
     if existing:
         raise HTTPException(status_code=409, detail={
@@ -121,24 +132,31 @@ def create_organization(
             "existing_name": existing["name"],
             "existing_city": existing["city"],
         })
+
+
+def save_manual_organization(body: OrganizationFields) -> dict:
+    """Validated manual creation shared by the mobile and web forms."""
+    fields = clean_fields(body, TEXT_LIMITS, require_name=True)
+    stage = DEFAULT_STAGE if body.pipeline_stage is None else body.pipeline_stage.strip()
+    if stage not in PIPELINE_STAGES:
+        raise HTTPException(status_code=400, detail="Choose a valid pipeline stage")
+    name = fields["name"]
+    city = fields.get("city") or ""
+    email = fields.get("email") or ""
+    reject_existing_organization(name, city, email)
     contact_id = save_organization(
-        name, city,
-        country=fields.get("country") or "DE",
-        type=fields.get("type") or "",
-        website=fields.get("website") or "",
-        email=email,
-        phone=fields.get("phone") or "",
-        notes=fields.get("notes") or "",
+        name, city, country=fields.get("country") or "DE",
+        type=fields.get("type") or "", website=fields.get("website") or "",
+        email=email, phone=fields.get("phone") or "", notes=fields.get("notes") or "",
+        pipeline_stage=stage,
     )
     if not contact_id:
-        # save_organization refuses names on the ignored-chains list and returns 0.
         raise HTTPException(status_code=409, detail={
             "message": "This name is on the ignored-chains list, so it was not added",
             "existing_id": None,
         })
-    extras = {k: fields[k] for k in ("decision_maker", "preferred_contact_method") if fields.get(k)}
-    if extras:
-        _write_columns(contact_id, extras, None)
+    extras = {key: fields[key] for key in ("decision_maker", "preferred_contact_method") if fields.get(key)}
+    _write_columns(contact_id, {**extras, "source": "manual"}, get_workspace_id())
     if body.do_not_contact:
         set_suppression_flag(contact_id, "do_not_contact", True)
     return {"id": contact_id}
@@ -167,6 +185,8 @@ def edit_organization(
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
     """Change the fields sent; leave every other field alone."""
+    if "pipeline_stage" in body.model_fields_set:
+        raise HTTPException(status_code=400, detail="Use the stage endpoint to change an existing stage")
     fields = clean_fields(body, TEXT_LIMITS, require_name=False)
     if not fields and body.do_not_contact is None:
         raise HTTPException(status_code=400, detail="Nothing to change")

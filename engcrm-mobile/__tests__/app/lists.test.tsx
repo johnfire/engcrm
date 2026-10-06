@@ -78,12 +78,12 @@ describe("organizations list", () => {
   it("shows an add button to the admin only, opening the empty form", async () => {
     const viewer = render(<OrganizationsScreen />);
     await waitFor(() => expect(viewer.getByText("Acme Salon")).toBeTruthy());
-    expect(viewer.queryByLabelText("Add organization")).toBeNull();
+    expect(viewer.queryByLabelText("Add business")).toBeNull();
     viewer.unmount();
     mockGetRole.mockResolvedValue("admin");
     const admin = render(<OrganizationsScreen />);
-    await waitFor(() => expect(admin.getByLabelText("Add organization")).toBeTruthy());
-    fireEvent.press(admin.getByLabelText("Add organization"));
+    await waitFor(() => expect(admin.getByLabelText("Add business")).toBeTruthy());
+    fireEvent.press(admin.getByLabelText("Add business"));
     expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-organization", params: {} });
   });
 

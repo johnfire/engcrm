@@ -42,6 +42,7 @@ from gcrm.api.routers import (
     inbox,
     legal,
     marketing,
+    organization_create,
     organizations,
     people,
     research,
@@ -119,6 +120,7 @@ app.include_router(legal.router)
 app.include_router(account.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
+app.include_router(organization_create.router)
 app.include_router(organizations.router)
 app.include_router(people.router)
 app.include_router(research.router)

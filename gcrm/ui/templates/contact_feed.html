@@ -2,7 +2,11 @@
 {% block title %}{{ t('contactFeed.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 {% block content %}
-<div class="page-header"><h1>{{ t('contactFeed.title') }}</h1></div>
+<div class="page-header"><h1>{{ t('contactFeed.title') }}</h1>
+  {% if request.session.get('role') == 'admin' %}
+  <a href="/organizations/new" class="btn-primary">{{ t('businessForm.add') }}</a>
+  {% endif %}
+</div>
 <p class="muted">{{ t('contactFeed.hint') }}</p>
 <form class="filter-bar" method="get" action="/contact-feed/">
   <input type="search" name="q" value="{{ filters.search }}" placeholder="{{ t('contactFeed.search') }}" aria-label="{{ t('contactFeed.search') }}">

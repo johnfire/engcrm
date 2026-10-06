@@ -13,6 +13,8 @@ import {
 import { getRole } from "../../services/auth";
 import { notifyChanged, organizationKey } from "../../services/refreshBus";
 import { ORGANIZATION_FIELDS } from "../../services/recordFields";
+import { BusinessStagePicker } from "../../components/business-stage-picker";
+import { PipelineStage } from "../../services/organizationState";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 
@@ -38,6 +40,7 @@ export default function EditOrganizationScreen() {
   const [organization, setOrganization] = useState<OrganizationDetail | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [stage, setStage] = useState<PipelineStage>("candidate");
   const [error, setError] = useState<string | null>(null);
   const [doNotContact, setDoNotContact] = useState<boolean | null>(null);
 
@@ -94,7 +97,7 @@ export default function EditOrganizationScreen() {
     }
     try {
       if (id === null) {
-        const created = await createOrganization(body);
+        const created = await createOrganization({ ...body, pipeline_stage: stage });
         goToDetail(created.id);
       } else {
         await editOrganization(id, body);
@@ -149,10 +152,11 @@ export default function EditOrganizationScreen() {
       start={id === null && params.name ? { name: params.name } : undefined}
       saving={saving}
       error={error}
-      submitLabel={id === null ? t("recordForm.addOrganization") : t("recordForm.save")}
+      submitLabel={id === null ? t("businessForm.add") : t("recordForm.save")}
       extraChange={id !== null && doNotContact !== !!organization?.do_not_contact}
       onSubmit={save}
     >
+      {id === null && <BusinessStagePicker stage={stage} disabled={saving} onChange={setStage} />}
       {id !== null && (
         <View style={styles.switchRow}>
           <View style={styles.switchText}>

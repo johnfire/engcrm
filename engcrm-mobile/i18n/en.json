@@ -544,5 +544,9 @@
   "contactFeed.previous": "← Previous",
   "contactFeed.next": "Next →",
   "contactFeed.page": "Page {{page}}",
-  "drawer.contacts": "Contacts"
+  "drawer.contacts": "Contacts",
+  "businessForm.add": "Add business",
+  "businessForm.stage": "Pipeline stage",
+  "businessForm.openExisting": "Open existing business",
+  "businessForm.failed": "Could not save. Your entries are still here — please try again."
 }

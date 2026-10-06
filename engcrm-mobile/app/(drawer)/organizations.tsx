@@ -83,9 +83,9 @@ export default function OrganizationsScreen() {
             style={styles.add}
             onPress={() => router.push({ pathname: "/(drawer)/edit-organization", params: {} })}
             accessibilityRole="button"
-            accessibilityLabel={t("recordForm.addOrganization")}
+            accessibilityLabel={t("businessForm.add")}
           >
-            <Text style={styles.addText}>+</Text>
+            <Text style={styles.addText}>{t("businessForm.add")}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -159,9 +159,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: "center",
     minHeight: 44,
-    width: 44,
+    paddingHorizontal: 12,
   },
-  addText: { color: "#fff", fontSize: 24, fontWeight: "600", lineHeight: 28 },
+  addText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   list: { padding: 16 },
   more: { marginVertical: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
