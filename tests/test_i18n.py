@@ -3,6 +3,7 @@ POST /settings/language endpoints, and the ?lang= pre-login toggle. DB and push
 are mocked — these run without Postgres or a live Expo push service."""
 from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
@@ -11,6 +12,13 @@ from gcrm.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, translate
 
 client = TestClient(main.app)
 AUTH = {"Authorization": f"Bearer {create_token('admin', user_id=7, token_version=0)}"}
+
+
+@pytest.fixture(autouse=True)
+def active_language_test_account():
+    """The mocked account has an active version-0 token, independent of DB state."""
+    with patch("gcrm.api.jwt_auth.get_user_token_version", return_value=0):
+        yield
 
 
 def make_mock_conn(rows=None):
@@ -75,6 +83,16 @@ class TestAuthMe:
 
 
 class TestUpdateLanguage:
+    @pytest.mark.parametrize("current_version", [None, 1])
+    def test_revoked_account_cannot_change_language(self, current_version):
+        with patch("gcrm.api.jwt_auth.get_user_token_version", return_value=current_version), \
+             patch("gcrm.api.routers.api_account.set_user_ui_language") as update, \
+             patch("gcrm.api.routers.api_account.send_silent_push_to_user") as push:
+            response = client.patch("/api/account/language", headers=AUTH, json={"ui_language": "de"})
+        assert response.status_code == 401
+        update.assert_not_called()
+        push.assert_not_called()
+
     def test_requires_auth(self):
         assert client.patch("/api/account/language", json={"ui_language": "de"}).status_code in (401, 403)
 

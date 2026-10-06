@@ -75,3 +75,6 @@ gcrm-scout-agent = { path = "agents/gcrm-scout-agent", editable = true }
 gcrm-opportunity-agent = { path = "agents/gcrm-opportunity-agent", editable = true }
 gcrm-outreach-agent = { path = "agents/gcrm-outreach-agent", editable = true }
 gcrm-followup-agent = { path = "agents/gcrm-followup-agent", editable = true }
+
+[tool.uv]
+constraint-dependencies = ["langgraph-sdk>=0.4.4"]
