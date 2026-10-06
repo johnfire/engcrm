@@ -770,7 +770,7 @@
   "statistics.pipelineOverTime": "Pipeline im Verlauf (Tageslog, jede Stufe mit eigener Skala)",
   "statistics.pipelineLogHint": "Das tägliche Pipeline-Log läuft seit {{date}}; jeder Zeitraum zeigt seinen letzten erfassten Tag.",
   "contactFeed.title": "Kontakte",
-  "contactFeed.hint": "Kontaktierte Personen und Organisationen, nach dem letzten Kontakt sortiert.",
+  "contactFeed.hint": "Organisationen mit ihren kontaktierten Personen, nach dem letzten Kontakt sortiert.",
   "contactFeed.search": "Personen und Organisationen suchen",
   "contactFeed.kind": "Kontaktart",
   "contactFeed.all": "Alle Kontakte",
@@ -806,5 +806,8 @@
   "contactDate.today": "Heute",
   "contactDate.yesterday": "Gestern",
   "contactDate.twoDaysAgo": "Vorgestern",
-  "common.saving": "Speichern…"
+  "common.saving": "Speichern…",
+  "contactFeed.standalone": "Personen ohne Organisation",
+  "contactFeed.people": "Kontaktierte Personen ({{count}})",
+  "contactFeed.via": "Mit {{name}}"
 }

@@ -770,7 +770,7 @@
   "statistics.pipelineOverTime": "Pipeline over time (daily log, each stage on its own scale)",
   "statistics.pipelineLogHint": "The daily pipeline log started on {{date}}; each period shows its last logged day.",
   "contactFeed.title": "Contacts",
-  "contactFeed.hint": "People and organizations you have contacted, most recent contact first.",
+  "contactFeed.hint": "Businesses and their contacted people, most recent contact first.",
   "contactFeed.search": "Search people and organizations",
   "contactFeed.kind": "Contact type",
   "contactFeed.all": "All contacts",
@@ -806,5 +806,8 @@
   "contactDate.today": "Today",
   "contactDate.yesterday": "Yesterday",
   "contactDate.twoDaysAgo": "Two days ago",
-  "common.saving": "Saving…"
+  "common.saving": "Saving…",
+  "contactFeed.standalone": "People without business",
+  "contactFeed.people": "Contacted people ({{count}})",
+  "contactFeed.via": "With {{name}}"
 }

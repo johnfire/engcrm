@@ -34,8 +34,8 @@ def test_search_parameters_are_literal_and_workspace_and_type_are_bound():
     assert "workspace_id=%s" in predicate and "kind=%s" in predicate
     assert "100%" not in predicate
     assert parameters[:3] == [3, "person", "suspect"]
-    assert parameters[3:9] == ["%100!%%"] * 6
-    assert parameters[9:] == ["%a!_b!!%"] * 6
+    assert parameters[3:10] == ["%100!%%"] * 7
+    assert parameters[10:] == ["%a!_b!!%"] * 7
     assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND NULLIF(pipeline_stage, '') IS NULL", [])
     assert feed_predicates("", "", "", None) == ("last_contact IS NOT NULL", [])
 

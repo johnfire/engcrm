@@ -4,6 +4,17 @@ export const CONTACT_FEED_PAGE_SIZE = 50;
 export type ContactKind = "person" | "organization";
 export type ContactSort = "last_contact" | "newest" | "name";
 
+export interface ContactPerson {
+  id: number;
+  name: string;
+  description: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  pipeline_stage: string | null;
+  last_contact: string;
+}
+
 export interface ContactEntry {
   id: number;
   kind: ContactKind;
@@ -16,6 +27,10 @@ export interface ContactEntry {
   pipeline_stage: string | null;
   created_at: string | null;
   last_contact: string | null;
+  people?: ContactPerson[];
+  last_contact_kind?: ContactKind;
+  last_contact_id?: number;
+  last_contact_name?: string;
 }
 
 export function contactKey(contact: Pick<ContactEntry, "kind" | "id">): string {

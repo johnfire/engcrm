@@ -524,7 +524,7 @@
   "scanSign.locationUnavailableMessage": "Diese Suche verwendet nur den Schildtext. Prüfe die gefundene Adresse vor dem Speichern sorgfältig.",
   "scanSign.libraryLocationMessage": "Bibliotheksfotos werden nur anhand des Schildtexts gesucht, da dein aktueller Standort vom Aufnahmeort abweichen kann. Prüfe die gefundene Adresse vor dem Speichern.",
   "contactFeed.title": "Kontakte",
-  "contactFeed.hint": "Kontaktierte Personen und Organisationen, nach dem letzten Kontakt sortiert.",
+  "contactFeed.hint": "Organisationen mit ihren kontaktierten Personen, nach dem letzten Kontakt sortiert.",
   "contactFeed.search": "Personen und Organisationen suchen",
   "contactFeed.kind": "Kontaktart",
   "contactFeed.all": "Alle Kontakte",
@@ -560,5 +560,8 @@
   "contactDate.today": "Heute",
   "contactDate.yesterday": "Gestern",
   "contactDate.twoDaysAgo": "Vorgestern",
-  "common.saving": "Speichern…"
+  "common.saving": "Speichern…",
+  "contactFeed.standalone": "Personen ohne Organisation",
+  "contactFeed.people": "Kontaktierte Personen ({{count}})",
+  "contactFeed.via": "Mit {{name}}"
 }

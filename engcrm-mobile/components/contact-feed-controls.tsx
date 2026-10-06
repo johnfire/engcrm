@@ -25,7 +25,7 @@ export function ContactFeedControls(props: Props) {
         autoCapitalize="none" returnKeyType="search" />
       <ChipRow label={t("contactFeed.kind")}>
         {(["", "person", "organization"] as const).map((choice) => <FilterChip key={choice || "all"}
-          label={t(`contactFeed.${choice || "all"}`)} isActive={props.kind === choice} onPress={() => props.onKindChange(choice)} />)}
+          label={t(`contactFeed.${choice === "person" ? "standalone" : choice || "all"}`)} isActive={props.kind === choice} onPress={() => props.onKindChange(choice)} />)}
       </ChipRow>
       <ChipRow label={t("common.pipelineStage")}>
         {["", "none", ...PIPELINE_STAGES].map((choice) => <FilterChip key={choice || "all"}

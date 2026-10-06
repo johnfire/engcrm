@@ -1282,3 +1282,8 @@ th.sortable .sort-arrow { margin-left: .35em; font-size: .8em; color: var(--acce
 .stat-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.8rem; }
 .stat-multiple { background: var(--bg); border: 1px solid var(--border); padding: 0.5rem 0.6rem; }
 .stat-multiple figcaption strong { float: right; }
+
+.contact-group-people { min-width: 180px; margin-top: 8px; }
+.contact-group-people summary { cursor: pointer; padding: 8px 0; color: var(--accent); }
+.contact-group-people ul { padding-left: 18px; margin: 4px 0; }
+.contact-group-people li { padding: 6px 0; }

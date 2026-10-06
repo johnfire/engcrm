@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ContactGroupPeople } from "./contact-group-people";
 import { ContactDateLink } from "./contact-date-link";
 import { ContactEntry } from "../services/contact-feed";
 import { stageLabelKey } from "../services/organizationState";
@@ -12,20 +13,23 @@ export function ContactFeedRow({ contact, onPress, canEdit }: {
   const details = [contact.city, contact.email, contact.phone].filter(Boolean).join(" · ");
   return (
     <View style={styles.row}>
-    <TouchableOpacity onPress={onPress} accessibilityRole="button"
-      accessibilityLabel={`${t(`contactFeed.${contact.kind}`)}: ${contact.name}`}>
-      <View style={styles.heading}>
-        <Text style={styles.name}>{contact.name}</Text>
-        <Text style={styles.kind}>{t(`contactFeed.${contact.kind}`)}</Text>
-      </View>
-      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      {!!details && <Text style={styles.details}>{details}</Text>}
-      <View style={styles.heading}>
-        {!!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
-        {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {contact.last_contact}</Text>}
-      </View>
-    </TouchableOpacity>
-    {canEdit && <ContactDateLink kind={contact.kind} id={contact.id} />}
+      <TouchableOpacity onPress={onPress} accessibilityRole="button"
+        accessibilityLabel={`${t(`contactFeed.${contact.kind}`)}: ${contact.name}`}>
+        <View style={styles.heading}>
+          <Text style={styles.name}>{contact.name}</Text>
+          <Text style={styles.kind}>{t(`contactFeed.${contact.kind}`)}</Text>
+        </View>
+        {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {!!details && <Text style={styles.details}>{details}</Text>}
+        <View style={styles.heading}>
+          {!!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
+          {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {contact.last_contact}</Text>}
+        </View>
+      </TouchableOpacity>
+      {contact.last_contact_kind === "person" && contact.kind === "organization" &&
+        <Text style={styles.details}>{t("contactFeed.via", { name: contact.last_contact_name || "" })}</Text>}
+      {canEdit && <ContactDateLink kind={contact.last_contact_kind || contact.kind} id={contact.last_contact_id || contact.id} />}
+      <ContactGroupPeople people={contact.people || []} canEdit={canEdit} />
     </View>
   );
 }

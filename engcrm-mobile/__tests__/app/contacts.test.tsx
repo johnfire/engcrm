@@ -45,7 +45,7 @@ it("combines search, contact type and stage and changes sort without losing filt
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
   fireEvent.changeText(screen.getByLabelText("Search people and organizations"), "Ann");
-  fireEvent.press(screen.getByText("Person"));
+  fireEvent.press(screen.getByText("People without business"));
   fireEvent.press(screen.getAllByText("Candidate")[0]);
   fireEvent.press(screen.getByText("Name"));
   await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", page: 1 }));
@@ -100,4 +100,39 @@ it("shows the actual last contact day and opens its editor", async () => {
   expect(screen.queryByText("2026-10-06")).toBeNull();
   fireEvent.press(screen.getAllByText("Last contact date")[0]);
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/contact-date", params: { kind: "person", id: "1" } });
+});
+
+
+it("groups linked people beneath one business and edits the person supplying the latest date", async () => {
+  mockFetch.mockResolvedValue([{ ...contact("organization", 7, "Bib Academy"),
+    last_contact_kind: "person", last_contact_id: 12, last_contact_name: "Anka Mufti",
+    people: [{ id: 12, name: "Anka Mufti", description: "Coordinator", email: "anka@example.test",
+      phone: null, city: "Augsburg", pipeline_stage: "candidate", last_contact: "2026-10-04" }],
+  }]);
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("With Anka Mufti")).toBeTruthy());
+  expect(screen.UNSAFE_getByType(FlatList).props.data).toHaveLength(1);
+  fireEvent.press(screen.getByLabelText("Organization: Bib Academy"));
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/organization-detail", params: { id: "7" } });
+  fireEvent.press(screen.getByText("Last contact date"));
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/contact-date", params: { kind: "person", id: "12" } });
+  expect(screen.queryByLabelText("Person: Anka Mufti")).toBeNull();
+  fireEvent.press(screen.getByText("Contacted people (1) ▾"));
+  fireEvent.press(screen.getByLabelText("Person: Anka Mufti"));
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "12" } });
+  expect(screen.getAllByText("Last contact: 2026-10-04")).toHaveLength(2);
+  fireEvent.press(screen.getByText("Contacted people (1) ▴"));
+  expect(screen.queryByLabelText("Person: Anka Mufti")).toBeNull();
+});
+
+it("keeps grouped people accessible to viewers without date edit buttons", async () => {
+  mockRole.mockResolvedValue("viewer");
+  mockFetch.mockResolvedValue([{ ...contact("organization", 7, "Bib Academy"),
+    people: [{ id: 12, name: "Anka Mufti", last_contact: "2026-10-04" }],
+  }]);
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Contacted people (1) ▾")).toBeTruthy());
+  fireEvent.press(screen.getByText("Contacted people (1) ▾"));
+  expect(screen.getByLabelText("Person: Anka Mufti")).toBeTruthy();
+  expect(screen.queryByText("Last contact date")).toBeNull();
 });

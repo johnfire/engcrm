@@ -12,7 +12,7 @@
   <input type="search" name="q" value="{{ filters.search }}" placeholder="{{ t('contactFeed.search') }}" aria-label="{{ t('contactFeed.search') }}">
   <select name="kind" aria-label="{{ t('contactFeed.kind') }}">
     {% for kind in ['', 'person', 'organization'] %}
-    <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>{{ t('contactFeed.' ~ (kind or 'all')) }}</option>
+    <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>{{ t('contactFeed.' ~ ('standalone' if kind == 'person' else kind or 'all')) }}</option>
     {% endfor %}
   </select>
   <select name="stage" aria-label="{{ t('common.pipelineStage') }}">
@@ -43,12 +43,27 @@
       <tr>
         <td><span class="badge">{{ t('contactFeed.' ~ contact.kind) }}</span></td>
         <td><a href="{{ '/people/' if contact.kind == 'person' else '/organizations/' }}{{ contact.id }}">{{ contact.name }}</a></td>
-        <td>{{ contact.description or '' }}{% if contact.company %}<br><span class="muted">{{ contact.company }}</span>{% endif %}</td>
+        <td>{{ contact.description or '' }}{% if contact.company %}<br><span class="muted">{{ contact.company }}</span>{% endif %}
+          {% if contact.people %}<details class="contact-group-people">
+            <summary>{{ t('contactFeed.people', count=contact.people|length) }}</summary>
+            <ul>{% for person in contact.people %}<li>
+              <a href="/people/{{ person.id }}">{{ person.name }}</a>
+              {% if person.description %}<span class="muted"> — {{ person.description }}</span>{% endif %}
+              <br><span class="muted">{{ person.email or person.phone or '' }} · {{ person.last_contact }}</span>
+              {% if request.session.get('role') == 'admin' %}
+              <a href="/contact-feed/person/{{ person.id }}/date">{{ t('contactDate.edit') }}</a>
+              {% endif %}
+            </li>{% endfor %}</ul>
+          </details>{% endif %}
+        </td>
         <td>{{ contact.city or '—' }}</td><td>{{ contact.email or contact.phone or '—' }}</td>
         <td>{% if contact.pipeline_stage %}<span class="badge badge-stage-{{ contact.pipeline_stage }}">{{ t('stage.' ~ contact.pipeline_stage) }}</span>{% else %}—{% endif %}</td>
         <td>{{ (contact.last_contact or '')[:10] }}
+          {% if contact.kind == 'organization' and contact.last_contact_kind == 'person' %}
+          <br><span class="muted">{{ t('contactFeed.via', name=contact.last_contact_name) }}</span>
+          {% endif %}
           {% if request.session.get('role') == 'admin' %}
-          <a href="/contact-feed/{{ contact.kind }}/{{ contact.id }}/date">{{ t('contactDate.edit') }}</a>
+          <a href="/contact-feed/{{ contact.last_contact_kind or contact.kind }}/{{ contact.last_contact_id or contact.id }}/date">{{ t('contactDate.edit') }}</a>
           {% endif %}
         </td>
       </tr>
