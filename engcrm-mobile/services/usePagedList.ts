@@ -10,6 +10,7 @@ import { useCallback, useRef, useState } from "react";
 export function usePagedList<T extends { id: number }>(
   fetchPage: (page: number) => Promise<T[]>,
   pageSize: number,
+  identify?: (entry: T) => string | number,
 ) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +56,8 @@ export function usePagedList<T extends { id: number }>(
       page.current += 1;
       more.current = next.length >= pageSize;
       setItems((current) => {
-        const seen = new Set(current.map((item) => item.id));
-        return [...current, ...next.filter((item) => !seen.has(item.id))];
+        const seen = new Set(current.map((entry) => identify ? identify(entry) : entry.id));
+        return [...current, ...next.filter((entry) => !seen.has(identify ? identify(entry) : entry.id))];
       });
     } catch {
       // Keep what is shown. The next scroll to the end tries this page again.
@@ -66,7 +67,7 @@ export function usePagedList<T extends { id: number }>(
         setLoadingMore(false);
       }
     }
-  }, [fetchPage, pageSize]);
+  }, [fetchPage, pageSize, identify]);
 
   return { items, loading, loadingMore, error, reload, loadMore };
 }

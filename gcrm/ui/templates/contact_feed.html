@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ t('contactFeed.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('contactFeed.title') }}</h1></div>
+<p class="muted">{{ t('contactFeed.hint') }}</p>
+<form class="filter-bar" method="get" action="/contact-feed/">
+  <input type="search" name="q" value="{{ filters.search }}" placeholder="{{ t('contactFeed.search') }}" aria-label="{{ t('contactFeed.search') }}">
+  <select name="kind" aria-label="{{ t('contactFeed.kind') }}">
+    {% for kind in ['', 'person', 'organization'] %}
+    <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>{{ t('contactFeed.' ~ (kind or 'all')) }}</option>
+    {% endfor %}
+  </select>
+  <select name="stage" aria-label="{{ t('common.pipelineStage') }}">
+    <option value="">{{ t('contactFeed.allStages') }}</option>
+    <option value="none" {% if filters.stage == 'none' %}selected{% endif %}>{{ t('contactFeed.noStage') }}</option>
+    {% for stage in stages %}
+    <option value="{{ stage }}" {% if filters.stage == stage %}selected{% endif %}>{{ t('stage.' ~ stage) }}</option>
+    {% endfor %}
+  </select>
+  <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
+    {% for sort in ['newest', 'name'] %}
+    <option value="{{ sort }}" {% if filters.sort == sort %}selected{% endif %}>{{ t('contactFeed.' ~ sort) }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
+  <a href="/contact-feed/?q=&kind=&stage=&sort=newest" class="btn-secondary">{{ t('common.clear') }}</a>
+</form>
+<div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th scope="col">{{ t('contactFeed.kind') }}</th><th scope="col">{{ t('contactFeed.name') }}</th>
+      <th scope="col">{{ t('contactFeed.details') }}</th><th scope="col">{{ t('contactFeed.city') }}</th>
+      <th scope="col">{{ t('contactFeed.email') }}</th><th scope="col">{{ t('common.pipelineStage') }}</th>
+      <th scope="col">{{ t('contactFeed.added') }}</th>
+    </tr></thead>
+    <tbody>
+      {% for contact in contacts %}
+      <tr>
+        <td><span class="badge">{{ t('contactFeed.' ~ contact.kind) }}</span></td>
+        <td><a href="{{ '/people/' if contact.kind == 'person' else '/organizations/' }}{{ contact.id }}">{{ contact.name }}</a></td>
+        <td>{{ contact.description or '' }}{% if contact.company %}<br><span class="muted">{{ contact.company }}</span>{% endif %}</td>
+        <td>{{ contact.city or '—' }}</td><td>{{ contact.email or contact.phone or '—' }}</td>
+        <td>{% if contact.pipeline_stage %}<span class="badge badge-stage-{{ contact.pipeline_stage }}">{{ t('stage.' ~ contact.pipeline_stage) }}</span>{% else %}—{% endif %}</td>
+        <td>{{ (contact.created_at or '')[:10] }}</td>
+      </tr>
+      {% else %}<tr><td colspan="7" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="pagination" aria-label="{{ t('contactFeed.pages') }}">
+  {% if previous %}<a class="btn-secondary" href="{{ previous }}">{{ t('contactFeed.previous') }}</a>{% endif %}
+  <span>{{ t('contactFeed.page', page=page) }}</span>
+  {% if next %}<a class="btn-secondary" href="{{ next }}">{{ t('contactFeed.next') }}</a>{% endif %}
+</div>
+{% endblock %}

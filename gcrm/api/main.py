@@ -36,6 +36,7 @@ from gcrm.api.routers import (
     api_voice,
     approval,
     areas,
+    contact_feed,
     drafts,
     help,
     inbox,
@@ -146,6 +147,7 @@ app.include_router(api_voice.router)
 app.include_router(api_people.router)
 app.include_router(api_people_interactions.router)
 app.include_router(api_search.router)
+app.include_router(contact_feed.router)
 app.include_router(api_pipeline.router)
 app.include_router(api_areas.router)
 app.include_router(api_recon.router)

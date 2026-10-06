@@ -57,6 +57,10 @@ export default function DrawerLayout() {
         options={{ title: t("drawer.searchTitle"), drawerLabel: t("drawer.search") }}
       />
       <Drawer.Screen
+        name="contacts"
+        options={{ title: t("contactFeed.title"), drawerLabel: t("drawer.contacts") }}
+      />
+      <Drawer.Screen
         name="organizations"
         options={{ title: t("drawer.organizations"), drawerLabel: t("drawer.organizations") }}
       />
