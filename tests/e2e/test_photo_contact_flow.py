@@ -140,3 +140,53 @@ def test_multiple_people_at_one_company_without_a_city_share_the_organization(cl
         people = cursor.fetchall()
         assert [person["name"] for person in people] == ["Ann", "Ben"]
         assert people[0]["contact_id"] == people[1]["contact_id"]
+
+
+def test_letter_uploaded_from_card_scanner_saves_linked_contact_details(clean_database, tmp_path):
+    client = TestClient(app)
+    fields = {"is_card": True, "kind": "document", "company": "Academy", "name": "Ann Example",
+              "title": "Course coordinator", "email": "ann@academy.test", "phone": "+498215026534",
+              "website": "https://academy.test", "address": "Main Street 3a, 86153 Augsburg",
+              "city": "Augsburg", "country": "DE", "confidence": 95}
+    with patch("gcrm.tools.cards.CARD_IMAGE_DIR", str(tmp_path)), \
+         patch("gcrm.tools.cards.extract_card_fields", return_value={
+             "fields": fields, "model": "test", "cost_usd": 0,
+         }), patch("gcrm.tools.cards.enrich_one"):
+        upload = client.post("/api/cards", headers=AUTH,
+                             files={"image": ("letter.jpg", b"photo", "image/jpeg")})
+        assert upload.status_code == 200
+        assert upload.json()["is_card"] is True
+        capture_id = upload.json()["capture_id"]
+        draft = client.get("/api/cards", headers=AUTH).json()[0]
+        assert draft["kind"] == "document"
+        assert draft["status"] == "pending_review"
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT count(*) AS count FROM contacts")
+            assert cursor.fetchone()["count"] == 0
+        confirmation = client.post(f"/api/cards/{capture_id}/confirm", headers=AUTH,
+                                   json={"fields": fields})
+        assert confirmation.status_code == 200
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, name, address, city, source, phone, website FROM contacts")
+        organization = cursor.fetchone()
+        assert organization["name"] == "Academy"
+        assert organization["address"] == fields["address"]
+        assert organization["city"] == "Augsburg"
+        assert organization["phone"] == fields["phone"]
+        assert organization["website"] == fields["website"]
+        assert organization["source"] == "document_capture"
+        cursor.execute("SELECT name, title, email, contact_id, source FROM people")
+        person = cursor.fetchone()
+        assert person["name"] == "Ann Example"
+        assert person["title"] == "Course coordinator"
+        assert person["email"] == fields["email"]
+        assert person["contact_id"] == organization["id"]
+        assert person["source"] == "document_capture"
+        cursor.execute("SELECT actor, actor_type, correlation_id FROM audit_log WHERE action='card.extracted'")
+        assert dict(cursor.fetchone()) == {
+            "actor": "agent:contact_vision", "actor_type": "ai", "correlation_id": "e2e-page",
+        }
+        cursor.execute("SELECT actor FROM audit_log WHERE action='card.captured'")
+        assert cursor.fetchone()["actor"] == "shared-admin"

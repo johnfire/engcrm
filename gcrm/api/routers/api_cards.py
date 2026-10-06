@@ -38,13 +38,20 @@ def _as_int(v) -> int | None:
 
 @router.post("")
 def capture_card(
+    request: Request,
     image: UploadFile = File(...),
     gps_lat: float | None = Form(None),
     gps_lng: float | None = Form(None),
     role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    """Store the photo, extract fields with Claude vision, return fields + any
-    likely duplicate for the confirm screen."""
+    """Accept a card or primary document contact through existing mobile clients."""
+    actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
+    with audit_scope(actor, "user", request.state.correlation_id):
+        return create_contact_capture(image, gps_lat, gps_lng, actor)
+
+
+def create_contact_capture(image: UploadFile, gps_lat, gps_lng, actor: str) -> dict:
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="Expected an image upload")
     image_bytes = image.file.read(MAX_UPLOAD_BYTES + 1)
@@ -52,49 +59,48 @@ def capture_card(
         raise HTTPException(status_code=400, detail="Empty image")
     if len(image_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Image too large")
-
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
             "INSERT INTO card_captures (captured_by, gps_lat, gps_lng) VALUES (%s, %s, %s) RETURNING id",
-            (role, gps_lat, gps_lng),
+            (actor, gps_lat, gps_lng),
         )
-        capture_id = cur.fetchone()["id"]
-
+        capture_id = cursor.fetchone()["id"]
     image_path = cards.save_card_image(capture_id, image_bytes)
-    result = cards.extract_card_fields(image_bytes, image.content_type or "image/jpeg")
-    fields = result["fields"]
+    context = current_audit_context()
+    with audit_scope("agent:contact_vision", "ai", context.correlation_id if context else None):
+        extraction = cards.extract_card_fields(image_bytes, image.content_type or "image/jpeg")
+        log_audit(None, None, "card.extracted", f"card_capture:{capture_id}",
+                  "extracted" if extraction["fields"].get("is_card") else "failed")
+    fields = extraction["fields"]
     is_card = bool(fields.get("is_card"))
-    dup = cards.find_possible_duplicate(fields) if is_card else None
+    duplicate = cards.find_possible_duplicate(fields) if is_card else None
+    store_capture_extraction(capture_id, image_path, extraction, duplicate)
+    log_audit(None, None, "card.captured", f"card_capture:{capture_id}", "pending_review")
+    return {
+        "capture_id": capture_id, "is_card": is_card, "confidence": fields.get("confidence"),
+        "fields": fields, "dup_suggestion": duplicate, "cost_usd": extraction["cost_usd"],
+    }
 
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
+
+def store_capture_extraction(capture_id: int, image_path: str, extraction: dict, duplicate: dict | None) -> None:
+    fields = extraction["fields"]
+    kind = "document" if fields.get("kind") == "document" else "card"
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
             """
             UPDATE card_captures
-               SET image_path=%s, extracted=%s, extraction_model=%s, extraction_cost_usd=%s,
+               SET kind=%s, image_path=%s, extracted=%s, extraction_model=%s, extraction_cost_usd=%s,
                    confidence=%s, extraction_status=%s, dup_contact_id=%s, error=%s, updated_at=NOW()
              WHERE id=%s
             """,
             (
-                image_path, Json(fields), result["model"], result["cost_usd"],
-                _as_int(fields.get("confidence")),
-                "done" if is_card else "failed",
-                dup["id"] if dup else None,
-                fields.get("error"),
-                capture_id,
+                kind, image_path, Json(fields), extraction["model"], extraction["cost_usd"],
+                _as_int(fields.get("confidence")), "done" if fields.get("is_card") else "failed",
+                duplicate["id"] if duplicate else None, fields.get("error"), capture_id,
             ),
         )
-    log_audit(None, None, "card.captured", f"card_capture:{capture_id}", "extracted")
-
-    return {
-        "capture_id": capture_id,
-        "is_card": is_card,
-        "confidence": fields.get("confidence"),
-        "fields": fields,
-        "dup_suggestion": dup,
-        "cost_usd": result["cost_usd"],
-    }
 
 
 @router.get("")

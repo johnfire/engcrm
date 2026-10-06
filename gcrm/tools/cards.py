@@ -21,7 +21,7 @@ _EXTRACT_MODEL_NAME = "claude-haiku-4-5-20251001"  # PRICING / response model na
 
 # What the mobile client is told when extraction fails. Deliberately free of
 # detail — the diagnosable version is in the server log.
-_EXTRACTION_FAILED = "Could not read this card. Enter the details manually or retake the photo."
+_EXTRACTION_FAILED = "Could not read the contact details. Retake the photo with the text clearly visible."
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ def extract_card_fields(image_bytes: bytes, media_type: str = "image/jpeg") -> d
 
     b64 = base64.b64encode(image_bytes).decode("ascii")
     user = HumanMessage(content=[
-        {"type": "text", "text": "Extract this business card."},
+        {"type": "text", "text": "Extract the primary contact details from this card or document."},
         {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
     ])
     try:
