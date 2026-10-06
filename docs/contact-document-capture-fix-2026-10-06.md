@@ -46,9 +46,17 @@ even when its signature contained readable contact details.
   findings remain). Backend audit passed with no known vulnerabilities; local
   project packages are unpublished and cannot be checked against the PyPI advisory database.
 
-The supplied photo has not been sent to the external vision service: automatic
-approval review requires explicit approval for that particular image. No contact
-from this photo has been inserted into production. Local tests use mocked vision
-responses and a disposable database; they do not establish physical-phone or live
-model accuracy. Pushing the local commits and successful release workflows remain
-necessary before this fix is available on the phone.
+## Supplied-photo verification
+
+After explicit approval, the supplied letter photo was tested with the CRM's
+existing Claude Haiku vision service. It was accepted as a document and correctly
+identified the signatory, organization, role, email, phone, website, street address
+and city. It selected the signatory rather than directors in the footer. The model
+reported 85% confidence; calculated extraction cost was $0.002836.
+
+This was an extraction-only check: database access and cost-recording callbacks
+were disabled. No contact from this photo was inserted into production. Local
+save tests still use mocked vision responses and a disposable database. The real
+photo check establishes model extraction for this image, but physical-phone and
+live-deployment verification remain outstanding. Pushing the local commits and
+successful release workflows remain necessary before the fix is on the phone.
