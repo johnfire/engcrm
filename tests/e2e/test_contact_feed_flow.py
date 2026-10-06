@@ -26,6 +26,10 @@ def test_new_person_and_company_appear_together_and_open_their_own_details(clean
     })
     assert person.status_code == 200
     person_id = person.json()['id']
+    assert browser.get('/api/contact-feed', headers=headers).json() == []
+    for kind, contact_id, day in [('organization', organization_id, '2026-10-03'), ('person', person_id, '2026-10-04')]:
+        assert browser.patch(f'/api/contact-feed/{kind}/{contact_id}/date', headers=headers,
+                             json={'contact_date': day}).status_code == 200
     contacts = browser.get('/api/contact-feed', headers=headers).json()
     assert [(contact['kind'], contact['id']) for contact in contacts] == [('person', person_id), ('organization', organization_id)]
     assert browser.get(f'/api/people/{person_id}', headers=headers).json()['name'] == 'Ann Example'

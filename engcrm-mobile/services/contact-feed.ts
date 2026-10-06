@@ -2,7 +2,7 @@ import { client } from "./api";
 
 export const CONTACT_FEED_PAGE_SIZE = 50;
 export type ContactKind = "person" | "organization";
-export type ContactSort = "newest" | "name";
+export type ContactSort = "last_contact" | "newest" | "name";
 
 export interface ContactEntry {
   id: number;
@@ -15,6 +15,7 @@ export interface ContactEntry {
   phone: string | null;
   pipeline_stage: string | null;
   created_at: string | null;
+  last_contact: string | null;
 }
 
 export function contactKey(contact: Pick<ContactEntry, "kind" | "id">): string {

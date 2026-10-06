@@ -30,6 +30,11 @@ def test_add_business_on_web_and_mobile_then_find_it_in_contacts(clean_database,
     headers = {"Authorization": f"Bearer {token}"}
     mobile = browser.post("/api/contacts", headers=headers, json={"name": "Mobile Academy", "pipeline_stage": "customer"})
     assert mobile.status_code == 200
+    assert browser.get("/api/contact-feed", headers=headers).json() == []
+    web_id = int(saved.headers["location"].split("/")[-1])
+    for contact_id, day in [(web_id, "2026-10-03"), (mobile.json()["id"], "2026-10-04")]:
+        assert browser.patch(f"/api/contact-feed/organization/{contact_id}/date", headers=headers,
+                             json={"contact_date": day}).status_code == 200
     contacts = browser.get("/api/contact-feed", headers=headers).json()
     assert [(contact["name"], contact["pipeline_stage"]) for contact in contacts] == [
         ("Mobile Academy", "customer"), ("Web Academy", "opportunity"),

@@ -1,18 +1,10 @@
-import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "../i18n/I18nContext";
-import { getRole } from "../services/auth";
 
-export function AddBusinessButton() {
+export function AddBusinessButton({ isAdmin }: { isAdmin: boolean }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  useEffect(() => {
-    let active = true;
-    getRole().then((role) => { if (active) setIsAdmin(role === "admin"); }).catch(() => {});
-    return () => { active = false; };
-  }, []);
   if (!isAdmin) return null;
   return <TouchableOpacity style={styles.button} accessibilityRole="button"
     onPress={() => router.push({ pathname: "/(drawer)/edit-organization", params: {} })}>

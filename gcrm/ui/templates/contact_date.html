@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t('contactDate.title') }} — {{ contact.name }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ contact.name }}</h1></div>
+<section class="detail-section">
+  <h2>{{ t('contactDate.title') }}</h2>
+  <p class="muted">{{ t('contactDate.hint') if contact.interaction_id else t('contactDate.firstHint') }}</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/contact-feed/{{ contact.kind }}/{{ contact.id }}/date">
+    <input type="hidden" name="interaction_id" value="{{ contact.interaction_id or '' }}">
+    <input type="hidden" name="previous_date" value="{{ contact.contact_date or '' }}">
+    <div class="field-row">
+      <label for="contact-date">{{ t('contactDate.date') }}</label>
+      <input id="contact-date" type="date" name="contact_date" value="{{ selected }}" required>
+    </div>
+    <div class="detail-actions">
+      <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+      <a class="btn-secondary" href="{{ '/people/' if contact.kind == 'person' else '/organizations/' }}{{ contact.id }}">{{ t('common.cancel') }}</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

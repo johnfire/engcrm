@@ -770,7 +770,7 @@
   "statistics.pipelineOverTime": "Pipeline im Verlauf (Tageslog, jede Stufe mit eigener Skala)",
   "statistics.pipelineLogHint": "Das tägliche Pipeline-Log läuft seit {{date}}; jeder Zeitraum zeigt seinen letzten erfassten Tag.",
   "contactFeed.title": "Kontakte",
-  "contactFeed.hint": "Personen und Organisationen zusammen, neueste zuerst.",
+  "contactFeed.hint": "Kontaktierte Personen und Organisationen, nach dem letzten Kontakt sortiert.",
   "contactFeed.search": "Personen und Organisationen suchen",
   "contactFeed.kind": "Kontaktart",
   "contactFeed.all": "Alle Kontakte",
@@ -794,5 +794,17 @@
   "businessForm.add": "Unternehmen hinzufügen",
   "businessForm.stage": "Pipeline-Stufe",
   "businessForm.openExisting": "Vorhandenes Unternehmen öffnen",
-  "businessForm.failed": "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten — bitte erneut versuchen."
+  "businessForm.failed": "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten — bitte erneut versuchen.",
+  "contactFeed.last_contact": "Letzter Kontakt",
+  "contactDate.title": "Datum des letzten Kontakts",
+  "contactDate.edit": "Datum ändern",
+  "contactDate.date": "Kontaktdatum",
+  "contactDate.hint": "Ändern Sie das Datum des letzten Kontakts. Das gewählte Datum wird im Verlauf übernommen.",
+  "contactDate.firstHint": "Noch kein Kontakt erfasst. Geben Sie den Tag ein, an dem Sie tatsächlich Kontakt hatten.",
+  "contactDate.loadFailed": "Das Kontaktdatum konnte nicht geladen werden. Bitte öffnen Sie diese Ansicht erneut.",
+  "contactDate.failed": "Das Kontaktdatum konnte nicht gespeichert werden. Ihre Auswahl bleibt erhalten — bitte erneut versuchen.",
+  "contactDate.today": "Heute",
+  "contactDate.yesterday": "Gestern",
+  "contactDate.twoDaysAgo": "Vorgestern",
+  "common.saving": "Speichern…"
 }

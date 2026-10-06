@@ -524,7 +524,7 @@
   "scanSign.locationUnavailableMessage": "This search uses only the sign text. Check the matched address carefully before saving.",
   "scanSign.libraryLocationMessage": "Library photos are searched by sign text only, because your current location may differ from where the photo was taken. Check the matched address before saving.",
   "contactFeed.title": "Contacts",
-  "contactFeed.hint": "People and organizations together, newest first.",
+  "contactFeed.hint": "People and organizations you have contacted, most recent contact first.",
   "contactFeed.search": "Search people and organizations",
   "contactFeed.kind": "Contact type",
   "contactFeed.all": "All contacts",
@@ -548,5 +548,17 @@
   "businessForm.add": "Add business",
   "businessForm.stage": "Pipeline stage",
   "businessForm.openExisting": "Open existing business",
-  "businessForm.failed": "Could not save. Your entries are still here — please try again."
+  "businessForm.failed": "Could not save. Your entries are still here — please try again.",
+  "contactFeed.last_contact": "Last contact",
+  "contactDate.title": "Last contact date",
+  "contactDate.edit": "Change date",
+  "contactDate.date": "Contact date",
+  "contactDate.hint": "Correct the date of your most recent contact. The history will use the date you choose.",
+  "contactDate.firstHint": "No contact recorded yet. Enter the day you actually contacted them.",
+  "contactDate.loadFailed": "Could not load the contact date. Please reopen this screen.",
+  "contactDate.failed": "Could not save the contact date. Your chosen date is still here — try again.",
+  "contactDate.today": "Today",
+  "contactDate.yesterday": "Yesterday",
+  "contactDate.twoDaysAgo": "Two days ago",
+  "common.saving": "Saving…"
 }

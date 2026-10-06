@@ -11,6 +11,10 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   >
 </div>
 
+{% if request.session.get('role') == 'admin' %}
+<p><a class="btn-secondary" href="/contact-feed/organization/{{ organization.id }}/date">{{ t('contactDate.title') }}</a></p>
+{% endif %}
+
 {% if saved %}
 <div class="flash-success">{{ t('organizationDetail.saved') }}</div>
 {% endif %}

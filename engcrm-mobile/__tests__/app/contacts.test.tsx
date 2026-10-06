@@ -21,7 +21,7 @@ import { ContactEntry, contactKey } from "../../services/contact-feed";
 
 const contact = (kind: ContactEntry["kind"], id: number, name: string): ContactEntry => ({
   id, kind, name, description: "Coordinator", company: kind === "person" ? "Academy" : null,
-  city: "Augsburg", email: "contact@example.test", phone: null, pipeline_stage: "candidate", created_at: "2026-10-06T10:00:00Z",
+  city: "Augsburg", email: "contact@example.test", phone: null, pipeline_stage: "candidate", created_at: "2026-10-06T10:00:00Z", last_contact: "2026-10-04",
 });
 
 beforeEach(() => {
@@ -34,7 +34,7 @@ it("shows both contact types and opens their correct detail screen even with the
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByLabelText("Person: Ann Example")).toBeTruthy());
   expect(screen.getByLabelText("Organization: Academy")).toBeTruthy();
-  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "newest", page: 1 });
+  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", page: 1 });
   fireEvent.press(screen.getByLabelText("Person: Ann Example"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "1" } });
   fireEvent.press(screen.getByLabelText("Organization: Academy"));
@@ -92,4 +92,12 @@ it("hides business entry from viewers", async () => {
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
   expect(screen.queryByText("Add business")).toBeNull();
+});
+
+it("shows the actual last contact day and opens its editor", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getAllByText("Last contact: 2026-10-04")).toHaveLength(2));
+  expect(screen.queryByText("2026-10-06")).toBeNull();
+  fireEvent.press(screen.getAllByText("Last contact date")[0]);
+  expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/contact-date", params: { kind: "person", id: "1" } });
 });

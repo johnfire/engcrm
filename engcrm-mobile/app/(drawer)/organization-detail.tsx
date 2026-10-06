@@ -9,6 +9,7 @@ import {
   Linking,
   TouchableOpacity,
 } from "react-native";
+import { ContactDateLink } from "../../components/contact-date-link";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   deleteOrganizationNote,
@@ -156,6 +157,7 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
 
+      {isAdmin && <ContactDateLink kind="organization" id={organization.id} />}
       {isAdmin && (
         <TouchableOpacity
           style={styles.logButton}

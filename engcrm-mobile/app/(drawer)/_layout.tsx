@@ -144,6 +144,8 @@ export default function DrawerLayout() {
           headerLeft: () => <HeaderBack to="/(drawer)/search" />,
         }}
       />
+      <Drawer.Screen name="contact-date" options={{ drawerItemStyle: { display: "none" },
+        title: t("contactDate.title"), headerLeft: () => <HeaderBack to="/(drawer)/contacts" /> }} />
       <Drawer.Screen
         name="edit-organization"
         options={{

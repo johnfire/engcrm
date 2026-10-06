@@ -26,6 +26,11 @@ def mixed_contacts(clean_database):
                        "(3,'Hidden person',NULL,NULL,3,%s,NULL,'2026-10-07T10:00:00Z')", (workspace_id, workspace_id, other_workspace))
         cursor.execute("INSERT INTO people (id,name,contact_id,workspace_id,created_at,deleted_at) "
                        "VALUES (4,'Deleted person',1,%s,NOW(),NOW())", (workspace_id,))
+        cursor.execute("INSERT INTO interactions (contact_id,interaction_date,method) VALUES "
+                       "(1,'2026-10-03','phone'),(2,'2026-10-05','in_person'),(3,'2026-10-06','phone')")
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) VALUES "
+                       "(1,'2026-10-04T10:00:00Z','call','Contact'),(2,'2026-10-02T10:00:00Z','visit','Contact'),"
+                       "(3,'2026-10-06T10:00:00Z','call','Hidden'),(4,NOW(),'call','Deleted')")
     return workspace_id, other_workspace
 
 
@@ -66,6 +71,9 @@ def test_combined_pagination_selects_global_pages_instead_of_two_partial_lists(m
         connection.cursor().execute("INSERT INTO people (id,name,workspace_id,created_at) "
                                     "SELECT 10+sequence,'Batch '||sequence,%s,'2026-10-08T10:00:00Z'::timestamptz "
                                     "FROM generate_series(1,60) sequence", (workspace_id,))
+        connection.cursor().execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) "
+                                    "SELECT 10+sequence,'2026-10-05T10:00:00Z'::timestamptz + sequence*INTERVAL '1 minute',"
+                                    "'call','Batch contact' FROM generate_series(1,60) sequence")
     first = get_contact_feed(workspace_id=workspace_id)
     second = get_contact_feed(workspace_id=workspace_id, page=2)
     assert len(first) == 50 and len(second) == 14

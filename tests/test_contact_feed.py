@@ -15,7 +15,7 @@ from gcrm.tools.db_contact_feed import feed_predicates, validate_feed_filters
 AUTH = {"Authorization": f"Bearer {create_token('spectator')}"}
 CONTACT = {"id": 7, "kind": "person", "name": "Ann", "description": "Coordinator", "company": "Academy",
            "city": "Ulm", "email": "ann@academy.test", "phone": None,
-           "pipeline_stage": "candidate", "created_at": "2026-10-06T12:00:00+00:00"}
+           "pipeline_stage": "candidate", "created_at": "2026-10-06T12:00:00+00:00", "last_contact": "2026-10-04"}
 
 
 @pytest.mark.parametrize("stage", ["", "none", *PIPELINE_STAGES])
@@ -36,8 +36,8 @@ def test_search_parameters_are_literal_and_workspace_and_type_are_bound():
     assert parameters[:3] == [3, "person", "suspect"]
     assert parameters[3:9] == ["%100!%%"] * 6
     assert parameters[9:] == ["%a!_b!!%"] * 6
-    assert feed_predicates("", "", "none", None) == ("NULLIF(pipeline_stage, '') IS NULL", [])
-    assert feed_predicates("", "", "", None) == ("TRUE", [])
+    assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND NULLIF(pipeline_stage, '') IS NULL", [])
+    assert feed_predicates("", "", "", None) == ("last_contact IS NOT NULL", [])
 
 
 def test_web_filters_are_remembered_and_clear_resets_them():
@@ -45,7 +45,7 @@ def test_web_filters_are_remembered_and_clear_resets_them():
     selected = remember_feed_filters(request, q="Ann", kind="person", stage="suspect", sort="name")
     assert remember_feed_filters(request, q=None, kind=None, stage=None, sort=None) == selected
     cleared = remember_feed_filters(request, q="", kind="", stage="", sort="newest")
-    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "newest"}
+    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "last_contact"}
     assert "q=Ann" in feed_page_link(2, selected) and "page=2" in feed_page_link(2, selected)
 
 

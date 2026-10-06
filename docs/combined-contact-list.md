@@ -1,46 +1,62 @@
 # Combined Contacts list
 
-The mobile app and website now offer a Contacts list combining people and
-organizations, ordered by when each record was added. Existing separate lists
-remain available. A type label distinguishes each row and opens its corresponding
-detail screen.
+Contacts on mobile and the website combines people and organizations you have
+contacted. It orders them by the most recent recorded contact day, rather than
+when a record was added. Records with no contact history are hidden; the separate
+People and Organizations lists continue to include them.
 
-The mobile drawer entry is Contacts. The website navigation links to
-`/contact-feed/`; legacy `/contacts/` organization redirects remain intact.
-Both clients use the same query through `/api/contact-feed` and the web router.
+The mobile drawer entry is Contacts. Website navigation links to `/contact-feed/`;
+legacy `/contacts/` organization redirects remain intact. Both clients use the
+same database query. The older API sort key `newest` now means last contact;
+existing signed website filter settings are upgraded to `last_contact`.
 
-## Behavior
+## Contact dates
 
-- Default order: newest added first. Alphabetical order is also available.
-- Search matches name, role/category, company, city, email or phone. Each of up
-  to four search words must match; SQL wildcard characters are treated literally.
-- Contact type and pipeline stage filters apply across the combined list.
-- Paging selects 50 rows from one mixed result set. Type plus ID identifies each
-  row, preserving people and organizations with the same numeric ID.
-- Mobile supports pull-to-refresh and incremental loading. Website paging retains
-  the active query and filters; signed session state remembers filters on return.
-- Deleted records are excluded. Requests from real accounts are scoped to their
-  workspace; company metadata on person rows cannot leak from another workspace.
-- English and German labels follow the existing list styles. No new dependency
-  or migration is needed.
+- Organization contact days come from `interactions.interaction_date`. Person
+  contact days come from `people_interactions.occurred_at`, in Europe/Berlin time.
+  Deleted interactions and next-step planning/completion entries do not count.
+- Last contact is the maximum actual interaction day. Equal days use a stable
+  type/ID tie order. Alphabetical order remains available.
+- Admins can open **Last contact date** from mobile rows and both detail screens,
+  or **Change date** on website rows. Website detail screens also link to the editor.
+- The editor corrects the most recent actual interaction. If no contact has been
+  logged yet, it records a first contact on the selected day. No stage or status
+  changes are implied. Mobile offers Today, Yesterday and Two days ago shortcuts,
+  plus manual date entry; the website uses its native date input.
+- Corrections preserve the person's recorded local time and the original entry's
+  creation timestamp. If another interaction is now more recent, that interaction
+  becomes the last contact. Correcting a date does not add a duplicate entry.
+- A stale history ID/day is rejected with a conflict. Reopening the editor loads
+  the current history. Failed saves keep the entered date, including on mobile.
+- The server rejects invalid and future dates. All edits require admin access,
+  check workspace ownership, and record actor/correlation IDs in the audit log.
 
-## Verification
+## Browsing
 
-- Backend: 1,191 tests passed against disposable PostgreSQL 16 with the existing
-  network exclusion (one network test deselected).
-- Mobile: 257 tests passed in 36 suites; TypeScript and ESLint passed.
-- Ruff and whitespace checks passed.
-- New query tests cover mixed chronology, tie order, colliding IDs, combined
-  pagination, deleted rows, workspace boundaries, literal search and stage/type
-  filters against the real database.
-- End-to-end server coverage creates an organization and linked person through
-  the mobile API, signs into the website, browses the mixed list, opens both
-  kinds of detail page and returns with the search retained.
-- Mobile screen coverage checks both detail destinations, filter combinations,
-  pagination identity, empty/error states and refresh recovery.
-- One initial mobile test expected `Couldn't load. Pull down to refresh.` instead
-  of the existing catalog text `Couldn't load — pull down to refresh`. The exact
-  assertion was corrected to the catalog; the same error/recovery checks passed.
+- Search matches name, role/category, company, city, email or phone. Each of up to
+  four words must match; SQL wildcard characters are treated literally.
+- Type and pipeline stage filters apply across the list. Paging selects 50 rows
+  from one mixed result set; type plus ID preserves colliding numeric IDs.
+- Mobile supports refresh and incremental loading, and reloads on returning from
+  the date editor. Website paging retains signed query/filter selections.
+- Deleted records are excluded. Accounts are scoped to their workspace, including
+  company metadata on person rows. Labels are available in English and German.
+- No dependency or database migration was added.
 
-Validation was local. Physical-device testing and deployed availability require
-release of this commit. The mobile screen will require an updated app build.
+## Verification — 2026-10-06
+
+- Full backend suite: 1,235 passed against disposable PostgreSQL 16, with one
+  live-service test excluded using the established `not network` selection.
+- Final targeted backend checks: 15 passed, including the additional stale web
+  form check ensuring a retry cannot silently retarget a newer interaction.
+- Full mobile suite: 269 passed in 38 suites. After the final keyboard/scroll
+  adjustment, six date-editor checks passed again. TypeScript and ESLint passed.
+- Python lint and whitespace checks passed. Website list and date editor were
+  visually inspected; the date form also fits a 390px viewport.
+- Coverage includes history-backed ordering independent of creation date, missing
+  contacts, planning/deleted history, date corrections, preserved local times,
+  midnight boundaries, duplicates, stale forms, permissions, workspace isolation,
+  mixed pagination, saved filters and shared web/mobile history.
+
+Validation was local. Physical-device behavior and production availability remain
+unverified until release; mobile requires an updated app build.

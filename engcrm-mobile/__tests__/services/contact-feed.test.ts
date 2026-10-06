@@ -10,7 +10,7 @@ it("keeps person and organization identities separate", () => {
 it("uses the combined endpoint with every filter and the requested page", async () => {
   const contacts = [{ id: 1, kind: "person" }];
   mockGet.mockResolvedValue({ data: contacts });
-  const filters = { search: "Ann", kind: "person" as const, stage: "candidate", sort: "newest" as const, page: 2 };
+  const filters = { search: "Ann", kind: "person" as const, stage: "candidate", sort: "last_contact" as const, page: 2 };
   expect(await fetchContactFeed(filters)).toEqual(contacts);
   expect(mockGet).toHaveBeenCalledWith("/api/contact-feed", { params: filters });
 });

@@ -1,16 +1,18 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ContactDateLink } from "./contact-date-link";
 import { ContactEntry } from "../services/contact-feed";
 import { stageLabelKey } from "../services/organizationState";
 import { useTranslation } from "../i18n/I18nContext";
 
-export function ContactFeedRow({ contact, onPress }: {
-  contact: ContactEntry; onPress: () => void;
+export function ContactFeedRow({ contact, onPress, canEdit }: {
+  contact: ContactEntry; onPress: () => void; canEdit: boolean;
 }) {
   const { t } = useTranslation();
   const subtitle = [contact.description, contact.company].filter(Boolean).join(" · ");
   const details = [contact.city, contact.email, contact.phone].filter(Boolean).join(" · ");
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} accessibilityRole="button"
+    <View style={styles.row}>
+    <TouchableOpacity onPress={onPress} accessibilityRole="button"
       accessibilityLabel={`${t(`contactFeed.${contact.kind}`)}: ${contact.name}`}>
       <View style={styles.heading}>
         <Text style={styles.name}>{contact.name}</Text>
@@ -20,9 +22,11 @@ export function ContactFeedRow({ contact, onPress }: {
       {!!details && <Text style={styles.details}>{details}</Text>}
       <View style={styles.heading}>
         {!!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
-        {!!contact.created_at && <Text style={styles.date}>{contact.created_at.slice(0, 10)}</Text>}
+        {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {contact.last_contact}</Text>}
       </View>
     </TouchableOpacity>
+    {canEdit && <ContactDateLink kind={contact.kind} id={contact.id} />}
+    </View>
   );
 }
 

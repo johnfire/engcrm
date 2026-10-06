@@ -23,7 +23,7 @@ def check_feed_filters(kind: str, stage: str, sort: str) -> None:
 
 @router.get("/api/contact-feed")
 def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", stage: str = "",
-                    sort: str = "newest", page: int = Query(1, ge=1),
+                    sort: str = "last_contact", page: int = Query(1, ge=1),
                     payload: dict = Depends(require_jwt_payload)) -> list[dict]:
     check_feed_filters(kind, stage, sort)
     _, workspace_id = _personal_identity(payload)
@@ -36,8 +36,10 @@ def remember_feed_filters(request: Request, **selections) -> dict:
     filters = {key: selected if selected is not None else saved.get(key, default)
                for key, selected, default in (
                    ("search", selections["q"], ""), ("kind", selections["kind"], ""),
-                   ("stage", selections["stage"], ""), ("sort", selections["sort"], "newest"),
+                   ("stage", selections["stage"], ""), ("sort", selections["sort"], "last_contact"),
                )}
+    if filters["sort"] == "newest":
+        filters["sort"] = "last_contact"
     check_feed_filters(filters["kind"], filters["stage"], filters["sort"])
     request.session["contact_feed_filters"] = filters
     return filters

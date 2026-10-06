@@ -9,6 +9,7 @@ import {
   Linking,
   TouchableOpacity,
 } from "react-native";
+import { ContactDateLink } from "../../components/contact-date-link";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { deletePerson, fetchPerson, Person, updatePersonStage, updatePersonValueRating } from "../../services/api";
 import { PipelineStage } from "../../services/organizationState";
@@ -181,6 +182,7 @@ export default function PersonDetailScreen() {
         </View>
       )}
 
+      {isAdmin && <ContactDateLink kind="person" id={person.id} />}
       {isAdmin && (
         <TouchableOpacity
           style={styles.logButton}

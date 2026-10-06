@@ -23,12 +23,12 @@
     {% endfor %}
   </select>
   <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
-    {% for sort in ['newest', 'name'] %}
+    {% for sort in ['last_contact', 'name'] %}
     <option value="{{ sort }}" {% if filters.sort == sort %}selected{% endif %}>{{ t('contactFeed.' ~ sort) }}</option>
     {% endfor %}
   </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  <a href="/contact-feed/?q=&kind=&stage=&sort=newest" class="btn-secondary">{{ t('common.clear') }}</a>
+  <a href="/contact-feed/?q=&kind=&stage=&sort=last_contact" class="btn-secondary">{{ t('common.clear') }}</a>
 </form>
 <div class="table-scroll">
   <table>
@@ -36,7 +36,7 @@
       <th scope="col">{{ t('contactFeed.kind') }}</th><th scope="col">{{ t('contactFeed.name') }}</th>
       <th scope="col">{{ t('contactFeed.details') }}</th><th scope="col">{{ t('contactFeed.city') }}</th>
       <th scope="col">{{ t('contactFeed.email') }}</th><th scope="col">{{ t('common.pipelineStage') }}</th>
-      <th scope="col">{{ t('contactFeed.added') }}</th>
+      <th scope="col">{{ t('contactFeed.last_contact') }}</th>
     </tr></thead>
     <tbody>
       {% for contact in contacts %}
@@ -46,7 +46,11 @@
         <td>{{ contact.description or '' }}{% if contact.company %}<br><span class="muted">{{ contact.company }}</span>{% endif %}</td>
         <td>{{ contact.city or '—' }}</td><td>{{ contact.email or contact.phone or '—' }}</td>
         <td>{% if contact.pipeline_stage %}<span class="badge badge-stage-{{ contact.pipeline_stage }}">{{ t('stage.' ~ contact.pipeline_stage) }}</span>{% else %}—{% endif %}</td>
-        <td>{{ (contact.created_at or '')[:10] }}</td>
+        <td>{{ (contact.last_contact or '')[:10] }}
+          {% if request.session.get('role') == 'admin' %}
+          <a href="/contact-feed/{{ contact.kind }}/{{ contact.id }}/date">{{ t('contactDate.edit') }}</a>
+          {% endif %}
+        </td>
       </tr>
       {% else %}<tr><td colspan="7" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
     </tbody>

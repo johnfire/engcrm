@@ -33,7 +33,7 @@ export function ContactFeedControls(props: Props) {
           isActive={props.stage === choice} onPress={() => props.onStageChange(choice)} />)}
       </ChipRow>
       <ChipRow label={t("contactFeed.sort")}>
-        {(["newest", "name"] as const).map((choice) => <FilterChip key={choice} label={t(`contactFeed.${choice}`)}
+        {(["last_contact", "name"] as const).map((choice) => <FilterChip key={choice} label={t(`contactFeed.${choice}`)}
           isActive={props.sort === choice} onPress={() => props.onSortChange(choice)} />)}
       </ChipRow>
     </View>

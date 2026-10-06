@@ -21,6 +21,10 @@
 </div>
 {% endif %}
 
+{% if request.session.get('role') == 'admin' %}
+<p><a class="btn-secondary" href="/contact-feed/person/{{ person.id }}/date">{{ t('contactDate.title') }}</a></p>
+{% endif %}
+
 {% if saved %}
 <div class="flash-success">{{ t('personDetail.saved') }}</div>
 {% endif %}
