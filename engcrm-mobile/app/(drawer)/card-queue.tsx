@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { listPendingCards, PendingCard, CaptureResult } from "../../services/api";
+import { listPendingCards, PendingCard, CaptureResult, SignCaptureResult } from "../../services/api";
 import { setHandoff } from "../../services/handoff";
 import { useTranslation } from "../../i18n/I18nContext";
 
@@ -40,13 +40,24 @@ export default function CardQueueScreen() {
   );
 
   function review(card: PendingCard) {
+    if (card.kind === "sign") {
+      const capture: SignCaptureResult = {
+        capture_id: card.id, is_sign: true, confidence: card.confidence,
+        fields: card.extracted || {}, place: card.place_json || null,
+        dup_suggestion: card.dup_suggestion || null, cost_usd: 0, return_to_queue: true,
+      };
+      setHandoff("sign", capture);
+      router.push("/(drawer)/sign-confirm");
+      return;
+    }
     // Rebuild a CaptureResult so the confirm screen works the same as a fresh scan.
     const capture: CaptureResult = {
       capture_id: card.id,
       is_card: true,
+      return_to_queue: true,
       confidence: card.confidence,
       fields: card.extracted || {},
-      dup_suggestion: null, // backend re-checks dedup on save
+      dup_suggestion: card.dup_suggestion || null,
       cost_usd: 0,
     };
     setHandoff("card", capture);
@@ -65,11 +76,12 @@ export default function CardQueueScreen() {
           keyExtractor={(capture) => String(capture.id)}
           renderItem={({ item }) => {
             const fields = item.extracted || {};
-            const title = fields.company || fields.name || t("cardQueue.unreadCard");
+            const title = fields.business_name || fields.company || fields.name || t("cardQueue.unreadCard");
             const sub = [fields.name, fields.email].filter(Boolean).join("  ·  ");
             return (
               <TouchableOpacity style={styles.row} onPress={() => review(item)}>
                 <Text style={styles.rowTitle}>{title}</Text>
+                {item.kind === "document" && <Text style={styles.rowSub}>{t("documentCapture.draft")}</Text>}
                 {!!sub && <Text style={styles.rowSub}>{sub}</Text>}
                 <Text style={styles.rowMeta}>
                   {typeof item.confidence === "number" ? `${item.confidence}%  ·  ` : ""}

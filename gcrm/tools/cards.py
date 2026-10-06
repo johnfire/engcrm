@@ -158,9 +158,9 @@ def find_possible_duplicate(fields: dict) -> dict | None:
             row = cur.fetchone()
             if row:
                 return dict(row)
-        if company and city:
+        if company:
             cur.execute(
-                f"SELECT {cols} FROM contacts WHERE lower(name)=lower(%s) AND lower(city)=lower(%s) "
+                f"SELECT {cols} FROM contacts WHERE lower(name)=lower(%s) AND lower(coalesce(city,''))=lower(%s) "
                 "AND deleted_at IS NULL LIMIT 1",
                 (company, city),
             )
@@ -218,7 +218,7 @@ def promote_to_organization(fields: dict, source: str = "card_capture") -> int:
     return cid
 
 
-def promote_to_person(fields: dict, contact_id: int | None) -> int:
+def promote_to_person(fields: dict, contact_id: int | None, source: str = "card_capture") -> int:
     """
     Create a people-table entry for the individual on a scanned card, linked to
     their company contact. Returns the new (or existing) person id, or 0 if the
@@ -242,7 +242,7 @@ def promote_to_person(fields: dict, contact_id: int | None) -> int:
         country=_country_code(fields.get("country")),
         met_at=(fields.get("met_at") or "").strip(),
         contact_id=contact_id,
-        source="card_capture",
+        source=source,
     )
 
 

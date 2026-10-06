@@ -13,13 +13,15 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
 )
 from fastapi.responses import Response
 from psycopg2.extras import Json
 from pydantic import BaseModel
 
-from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
+from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payload
+from gcrm.audit_context import audit_scope, current_audit_context
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards
@@ -101,10 +103,17 @@ def list_captures(status: str = "pending_review", _role: str = Depends(require_j
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """SELECT id, captured_at, status, extraction_status, confidence,
-                      extracted, dup_contact_id, contact_id
-                 FROM card_captures WHERE status=%s
-                 ORDER BY captured_at DESC LIMIT 100""",
+            """SELECT capture.id, capture.kind, capture.captured_at, capture.status,
+                      capture.extraction_status, capture.confidence, capture.extracted,
+                      capture.dup_contact_id, capture.contact_id, capture.place_json,
+                      CASE WHEN duplicate.id IS NOT NULL THEN json_build_object(
+                          'id', duplicate.id, 'name', duplicate.name, 'city', duplicate.city,
+                          'email', duplicate.email, 'phone', duplicate.phone
+                      ) END AS dup_suggestion
+                 FROM card_captures capture
+                 LEFT JOIN contacts duplicate ON duplicate.id=capture.dup_contact_id AND duplicate.deleted_at IS NULL
+                WHERE capture.status=%s
+                 ORDER BY capture.captured_at DESC, capture.id ASC LIMIT 100""",
             (status,),
         )
         rows = cur.fetchall()
@@ -130,61 +139,92 @@ class ConfirmBody(BaseModel):
     link_to_contact_id: int | None = None
 
 
+def promote_confirmed_organization(body: ConfirmBody, source: str) -> int:
+    if body.link_to_contact_id:
+        return body.link_to_contact_id
+    contact_id = (cards.promote_to_organization(body.fields, source=source)
+                  if source == "document_capture" else cards.promote_to_organization(body.fields))
+    if contact_id:
+        return contact_id
+    duplicate = cards.find_possible_duplicate(body.fields)
+    if not duplicate:
+        raise HTTPException(status_code=409, detail="Duplicate contact, no match resolved")
+    return duplicate["id"]
+
+
+def record_confirmed_person(fields: dict, contact_id: int, source: str) -> int:
+    try:
+        return (cards.promote_to_person(fields, contact_id, source=source)
+                if source == "document_capture" else cards.promote_to_person(fields, contact_id))
+    except Exception:
+        logger.exception("capture person creation failed for contact %s", contact_id)
+        if source == "document_capture":
+            raise HTTPException(503, "Could not save the person. This draft is still pending; please retry.")
+        return 0
+
+
+def save_reviewed_capture(capture_id: int, body: ConfirmBody) -> tuple[dict, int, int]:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT id, kind, status, image_path FROM card_captures "
+            "WHERE id=%s AND kind IN ('card', 'document') FOR UPDATE", (capture_id,),
+        )
+        capture = cursor.fetchone()
+        if not capture:
+            raise HTTPException(404, "Capture not found")
+        if capture["status"] != "pending_review":
+            raise HTTPException(409, "Capture is no longer pending review")
+        if not (body.fields.get("company") or body.fields.get("name") or "").strip():
+            raise HTTPException(400, "Company or person name is required")
+        source = "document_capture" if capture.get("kind") == "document" else "card_capture"
+        contact_id = promote_confirmed_organization(body, source)
+        person_id = record_confirmed_person(body.fields, contact_id, source)
+        cursor.execute(
+            "UPDATE card_captures SET status='confirmed', contact_id=%s, extracted=%s, updated_at=NOW() WHERE id=%s",
+            (contact_id, Json(body.fields), capture_id),
+        )
+    return capture, contact_id, person_id
+
+
+def enrich_document_contact(contact_id: int, correlation_id: str | None) -> None:
+    with audit_scope("agent:enrichment_agent", "ai", correlation_id):
+        cards.enrich_one(contact_id)
+
+
+def complete_reviewed_capture(capture_id: int, body: ConfirmBody, background: BackgroundTasks) -> dict:
+    capture, contact_id, person_id = save_reviewed_capture(capture_id, body)
+    if CARD_IMAGE_RETENTION_DAYS <= 0 and capture["image_path"]:
+        cards.delete_card_image(capture["image_path"])
+    if capture.get("kind") == "document":
+        context = current_audit_context()
+        background.add_task(enrich_document_contact, contact_id, context.correlation_id if context else None)
+    else:
+        background.add_task(cards.enrich_one, contact_id)
+    log_audit(None, None, "card.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
+    return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
+
+
 @router.post("/{capture_id}/confirm")
 def confirm_capture(
     capture_id: int,
     body: ConfirmBody,
     background: BackgroundTasks,
+    request: Request,
     _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    """Promote the (edited) fields to a contact, then enrich in the background."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id, status, image_path FROM card_captures WHERE id=%s", (capture_id,))
-        cap = cur.fetchone()
-    if not cap:
-        raise HTTPException(status_code=404, detail="Capture not found")
-    if cap["status"] == "confirmed":
-        raise HTTPException(status_code=409, detail="Already confirmed")
-
-    if body.link_to_contact_id:
-        contact_id = body.link_to_contact_id
-    else:
-        contact_id = cards.promote_to_organization(body.fields)
-        if contact_id == 0:  # save_organization deduped — link to the existing match
-            dup = cards.find_possible_duplicate(body.fields)
-            if not dup:
-                raise HTTPException(status_code=409, detail="Duplicate contact, no match resolved")
-            contact_id = dup["id"]
-
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE card_captures SET status='confirmed', contact_id=%s, updated_at=NOW() WHERE id=%s",
-            (contact_id, capture_id),
-        )
-
-    # Issue #10: also record the individual on the card as a person, linked to
-    # the company contact. Best-effort — a person failure must not fail the save.
-    try:
-        person_id = cards.promote_to_person(body.fields, contact_id)
-    except Exception:
-        logger.exception("confirm_capture: person creation failed (capture %s)", capture_id)
-        person_id = 0
-
-    if CARD_IMAGE_RETENTION_DAYS <= 0 and cap["image_path"]:
-        cards.delete_card_image(cap["image_path"])
-
-    background.add_task(cards.enrich_one, contact_id)
-    log_audit(None, None, "card.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
-    return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
+    """Save a reviewed card or document row, then enrich its organization."""
+    actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
+    with audit_scope(actor, "user", request.state.correlation_id):
+        return complete_reviewed_capture(capture_id, body, background)
 
 
 @router.post("/{capture_id}/discard")
 def discard_capture(capture_id: int, _role: str = Depends(require_jwt_admin)) -> dict:
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT image_path FROM card_captures WHERE id=%s", (capture_id,))
+        cur.execute("SELECT image_path FROM card_captures WHERE id=%s AND kind IN ('card', 'document')", (capture_id,))
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Capture not found")

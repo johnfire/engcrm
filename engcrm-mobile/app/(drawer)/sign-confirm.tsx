@@ -58,7 +58,7 @@ export default function SignConfirmScreen() {
       Alert.alert(
         linkDup ? t("cardConfirm.linkedTitle") : t("signConfirm.savedTitle"),
         t("signConfirm.savedMessage"),
-        [{ text: "OK", onPress: () => router.replace("/(drawer)/scan-sign") }],
+        [{ text: "OK", onPress: () => router.replace(capture.return_to_queue ? "/(drawer)/card-queue" : "/(drawer)/scan-sign") }],
       );
     } catch (error: any) {
       Alert.alert(t("cardConfirm.couldntSaveTitle"), String(error?.message || t("common.tryAgain")));
@@ -73,7 +73,7 @@ export default function SignConfirmScreen() {
     } catch {
       // best-effort; the capture row stays pending if this fails
     }
-    router.replace("/(drawer)/scan-sign");
+    router.replace(capture.return_to_queue ? "/(drawer)/card-queue" : "/(drawer)/scan-sign");
   }
 
   return (
@@ -155,7 +155,7 @@ export default function SignConfirmScreen() {
           )}
         </TouchableOpacity>
         <View style={styles.row}>
-          <TouchableOpacity style={styles.retake} onPress={() => router.replace("/(drawer)/scan-sign")}>
+          <TouchableOpacity style={styles.retake} onPress={() => router.replace(capture.return_to_queue ? "/(drawer)/card-queue" : "/(drawer)/scan-sign")}>
             <Text style={styles.retakeText}>{t("cardConfirm.retake")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.discardBtn} onPress={discard}>

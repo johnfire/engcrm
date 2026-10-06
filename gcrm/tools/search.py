@@ -131,6 +131,7 @@ def google_maps_search(
     lat: float | None = None,
     lon: float | None = None,
     radius_m: int | None = None,
+    location_bias: tuple[float, float] | None = None,
 ) -> list[dict]:
     """
     Search for venues using Google Places API (New).
@@ -182,6 +183,11 @@ def google_maps_search(
                     "radius": radius_m,
                 }
             }
+        elif location_bias is not None:
+            payload["locationBias"] = {"circle": {
+                "center": {"latitude": location_bias[0], "longitude": location_bias[1]},
+                "radius": 5000,
+            }}
         if page_token:
             payload["pageToken"] = page_token
         try:
@@ -199,18 +205,23 @@ def google_maps_search(
             if not name:
                 continue
             neighborhood = ""
+            place_city = city
+            place_country = country
             for component in place.get("addressComponents", []):
                 types = component.get("types", [])
                 if "sublocality_level_1" in types or "neighborhood" in types:
                     neighborhood = component.get("longText", "")
-                    break
+                if not city and any(kind in types for kind in ("locality", "postal_town")):
+                    place_city = component.get("longText", "")
+                if "country" in types:
+                    place_country = component.get("shortText", country)
             location = place.get("location", {})
             results.append({
                 "name": name,
                 "place_id": place.get("id", ""),
                 "address": place.get("formattedAddress", ""),
-                "city": city,
-                "country": country,
+                "city": place_city,
+                "country": place_country,
                 "website": place.get("websiteUri", ""),
                 "phone": place.get("nationalPhoneNumber", "") or place.get("internationalPhoneNumber", ""),
                 "email": "",

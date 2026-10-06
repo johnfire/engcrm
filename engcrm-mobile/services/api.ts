@@ -13,7 +13,7 @@ export function buildHeaders(token: string | null): Record<string, string> {
   return headers;
 }
 
-const client = axios.create({ baseURL: API_BASE });
+export const client = axios.create({ baseURL: API_BASE });
 
 client.interceptors.request.use(async (config) => {
   const token = await getToken();
@@ -585,6 +585,7 @@ export interface DupSuggestion {
 }
 
 export interface CaptureResult {
+  return_to_queue?: boolean;
   capture_id: number;
   is_card: boolean;
   confidence: number | null;
@@ -594,12 +595,15 @@ export interface CaptureResult {
 }
 
 export interface PendingCard {
+  dup_suggestion?: DupSuggestion | null;
+  kind?: "card" | "document" | "sign";
+  place_json?: SignPlace | null;
   id: number;
   captured_at: string;
   status: string;
   extraction_status: string;
   confidence: number | null;
-  extracted: CardFields | null;
+  extracted: (CardFields & SignFields) | null;
   dup_contact_id: number | null;
   contact_id: number | null;
 }
@@ -630,6 +634,7 @@ export interface SignPlace {
 }
 
 export interface SignCaptureResult {
+  return_to_queue?: boolean;
   capture_id: number;
   is_sign: boolean;
   confidence: number | null;

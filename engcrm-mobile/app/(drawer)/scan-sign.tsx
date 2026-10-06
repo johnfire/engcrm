@@ -51,8 +51,8 @@ export default function ScanSignScreen() {
       }
       const picked =
         source === "camera"
-          ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 1 })
-          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, quality: 1 });
+          ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], allowsEditing: false, quality: 1 })
+          : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: false, quality: 1 });
       if (picked.canceled || !picked.assets?.length) return;
 
       setBusy(true);
@@ -60,8 +60,10 @@ export default function ScanSignScreen() {
       setPreview(raw);
       const [small, gps] = await Promise.all([
         manipulateAsync(raw, [{ resize: { width: 1280 } }], { compress: 0.7, format: SaveFormat.JPEG }),
-        getGps(),
+        source === "camera" ? getGps() : Promise.resolve(undefined),
       ]);
+      if (!gps) Alert.alert(t("scanSign.locationUnavailableTitle"),
+        t(source === "camera" ? "scanSign.locationUnavailableMessage" : "scanSign.libraryLocationMessage"));
       const capture = await captureSign(small.uri, gps);
       if (!capture.is_sign) {
         Alert.alert(

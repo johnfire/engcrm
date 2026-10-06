@@ -97,7 +97,8 @@ def resolve_business(name: str, gps: tuple[float, float] | None = None, country:
         return None
     from gcrm.tools.search import google_maps_search
 
-    results = google_maps_search(name, city="", country=country, pages=1)
+    results = (google_maps_search(name, city="", country=country, pages=1, location_bias=gps)
+               if gps else google_maps_search(name, city="", country=country, pages=1))
     if not results:
         return None
     if gps:
@@ -116,6 +117,7 @@ def resolve_business(name: str, gps: tuple[float, float] | None = None, country:
         "place_id": best.get("place_id", ""),
         "address": best.get("address", ""),
         "city": best.get("city", ""),
+        "country": best.get("country", country),
         "website": best.get("website", ""),
         "phone": best.get("phone", ""),
         "google_data": best.get("google_data"),
@@ -135,6 +137,7 @@ def build_organization_fields(business_name: str, extracted: dict, place: dict |
         return {
             "company": business_name or place.get("name", ""),
             "city": place.get("city", "") or "",
+            "country": place.get("country") or "DE",
             "industry": industry,
             "website": place.get("website") or extracted.get("website") or "",
             "phone": place.get("phone") or extracted.get("phone") or "",

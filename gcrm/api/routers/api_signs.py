@@ -41,8 +41,8 @@ def _as_int(v) -> int | None:
 @router.post("")
 def capture_sign(
     image: UploadFile = File(...),
-    gps_lat: float | None = Form(None),
-    gps_lng: float | None = Form(None),
+    gps_lat: float | None = Form(None, ge=-90, le=90),
+    gps_lng: float | None = Form(None, ge=-180, le=180),
     role: str = Depends(require_jwt_admin),
 ) -> dict:
     """Store the photo, extract the business name with Claude vision, try to

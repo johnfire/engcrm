@@ -73,6 +73,10 @@ export default function DrawerLayout() {
         options={{ title: t("drawer.scanCardTitle"), drawerLabel: t("drawer.scanCard") }}
       />
       <Drawer.Screen
+        name="scan-document"
+        options={{ title: t("drawer.scanDocumentTitle"), drawerLabel: t("drawer.scanDocument") }}
+      />
+      <Drawer.Screen
         name="scan-sign"
         options={{ title: t("drawer.scanSignTitle"), drawerLabel: t("drawer.scanSign") }}
       />

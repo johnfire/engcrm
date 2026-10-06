@@ -1,13 +1,14 @@
 /**
- * Offline capture queue. When a card upload fails because there's no connection,
+ * Offline capture queue. When a card or document upload fails because there's no connection,
  * the downscaled image is persisted to the document directory and an index entry
  * is kept in AsyncStorage. On the next online visit to the Scan screen the queue
- * is flushed — each card re-uploads and lands in pending-review on the server.
+ * is flushed — each photo re-uploads and lands in pending-review on the server.
  * A capture is never lost just because signal dropped in the field.
  */
 import { Directory, File, Paths } from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { captureCard } from "./api";
+import { captureDocument } from "./documentApi";
 
 const QUEUE_KEY = "card_upload_queue_v1";
 const DIR_NAME = "card-queue";
@@ -16,6 +17,7 @@ export interface QueueEntry {
   id: string;
   uri: string;
   ts: number;
+  kind?: "card" | "document";
 }
 
 function queueDir(): Directory {
@@ -35,16 +37,16 @@ async function writeIndex(entries: QueueEntry[]): Promise<void> {
   await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(entries));
 }
 
-/** Persist a downscaled card image for later upload (called when a live upload fails offline). */
-export async function enqueue(imageUri: string): Promise<void> {
+/** Persist a prepared card or page image for later upload (called when a live upload fails offline). */
+async function persistQueuedPhoto(imageUri: string, kind: "card" | "document", batchId?: string): Promise<void> {
   const dir = queueDir();
   if (!dir.exists) dir.create();
-  const id = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+  const id = batchId ?? `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
   const dest = new File(dir, `${id}.jpg`);
   if (dest.exists) dest.delete();
   new File(imageUri).copy(dest);
   const entries = await readIndex();
-  entries.push({ id, uri: dest.uri, ts: Date.now() });
+  if (!entries.some((entry) => entry.id === id)) entries.push({ id, uri: dest.uri, ts: Date.now(), kind });
   await writeIndex(entries);
 }
 
@@ -53,14 +55,14 @@ export async function pendingCount(): Promise<number> {
 }
 
 /** Re-upload queued captures. Successful ones become pending-review on the server. */
-export async function flush(): Promise<{ uploaded: number; remaining: number }> {
+async function flushEntries(): Promise<{ uploaded: number; remaining: number }> {
   const entries = await readIndex();
   if (entries.length === 0) return { uploaded: 0, remaining: 0 };
   const keep: QueueEntry[] = [];
   let uploaded = 0;
   for (const entry of entries) {
     try {
-      await captureCard(entry.uri);
+      await uploadQueuedPhoto(entry);
       uploaded += 1;
       try {
         new File(entry.uri).delete();
@@ -73,4 +75,32 @@ export async function flush(): Promise<{ uploaded: number; remaining: number }> 
   }
   await writeIndex(keep);
   return { uploaded, remaining: keep.length };
+}
+
+async function uploadQueuedPhoto(entry: QueueEntry): Promise<void> {
+  if (entry.kind === "document") {
+    const capture = await captureDocument(entry.uri, entry.id);
+    if (!capture.is_document) throw new Error("Page needs a clearer photo");
+  } else {
+    await captureCard(entry.uri);
+  }
+}
+
+let activeFlush: Promise<{ uploaded: number; remaining: number }> | null = null;
+
+export function flush(): Promise<{ uploaded: number; remaining: number }> {
+  if (!activeFlush) activeFlush = mutateQueue(flushEntries).finally(() => { activeFlush = null; });
+  return activeFlush;
+}
+
+let pendingMutation: Promise<unknown> = Promise.resolve();
+
+function mutateQueue<T>(mutation: () => Promise<T>): Promise<T> {
+  const operation = pendingMutation.then(mutation);
+  pendingMutation = operation.catch(() => undefined);
+  return operation;
+}
+
+export function enqueue(imageUri: string, kind: "card" | "document" = "card", batchId?: string): Promise<void> {
+  return mutateQueue(() => persistQueuedPhoto(imageUri, kind, batchId));
 }
