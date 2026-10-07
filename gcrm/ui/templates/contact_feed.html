@@ -2,6 +2,7 @@
 {% block title %}{{ t('contactFeed.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 {% block content %}
+<div class="contact-feed-toolbar">
 <div class="page-header"><h1>{{ t('contactFeed.title') }}</h1>
   {% if request.session.get('role') == 'admin' %}
   <a href="/organizations/new" class="btn-primary">{{ t('businessForm.add') }}</a>
@@ -30,6 +31,7 @@
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
   <a href="/contact-feed/?q=&kind=&stage=&sort=last_contact" class="btn-secondary">{{ t('common.clear') }}</a>
 </form>
+</div>
 <div class="table-scroll">
   <table>
     <thead><tr>
