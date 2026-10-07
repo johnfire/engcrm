@@ -120,8 +120,8 @@
     {% for p in people %}
     <tr>
       <td class="muted nowrap">{{ p.id }}</td>
-      <td><strong><a href="/people/{{ p.id }}">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}</td>
-      <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}">{{ p.company }}</a>{% elif p.company_raw %}<span title="{{ t('linkedin.notLinked') }}">{{ p.company_raw }}</span>{% else %}—{% endif %}</td>
+      <td><strong><a href="/people/{{ p.id }}" target="_blank" rel="noopener">{{ p.name }}</a></strong>{% if p.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}{% if p.title %}<div class="muted small">{{ p.title }}</div>{% endif %}</td>
+      <td class="muted small">{% if p.company %}<a href="/organizations/{{ p.contact_id }}" target="_blank" rel="noopener">{{ p.company }}</a>{% elif p.company_raw %}<span title="{{ t('linkedin.notLinked') }}">{{ p.company_raw }}</span>{% else %}—{% endif %}</td>
       <td>
         <form method="post" action="/people/{{ p.id }}/stage" class="stage-form">
           <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">

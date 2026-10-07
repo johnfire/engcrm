@@ -276,10 +276,11 @@ class TestOrganizationsPage:
                 response = client.get("/organizations/?lang=en")
 
             assert response.status_code == 200, response.text
-            assert '<a href="/people/1" title="Person 1">Person 1</a>' in response.text
-            assert '<a href="/people/3" title="Person 3">Person 3</a>' in response.text
+            assert '<a href="/organizations/1" target="_blank" rel="noopener">Acme GmbH</a>' in response.text
+            assert '<a href="/people/1" target="_blank" rel="noopener" title="Person 1">Person 1</a>' in response.text
+            assert '<a href="/people/3" target="_blank" rel="noopener" title="Person 3">Person 3</a>' in response.text
             assert "/people/4" not in response.text
-            assert f'href="/organizations/{CONTACT_ROW["id"]}">+2 more</a>' in response.text
+            assert f'href="/organizations/{CONTACT_ROW["id"]}" target="_blank" rel="noopener">+2 more</a>' in response.text
             organization_query = " ".join(cur.execute.call_args_list[1].args[0].split())
             assert "FROM people kp WHERE kp.contact_id = c.id AND kp.deleted_at IS NULL" in organization_query
         finally:
@@ -460,6 +461,8 @@ class TestPeoplePage:
                     mock_db.return_value.__enter__.return_value = conn
                     r = client.get(f"/people/?lang={lang}")
                 assert r.status_code == 200, r.text
+                assert '<a href="/people/3" target="_blank" rel="noopener">Anna Roth</a>' in r.text
+                assert '<a href="/organizations/7" target="_blank" rel="noopener">Galerie Roth</a>' in r.text
         finally:
             clear_login_session()
 
