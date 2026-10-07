@@ -523,7 +523,8 @@ pre {
   flex-wrap: wrap;
   align-items: center;
 }
-.filter-bar input[type="text"] {
+.filter-bar input[type="text"],
+.filter-bar input[type="search"] {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
