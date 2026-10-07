@@ -10,3 +10,7 @@ build/
 
 # Layout-audit page dumps (scripts/layout_audit.py) — regenerated, never shipped
 gcrm/ui/static/_layout_audit/
+
+# Agents are editable path deps resolved by the root uv.lock; per-agent lockfiles
+# are unused and only generate duplicate Dependabot alerts.
+agents/*/uv.lock
