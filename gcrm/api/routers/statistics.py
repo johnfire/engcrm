@@ -66,14 +66,13 @@ def _trend_charts(series: dict, lang: str) -> dict:
     def bars(key: str, title_key: str, unit: str = "", money: bool = False) -> dict:
         def show(v):
             return f"{eur(v)}" if money else f"{v}{unit}"
+        def tick(v):
+            return eur(v) if money else f"{v:g}{unit}"
         points = [{"label": p["start"].strftime(fmt), "value": float(p[key]),
                    "tip": f'{p["start"].strftime(fmt)}: {show(p[key])}'} for p in periods]
-        most = max((p[key] for p in periods), default=0)
-        if points:
-            points[0]["max_label"] = f'{translate("statistics.max", lang)} {show(most)}'
         title = translate(title_key, lang)
-        return {"title": title, "svg": bar_chart(points, title), "rows": [(pt["label"], show(p[key]))
-                                                                          for pt, p in zip(points, periods)]}
+        return {"title": title, "svg": bar_chart(points, title, tick_label=tick),
+                "rows": [(pt["label"], show(p[key])) for pt, p in zip(points, periods)]}
 
     charts = [
         bars("hours", "statistics.chart.hours", " h"),

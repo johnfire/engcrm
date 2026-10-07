@@ -3,12 +3,15 @@ service. One series per chart in one hue (several measures get several charts,
 never a second axis); every bar or point has a full-height hover target whose
 <title> is its tooltip; text is drawn in text colours, not the series colour.
 Colours come from the page's CSS (classes chart-*), so the theme applies."""
+import math
 from html import escape
 
 from markupsafe import Markup
 
 WIDTH = 600
 MAX_X_LABELS = 6
+Y_INTERVALS = 4  # roughly how many steps the y scale is cut into
+LABEL_CHAR_WIDTH = 11  # px per character of a 17px axis label (digits are widest), for the gutter
 
 
 def _x_labels(count: int) -> set[int]:
@@ -17,26 +20,49 @@ def _x_labels(count: int) -> set[int]:
     return {i for i in range(count) if (count - 1 - i) % step == 0}
 
 
-def bar_chart(points: list[dict], title: str, height: int = 150) -> Markup:
-    """Vertical bars over a baseline. Each point: label, value (number), tip (tooltip text)."""
+def y_ticks(most: float, whole: bool) -> list[float]:
+    """Round scale values from 0 up to at least `most`, in steps of 1, 2 or 5 times a
+    power of ten. `whole` keeps the step at 1 or more, for counts."""
+    raw = (most or 1) / Y_INTERVALS
+    magnitude = 10 ** math.floor(math.log10(raw))
+    step = next(f * magnitude for f in (1, 2, 5, 10) if f * magnitude >= raw)
+    if whole:
+        step = max(1, step)
+    count = max(1, math.ceil(most / step - 1e-9))
+    return [round(i * step, 10) for i in range(count + 1)]
+
+
+def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str) -> Markup:
+    """Vertical bars over a baseline, against a labelled y scale with gridlines.
+    Each point: label, value (number), tip (tooltip text). `tick_label` formats a
+    scale value (adds the unit)."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
     plot = height - top - bottom
-    most = max((p["value"] for p in points), default=0) or 1
-    slot = WIDTH / len(points)
+    values = [p["value"] for p in points]
+    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values))
+    scale = ticks[-1]
+    labels = [tick_label(t) for t in ticks]
+    left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8  # gutter for the scale
+    slot = (WIDTH - left) / len(points)
     bar = max(2.0, slot - 4)  # a 4px surface gap between bars
     shown = _x_labels(len(points))
-    parts = [
-        f'<svg class="chart" viewBox="0 0 {WIDTH} {height}" role="img" aria-label="{escape(title)}">',
-        f'<line class="chart-axis" x1="0" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>',
-    ]
+    parts = [f'<svg class="chart" viewBox="0 0 {WIDTH} {height}" role="img" aria-label="{escape(title)}">']
+    for tick, text in zip(ticks, labels):
+        y = top + plot - plot * tick / scale
+        if tick:
+            parts.append(f'<line class="chart-grid" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
+        parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
+                     f'dominant-baseline="middle">{escape(text)}</text>')
+    parts.append(f'<line class="chart-axis" x1="{left}" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>')
     for i, p in enumerate(points):
-        x = i * slot + (slot - bar) / 2
-        h = plot * p["value"] / most if p["value"] else 0
+        x0 = left + i * slot
+        x = x0 + (slot - bar) / 2
+        h = plot * p["value"] / scale if p["value"] else 0
         y = top + plot - h
         parts.append(f'<g class="chart-mark"><title>{escape(p["tip"])}</title>'
-                     f'<rect class="chart-hit" x="{i * slot:.1f}" y="0" width="{slot:.1f}" height="{height}"/>')
+                     f'<rect class="chart-hit" x="{x0:.1f}" y="0" width="{slot:.1f}" height="{height}"/>')
         if h:
             r = min(4.0, bar / 2, h)  # rounded data end, square on the baseline
             parts.append(
@@ -44,9 +70,8 @@ def bar_chart(points: list[dict], title: str, height: int = 150) -> Markup:
                 f'H{x + bar - r:.1f} Q{x + bar:.1f},{y:.1f} {x + bar:.1f},{y + r:.1f} V{top + plot} Z"/>')
         parts.append("</g>")
         if i in shown:
-            parts.append(f'<text class="chart-label" x="{i * slot + slot / 2:.1f}" y="{height - 6}" '
+            parts.append(f'<text class="chart-label" x="{x0 + slot / 2:.1f}" y="{height - 6}" '
                          f'text-anchor="middle">{escape(p["label"])}</text>')
-    parts.append(f'<text class="chart-label" x="2" y="12">{escape(points[0].get("max_label", ""))}</text>')
     parts.append("</svg>")
     return Markup("".join(parts))
 

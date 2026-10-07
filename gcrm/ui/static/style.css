@@ -1289,6 +1289,7 @@ th.sortable .sort-arrow { margin-left: .35em; font-size: .8em; color: var(--acce
 .chart { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-bar { fill: var(--accent); }
 .chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-grid { stroke: color-mix(in srgb, var(--muted) 30%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .chart-label { fill: var(--muted); font-size: 17px; font-family: var(--font); }
 .chart-hit { fill: transparent; }
 .chart-mark:hover .chart-hit { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
