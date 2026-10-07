@@ -1,7 +1,15 @@
 # EngCRM marketing graphics
 
-Six graphics, each in the two app-banner sizes used for LearnWohl, LeGuilde and
-Notes World (`~/ai-workzone/marketing-graphics-my-apps`): **750×300** and **750×480**.
+Six graphics, each in the five sizes used for the LearnWohl, LeGuilde and
+Notes World banners (`~/ai-workzone/marketing-info-my-apps/<app>/`):
+
+| Size | File suffix | Layout |
+| --- | --- | --- |
+| 750×300 | `-750x300` | wide banner |
+| 640×480 | `-640x480` | 4:3 |
+| 750×453 | `-fiverr-750x453` | Fiverr gig image |
+| 430×750 | `-430x750` | portrait |
+| 300×750 | `-300x750` | narrow portrait |
 
 | Graphic | Message |
 | --- | --- |
