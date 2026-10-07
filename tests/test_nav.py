@@ -30,15 +30,21 @@ def render_nav(path, role="admin", language="en"):
 
 
 def tab_labels(nav):
-    return [label.strip() for label in re.findall(r">\s*([^<>]+?)\s*</a>", nav)]
+    top_level_nav = re.sub(r'<div class="nav-mail-links">.*?</div>', "", nav, flags=re.S)
+    return [
+        label.strip()
+        for label in re.findall(r">\s*([^<>]+?)\s*</(?:a|summary)>", top_level_nav)
+    ]
 
 
 def active_labels(nav):
-    return [label.strip() for label in re.findall(r'class="active">\s*([^<>]+?)\s*<', nav)]
+    return [label.strip() for label in re.findall(r'class="active"[^>]*>\s*([^<>]+?)\s*<', nav)]
 
 
 @pytest.mark.parametrize("path,expected", [
     ("/approvals/", "Approvals"),
+    ("/drafts/", "Drafts"),
+    ("/inbox/3", "Inbox"),
     # /approvals/dropped/ matches the Approvals prefix too; the more specific
     # tab has to win, or both light up.
     ("/approvals/dropped/", "Dropped"),
@@ -71,3 +77,30 @@ def test_tabs_are_alphabetical_in_german_too():
 def test_admin_only_tab_appears_for_admins_and_sorts_into_place():
     assert "Users" in tab_labels(render_nav("/organizations/", role="admin"))
     assert "Users" not in tab_labels(render_nav("/organizations/", role="spectator"))
+
+
+@pytest.mark.parametrize("language", ["en", "de"])
+def test_mail_groups_the_three_links_in_the_requested_order(language):
+    nav = render_nav("/organizations/", language=language)
+    mail_links = re.search(r'<div class="nav-mail-links">(.*?)</div>', nav, re.S).group(1)
+    assert re.findall(r'href="([^"]+)"', mail_links) == ["/approvals/", "/drafts/", "/inbox/"]
+    assert tab_labels(mail_links) == [
+        translate(f"nav.{key}", language) for key in ("approvals", "drafts", "inbox")
+    ]
+    assert "Mail" in tab_labels(nav)
+    mail_labels = {translate(f"nav.{key}", language) for key in ("approvals", "drafts", "inbox")}
+    assert not mail_labels & set(tab_labels(nav))
+    assert '<details class="nav-mail">' in nav
+
+
+@pytest.mark.parametrize("path,is_mail_active", [
+    ("/approvals/", True),
+    ("/drafts/1", True),
+    ("/inbox/", True),
+    ("/approvals/dropped/", False),
+    ("/people/", False),
+])
+def test_mail_highlights_only_for_its_own_pages(path, is_mail_active):
+    nav = render_nav(path)
+    assert ('class="nav-mail-active"' in nav) is is_mail_active
+    assert ('aria-current="page"' in nav) is is_mail_active

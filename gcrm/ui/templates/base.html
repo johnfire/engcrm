@@ -9,6 +9,8 @@
   <link rel="preload" href="/static/fonts/josefin-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/poiret-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
+  <link rel="stylesheet" href="/static/mail-menu.css?v={{ static_version }}">
+  <script src="/static/mail-menu.js?v={{ static_version }}" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -17,18 +19,21 @@
      to the end: they are footer-grade links, not part of the working set. #}
   {% set nav_tabs = [
     {'href': '/activity/', 'prefix': '/activity', 'label': t('nav.activity')},
-    {'href': '/approvals/', 'prefix': '/approvals', 'label': t('nav.approvals')},
     {'href': '/areas/', 'prefix': '/areas', 'label': t('nav.areas')},
     {'href': '/contact-feed/', 'prefix': '/contact-feed', 'label': t('nav.contacts')},
-    {'href': '/drafts/', 'prefix': '/drafts', 'label': t('nav.drafts')},
     {'href': '/approvals/dropped/', 'prefix': '/approvals/dropped', 'label': t('nav.dropped')},
     {'href': '/help/', 'prefix': '/help', 'label': t('nav.help')},
-    {'href': '/inbox/', 'prefix': '/inbox', 'label': t('nav.inbox')},
+    {'label': t('nav.mail'), 'prefix': '', 'is_mail': true},
     {'href': '/organizations/', 'prefix': '/organizations', 'label': t('nav.organizations')},
     {'href': '/people/', 'prefix': '/people', 'label': t('nav.people')},
     {'href': '/research/', 'prefix': '/research', 'label': t('nav.research')},
     {'href': '/statistics', 'prefix': '/statistics', 'label': t('nav.statistics')},
     {'href': '/settings', 'prefix': '/settings', 'label': t('nav.settings')}
+  ] %}
+  {% set mail_tabs = [
+    {'href': '/approvals/', 'prefix': '/approvals', 'label': t('nav.approvals')},
+    {'href': '/drafts/', 'prefix': '/drafts', 'label': t('nav.drafts')},
+    {'href': '/inbox/', 'prefix': '/inbox', 'label': t('nav.inbox')}
   ] %}
   {% if request.session.get('role') == 'admin' %}
   {% set nav_tabs = nav_tabs + [{'href': '/users/', 'prefix': '/users', 'label': t('nav.users')}] %}
@@ -40,7 +45,7 @@
   {# The most specific matching tab is the active one: /approvals/dropped/ is a
      Dropped page, not an Approvals page, even though both prefixes match. #}
   {% set active = namespace(prefix='') %}
-  {% for tab in nav_tabs + nav_legal %}
+  {% for tab in nav_tabs + mail_tabs + nav_legal %}
   {% if request.url.path.startswith(tab.prefix) and tab.prefix | length > active.prefix | length %}
   {% set active.prefix = tab.prefix %}
   {% endif %}
@@ -48,9 +53,20 @@
   <nav>
     <span class="nav-brand">{{ t('nav.brand') }}</span>
     {% for tab in (nav_tabs | sort(attribute='label')) + nav_legal %}
+    {% if tab.is_mail %}
+    <details class="nav-mail">
+      <summary{% if active.prefix in ['/approvals', '/drafts', '/inbox'] %} class="nav-mail-active"{% endif %}>{{ tab.label }}</summary>
+      <div class="nav-mail-links">
+        {% for mail_tab in mail_tabs %}
+        <a href="{{ mail_tab.href }}" {% if mail_tab.prefix == active.prefix %}class="active" aria-current="page"{% endif %}>{{ mail_tab.label }}</a>
+        {% endfor %}
+      </div>
+    </details>
+    {% else %}
     <a href="{{ tab.href }}" {% if tab.prefix == active.prefix %}class="active"{% endif %}>
       {{ tab.label }}
     </a>
+    {% endif %}
     {% endfor %}
   </nav>
   <main class="{% block main_class %}{% endblock %}">
