@@ -21,6 +21,9 @@
 </div>
 {% if saved %}<div class="flash-success">{{ t('statistics.saved') }}</div>{% endif %}
 
+{# Two columns on wide screens: the chosen period on the left, history on the right. #}
+<div class="stat-layout">
+<div class="stat-layout__period">
 <form method="get" action="/statistics" class="stat-periods" aria-label="{{ t('statistics.period') }}">
   {% for p in periods %}
   <button type="submit" name="period" value="{{ p }}" class="{{ 'btn-primary' if period == p else 'btn-secondary' }}">{{ t('statistics.period.' ~ p) }}</button>
@@ -52,46 +55,6 @@
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.newPeople') }}</span>
     <strong class="stat-tile__value">{{ cur.new_people }}</strong>{{ delta(cur.new_people, prev.new_people) }}</div>
 </div>
-
-{# Over time: one chart per measure for the last weeks, months or years, and the
-   daily pipeline log as one small line per stage. #}
-<section class="detail-section stat-trends" id="over-time">
-  <div class="stat-trends__head">
-    <h2>{{ t('statistics.overTime') }}</h2>
-    <nav class="stat-trends__buckets" aria-label="{{ t('statistics.overTime') }}">
-      {% for b in buckets %}
-      {%- set u = request.url.include_query_params(trend=b) %}
-      <a href="{{ u.path }}?{{ u.query }}#over-time" class="{{ 'btn-primary' if trend == b else 'btn-secondary' }}"
-         {% if trend == b %}aria-current="true"{% endif %}>{{ t('statistics.bucket.' ~ b) }}</a>
-      {% endfor %}
-    </nav>
-  </div>
-  <div class="stat-charts">
-    {% for chart in trends.charts %}
-    <figure class="stat-chart">
-      <figcaption>{{ chart.title }}</figcaption>
-      {{ chart.svg }}
-      <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
-        <div class="table-scroll"><table><tbody>
-          {% for label, value in chart.rows %}<tr><td>{{ label }}</td><td class="num">{{ value }}</td></tr>{% endfor %}
-        </tbody></table></div>
-      </details>
-    </figure>
-    {% endfor %}
-  </div>
-  <h3>{{ t('statistics.pipelineOverTime') }}</h3>
-  {% if trends.pipeline %}
-  <div class="stat-multiples">
-    {% for line in trends.pipeline %}
-    <figure class="stat-multiple">
-      <figcaption>{{ line.title }} <strong>{{ line.now }}</strong></figcaption>
-      {{ line.svg }}
-    </figure>
-    {% endfor %}
-  </div>
-  {% endif %}
-  <p class="muted small">{{ t('statistics.pipelineLogHint', date=trends.logged_since or '—') }}</p>
-</section>
 
 <div class="stat-grid">
   <section class="detail-section">
@@ -214,4 +177,47 @@
   </form>
 </section>
 {% endif %}
+</div>
+<div class="stat-layout__history">
+{# Over time: one chart per measure for the last weeks, months or years, and the
+   daily pipeline log as one small line per stage. #}
+<section class="detail-section stat-trends" id="over-time">
+  <div class="stat-trends__head">
+    <h2>{{ t('statistics.overTime') }}</h2>
+    <nav class="stat-trends__buckets" aria-label="{{ t('statistics.overTime') }}">
+      {% for b in buckets %}
+      {%- set u = request.url.include_query_params(trend=b) %}
+      <a href="{{ u.path }}?{{ u.query }}#over-time" class="{{ 'btn-primary' if trend == b else 'btn-secondary' }}"
+         {% if trend == b %}aria-current="true"{% endif %}>{{ t('statistics.bucket.' ~ b) }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+  <div class="stat-charts">
+    {% for chart in trends.charts %}
+    <figure class="stat-chart">
+      <figcaption>{{ chart.title }}</figcaption>
+      {{ chart.svg }}
+      <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
+        <div class="table-scroll"><table><tbody>
+          {% for label, value in chart.rows %}<tr><td>{{ label }}</td><td class="num">{{ value }}</td></tr>{% endfor %}
+        </tbody></table></div>
+      </details>
+    </figure>
+    {% endfor %}
+  </div>
+  <h3>{{ t('statistics.pipelineOverTime') }}</h3>
+  {% if trends.pipeline %}
+  <div class="stat-multiples">
+    {% for line in trends.pipeline %}
+    <figure class="stat-multiple">
+      <figcaption>{{ line.title }} <strong>{{ line.now }}</strong></figcaption>
+      {{ line.svg }}
+    </figure>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <p class="muted small">{{ t('statistics.pipelineLogHint', date=trends.logged_since or '—') }}</p>
+</section>
+</div>
+</div>
 {% endblock %}
