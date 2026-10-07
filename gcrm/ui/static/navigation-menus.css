@@ -1,9 +1,9 @@
-.nav-mail {
+.nav-dropdown {
   position: relative;
   margin-bottom: 0;
 }
 
-.nav-mail > summary {
+.nav-dropdown > summary {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -16,11 +16,11 @@
   border-bottom: 1px solid transparent;
 }
 
-.nav-mail > summary::-webkit-details-marker {
+.nav-dropdown > summary::-webkit-details-marker {
   display: none;
 }
 
-.nav-mail > summary::after {
+.nav-dropdown > summary::after {
   content: "";
   width: 0.4rem;
   height: 0.4rem;
@@ -29,31 +29,31 @@
   transform: translateY(-0.1rem) rotate(45deg);
 }
 
-.nav-mail[open] > summary {
+.nav-dropdown[open] > summary {
   margin-bottom: 0;
 }
 
-.nav-mail[open] > summary::after {
+.nav-dropdown[open] > summary::after {
   transform: translateY(0.1rem) rotate(225deg);
 }
 
-.nav-mail > summary:hover,
-.nav-mail[open] > summary {
+.nav-dropdown > summary:hover,
+.nav-dropdown[open] > summary {
   color: var(--text);
 }
 
-.nav-mail > summary.nav-mail-active {
+.nav-dropdown > summary.nav-dropdown-active {
   color: var(--accent-bright);
   border-bottom-color: var(--accent);
 }
 
-.nav-mail > summary:focus-visible,
-.nav-mail-links > a:focus-visible {
+.nav-dropdown > summary:focus-visible,
+.nav-dropdown-links > a:focus-visible {
   outline: 2px solid var(--accent-bright);
   outline-offset: 4px;
 }
 
-.nav-mail-links {
+.nav-dropdown-links {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
@@ -66,12 +66,12 @@
   box-shadow: 0 0.5rem 1rem #0006;
 }
 
-.nav-mail-links > a {
+.nav-dropdown-links > a {
   display: block;
   padding: 0.6rem 0.75rem;
 }
 
-.nav-mail-links > a:hover {
+.nav-dropdown-links > a:hover {
   background: var(--accent-wash);
 }
 
@@ -80,11 +80,11 @@
     position: relative;
   }
 
-  .nav-mail {
+  .nav-dropdown {
     position: static;
   }
 
-  .nav-mail-links {
+  .nav-dropdown-links {
     right: 1.5rem;
   }
 }
