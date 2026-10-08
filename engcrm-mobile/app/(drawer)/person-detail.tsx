@@ -168,6 +168,11 @@ export default function PersonDetailScreen() {
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton}
+        onPress={() => router.push({ pathname: "/(drawer)/saved-messages", params: { id: String(person.id) } })}>
+        <Text style={styles.link}>{t("savedMessages.button")}</Text>
+      </TouchableOpacity>
+
       {person.met_at && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("personDetail.metAt")}</Text>

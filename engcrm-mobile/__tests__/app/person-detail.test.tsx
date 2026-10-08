@@ -31,6 +31,16 @@ jest.mock("../../components/PersonNotesLog", () => ({ PersonNotesLog: () => null
 
 import PersonDetailScreen from "../../app/(drawer)/person-detail";
 
+it("opens the saved-message picker from the contact screen", async () => {
+  mockFetchPerson.mockResolvedValue({ ...PERSON });
+  mockGetRole.mockResolvedValue("admin");
+  mockPush.mockClear();
+  const screen = render(<PersonDetailScreen />);
+  await waitFor(() => expect(screen.getByText("Saved LinkedIn messages")).toBeTruthy());
+  fireEvent.press(screen.getByText("Saved LinkedIn messages"));
+  expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/saved-messages", params: { id: "7" } });
+});
+
 const PERSON = {
   id: 7,
   name: "Anna Roth",

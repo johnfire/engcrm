@@ -31,6 +31,7 @@ from gcrm.api.routers import (
     api_recon,
     api_record_edit,
     api_research,
+    api_saved_messages,
     api_search,
     api_signs,
     api_voice,
@@ -156,6 +157,7 @@ app.include_router(api_pipeline.router)
 app.include_router(api_areas.router)
 app.include_router(api_recon.router)
 app.include_router(api_help.router)
+app.include_router(api_saved_messages.router)
 
 
 @app.get("/contacts/{rest:path}", include_in_schema=False)
