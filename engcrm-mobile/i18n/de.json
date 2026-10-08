@@ -563,5 +563,15 @@
   "common.saving": "Speichern…",
   "contactFeed.standalone": "Personen ohne Organisation",
   "contactFeed.people": "Kontaktierte Personen ({{count}})",
-  "contactFeed.via": "Mit {{name}}"
+  "contactFeed.via": "Mit {{name}}",
+  "captureLinkedIn.profile": "LinkedIn-Profil",
+  "captureLinkedIn.review": "Prüfe Namen und Arbeitgeber, bevor du ein Profil auswählst. Nur dein gewählter Link wird gespeichert.",
+  "captureLinkedIn.searching": "LinkedIn-Profile werden gesucht…",
+  "captureLinkedIn.no_match": "Kein passendes Profil vorgeschlagen. Du kannst einen Profil-Link einfügen oder ohne speichern.",
+  "captureLinkedIn.needs_name": "Gib den vollständigen Namen der Person ein, um ein Profil zu suchen.",
+  "captureLinkedIn.unavailable": "LinkedIn-Suche nicht verfügbar. Erneut versuchen, Link einfügen oder ohne speichern.",
+  "captureLinkedIn.useProfile": "Dieses Profil verwenden",
+  "captureLinkedIn.selected": "Profil ausgewählt",
+  "captureLinkedIn.retry": "Erneut suchen",
+  "captureLinkedIn.openFailed": "Das Profil konnte nicht geöffnet werden. Bitte erneut versuchen."
 }

@@ -565,6 +565,7 @@ export interface CardFields {
   phone?: string | null;
   mobile?: string | null;
   website?: string | null;
+  linkedin_url?: string | null;
   address?: string | null;
   city?: string | null;
   country?: string | null;

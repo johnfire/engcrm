@@ -228,11 +228,12 @@ def promote_to_person(fields: dict, contact_id: int | None, source: str = "card_
     in the same fields dict.
     """
     from gcrm.tools.db import save_person
+    from gcrm.tools.db_capture_linkedin import save_capture_profile
 
     name = (fields.get("name") or "").strip()
     if not name:
         return 0
-    return save_person(
+    person_id = save_person(
         name=name,
         title=(fields.get("title") or "").strip(),
         email=(fields.get("email") or "").strip(),
@@ -244,6 +245,9 @@ def promote_to_person(fields: dict, contact_id: int | None, source: str = "card_
         contact_id=contact_id,
         source=source,
     )
+    if fields.get("linkedin_url"):
+        save_capture_profile(person_id, fields["linkedin_url"])
+    return person_id
 
 
 # ---------------------------------------------------------------------------

@@ -3,11 +3,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from psycopg2.extras import Json
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
+from gcrm.api.routers.api_capture_linkedin import establish_capture_workspace
 from gcrm.audit_context import audit_scope, current_audit_context
 from gcrm.config import MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards, documents
 from gcrm.tools.db_audit import log_audit
+from gcrm.workspace_context import get_workspace_id
 
 router = APIRouter(prefix="/api/documents", tags=["mobile-documents"])
 
@@ -36,10 +38,12 @@ def stage_document_row(cursor, batch_id, row_number, fields, extraction, image_b
     context = current_audit_context()
     cursor.execute(
         "INSERT INTO card_captures (captured_by, kind, capture_batch_id, document_row, "
-        "extracted, confidence, extraction_model, extraction_cost_usd, extraction_status) "
-        "VALUES (%s, 'document', %s, %s, %s, %s, %s, %s, 'done') RETURNING id",
+        "extracted, confidence, extraction_model, extraction_cost_usd, extraction_status, workspace_id) "
+        "VALUES (%s, 'document', %s, %s, %s, %s, %s, %s, 'done', "
+        "COALESCE(%s, (SELECT id FROM workspaces WHERE slug='default'))) RETURNING id",
         (context.actor if context else "shared-admin", batch_id, row_number, Json(fields),
-         fields.get("confidence"), extraction["model"], extraction["cost_usd"] if row_number == 0 else 0),
+         fields.get("confidence"), extraction["model"], extraction["cost_usd"] if row_number == 0 else 0,
+         get_workspace_id()),
     )
     capture_id = cursor.fetchone()["id"]
     image_path = cards.save_card_image(capture_id, image_bytes)
@@ -84,6 +88,7 @@ def capture_document(
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
     # Sync dependencies run in separate thread contexts; establish the actor here.
+    establish_capture_workspace(payload)
     actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
     with audit_scope(actor, "user", request.state.correlation_id):
         return create_document_drafts(image, capture_batch_id)

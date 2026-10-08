@@ -18,9 +18,16 @@ jest.mock("../../services/api", () => ({
   confirmCard: jest.fn(),
   discardCard: jest.fn(),
 }));
+jest.mock("../../services/capture-linkedin", () => ({ searchCaptureProfiles: jest.fn() }));
 
 import { confirmCard } from "../../services/api";
+import { searchCaptureProfiles } from "../../services/capture-linkedin";
 import CardConfirmScreen from "../../app/(drawer)/card-confirm";
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (searchCaptureProfiles as jest.Mock).mockResolvedValue({ status: "no_match", candidates: [] });
+});
 
 function card(company: string, captureId: number) {
   return {
@@ -64,4 +71,29 @@ describe("card-confirm met-at field", () => {
       met_at: "Gallery opening, Augsburg",
     });
   });
+});
+
+it("sends only the profile explicitly selected during scan review", async () => {
+  const url = "https://www.linkedin.com/in/anna-roth";
+  (searchCaptureProfiles as jest.Mock).mockResolvedValue({ status: "found", candidates: [
+    { url, title: "Anna Roth - ACME", snippet: "Augsburg" },
+  ] });
+  setHandoff("card", { capture_id: 8, is_card: true, fields: { company: "ACME", name: "Anna Roth" } });
+  const { getByText, getByDisplayValue } = render(<CardConfirmScreen />);
+  await waitFor(() => expect(getByText("Use this profile")).toBeTruthy());
+  fireEvent.press(getByText("Use this profile"));
+  expect(getByDisplayValue(url)).toBeTruthy();
+  fireEvent.press(getByText("Save lead"));
+  await waitFor(() => expect(confirmCard).toHaveBeenCalledWith(8,
+    expect.objectContaining({ linkedin_url: url }), null));
+});
+
+it("clears a selected profile when the reviewed person's name changes", () => {
+  const url = "https://www.linkedin.com/in/anna-roth";
+  setHandoff("card", { capture_id: 9, is_card: true, fields: {
+    company: "ACME", name: "Anna Roth", linkedin_url: url,
+  } });
+  const { getByDisplayValue, queryByDisplayValue } = render(<CardConfirmScreen />);
+  fireEvent.changeText(getByDisplayValue("Anna Roth"), "Bernd Klein");
+  expect(queryByDisplayValue(url)).toBeNull();
 });

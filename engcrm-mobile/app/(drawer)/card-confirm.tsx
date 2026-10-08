@@ -14,6 +14,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { confirmCard, discardCard, CaptureResult, CardFields } from "../../services/api";
 import { takeHandoff } from "../../services/handoff";
 import { CardField } from "../../components/CardField";
+import { CaptureLinkedIn } from "../../components/capture-linkedin";
 import { useTranslation } from "../../i18n/I18nContext";
 
 export default function CardConfirmScreen() {
@@ -43,7 +44,9 @@ export default function CardConfirmScreen() {
   const set =
     (fieldKey: keyof CardFields) =>
     (value: string) =>
-      setFields((prev) => ({ ...prev, [fieldKey]: value }));
+      setFields((prev) => ({ ...prev, [fieldKey]: value,
+        ...(["name", "company", "city"].includes(fieldKey) ? { linkedin_url: null } : {}),
+      }));
 
   async function save() {
     setSaving(true);
@@ -118,6 +121,9 @@ export default function CardConfirmScreen() {
         <CardField label={t("cardConfirm.website")} value={fields.website} onChange={set("website")} keyboardType="url" />
         <CardField label={t("cardConfirm.address")} value={fields.address} onChange={set("address")} />
         <CardField label={t("cardConfirm.city")} value={fields.city} onChange={set("city")} />
+        <CaptureLinkedIn key={capture.capture_id} captureId={capture.capture_id}
+          name={fields.name || ""} company={fields.company || ""} city={fields.city || ""}
+          value={fields.linkedin_url} onChange={set("linkedin_url")} disabled={saving} />
         <CardField label={t("cardConfirm.country")} value={fields.country} onChange={set("country")} />
         <CardField label={t("cardConfirm.industry")} value={fields.industry} onChange={set("industry")} />
         <CardField label={t("cardConfirm.metAt")} value={fields.met_at} onChange={set("met_at")} />

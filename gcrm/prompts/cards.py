@@ -31,6 +31,7 @@ Schema:
   "phone":    null,
   "mobile":   null,
   "website":  null,
+  "linkedin_url": null,
   "address":  null,
   "city":     null,
   "country":  null,
@@ -42,6 +43,7 @@ Schema:
 Field notes:
 - company: the business/organization name. name: the person's full name. title: their role.
 - phone: main/landline. mobile: cell. Keep them separate if both appear.
+- linkedin_url: the person's visibly printed linkedin.com/in/ profile, never a company page.
 - country: ISO-3166 alpha-2 (e.g. DE, AT, CH). language: ISO-639-1 (e.g. de, en).
 - industry: short B2B category inferred from the card (e.g. "Zahnarzt", "Steuerberater",
   "Architekt"); null if unclear.

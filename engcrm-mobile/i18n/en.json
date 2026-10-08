@@ -563,5 +563,15 @@
   "common.saving": "Saving…",
   "contactFeed.standalone": "People without business",
   "contactFeed.people": "Contacted people ({{count}})",
-  "contactFeed.via": "With {{name}}"
+  "contactFeed.via": "With {{name}}",
+  "captureLinkedIn.profile": "LinkedIn profile",
+  "captureLinkedIn.review": "Check the name and employer before choosing a profile. Only your chosen link is saved.",
+  "captureLinkedIn.searching": "Looking for LinkedIn profiles…",
+  "captureLinkedIn.no_match": "No matching profile suggested. You can paste a profile link or save without one.",
+  "captureLinkedIn.needs_name": "Enter the person’s full name to look for a profile.",
+  "captureLinkedIn.unavailable": "LinkedIn search is unavailable. Retry, paste a link, or save without one.",
+  "captureLinkedIn.useProfile": "Use this profile",
+  "captureLinkedIn.selected": "Profile selected",
+  "captureLinkedIn.retry": "Search again",
+  "captureLinkedIn.openFailed": "Could not open the profile. Please try again."
 }

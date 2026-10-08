@@ -21,15 +21,20 @@ from psycopg2.extras import Json
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payload
+from gcrm.api.routers.api_capture_linkedin import establish_capture_workspace
+from gcrm.api.routers.api_capture_linkedin import router as linkedin_router
 from gcrm.audit_context import audit_scope, current_audit_context
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
 from gcrm.tools import cards
+from gcrm.tools.capture_linkedin import normalize_profile_url
 from gcrm.tools.db import serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cards", tags=["mobile-cards"])
+router.include_router(linkedin_router)
 
 
 def _as_int(v) -> int | None:
@@ -46,6 +51,7 @@ def capture_card(
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
     """Accept a card or primary document contact through existing mobile clients."""
+    establish_capture_workspace(payload)
     actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
     with audit_scope(actor, "user", request.state.correlation_id):
         return create_contact_capture(image, gps_lat, gps_lng, actor)
@@ -62,8 +68,9 @@ def create_contact_capture(image: UploadFile, gps_lat, gps_lng, actor: str) -> d
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO card_captures (captured_by, gps_lat, gps_lng) VALUES (%s, %s, %s) RETURNING id",
-            (actor, gps_lat, gps_lng),
+            "INSERT INTO card_captures (captured_by, gps_lat, gps_lng, workspace_id) "
+            "VALUES (%s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug='default'))) RETURNING id",
+            (actor, gps_lat, gps_lng, get_workspace_id()),
         )
         capture_id = cursor.fetchone()["id"]
     image_path = cards.save_card_image(capture_id, image_bytes)
@@ -162,19 +169,41 @@ def record_confirmed_person(fields: dict, contact_id: int, source: str) -> int:
     try:
         return (cards.promote_to_person(fields, contact_id, source=source)
                 if source == "document_capture" else cards.promote_to_person(fields, contact_id))
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
     except Exception:
         logger.exception("capture person creation failed for contact %s", contact_id)
-        if source == "document_capture":
-            raise HTTPException(503, "Could not save the person. This draft is still pending; please retry.")
-        return 0
+        raise HTTPException(503, "Could not save the person. This draft is still pending; please retry.")
+
+
+def validate_reviewed_profile(body: ConfirmBody) -> None:
+    profile = body.fields.get("linkedin_url")
+    if profile and (not isinstance(profile, str) or not normalize_profile_url(profile)):
+        raise HTTPException(422, "Enter a LinkedIn person profile URL (linkedin.com/in/...).")
+    if profile and not (body.fields.get("name") or "").strip():
+        raise HTTPException(422, "A person name is required for a LinkedIn profile.")
+
+
+def validate_capture_organization(cursor, contact_id: int) -> None:
+    cursor.execute(
+        "SELECT id FROM contacts WHERE id=%s AND deleted_at IS NULL "
+        "AND workspace_id=COALESCE(%s, (SELECT id FROM workspaces WHERE slug='default'))",
+        (contact_id, get_workspace_id()),
+    )
+    if not cursor.fetchone():
+        raise HTTPException(404, "Organization not found")
 
 
 def save_reviewed_capture(capture_id: int, body: ConfirmBody) -> tuple[dict, int, int]:
+    validate_reviewed_profile(body)
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
             "SELECT id, kind, status, image_path FROM card_captures "
-            "WHERE id=%s AND kind IN ('card', 'document') FOR UPDATE", (capture_id,),
+            "WHERE id=%s AND kind IN ('card', 'document') "
+            "AND COALESCE(workspace_id, (SELECT id FROM workspaces WHERE slug='default'))="
+            "COALESCE(%s, (SELECT id FROM workspaces WHERE slug='default')) "
+            "FOR UPDATE", (capture_id, get_workspace_id()),
         )
         capture = cursor.fetchone()
         if not capture:
@@ -184,6 +213,8 @@ def save_reviewed_capture(capture_id: int, body: ConfirmBody) -> tuple[dict, int
         if not (body.fields.get("company") or body.fields.get("name") or "").strip():
             raise HTTPException(400, "Company or person name is required")
         source = "document_capture" if capture.get("kind") == "document" else "card_capture"
+        if body.link_to_contact_id:
+            validate_capture_organization(cursor, body.link_to_contact_id)
         contact_id = promote_confirmed_organization(body, source)
         person_id = record_confirmed_person(body.fields, contact_id, source)
         cursor.execute(
@@ -208,6 +239,8 @@ def complete_reviewed_capture(capture_id: int, body: ConfirmBody, background: Ba
     else:
         background.add_task(cards.enrich_one, contact_id)
     log_audit(None, None, "card.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
+    if person_id:
+        log_audit(None, None, "person.capture_confirmed", f"person:{person_id}", f"card_capture:{capture_id}")
     return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
 
 
@@ -221,6 +254,7 @@ def confirm_capture(
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
     """Save a reviewed card or document row, then enrich its organization."""
+    establish_capture_workspace(payload)
     actor = f"user:{payload['uid']}" if payload.get("uid") is not None else "shared-admin"
     with audit_scope(actor, "user", request.state.correlation_id):
         return complete_reviewed_capture(capture_id, body, background)

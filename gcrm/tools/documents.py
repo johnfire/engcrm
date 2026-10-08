@@ -11,7 +11,7 @@ MODEL_NAME = "claude-haiku-4-5-20251001"
 EXTRACTION_FAILED = "Could not read this page. Retake the photo with the text clearly visible."
 TEXT_FIELDS = (
     "company", "name", "title", "email", "phone", "mobile", "website", "address",
-    "city", "country", "industry", "language", "note",
+    "city", "country", "industry", "language", "note", "linkedin_url",
 )
 
 
