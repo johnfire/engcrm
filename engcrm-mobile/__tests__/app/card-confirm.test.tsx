@@ -85,7 +85,7 @@ it("sends only the profile explicitly selected during scan review", async () => 
   expect(getByDisplayValue(url)).toBeTruthy();
   fireEvent.press(getByText("Save lead"));
   await waitFor(() => expect(confirmCard).toHaveBeenCalledWith(8,
-    expect.objectContaining({ linkedin_url: url }), null));
+    expect.objectContaining({ linkedin_url: url }), null, false));
 });
 
 it("clears a selected profile when the reviewed person's name changes", () => {
@@ -96,4 +96,25 @@ it("clears a selected profile when the reviewed person's name changes", () => {
   const { getByDisplayValue, queryByDisplayValue } = render(<CardConfirmScreen />);
   fireEvent.changeText(getByDisplayValue("Anna Roth"), "Bernd Klein");
   expect(queryByDisplayValue(url)).toBeNull();
+});
+
+describe("card-confirm contact switch", () => {
+  function scan(captureId: number) {
+    setHandoff("card", { capture_id: captureId, is_card: true, fields: { company: "ACME", name: "Anna Roth" } });
+    return render(<CardConfirmScreen />);
+  }
+
+  it("defaults to card-only, with no contact date", async () => {
+    const { getByText } = scan(10);
+    fireEvent.press(getByText("Save lead"));
+    await waitFor(() => expect(confirmCard).toHaveBeenCalledWith(10, expect.anything(), null, false));
+  });
+
+  it("sends met_in_person when the user talked to the person", async () => {
+    const { getByText, getByLabelText } = scan(11);
+    fireEvent(getByLabelText("I talked to this person"), "valueChange", true);
+    expect(getByText("Counts as a contact today")).toBeTruthy();
+    fireEvent.press(getByText("Save lead"));
+    await waitFor(() => expect(confirmCard).toHaveBeenCalledWith(11, expect.anything(), null, true));
+  });
 });

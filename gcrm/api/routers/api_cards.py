@@ -30,6 +30,8 @@ from gcrm.tools import cards
 from gcrm.tools.capture_linkedin import normalize_profile_url
 from gcrm.tools.db import serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_interactions import log_meeting_note
+from gcrm.tools.db_people_interactions import log_person_note
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -150,6 +152,24 @@ def get_capture_image(capture_id: int, _role: str = Depends(require_jwt)):
 class ConfirmBody(BaseModel):
     fields: dict
     link_to_contact_id: int | None = None
+    # True when the user spoke with the person; the scan then counts as a contact today.
+    met_in_person: bool = False
+
+
+MET_NOTE = "Met in person (scanned card)"
+
+
+def record_met_in_person(contact_id: int, person_id: int) -> bool:
+    """Log today's in-person contact on the organization and the person. A failure is
+    reported to the caller instead of undoing the already-confirmed capture."""
+    try:
+        log_meeting_note(contact_id, "in_person", MET_NOTE)
+        if person_id:
+            log_person_note(person_id, "visit", MET_NOTE)
+        return True
+    except Exception:
+        logger.exception("met-in-person log failed for contact %s", contact_id)
+        return False
 
 
 def promote_confirmed_organization(body: ConfirmBody, source: str) -> int:
@@ -241,7 +261,9 @@ def complete_reviewed_capture(capture_id: int, body: ConfirmBody, background: Ba
     log_audit(None, None, "card.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
     if person_id:
         log_audit(None, None, "person.capture_confirmed", f"person:{person_id}", f"card_capture:{capture_id}")
-    return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None}
+    met_recorded = record_met_in_person(contact_id, person_id) if body.met_in_person else None
+    return {"contact_id": contact_id, "capture_id": capture_id, "person_id": person_id or None,
+            "met_recorded": met_recorded}
 
 
 @router.post("/{capture_id}/confirm")

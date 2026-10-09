@@ -377,10 +377,12 @@ export async function confirmCard(
   captureId: number,
   fields: CardFields,
   linkToContactId?: number | null,
-): Promise<{ contact_id: number; capture_id: number }> {
+  metInPerson = false,
+): Promise<{ contact_id: number; capture_id: number; met_recorded: boolean | null }> {
   const resp = await client.post(`/api/cards/${captureId}/confirm`, {
     fields,
     link_to_contact_id: linkToContactId ?? null,
+    met_in_person: metInPerson,
   });
   return resp.data;
 }

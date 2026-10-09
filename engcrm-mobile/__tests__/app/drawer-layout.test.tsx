@@ -1,3 +1,4 @@
+import { AppState } from "react-native";
 import { render, fireEvent } from "@testing-library/react-native";
 
 let mockDrawerContent: ((props: any) => any) | undefined;
@@ -26,5 +27,23 @@ describe("drawer menu", () => {
     const { getByLabelText } = render(mockDrawerContent!({ navigation: { closeDrawer } }));
     fireEvent.press(getByLabelText("✕ Close menu"));
     expect(closeDrawer).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the drawer when the app returns to the foreground", () => {
+    let onChange: (state: string) => void = () => undefined;
+    const remove = jest.fn();
+    jest.spyOn(AppState, "addEventListener").mockImplementation(((_: string, cb: (state: string) => void) => {
+      onChange = cb;
+      return { remove };
+    }) as never);
+    render(<DrawerLayout />);
+    const closeDrawer = jest.fn();
+    const view = render(mockDrawerContent!({ navigation: { closeDrawer } }));
+    onChange("background");
+    expect(closeDrawer).not.toHaveBeenCalled();
+    onChange("active");
+    expect(closeDrawer).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(remove).toHaveBeenCalled();
   });
 });

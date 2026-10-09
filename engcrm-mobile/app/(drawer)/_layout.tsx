@@ -4,7 +4,8 @@ import {
   DrawerItemList,
   type DrawerContentComponentProps,
 } from "expo-router/drawer";
-import { TouchableOpacity, Text, View } from "react-native";
+import { useEffect } from "react";
+import { AppState, TouchableOpacity, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -47,6 +48,16 @@ function HeaderBack({ to }: { to: Href }) {
 // whole app — this button is inside the drawer itself so it always works.
 function CustomDrawerContent(props: DrawerContentComponentProps) {
   const { t } = useTranslation();
+  const { navigation } = props;
+  // Returning from the camera or another app can leave the drawer open with its
+  // gesture state stale (the stuck menu seen right after a card photo). Always
+  // come back with the menu closed.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") navigation.closeDrawer();
+    });
+    return () => subscription.remove();
+  }, [navigation]);
   return (
     <View style={{ flex: 1 }}>
       <TouchableOpacity

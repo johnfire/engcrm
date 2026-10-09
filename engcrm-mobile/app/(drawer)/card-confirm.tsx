@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { confirmCard, discardCard, CaptureResult, CardFields } from "../../services/api";
@@ -24,6 +25,7 @@ export default function CardConfirmScreen() {
   const [fields, setFields] = useState<CardFields>({});
   const [linkDup, setLinkDup] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [metInPerson, setMetInPerson] = useState(false);
   const dup = capture.dup_suggestion;
 
   // This screen is a drawer screen, so its instance is kept mounted and reused
@@ -38,6 +40,7 @@ export default function CardConfirmScreen() {
       setFields(next.fields || {});
       setLinkDup(false);
       setSaving(false);
+      setMetInPerson(false);
     }, []),
   );
 
@@ -51,10 +54,11 @@ export default function CardConfirmScreen() {
   async function save() {
     setSaving(true);
     try {
-      await confirmCard(capture.capture_id, fields, linkDup && dup ? dup.id : null);
+      const saved = await confirmCard(capture.capture_id, fields, linkDup && dup ? dup.id : null, metInPerson);
+      const contactNotLogged = metInPerson && saved?.met_recorded === false;
       Alert.alert(
         linkDup ? t("cardConfirm.linkedTitle") : t("cardConfirm.savedTitle"),
-        t("cardConfirm.savedMessage"),
+        t("cardConfirm.savedMessage") + (contactNotLogged ? `\n\n${t("cardConfirm.metNotRecorded")}` : ""),
         [{ text: "OK", onPress: () => router.replace(capture.return_to_queue ? "/(drawer)/card-queue" : "/(drawer)/capture") }],
       );
     } catch (error: any) {
@@ -129,6 +133,15 @@ export default function CardConfirmScreen() {
         <CardField label={t("cardConfirm.metAt")} value={fields.met_at} onChange={set("met_at")} />
         <CardField label={t("cardConfirm.note")} value={fields.note} onChange={set("note")} multiline />
 
+        <View style={styles.metRow}>
+          <View style={styles.metText}>
+            <Text style={styles.metLabel}>{t("cardConfirm.metInPerson")}</Text>
+            <Text style={styles.metHint}>{t(metInPerson ? "cardConfirm.metInPersonOn" : "cardConfirm.metInPersonOff")}</Text>
+          </View>
+          <Switch value={metInPerson} onValueChange={setMetInPerson} disabled={saving}
+            accessibilityLabel={t("cardConfirm.metInPerson")} trackColor={{ true: "#7c6fff" }} />
+        </View>
+
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
@@ -176,6 +189,13 @@ const styles = StyleSheet.create({
   dupBtnText: { color: "#aaa", fontSize: 13, fontWeight: "600" },
   dupBtnTextActive: { color: "#fff" },
   confidence: { color: "#666", fontSize: 12, marginBottom: 12, textAlign: "right" },
+  metRow: {
+    flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8, padding: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: "#ffffff20", backgroundColor: "#1a1a2e",
+  },
+  metText: { flex: 1 },
+  metLabel: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  metHint: { color: "#888", fontSize: 12, marginTop: 2 },
   save: {
     backgroundColor: "#7c6fff",
     borderRadius: 12,
