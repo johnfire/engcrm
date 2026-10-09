@@ -1,4 +1,5 @@
 """Month and since-start counts of contacted people and organizations, on real Postgres."""
+import uuid
 from datetime import date
 
 import pytest
@@ -75,9 +76,19 @@ def test_month_resets_but_since_start_keeps_counting(workspace):
 
 
 def test_other_workspaces_are_not_counted(workspace):
+    slug = f"other-{uuid.uuid4().hex[:8]}"
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("INSERT INTO workspaces (slug,name) VALUES ('other','Other') RETURNING id")
+        cursor.execute("INSERT INTO workspaces (slug,name) VALUES (%s,'Other') RETURNING id", (slug,))
         other = cursor.fetchone()["id"]
-        organization_contact(cursor, organization(cursor, "Theirs", other), date(2026, 10, 6))
-    assert get_contact_counts(workspace, TODAY)["month"] == {"people": 0, "organizations": 0}
+    try:
+        with db() as connection:
+            organization_contact(connection.cursor(), organization(connection.cursor(), "Theirs", other), date(2026, 10, 6))
+        assert get_contact_counts(workspace, TODAY)["month"] == {"people": 0, "organizations": 0}
+        assert get_contact_counts(other, TODAY)["month"] == {"people": 0, "organizations": 1}
+    finally:
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("DELETE FROM interactions WHERE contact_id IN (SELECT id FROM contacts WHERE workspace_id=%s)", (other,))
+            cursor.execute("DELETE FROM contacts WHERE workspace_id=%s", (other,))
+            cursor.execute("DELETE FROM workspaces WHERE id=%s", (other,))
