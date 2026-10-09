@@ -1,5 +1,10 @@
-import { Drawer } from "expo-router/drawer";
-import { TouchableOpacity, Text } from "react-native";
+import {
+  Drawer,
+  DrawerContentScrollView,
+  DrawerItemList,
+  type DrawerContentComponentProps,
+} from "expo-router/drawer";
+import { TouchableOpacity, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -37,11 +42,41 @@ function HeaderBack({ to }: { to: Href }) {
   );
 }
 
+// Menu body with a Close button pinned above the scrolling list. The drawer can
+// otherwise get stuck open (overlay tap / swipe not registering), which locks the
+// whole app — this button is inside the drawer itself so it always works.
+function CustomDrawerContent(props: DrawerContentComponentProps) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ flex: 1 }}>
+      <TouchableOpacity
+        onPress={() => props.navigation.closeDrawer()}
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 48,
+          paddingBottom: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: "#2a2a45",
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.closeMenu")}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={{ color: "#fff", fontSize: 18, fontWeight: "600" }}>{t("drawer.closeMenu")}</Text>
+      </TouchableOpacity>
+      <DrawerContentScrollView {...props}>
+        <DrawerItemList {...props} />
+      </DrawerContentScrollView>
+    </View>
+  );
+}
+
 export default function DrawerLayout() {
   const { t } = useTranslation();
   return (
     <Drawer
       backBehavior="history"
+      drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerStyle: { backgroundColor: "#0f0f23" },
         headerTintColor: "#fff",
