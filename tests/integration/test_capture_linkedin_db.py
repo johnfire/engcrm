@@ -29,7 +29,7 @@ def test_profile_enriches_rescan_without_changing_origin_or_connection(clean_dat
 
 
 def test_conflicting_profile_is_preserved(clean_database):
-    person_id = save_person("Anna Roth")
+    person_id = save_person("Anna Roth", source="test_fixture")
     save_capture_profile(person_id, PROFILE)
     with pytest.raises(ValueError, match="different LinkedIn profile"):
         save_capture_profile(person_id, "https://linkedin.com/in/another-anna")
@@ -40,7 +40,7 @@ def test_conflicting_profile_is_preserved(clean_database):
 
 
 def test_profile_cannot_update_person_in_another_workspace(clean_database):
-    person_id = save_person("Anna Roth")
+    person_id = save_person("Anna Roth", source="test_fixture")
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute("INSERT INTO workspaces (name, slug) VALUES ('Lookup test', 'lookup-test') ON CONFLICT (slug) DO UPDATE SET name=EXCLUDED.name RETURNING id")

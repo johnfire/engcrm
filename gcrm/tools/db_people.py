@@ -9,6 +9,7 @@ from gcrm.db.connection import db, serialize_row
 from gcrm.geo import distance_km_sql
 from gcrm.linkedin import normalize_linkedin_url
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sources import require_source
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -55,6 +56,7 @@ def find_existing_person(cur, name: str, email: str, contact_id: int | None) -> 
 def save_person(
     name: str,
     *,
+    source: str,
     title: str = "",
     email: str = "",
     phone: str = "",
@@ -65,7 +67,6 @@ def save_person(
     notes: str = "",
     met_at: str = "",
     contact_id: int | None = None,
-    source: str = "",
     pipeline_stage: str = "",
     allow_duplicate: bool = False,
 ) -> int:
@@ -88,7 +89,10 @@ def save_person(
     `allow_duplicate` skips the dedup and always inserts: for a person typed in by
     hand after being shown the match and confirming it is someone else (two
     different people can share a name).
+
+    `source` says how the person was created (see gcrm.sources) and is required.
     """
+    source = require_source(source)
     stage = pipeline_stage.strip() or None
     if stage is not None and stage not in PIPELINE_STAGES:
         raise ValueError(f"unknown pipeline stage: {stage!r}")
@@ -119,7 +123,7 @@ def save_person(
             """,
             (name, title or None, email or None, phone or None, website or None,
              city or None, country or None, relationship or None, notes or None,
-             met_at or None, contact_id, source or None, latitude, longitude, stage,
+             met_at or None, contact_id, source, latitude, longitude, stage,
              get_workspace_id()),
         )
         person_id = cur.fetchone()["id"]

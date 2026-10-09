@@ -83,6 +83,8 @@ def extract_venues(llm, markdown_text: str, filepath: str) -> list[dict]:
 
 def import_file(llm, filepath: pathlib.Path, save_organization) -> tuple[int, int]:
     """Returns (saved, skipped) counts."""
+    from gcrm.sources import STUDIES_IMPORT
+
     if not filepath.exists():
         logger.warning("File not found: %s", filepath)
         return 0, 0
@@ -118,6 +120,7 @@ def import_file(llm, filepath: pathlib.Path, save_organization) -> tuple[int, in
             email=v.get("email") or "",
             phone=v.get("phone") or "",
             notes=notes,
+            source=STUDIES_IMPORT,
         )
         if contact_id:
             saved += 1

@@ -37,7 +37,8 @@ def test_new_form_has_all_fields_and_stages_and_localized_labels(admin_browser):
 
 
 def test_web_save_passes_stage_and_sets_actor_and_correlation(admin_browser):
-    def saved(body):
+    def saved(body, source):
+        assert source == "manual_web"   # the website form, not the phone
         assert body.name == "Acme" and body.pipeline_stage == "customer"
         assert current_audit_context().actor == "owner@example.test"
         assert current_audit_context().correlation_id == "manual-web-test"
@@ -76,7 +77,8 @@ def test_unauthenticated_web_entry_cannot_render_or_save():
 
 
 def test_mobile_creation_sets_workspace_and_audit_identity():
-    def saved(body):
+    def saved(body, source):
+        assert source == "manual_mobile"   # the phone form, not the website
         assert get_workspace_id() == 42
         assert current_audit_context().actor == "shared-admin"
         assert current_audit_context().correlation_id == "manual-api-test"

@@ -13,6 +13,7 @@ import math
 import re
 
 from gcrm.prompts.signs import SIGN_SYSTEM_PROMPT
+from gcrm.sources import SIGN_RESEARCH
 from gcrm.tools.cards import _content_to_text, _usage_cost
 
 logger = logging.getLogger(__name__)
@@ -232,7 +233,7 @@ def promote_people(contact_id: int, people: list[dict]) -> list[int]:
                 email=(person.get("email") or "").strip(),
                 phone=(person.get("phone") or "").strip(),
                 contact_id=contact_id,
-                source="sign_research",
+                source=SIGN_RESEARCH,
             ))
         except Exception:
             logger.exception("promote_people: failed to save %r for contact %s", name, contact_id)

@@ -57,7 +57,7 @@ def world(clean_database, monkeypatch):
     workspace = _workspace()
     acme = _organization("Acme GmbH", "suspect")
     quiet = _organization("Quiet AG", "prospect")
-    anna = save_person("Anna Huber", contact_id=acme, allow_duplicate=True)
+    anna = save_person("Anna Huber", contact_id=acme, allow_duplicate=True, source="test_fixture")
     d = date(2026, 10, 13)  # Monday of the period's week
     _org_activity(acme, date(2026, 9, 20), "in_person")             # first contact, before the period
     _org_activity(acme, d, "in_person")                              # drop-in 15

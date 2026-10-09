@@ -15,6 +15,7 @@ website, so each entry is matched to its Places record by phone number.
 """
 import re
 
+from gcrm.sources import MAPS_IMPORT
 from gcrm.tools.company_places import describe_place
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.search import google_maps_search
@@ -52,7 +53,7 @@ def add_organizations(organizations: list[dict], type: str, note: str) -> dict:
         contact_id = save_organization(
             org["name"], org["city"], country=org["country"], type=type,
             website=org["website"], phone=org["phone"],
-            notes=f"{note}\n{org['address']}".strip(), google=org["google"],
+            notes=f"{note}\n{org['address']}".strip(), google=org["google"], source=MAPS_IMPORT,
         )
         if contact_id:
             created.append(contact_id)

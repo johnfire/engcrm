@@ -119,7 +119,7 @@ def import_orgs(apply: bool) -> None:
                 name=row["name"], city=row["city"], country="DE", type=kind,
                 website=normalise_website(row.get("website", "")),
                 email=row.get("email", ""), phone=row.get("phone", ""),
-                notes=row.get("notes", ""),
+                notes=row.get("notes", ""), source=SOURCE,
             )
             if contact_id:
                 stamp_extras(contact_id, row, SOURCE)

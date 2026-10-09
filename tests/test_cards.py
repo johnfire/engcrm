@@ -127,19 +127,18 @@ class TestPromote:
         assert msave.call_args.kwargs["name"] == "ACME GmbH"   # company → name
         assert msave.call_args.kwargs["email"] == "anna@acme.de"
         upd_sql, upd_params = cur.execute.call_args_list[-1].args
-        assert "decision_maker" in upd_sql and "source=%s" in upd_sql
+        assert "decision_maker" in upd_sql and "source" not in upd_sql
         assert upd_params[0] == "Anna Roth, CTO"               # person+title → decision_maker
-        assert upd_params[2] == "card_capture"                 # default source unchanged
+        assert msave.call_args.kwargs["source"] == "card_capture"  # recorded at creation
 
     def test_source_param_overrides_default(self):
         conn, cur = make_mock_conn()
-        with patch("gcrm.tools.db.save_organization", return_value=9), \
+        with patch("gcrm.tools.db.save_organization", return_value=9) as msave, \
              patch("gcrm.db.connection.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             cid = cards.promote_to_organization({"company": "Sign Co", "city": "Munich"}, source="sign_scan")
         assert cid == 9
-        upd_params = cur.execute.call_args_list[-1].args[1]
-        assert upd_params[2] == "sign_scan"
+        assert msave.call_args.kwargs["source"] == "sign_scan"
 
     def test_falls_back_to_person_name(self):
         conn, cur = make_mock_conn()

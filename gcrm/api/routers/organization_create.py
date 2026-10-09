@@ -14,6 +14,7 @@ from gcrm.api.templates import templates
 from gcrm.audit_context import audit_scope
 from gcrm.i18n import translate
 from gcrm.organization_state import DEFAULT_STAGE, PIPELINE_STAGES
+from gcrm.sources import MANUAL_WEB
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/organizations", dependencies=[Depends(require_admin)])
@@ -46,7 +47,7 @@ def create_business(request: Request, body: OrganizationFields = Form(...)):
     actor = request.session.get("email") or "shared-admin"
     try:
         with audit_scope(actor, "user", request.state.correlation_id):
-            created = save_manual_organization(body)
+            created = save_manual_organization(body, MANUAL_WEB)
     except HTTPException as failure:
         return render_business_form(request, values, failure.detail, failure.status_code)
     except Exception:

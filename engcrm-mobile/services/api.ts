@@ -504,6 +504,8 @@ export interface LinkedInConnections {
 }
 
 export interface OrganizationDetail extends Organization {
+  // How it was created (see gcrm/sources.py); null on rows from before it was recorded.
+  source?: string | null;
   phone: string | null;
   notes: string | null;
   decision_maker?: string | null;

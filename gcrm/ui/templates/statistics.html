@@ -120,7 +120,7 @@
     <div class="table-scroll"><table>
       <tbody>
       {% for r in stats.new_by_source %}
-        <tr><td>{{ t('statistics.entity.' ~ r.kind) }}</td><td>{{ r.source }}</td><td class="num">{{ r.n }}</td></tr>
+        <tr><td>{{ t('statistics.entity.' ~ r.kind) }}</td><td>{{ t(source_label_key(r.source)) }}</td><td class="num">{{ r.n }}</td></tr>
       {% endfor %}
       </tbody>
     </table></div>

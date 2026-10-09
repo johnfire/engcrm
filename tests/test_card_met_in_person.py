@@ -1,10 +1,7 @@
 """Scanned cards count as a contact only when the user says they met the person."""
 from unittest.mock import MagicMock, patch
 
-from fastapi.testclient import TestClient
-
 from gcrm.api.jwt_auth import create_token
-from gcrm.api.main import app
 from gcrm.api.routers.api_cards import MET_NOTE, ConfirmBody, complete_reviewed_capture
 
 AUTH = {"Authorization": f"Bearer {create_token('admin')}"}

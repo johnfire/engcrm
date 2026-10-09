@@ -11,6 +11,7 @@ from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.routers.api_record_edit import clean_fields
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sources import MANUAL_MOBILE
 from gcrm.tools.db import get_people, get_person, get_person_cities
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import (
@@ -138,7 +139,7 @@ def create_person(
         phone=fields.get("phone") or "", website=fields.get("website") or "",
         city=fields.get("city") or "", country=fields.get("country") or "DE",
         relationship=fields.get("relationship") or "", notes=fields.get("notes") or "",
-        met_at=fields.get("met_at") or "", contact_id=body.contact_id, source="manual",
+        met_at=fields.get("met_at") or "", contact_id=body.contact_id, source=MANUAL_MOBILE,
         pipeline_stage=stage,
     )
     if fields.get("linkedin_url"):

@@ -202,6 +202,7 @@ def promote_to_organization(fields: dict, source: str = "card_capture") -> int:
         phone=(fields.get("phone") or fields.get("mobile") or "").strip(),
         notes=(fields.get("note") or "").strip(),
         status="candidate",
+        source=source,
     )
     if cid == 0:
         return 0
@@ -211,9 +212,9 @@ def promote_to_organization(fields: dict, source: str = "card_capture") -> int:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE contacts SET decision_maker=%s, address=%s, source=%s, "
+            "UPDATE contacts SET decision_maker=%s, address=%s, "
             "updated_at=NOW() WHERE id=%s",
-            (decision_maker, address, source, cid),
+            (decision_maker, address, cid),
         )
     return cid
 

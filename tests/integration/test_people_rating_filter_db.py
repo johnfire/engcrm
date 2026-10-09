@@ -21,7 +21,7 @@ def test_candidates_rated_3_or_better_by_me(clean_database, monkeypatch):
     monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
     me, workspace = _user("me@example.test")
     other, _ = _user("other@example.test")
-    people = {name: save_person(name, pipeline_stage=stage, allow_duplicate=True)
+    people = {name: save_person(name, pipeline_stage=stage, allow_duplicate=True, source="test_fixture")
               for name, stage in [("A best", "candidate"), ("B medium", "candidate"), ("C low", "candidate"),
                                   ("D best but prospect", "prospect"), ("E unrated", "candidate"),
                                   ("F rated by someone else", "candidate")]}

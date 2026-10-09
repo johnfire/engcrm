@@ -235,10 +235,10 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
                  for row in cur.fetchall()]
 
         cur.execute(
-            "SELECT 'organization' AS kind, COALESCE(NULLIF(source, ''), 'manual') AS source, COUNT(*) AS n "
+            "SELECT 'organization' AS kind, COALESCE(NULLIF(source, ''), 'unknown') AS source, COUNT(*) AS n "
             "FROM contacts WHERE workspace_id = %s AND deleted_at IS NULL AND created_at::date BETWEEN %s AND %s "
             "GROUP BY 2 UNION ALL "
-            "SELECT 'person', COALESCE(NULLIF(source, ''), 'manual'), COUNT(*) FROM people "
+            "SELECT 'person', COALESCE(NULLIF(source, ''), 'unknown'), COUNT(*) FROM people "
             "WHERE workspace_id = %s AND deleted_at IS NULL AND created_at::date BETWEEN %s AND %s "
             "GROUP BY 2 ORDER BY 1, 3 DESC",
             (workspace_id, start, end, workspace_id, start, end),

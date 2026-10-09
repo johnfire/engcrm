@@ -15,6 +15,7 @@ from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_
 from gcrm.db.connection import db
 from gcrm.linkedin import decode_export, parse_connections_csv
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sources import MANUAL_WEB
 from gcrm.tools.company_places import ESTIMATED_USD_PER_1000
 from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
@@ -197,7 +198,7 @@ def person_create(
         name=text["name"], title=text["title"], email=text["email"], phone=text["phone"],
         website=text["website"], city=text["city"], country=text["country"] or "DE",
         relationship=text["relationship"], notes=text["notes"], met_at=text["met_at"],
-        source="manual", pipeline_stage=pipeline_stage, allow_duplicate=allow_duplicate,
+        source=MANUAL_WEB, pipeline_stage=pipeline_stage, allow_duplicate=allow_duplicate,
     )
     log_audit(None, None, "person.created", f"person:{person_id}",
               "created:confirmed-not-duplicate" if allow_duplicate else "created")

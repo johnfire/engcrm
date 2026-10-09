@@ -28,6 +28,7 @@ from langgraph.graph import END, StateGraph
 
 from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, RESEARCH_DOSSIER_ENABLED, SCAN_CUTOFF, SMART_LLM
 from gcrm.research import get_or_create_dossier
+from gcrm.sources import RESEARCH_AGENT
 from gcrm.tools import (
     can_run_level,
     check_compliance,
@@ -84,7 +85,7 @@ def _build_research_agent(llm):
         web_search=web_search,
         geo_search=google_maps_search,
         fetch_page=fetch_page,
-        save_organization=save_organization,
+        save_organization=partial(save_organization, source=RESEARCH_AGENT),
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,

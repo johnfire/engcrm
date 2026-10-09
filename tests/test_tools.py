@@ -29,7 +29,7 @@ class TestSaveOrganization:
         with patch("gcrm.tools.db.db") as mock_db, \
              patch("gcrm.tools.db_organizations.geocode", return_value=None):
             mock_db.return_value.__enter__.return_value = conn
-            result = save_organization("Galerie Nord", "Munich", country="DE", type="gallery")
+            result = save_organization("Galerie Nord", "Munich", country="DE", type="gallery", source="test_fixture")
 
         assert result == 42
         assert cur.execute.call_count >= 2
@@ -41,7 +41,7 @@ class TestSaveOrganization:
 
         with patch("gcrm.tools.db.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            result = save_organization("Galerie Nord", "Munich")
+            result = save_organization("Galerie Nord", "Munich", source="test_fixture")
 
         # 0 = "not newly created". The research agent and import_studies both rely
         # on a falsy return to skip/count duplicates instead of re-processing them.
@@ -55,7 +55,7 @@ class TestSaveOrganization:
         with patch("gcrm.tools.db.db") as mock_db, \
              patch("gcrm.tools.db_organizations.geocode", return_value=(48.1, 11.5)) as mgeocode:
             mock_db.return_value.__enter__.return_value = conn
-            save_organization("Galerie Nord", "Munich", country="DE")
+            save_organization("Galerie Nord", "Munich", country="DE", source="test_fixture")
 
         mgeocode.assert_called_once_with("Munich", "DE")
         insert = next(
@@ -74,8 +74,7 @@ class TestSaveOrganization:
             mock_db.return_value.__enter__.return_value = conn
             save_organization(
                 "Galerie Nord", "Munich", country="DE",
-                google={"latitude": 48.2, "longitude": 11.6},
-            )
+                google={"latitude": 48.2, "longitude": 11.6}, source="test_fixture")
 
         mgeocode.assert_not_called()
 

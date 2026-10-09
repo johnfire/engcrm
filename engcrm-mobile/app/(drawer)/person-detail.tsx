@@ -16,6 +16,7 @@ import { PipelineStage } from "../../services/organizationState";
 import { getRole } from "../../services/auth";
 import { onChanged, personKey } from "../../services/refreshBus";
 import { openWebsite, browsableUrl, linkedinLabel } from "../../services/webLinks";
+import { sourceLabelKey } from "../../services/sourceLabel";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { PersonNextStep } from "../../components/PersonNextStep";
@@ -111,6 +112,7 @@ export default function PersonDetailScreen() {
       <Text style={styles.name}>{person.name}</Text>
       {!!role && <Text style={styles.sub}>{role}</Text>}
       {!!place && <Text style={styles.sub}>{place}</Text>}
+      <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(person.source)) })}</Text>
 
       {person.email && (
         <TouchableOpacity

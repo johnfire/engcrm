@@ -27,8 +27,7 @@ def _seed_approval_flow() -> tuple[int, int, str]:
         "Munich",
         email="venue@example.test",
         pipeline_stage="suspect",
-        status="ready",
-    )
+        status="ready", source="test_fixture")
     approval_id = queue_for_approval(contact_id, 0, "Hello", "A test draft.")
     return approval_id, contact_id, admin_password
 
@@ -98,7 +97,7 @@ def test_users_rate_the_same_organization_independently_on_web_and_mobile(clean_
         hash_password(password_two),
         "spectator",
     )
-    contact_id = save_organization("Priority E2E Venue", "Munich", pipeline_stage="suspect", status="ready")
+    contact_id = save_organization("Priority E2E Venue", "Munich", pipeline_stage="suspect", status="ready", source="test_fixture")
 
     web_client = TestClient(app)
     login_response = web_client.post(

@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
 from gcrm.db.connection import db
+from gcrm.sources import SIGN_SCAN
 from gcrm.tools import cards, signs
 from gcrm.tools.db_audit import log_audit
 
@@ -150,7 +151,7 @@ def confirm_sign(
     else:
         place = cap["place_json"] if body.accept_place else None
         organization_fields = signs.build_organization_fields(name, cap["extracted"] or {}, place)
-        contact_id = cards.promote_to_organization(organization_fields, source="sign_scan")
+        contact_id = cards.promote_to_organization(organization_fields, source=SIGN_SCAN)
         if contact_id == 0:  # save_organization deduped — link to the existing match
             dup = cards.find_possible_duplicate(organization_fields)
             if not dup:

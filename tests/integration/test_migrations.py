@@ -39,8 +39,7 @@ def test_organization_repository_persists_and_hides_soft_deleted_records(clean_d
         type="cafe",
         email="integration@example.test",
         pipeline_stage="suspect",
-        status="ready",
-    )
+        status="ready", source="test_fixture")
 
     assert [organization["id"] for organization in get_organizations_ready_for_outreach()] == [contact_id]
 
@@ -52,9 +51,9 @@ def test_organization_repository_persists_and_hides_soft_deleted_records(clean_d
 
 def test_outreach_skips_organizations_where_a_linkedin_connection_works(clean_database):
     """The warm route is yours to take on LinkedIn, so no cold email is drafted."""
-    known = save_organization("Known Co", "Munich", pipeline_stage="suspect", status="ready")
-    unknown = save_organization("Unknown Co", "Munich", pipeline_stage="suspect", status="ready")
-    unconfirmed = save_organization("Maybe Co", "Munich", pipeline_stage="suspect", status="ready")
+    known = save_organization("Known Co", "Munich", pipeline_stage="suspect", status="ready", source="test_fixture")
+    unknown = save_organization("Unknown Co", "Munich", pipeline_stage="suspect", status="ready", source="test_fixture")
+    unconfirmed = save_organization("Maybe Co", "Munich", pipeline_stage="suspect", status="ready", source="test_fixture")
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
@@ -151,7 +150,7 @@ def test_personal_priorities_are_private_per_user(clean_database):
 
 def test_retention_erases_a_organization_and_all_linked_records_at_three_years(clean_database):
     """A contact expires from creation time with its contact-linked data."""
-    contact_id = save_organization("Expired Cafe", "Munich", type="cafe", status="cold")
+    contact_id = save_organization("Expired Cafe", "Munich", type="cafe", status="cold", source="test_fixture")
 
     with db() as connection:
         cursor = connection.cursor()

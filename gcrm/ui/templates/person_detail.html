@@ -178,7 +178,7 @@
         </dd>
         {% endif %}
         <dt>{{ t('personDetail.source') }}</dt>
-        <dd>{{ person.source or '—' }}</dd>
+        <dd>{{ t(source_label_key(person.source)) }}</dd>
         <dt>{{ t('common.added') }}</dt>
         <dd>{{ person.created_at[:10] if person.created_at else '—' }}</dd>
       </dl>

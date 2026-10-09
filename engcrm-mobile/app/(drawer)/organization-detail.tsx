@@ -31,6 +31,7 @@ import {
   statusLabelKey,
 } from "../../services/organizationState";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
+import { sourceLabelKey } from "../../services/sourceLabel";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
@@ -140,6 +141,7 @@ export default function OrganizationDetailScreen() {
       <Text style={styles.sub}>
         {organization.city}, {organization.country} · {organization.type}
       </Text>
+      <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(organization.source)) })}</Text>
       <View style={styles.statusRow}>
         <Text style={styles.stageBadge}>{t(stageLabelKey(organization.pipeline_stage))}</Text>
         <Text style={styles.statusBadge}>{t(statusLabelKey(organization.status))}</Text>

@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.config import MAX_UPLOAD_BYTES
+from gcrm.sources import VOICE
 from gcrm.tools.db import log_voice_interaction, save_organization, search_organizations_by_name
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.transcribe import transcribe
@@ -82,7 +83,7 @@ def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt_admin)) -
         name = (body.new_organization_name or "").strip()
         if not name:
             raise HTTPException(status_code=400, detail="Pick a contact or give a new name.")
-        contact_id = save_organization(name=name, city="", status="candidate")
+        contact_id = save_organization(name=name, city="", status="candidate", source=VOICE)
         if contact_id == 0:  # save_organization deduped — link to the existing match
             match = search_organizations_by_name(name, limit=1)
             if not match:

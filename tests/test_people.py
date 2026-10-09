@@ -33,7 +33,7 @@ class TestSavePerson:
         cur.fetchone.side_effect = [None, None, {"id": 11}]
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            person_id = db_people.save_person(name="Anna Roth", email="anna@acme.de", contact_id=42)
+            person_id = db_people.save_person(name="Anna Roth", email="anna@acme.de", contact_id=42, source="test_fixture")
         assert person_id == 11
         assert "INSERT INTO people" in cur.execute.call_args_list[-1].args[0]
 
@@ -43,7 +43,7 @@ class TestSavePerson:
         cur.fetchone.side_effect = [None, {"id": 12}]
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna Roth", met_at="Kunstmesse Augsburg")
+            db_people.save_person(name="Anna Roth", met_at="Kunstmesse Augsburg", source="test_fixture")
         insert = cur.execute.call_args_list[-1]
         assert "met_at" in insert.args[0]
         assert "Kunstmesse Augsburg" in insert.args[1]
@@ -53,7 +53,7 @@ class TestSavePerson:
         cur.fetchone.side_effect = [{"id": 7}]  # email match on first lookup
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            person_id = db_people.save_person(name="Anna", email="anna@acme.de")
+            person_id = db_people.save_person(name="Anna", email="anna@acme.de", source="test_fixture")
         assert person_id == 7
         assert all(
             "INSERT" not in (call.args[0] if call.args else "")
@@ -72,7 +72,7 @@ class TestSavePerson:
             patch("gcrm.tools.db_people.get_workspace_id", return_value=5),
         ):
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna Roth")
+            db_people.save_person(name="Anna Roth", source="test_fixture")
         insert = cur.execute.call_args_list[-1]
         assert "workspace_id" in insert.args[0]
         assert "COALESCE" in insert.args[0]
@@ -86,7 +86,7 @@ class TestSavePerson:
             patch("gcrm.tools.db_people.geocode", return_value=(48.1, 10.8)) as mgeocode,
         ):
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna Roth", city="Augsburg", country="DE")
+            db_people.save_person(name="Anna Roth", city="Augsburg", country="DE", source="test_fixture")
         mgeocode.assert_called_once_with("Augsburg", "DE")
         insert = cur.execute.call_args_list[-1]
         assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
@@ -97,7 +97,7 @@ class TestSavePerson:
         cur.fetchone.side_effect = [None, {"id": 15}]
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna Roth", pipeline_stage="prospect")
+            db_people.save_person(name="Anna Roth", pipeline_stage="prospect", source="test_fixture")
         insert = cur.execute.call_args_list[-1]
         assert "pipeline_stage" in insert.args[0]
         assert "prospect" in insert.args[1]
@@ -107,7 +107,7 @@ class TestSavePerson:
         cur.fetchone.side_effect = [{"id": 17}]  # only the INSERT ... RETURNING id
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            person_id = db_people.save_person(name="Ben", email="ben@x.de", allow_duplicate=True)
+            person_id = db_people.save_person(name="Ben", email="ben@x.de", allow_duplicate=True, source="test_fixture")
         assert person_id == 17
         assert len(cur.execute.call_args_list) == 1
         assert "INSERT INTO people" in cur.execute.call_args.args[0]
@@ -117,13 +117,13 @@ class TestSavePerson:
         cur.fetchone.side_effect = [None, {"id": 16}]
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna Roth")
+            db_people.save_person(name="Anna Roth", source="test_fixture")
         assert cur.execute.call_args_list[-1].args[1][14] is None
 
     def test_an_unknown_stage_is_refused_before_any_write(self):
         with patch("gcrm.tools.db_people.db") as mock_db:
             with pytest.raises(ValueError):
-                db_people.save_person(name="Anna Roth", pipeline_stage="bogus")
+                db_people.save_person(name="Anna Roth", pipeline_stage="bogus", source="test_fixture")
         mock_db.assert_not_called()
 
     def test_skips_geocoding_when_deduped(self):
@@ -134,7 +134,7 @@ class TestSavePerson:
             patch("gcrm.tools.db_people.geocode") as mgeocode,
         ):
             mock_db.return_value.__enter__.return_value = conn
-            db_people.save_person(name="Anna", email="anna@acme.de", city="Augsburg")
+            db_people.save_person(name="Anna", email="anna@acme.de", city="Augsburg", source="test_fixture")
         mgeocode.assert_not_called()
 
 
@@ -148,8 +148,7 @@ class TestMetAtOnRescan:
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
             person_id = db_people.save_person(
-                name="Anna", email="anna@acme.de", met_at="Gallery opening",
-            )
+                name="Anna", email="anna@acme.de", met_at="Gallery opening", source="test_fixture")
         assert person_id == 7
         update = cur.execute.call_args_list[-1]
         assert "UPDATE people SET met_at" in update.args[0]
@@ -160,7 +159,7 @@ class TestMetAtOnRescan:
         cur.fetchone.side_effect = [{"id": 7}]
         with patch("gcrm.tools.db_people.db") as mock_db:
             mock_db.return_value.__enter__.return_value = conn
-            person_id = db_people.save_person(name="Anna", email="anna@acme.de")
+            person_id = db_people.save_person(name="Anna", email="anna@acme.de", source="test_fixture")
         assert person_id == 7
         assert all(
             "UPDATE" not in (call.args[0] if call.args else "")
@@ -455,7 +454,7 @@ class TestPersonNewPage:
         assert resp.status_code == 303
         assert resp.headers["location"] == "/people/42?saved=1"
         assert msave.call_args.kwargs["name"] == "Anna Roth"
-        assert msave.call_args.kwargs["source"] == "manual"
+        assert msave.call_args.kwargs["source"] == "manual_web"
 
     def test_create_passes_the_chosen_stage(self, admin_web):
         resp, msave, _ = self.post_new({"name": "Anna Roth", "pipeline_stage": "suspect"})
@@ -476,7 +475,7 @@ class TestPersonNewPage:
         assert kwargs["country"] == "AT"  # upper-cased, as the phone does
         for field in ("phone", "website", "city", "relationship", "met_at", "notes"):
             assert kwargs[field] == typed[field]
-        assert kwargs["source"] == "manual" and kwargs["allow_duplicate"] is False
+        assert kwargs["source"] == "manual_web" and kwargs["allow_duplicate"] is False
 
     def test_a_blank_country_is_stored_as_de(self, admin_web):
         _, msave, _ = self.post_new({"name": "Ben", "city": "Ulm", "country": ""})

@@ -8,6 +8,7 @@ Usage:
     uv run python -m gcrm.supervisor.run_research --area-id 7 --levels 1,3,5
 """
 import argparse
+import functools
 import logging
 
 from gcrm.supervisor.logging_setup import configure_logging
@@ -28,6 +29,7 @@ def main():
     from gcrm_research_agent import create_research_agent
 
     from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, SCAN_CUTOFF
+    from gcrm.sources import RESEARCH_AGENT
     from gcrm.tools import (
         can_run_level,
         fetch_page,
@@ -61,7 +63,7 @@ def main():
             web_search=web_search,
             geo_search=google_maps_search,
             fetch_page=fetch_page,
-            save_organization=save_organization,
+            save_organization=functools.partial(save_organization, source=RESEARCH_AGENT),
             start_run=start_run,
             finish_run=finish_run,
             mission=ACTIVE_MISSION,
@@ -102,7 +104,7 @@ def main():
         web_search=web_search,
         geo_search=google_maps_search,
         fetch_page=fetch_page,
-        save_organization=save_organization,
+        save_organization=functools.partial(save_organization, source=RESEARCH_AGENT),
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,

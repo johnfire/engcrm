@@ -117,7 +117,7 @@ class TestCreateOrganization:
         response, _, flag, write = self.post(
             {"name": "A", "decision_maker": "Dr. Roth", "do_not_contact": True})
         assert response.status_code == 200
-        write.assert_called_once_with(77, {"decision_maker": "Dr. Roth", "source": "manual"}, None)
+        write.assert_called_once_with(77, {"decision_maker": "Dr. Roth"}, None)
         flag.assert_called_once_with(77, "do_not_contact", True)
 
 
@@ -211,7 +211,7 @@ class TestPeople:
         args, kwargs = save.call_args
         assert args == ("Anna Roth",)
         assert kwargs["title"] == "CTO" and kwargs["contact_id"] == 4
-        assert kwargs["country"] == "AT" and kwargs["source"] == "manual"
+        assert kwargs["country"] == "AT" and kwargs["source"] == "manual_mobile"
 
     def test_creates_a_person_with_a_starting_stage(self):
         response, save, _ = self.create({"name": "Anna Roth", "pipeline_stage": "prospect"})

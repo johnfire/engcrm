@@ -45,11 +45,11 @@ def _check_survey_and_fill():
     vienna = _company("Wiener Firma", "Wien", "AT")
     augsburg = _company("Augsburger Firma", "Augsburg")
     nowhere = _company("Ortlose Firma", None)
-    blank = save_person("Blank Person", contact_id=vienna, allow_duplicate=True)
-    branch = save_person("Branch Person", city="Friedberg", contact_id=augsburg, allow_duplicate=True)
-    same = save_person("Same Person", city="86150 Augsburg", contact_id=augsburg, allow_duplicate=True)
-    stuck = save_person("Stuck Person", contact_id=nowhere, allow_duplicate=True)
-    save_person("Loose Person", allow_duplicate=True)
+    blank = save_person("Blank Person", contact_id=vienna, allow_duplicate=True, source="test_fixture")
+    branch = save_person("Branch Person", city="Friedberg", contact_id=augsburg, allow_duplicate=True, source="test_fixture")
+    same = save_person("Same Person", city="86150 Augsburg", contact_id=augsburg, allow_duplicate=True, source="test_fixture")
+    stuck = save_person("Stuck Person", contact_id=nowhere, allow_duplicate=True, source="test_fixture")
+    save_person("Loose Person", allow_duplicate=True, source="test_fixture")
 
     report = survey()
 
@@ -69,8 +69,8 @@ def test_a_new_person_takes_the_company_city(clean_database, monkeypatch):
     monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
     vienna = _company("Wiener Firma", "Wien", "AT")
 
-    created = save_person("New Person", contact_id=vienna, allow_duplicate=True)
-    with_city = save_person("Card Person", city="Graz", contact_id=vienna, allow_duplicate=True)
+    created = save_person("New Person", contact_id=vienna, allow_duplicate=True, source="test_fixture")
+    with_city = save_person("Card Person", city="Graz", contact_id=vienna, allow_duplicate=True, source="test_fixture")
 
     assert _city(created) == ("Wien", "AT")
     assert _city(with_city)[0] == "Graz"
@@ -79,7 +79,7 @@ def test_a_new_person_takes_the_company_city(clean_database, monkeypatch):
 def test_linking_a_person_later_fills_a_blank_city(clean_database):
     augsburg = _company("Augsburger Firma", "Augsburg")
     deleted = _company("Geloeschte Firma", "Ulm")
-    person = save_person("Loose Person", allow_duplicate=True)
+    person = save_person("Loose Person", allow_duplicate=True, source="test_fixture")
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute("UPDATE contacts SET deleted_at = NOW() WHERE id = %s", (deleted,))
@@ -94,8 +94,8 @@ def test_linking_a_person_later_fills_a_blank_city(clean_database):
 def test_a_company_getting_its_city_passes_it_to_people_without_one(clean_database, monkeypatch):
     monkeypatch.setattr("gcrm.tools.db_people.geocode", lambda city, country: None)
     company = _company("Neue Firma", None, None)
-    blank = save_person("Blank Person", contact_id=company, allow_duplicate=True)
-    elsewhere = save_person("Elsewhere Person", city="Friedberg", contact_id=company, allow_duplicate=True)
+    blank = save_person("Blank Person", contact_id=company, allow_duplicate=True, source="test_fixture")
+    elsewhere = save_person("Elsewhere Person", city="Friedberg", contact_id=company, allow_duplicate=True, source="test_fixture")
 
     with db() as connection:
         connection.cursor().execute("UPDATE contacts SET city = 'Augsburg', country = 'DE' WHERE id = %s",

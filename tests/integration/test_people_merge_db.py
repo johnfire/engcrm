@@ -13,9 +13,9 @@ pytestmark = pytest.mark.integration
 
 
 def _setup_pair() -> dict:
-    keep_id = save_person("Anna Huber", email="anna@example.test", title="CEO", notes="Met at fair.")
+    keep_id = save_person("Anna Huber", email="anna@example.test", title="CEO", notes="Met at fair.", source="test_fixture")
     drop_id = save_person("Anna Huber", phone="0821 1234", title="Managing Director",
-                          notes="LinkedIn import.", allow_duplicate=True)
+                          notes="LinkedIn import.", allow_duplicate=True, source="test_fixture")
     log_person_note(keep_id, "typed", "kept note")
     log_person_note(drop_id, "typed", "duplicate note")
     with db() as connection:

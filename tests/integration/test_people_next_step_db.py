@@ -22,7 +22,7 @@ def _state(person_id: int) -> tuple:
 
 
 def test_each_change_is_logged_and_a_repeat_save_is_not(clean_database):
-    person = save_person("Anna Huber", allow_duplicate=True)
+    person = save_person("Anna Huber", allow_duplicate=True, source="test_fixture")
 
     set_person_next_step(person, "Invite to coffee", date(2026, 10, 15))
     assert set_person_next_step(person, " Invite to coffee ", date(2026, 10, 15))["logged"] is False
@@ -36,7 +36,7 @@ def test_each_change_is_logged_and_a_repeat_save_is_not(clean_database):
 
 
 def test_the_field_holds_the_current_step(clean_database):
-    person = save_person("Bernd Klein", allow_duplicate=True)
+    person = save_person("Bernd Klein", allow_duplicate=True, source="test_fixture")
 
     set_person_next_step(person, "Call after the fair", date(2026, 11, 2))
 
@@ -44,7 +44,7 @@ def test_the_field_holds_the_current_step(clean_database):
 
 
 def test_clearing_an_empty_step_logs_nothing_and_unknown_people_are_none(clean_database):
-    person = save_person("Cara Lee", allow_duplicate=True)
+    person = save_person("Cara Lee", allow_duplicate=True, source="test_fixture")
 
     assert set_person_next_step(person, "", None)["logged"] is False
     assert _state(person)[1] == []
@@ -52,7 +52,7 @@ def test_clearing_an_empty_step_logs_nothing_and_unknown_people_are_none(clean_d
 
 
 def test_a_date_without_a_step_is_refused(clean_database):
-    person = save_person("Dora Ost", allow_duplicate=True)
+    person = save_person("Dora Ost", allow_duplicate=True, source="test_fixture")
     with pytest.raises(ValueError):
         set_person_next_step(person, " ", date(2026, 10, 15))
     assert _state(person) == ((None, None), [])

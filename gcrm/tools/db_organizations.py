@@ -15,6 +15,7 @@ from gcrm.organization_state import (
     coerce_status,
     is_typical,
 )
+from gcrm.sources import require_source
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
@@ -76,6 +77,7 @@ def save_organization(
     name: str,
     city: str,
     *,
+    source: str,
     country: str = "DE",
     type: str = "",
     website: str = "",
@@ -93,6 +95,7 @@ def save_organization(
 ) -> int:
     """
     Insert a new contact (a fresh `candidate` with nothing going on by default).
+    `source` says how it was created (see gcrm.sources) and is required.
 
     `research_exhausted=True` records that the research agent could find no web
     presence at all — a fact about the data, not a pipeline position, so the
@@ -102,6 +105,7 @@ def save_organization(
     on this falsy value to skip/count duplicates rather than re-process a known
     contact.
     """
+    source = require_source(source)
     business_status = rating = user_ratings = google_json = None
     if google:
         cols = _google_columns(google)
@@ -156,10 +160,10 @@ def save_organization(
                 (name, city, country, type, website, email, phone, notes,
                  pipeline_stage, status, research_exhausted,
                  scan_level, neighborhood, latitude, longitude,
-                 business_status, rating, user_ratings, google_data, workspace_id)
+                 business_status, rating, user_ratings, google_data, source, workspace_id)
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
+                %s, %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
@@ -183,6 +187,7 @@ def save_organization(
                 rating,
                 user_ratings,
                 google_json,
+                source,
                 get_workspace_id(),
             ),
         )

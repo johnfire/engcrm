@@ -23,6 +23,7 @@ from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
 from gcrm.organization_state import DEFAULT_STAGE, PIPELINE_STAGES
+from gcrm.sources import MANUAL_MOBILE
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_organizations import save_organization, set_suppression_flag
 from gcrm.tools.search import geocode
@@ -118,7 +119,7 @@ def create_organization(
     try:
         set_workspace_id(workspace_id)
         with audit_scope(actor, "user", request.state.correlation_id):
-            return save_manual_organization(body)
+            return save_manual_organization(body, MANUAL_MOBILE)
     finally:
         set_workspace_id(previous_workspace)
 
@@ -134,8 +135,8 @@ def reject_existing_organization(name: str, city: str, email: str) -> None:
         })
 
 
-def save_manual_organization(body: OrganizationFields) -> dict:
-    """Validated manual creation shared by the mobile and web forms."""
+def save_manual_organization(body: OrganizationFields, source: str) -> dict:
+    """Validated manual creation shared by the mobile and web forms; `source` names which."""
     fields = clean_fields(body, TEXT_LIMITS, require_name=True)
     stage = DEFAULT_STAGE if body.pipeline_stage is None else body.pipeline_stage.strip()
     if stage not in PIPELINE_STAGES:
@@ -148,7 +149,7 @@ def save_manual_organization(body: OrganizationFields) -> dict:
         name, city, country=fields.get("country") or "DE",
         type=fields.get("type") or "", website=fields.get("website") or "",
         email=email, phone=fields.get("phone") or "", notes=fields.get("notes") or "",
-        pipeline_stage=stage,
+        pipeline_stage=stage, source=source,
     )
     if not contact_id:
         raise HTTPException(status_code=409, detail={
@@ -156,7 +157,8 @@ def save_manual_organization(body: OrganizationFields) -> dict:
             "existing_id": None,
         })
     extras = {key: fields[key] for key in ("decision_maker", "preferred_contact_method") if fields.get(key)}
-    _write_columns(contact_id, {**extras, "source": "manual"}, get_workspace_id())
+    if extras:
+        _write_columns(contact_id, extras, get_workspace_id())
     if body.do_not_contact:
         set_suppression_flag(contact_id, "do_not_contact", True)
     return {"id": contact_id}
