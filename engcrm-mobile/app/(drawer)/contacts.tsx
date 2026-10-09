@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { AddBusinessButton } from "../../components/add-business-button";
+import { ContactCountsStrip } from "../../components/contact-counts";
 import { ContactFeedRow } from "../../components/contact-feed-row";
 import { ContactFeedControls } from "../../components/contact-feed-controls";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -25,6 +26,7 @@ export default function ContactsScreen() {
   return (
     <View style={styles.container}>
       <AddBusinessButton isAdmin={!!isAdmin} />
+      <ContactCountsStrip />
       <ContactFeedControls search={search} kind={kind} stage={stage} sort={sort}
         onSearchChange={setSearch} onKindChange={setKind} onStageChange={setStage} onSortChange={setSort} onSubmit={reload} />
       {error && <Text style={styles.message}>{t("common.couldntLoadRefresh")}</Text>}

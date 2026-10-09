@@ -90,3 +90,41 @@ def test_web_links_labels_pagination_and_filter_persistence():
             assert "Kontakte" in german and "Organisation" in german
     finally:
         app.dependency_overrides.pop(require_login, None)
+
+
+COUNTS = {"month": {"people": 3, "organizations": 1}, "since_start": {"people": 12, "organizations": 9},
+          "month_start": "2026-10-01", "business_start": "2026-10-01"}
+
+
+def test_mobile_counts_use_the_signed_in_workspace():
+    with patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=COUNTS) as counts, \
+         patch("gcrm.api.routers.contact_feed._personal_identity", return_value=(9, 3)):
+        response = TestClient(app).get("/api/contact-feed/counts", headers=AUTH)
+    assert response.status_code == 200 and response.json() == COUNTS
+    counts.assert_called_once_with(3)
+
+
+def test_web_page_shows_month_and_since_start_counts_in_both_languages():
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[CONTACT]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=COUNTS):
+            english = TestClient(app).get("/contact-feed/?lang=en").text
+            german = TestClient(app).get("/contact-feed/?lang=de").text
+        assert "This month" in english and "3 people" in english and "1 organization" in english
+        assert "All time (since 2026-10-01)" in english and "12 people" in english and "9 organizations" in english
+        assert "Diesen Monat" in german and "3 Personen" in german and "9 Organisationen" in german
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+
+
+def test_web_contact_list_still_loads_when_counts_fail():
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[CONTACT]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", side_effect=RuntimeError("db")):
+            response = TestClient(app).get("/contact-feed/?lang=en")
+        assert response.status_code == 200 and 'href="/people/7"' in response.text
+        assert "This month" not in response.text
+    finally:
+        app.dependency_overrides.pop(require_login, None)

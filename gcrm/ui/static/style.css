@@ -1312,3 +1312,7 @@ main.statistics-page { max-width: none; }
 .contact-group-people summary { cursor: pointer; padding: 8px 0; color: var(--accent); }
 .contact-group-people ul { padding-left: 18px; margin: 4px 0; }
 .contact-group-people li { padding: 6px 0; }
+
+.contact-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0.5rem 0 1rem; }
+.contact-counts dt { font-size: 0.8rem; opacity: 0.7; }
+.contact-counts dd { margin: 0; font-weight: 600; }

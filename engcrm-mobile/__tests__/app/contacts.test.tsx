@@ -8,6 +8,7 @@ jest.mock("../../services/auth", () => ({ getRole: () => mockRole() }));
 jest.mock("../../services/contact-feed", () => ({
   ...jest.requireActual("../../services/contact-feed"),
   fetchContactFeed: (...args: unknown[]) => mockFetch(...args),
+  fetchContactCounts: () => Promise.reject(new Error("counts are optional")),
 }));
 jest.mock("expo-router", () => {
   const React = jest.requireActual("react");

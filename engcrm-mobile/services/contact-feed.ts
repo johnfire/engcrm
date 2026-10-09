@@ -43,3 +43,14 @@ export async function fetchContactFeed(filters: {
   const response = await client.get("/api/contact-feed", { params: filters });
   return response.data;
 }
+
+export interface ContactCounts {
+  month: { people: number; organizations: number };
+  since_start: { people: number; organizations: number };
+  business_start: string;
+}
+
+export async function fetchContactCounts(): Promise<ContactCounts> {
+  const response = await client.get("/api/contact-feed/counts");
+  return response.data;
+}

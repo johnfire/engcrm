@@ -1,4 +1,11 @@
 {
+  "contactFeed.counts": "Kontaktzahlen",
+  "contactFeed.countMonth": "Diesen Monat",
+  "contactFeed.countSince": "Insgesamt (seit {{date}})",
+  "contactFeed.countPeople_one": "{{count}} Person",
+  "contactFeed.countPeople_other": "{{count}} Personen",
+  "contactFeed.countOrganizations_one": "{{count}} Organisation",
+  "contactFeed.countOrganizations_other": "{{count}} Organisationen",
   "source.manual_mobile": "am Handy eingegeben",
   "source.manual_web": "auf der Website eingegeben",
   "source.voice": "Spracheingabe",

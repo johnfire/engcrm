@@ -1,4 +1,11 @@
 {
+  "contactFeed.counts": "Contact counts",
+  "contactFeed.countMonth": "This month",
+  "contactFeed.countSince": "All time (since {{date}})",
+  "contactFeed.countPeople_one": "{{count}} person",
+  "contactFeed.countPeople_other": "{{count}} people",
+  "contactFeed.countOrganizations_one": "{{count}} organization",
+  "contactFeed.countOrganizations_other": "{{count}} organizations",
   "source.manual_mobile": "typed on the phone",
   "source.manual_web": "typed on the website",
   "source.voice": "voice entry",

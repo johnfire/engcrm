@@ -1,4 +1,5 @@
 """Combined contacts for the web list and mobile feed."""
+import logging
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -9,8 +10,10 @@ from gcrm.api.jwt_auth import require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.templates import templates
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.tools.db_contact_counts import get_contact_counts
 from gcrm.tools.db_contact_feed import PAGE_SIZE, get_contact_feed, validate_feed_filters
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["contact-feed"])
 
 
@@ -21,6 +24,12 @@ def check_feed_filters(kind: str, stage: str, sort: str) -> None:
         raise HTTPException(400, str(failure)) from failure
 
 
+@router.get("/api/contact-feed/counts")
+def mobile_contact_counts(payload: dict = Depends(require_jwt_payload)) -> dict:
+    _, workspace_id = _personal_identity(payload)
+    return get_contact_counts(workspace_id)
+
+
 @router.get("/api/contact-feed")
 def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", stage: str = "",
                     sort: str = "last_contact", page: int = Query(1, ge=1),
@@ -29,6 +38,15 @@ def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", sta
     _, workspace_id = _personal_identity(payload)
     return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort,
                             page=page, workspace_id=workspace_id)
+
+
+def safe_contact_counts(workspace_id: int | None) -> dict | None:
+    """The counts are a nicety; if they cannot be read the contact list still loads."""
+    try:
+        return get_contact_counts(workspace_id)
+    except Exception:
+        logger.exception("contact counts unavailable")
+        return None
 
 
 def remember_feed_filters(request: Request, **selections) -> dict:
@@ -60,6 +78,7 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
         "stages": PIPELINE_STAGES, "page": page,
+        "counts": safe_contact_counts(request.session.get("workspace_id")),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,
     })
