@@ -1,6 +1,6 @@
 # Offers and deals: one CRM, several things to sell
 
-Date: 2026-10-10 · Status: designed, not started
+Date: 2026-10-10 · Status: phase 1 built (see "Phase 1 as built")
 
 ## Why
 
@@ -58,8 +58,9 @@ Seeded per workspace: Consulting (`one_off`), LearnWohl, LeGuild.art and notes-w
 | Column | Notes |
 |---|---|
 | `id`, `workspace_id`, `offer_id` | |
-| `contact_id` | The organization (`contacts.id`). Set for organization deals. |
-| `person_id` | For an organization deal: the optional contact person. For a person deal: the owner. |
+| `contact_id` | The organization (`contacts.id`). Set for organization deals. Deleting the organization deletes its deals. |
+| `person_id` | The owner of a person deal. Deleting the person deletes their deals. |
+| `contact_person_id` | The optional contact person on an organization deal. Deleting that person only clears it. A separate column, because the two foreign keys need different delete rules. |
 | `pipeline_stage`, `status` | Same vocabulary as today; coerced in the application layer as today. No CHECK constraint, for the reason recorded in migration 041. |
 | `next_step`, `next_step_date` | Moved here from `people`. |
 | `notes` | Notes about this deal only. General notes stay on the contact. |
@@ -67,11 +68,12 @@ Seeded per workspace: Consulting (`one_off`), LearnWohl, LeGuild.art and notes-w
 
 Constraints:
 
-- `CHECK (contact_id IS NOT NULL OR person_id IS NOT NULL)`.
+- Exactly one owner: `CHECK ((contact_id IS NULL) <> (person_id IS NULL))`.
+- A contact person only on an organization deal.
 - One live deal per offer per organization: a unique partial index on `(offer_id, contact_id)`
   where `contact_id IS NOT NULL AND deleted_at IS NULL`.
-- One live deal per offer per person-owned deal: a unique partial index on
-  `(offer_id, person_id)` where `contact_id IS NULL AND deleted_at IS NULL`.
+- One live deal per offer per person: a unique partial index on `(offer_id, person_id)`
+  where `person_id IS NOT NULL AND deleted_at IS NULL`.
 
 A second consulting project for an existing customer is a second **sale** on the same deal,
 not a second deal.
@@ -200,6 +202,34 @@ here.
   record's Consulting deal. The new deal endpoints are added alongside. The compatibility
   fields are removed in phase 5.
 
+## Phase 1 as built (2026-10-10)
+
+Where the build differs from the plan above, and why:
+
+1. **The old columns are renamed, not just left alone.** Migration 064 renames them to
+   `legacy_pipeline_stage`, `legacy_status`, `legacy_next_step` and `legacy_next_step_date`.
+   A query the move missed then fails loudly instead of quietly showing a stage that stopped
+   changing on deploy day. Rolling back is a script,
+   `scripts/rollback_064_offers_and_deals.sql`: it renames the columns back and copies every
+   Consulting deal into them, so not even stage changes made after the deploy are lost. An
+   integration test runs it, then the migration again, and checks the deals come back the
+   same.
+2. **Only what phase 1 uses is in migration 064**: offers, deals, stage history, snapshots.
+   `offer_id` on log entries and drafts arrives with phase 2, and `sales.deal_id` with phase
+   3, the phases that use them.
+3. **Soft-deleted organizations get a live deal.** A deleted organization is hidden with its
+   deal by the organization's own `deleted_at`, and restoring it needs no second step.
+4. **Clearing a person's stage** removes their Consulting deal, unless the deal holds an open
+   next step. Then the person stays a candidate (the migration's rule), and the API returns
+   the stage actually stored.
+5. **Stage history records changes, not new deals.** As before for organizations. For people,
+   giving someone their first stage used to be recorded as "none → stage"; creating the deal
+   is now not recorded.
+6. **Checks:** `scripts/check_deals_backfill.py` compares the legacy columns with the deals
+   (read-only, run right after the deploy). `tests/e2e/test_every_page_renders.py` loads every
+   GET page and endpoint against the real schema, so a missed query is a test failure, not a
+   500 in production. It caught one (the inbox) during the build.
+
 ## Build order
 
 Each phase goes live on its own and leaves the app working.
@@ -217,9 +247,10 @@ Each phase goes live on its own and leaves the app working.
 5. **Cleanup:** once the updated mobile app is installed and production has been checked,
    drop the old stage columns, `sales.contact_id` and the API compatibility fields.
 
-**Rollback:** until phase 5 the old columns still exist, so the code can be rolled back.
-Stage changes made after the deploy would be missing from them, which is why phase 1 is
-checked on production before phase 2 starts.
+**Rollback:** until phase 5, `scripts/rollback_064_offers_and_deals.sql` restores the old
+columns with every current Consulting stage in them (see "Phase 1 as built"), so the code
+from before can run again. Deals for other offers have nowhere to go in the old schema,
+so phase 1 is checked on production before phase 2 starts.
 
 ## Testing
 

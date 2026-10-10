@@ -12,8 +12,8 @@ def _company(name: str, city: str | None, country: str | None = "DE") -> int:
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO contacts (name, city, country, status, workspace_id) "
-            "VALUES (%s, %s, %s, 'cold', (SELECT id FROM workspaces WHERE slug = 'default')) RETURNING id",
+            "INSERT INTO contacts (name, city, country, workspace_id) "
+            "VALUES (%s, %s, %s, (SELECT id FROM workspaces WHERE slug = 'default')) RETURNING id",
             (name, city, country),
         )
         return cursor.fetchone()["id"]

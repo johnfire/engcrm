@@ -18,11 +18,18 @@ from gcrm.organization_state import (
 from gcrm.sources import require_source
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
+
+# An organization with its Consulting deal's stage and status, under the names
+# the agents and screens read. Every query below that returns whole rows uses it.
+ORGANIZATION_SELECT = (
+    "SELECT c.*, d.pipeline_stage, d.status FROM contacts c" + organization_deal_join("c", "d")
+)
 
 
 def _load_ignored_chains(cur) -> list[str]:
@@ -158,12 +165,12 @@ def save_organization(
             """
             INSERT INTO contacts
                 (name, city, country, type, website, email, phone, notes,
-                 pipeline_stage, status, research_exhausted,
+                 research_exhausted,
                  scan_level, neighborhood, latitude, longitude,
                  business_status, rating, user_ratings, google_data, source, workspace_id)
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
+                %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
@@ -176,8 +183,6 @@ def save_organization(
                 email or None,
                 phone or None,
                 notes or None,
-                coerce_stage(pipeline_stage),
-                coerce_status(status),
                 research_exhausted,
                 scan_level,
                 neighborhood or None,
@@ -192,6 +197,7 @@ def save_organization(
             ),
         )
         contact_id = cur.fetchone()["id"]
+        set_organization_deal(cur, contact_id, stage=pipeline_stage, status=status)
         ensure_consent_log(contact_id, conn=conn)
         logger.info("save_organization: created id=%d  %s / %s", contact_id, name, city)
     log_audit(None, None, "contact.created", f"contact:{contact_id}", "created")
@@ -241,10 +247,10 @@ def get_candidates(limit: int = 50, source: str | None = None) -> list[dict]:
     """
     with db() as conn:
         cur = conn.cursor()
-        origin = "source = %s" if source else "source IS DISTINCT FROM 'linkedin'"
+        origin = "c.source = %s" if source else "c.source IS DISTINCT FROM 'linkedin'"
         cur.execute(
-            f"SELECT * FROM contacts WHERE pipeline_stage = 'candidate' AND {origin} "
-            "AND deleted_at IS NULL ORDER BY created_at ASC LIMIT %s",
+            f"{ORGANIZATION_SELECT} WHERE d.pipeline_stage = 'candidate' AND {origin} "
+            "AND c.deleted_at IS NULL ORDER BY c.created_at ASC LIMIT %s",
             ((source, limit) if source else (limit,)),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -278,33 +284,33 @@ def get_organizations_ready_for_outreach(
     with db() as conn:
         cur = conn.cursor()
         conditions = [
-            "status = 'ready'",
-            "do_not_contact = FALSE",
-            "email_bounced = FALSE",
-            "deleted_at IS NULL",
-            "id NOT IN (SELECT contact_id FROM approval_queue)",
-            "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = contacts.id "
+            "d.status = 'ready'",
+            "c.do_not_contact = FALSE",
+            "c.email_bounced = FALSE",
+            "c.deleted_at IS NULL",
+            "c.id NOT IN (SELECT contact_id FROM approval_queue)",
+            "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = c.id "
             "AND p.is_linkedin_contact AND p.deleted_at IS NULL)",
         ]
         params: list = []
         if city:
-            conditions.append("lower(city) = lower(%s)")
+            conditions.append("lower(c.city) = lower(%s)")
             params.append(city)
         if scan_level is not None:
-            conditions.append("scan_level = %s")
+            conditions.append("c.scan_level = %s")
             params.append(scan_level)
         if neighborhood:
-            conditions.append("lower(neighborhood) = lower(%s)")
+            conditions.append("lower(c.neighborhood) = lower(%s)")
             params.append(neighborhood)
         if min_tier == "normal":
-            conditions.append("(neighborhood_tier IS NULL OR neighborhood_tier != 'poor')")
+            conditions.append("(c.neighborhood_tier IS NULL OR c.neighborhood_tier != 'poor')")
         elif min_tier == "wealthy":
-            conditions.append("neighborhood_tier = 'wealthy'")
+            conditions.append("c.neighborhood_tier = 'wealthy'")
         params.append(limit)
         where = " AND ".join(conditions)
         cur.execute(
-            f"SELECT * FROM contacts WHERE {where} "
-            f"ORDER BY fit_score DESC NULLS LAST, created_at ASC LIMIT %s",
+            f"{ORGANIZATION_SELECT} WHERE {where} "
+            f"ORDER BY c.fit_score DESC NULLS LAST, c.created_at ASC LIMIT %s",
             params,
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -332,27 +338,22 @@ def set_organization_state(
         )
     with db() as conn:
         cur = conn.cursor()
+        set_organization_deal(cur, contact_id, stage=stage, status=current_status)
         if notes:
             cur.execute(
                 """
                 UPDATE contacts
-                SET pipeline_stage = %s, status = %s,
-                    fit_score = COALESCE(%s, fit_score),
+                SET fit_score = COALESCE(%s, fit_score),
                     notes = CASE WHEN notes IS NULL THEN %s ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
                 WHERE id = %s
                 """,
-                (stage, current_status, fit_score, notes, notes, contact_id),
+                (fit_score, notes, notes, contact_id),
             )
         else:
             cur.execute(
-                """
-                UPDATE contacts
-                SET pipeline_stage = %s, status = %s,
-                    fit_score = COALESCE(%s, fit_score), updated_at = NOW()
-                WHERE id = %s
-                """,
-                (stage, current_status, fit_score, contact_id),
+                "UPDATE contacts SET fit_score = COALESCE(%s, fit_score), updated_at = NOW() WHERE id = %s",
+                (fit_score, contact_id),
             )
     log_audit(None, None, "contact.state_changed", f"contact:{contact_id}", f"{stage}/{current_status}")
 
@@ -383,19 +384,19 @@ def get_organizations_needing_enrichment(limit: int = 50, city: str | None = Non
     with db() as conn:
         cur = conn.cursor()
         conditions = [
-            "(email IS NULL OR email = '')",
-            "deleted_at IS NULL",
-            "research_exhausted = FALSE",
+            "(c.email IS NULL OR c.email = '')",
+            "c.deleted_at IS NULL",
+            "c.research_exhausted = FALSE",
         ]
         params: list = []
         if city:
-            conditions.append("lower(city) = lower(%s)")
+            conditions.append("lower(c.city) = lower(%s)")
             params.append(city)
         params.append(limit)
         where = " AND ".join(conditions)
         cur.execute(
-            f"SELECT * FROM contacts WHERE {where} "
-            f"ORDER BY enriched_at ASC NULLS FIRST, created_at ASC LIMIT %s",
+            f"{ORGANIZATION_SELECT} WHERE {where} "
+            f"ORDER BY c.enriched_at ASC NULLS FIRST, c.created_at ASC LIMIT %s",
             params,
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -438,7 +439,7 @@ def match_organization_by_email(from_email: str) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT * FROM contacts WHERE lower(email) = lower(%s) LIMIT 1",
+            f"{ORGANIZATION_SELECT} WHERE lower(c.email) = lower(%s) LIMIT 1",
             (from_email,),
         )
         row = cur.fetchone()
@@ -450,7 +451,7 @@ def match_organization_by_email(from_email: str) -> dict | None:
         domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
         if domain and domain not in FREEMAIL_DOMAINS:
             cur.execute(
-                "SELECT * FROM contacts WHERE lower(email) LIKE lower(%s) LIMIT 1",
+                f"{ORGANIZATION_SELECT} WHERE lower(c.email) LIKE lower(%s) LIMIT 1",
                 (f"%@{domain}",),
             )
             row = cur.fetchone()
@@ -465,6 +466,6 @@ def get_organization(contact_id: int) -> dict | None:
     """Return a single contact by id (serialized), or None if not found."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM contacts WHERE id = %s", (contact_id,))
+        cur.execute(f"{ORGANIZATION_SELECT} WHERE c.id = %s", (contact_id,))
         row = cur.fetchone()
         return serialize_row(dict(row)) if row else None

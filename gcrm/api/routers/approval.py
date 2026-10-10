@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import set_organization_deal, update_organization_status
 
 router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -69,14 +70,11 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
         # Mark as contacted on approval regardless of whether email sent
         with db() as conn:
             cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE contacts
-                SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
-                WHERE id = %s AND status IN ('ready', 'on_hold')
-                """,
-                (contact_id,),
-            )
+            if update_organization_status(cur, contact_id, "contacted", only_from=("ready", "on_hold")):
+                cur.execute(
+                    "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                    (contact_id,),
+                )
         return success, "sent" if success else "approved_unsent"
     except Exception as error:
         logger.error("_send_and_log: item_id=%d error=%s", item_id, error)
@@ -151,14 +149,8 @@ def reject(request: Request, item_id: int, note: str = Form(default=""), _admin:
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Item not found or already reviewed")
-        cur.execute(
-            """
-            UPDATE contacts
-            SET pipeline_stage = 'not_in_pipeline', status = 'dropped', updated_at = NOW()
-            WHERE id = %s
-            """,
-            (row["contact_id"],),
-        )
+        set_organization_deal(cur, row["contact_id"], stage="not_in_pipeline", status="dropped")
+        cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (row["contact_id"],))
         items = _fetch_pending(conn)
         on_hold = _fetch_on_hold(conn)
     from gcrm.tools.db_audit import log_audit

@@ -3,6 +3,7 @@ import pytest
 
 from gcrm.db.connection import db
 from gcrm.tools.db_contact_feed import get_contact_feed
+from gcrm.tools.db_deals import set_organization_deal, set_person_stage
 
 pytestmark = pytest.mark.integration
 
@@ -16,14 +17,17 @@ def mixed_contacts(clean_database):
         cursor.execute("INSERT INTO workspaces (name,slug) VALUES ('Other feed workspace','contact-feed-test') "
                        "ON CONFLICT (slug) DO UPDATE SET name=EXCLUDED.name RETURNING id")
         other_workspace = cursor.fetchone()["id"]
-        cursor.execute("INSERT INTO contacts (id,name,city,workspace_id,pipeline_stage,created_at) VALUES "
-                       "(1,'Academy','Augsburg',%s,'candidate','2026-10-05T10:00:00Z'), "
-                       "(2,'Other company','Ulm',%s,'suspect','2026-10-06T10:00:00Z'), "
-                       "(3,'Hidden organization','Ulm',%s,'candidate','2026-10-07T10:00:00Z')", (workspace_id, workspace_id, other_workspace))
-        cursor.execute("INSERT INTO people (id,name,title,email,contact_id,workspace_id,pipeline_stage,created_at) VALUES "
-                       "(1,'Ann','Course coordinator','ann@academy.test',1,%s,'candidate','2026-10-06T10:00:00Z'), "
-                       "(2,'No stage',NULL,NULL,NULL,%s,NULL,'2026-10-04T10:00:00Z'), "
-                       "(3,'Hidden person',NULL,NULL,3,%s,NULL,'2026-10-07T10:00:00Z')", (workspace_id, workspace_id, other_workspace))
+        cursor.execute("INSERT INTO contacts (id,name,city,workspace_id,created_at) VALUES "
+                       "(1,'Academy','Augsburg',%s,'2026-10-05T10:00:00Z'), "
+                       "(2,'Other company','Ulm',%s,'2026-10-06T10:00:00Z'), "
+                       "(3,'Hidden organization','Ulm',%s,'2026-10-07T10:00:00Z')", (workspace_id, workspace_id, other_workspace))
+        for contact_id, stage in ((1, "candidate"), (2, "suspect"), (3, "candidate")):
+            set_organization_deal(cursor, contact_id, stage=stage)
+        cursor.execute("INSERT INTO people (id,name,title,email,contact_id,workspace_id,created_at) VALUES "
+                       "(1,'Ann','Course coordinator','ann@academy.test',1,%s,'2026-10-06T10:00:00Z'), "
+                       "(2,'No stage',NULL,NULL,NULL,%s,'2026-10-04T10:00:00Z'), "
+                       "(3,'Hidden person',NULL,NULL,3,%s,'2026-10-07T10:00:00Z')", (workspace_id, workspace_id, other_workspace))
+        set_person_stage(cursor, 1, "candidate")
         cursor.execute("INSERT INTO people (id,name,contact_id,workspace_id,created_at,deleted_at) "
                        "VALUES (4,'Deleted person',1,%s,NOW(),NOW())", (workspace_id,))
         cursor.execute("INSERT INTO interactions (contact_id,interaction_date,method) VALUES "
@@ -164,7 +168,7 @@ def test_foreign_workspace_person_cannot_enter_business_group_or_search(mixed_co
 def test_business_stage_filter_keeps_people_with_different_stages(mixed_contacts):
     workspace_id, _ = mixed_contacts
     with db() as connection:
-        connection.cursor().execute("UPDATE people SET pipeline_stage='customer' WHERE id=1")
+        set_person_stage(connection.cursor(), 1, "customer")
     academy = get_contact_feed(workspace_id=workspace_id, stage='candidate')[0]
     assert academy['name'] == 'Academy'
     assert academy['people'][0]['pipeline_stage'] == 'customer'

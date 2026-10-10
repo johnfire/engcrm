@@ -23,6 +23,7 @@ from gcrm.config import (
     MAIL_USERNAME,
 )
 from gcrm.supervisor.logging_setup import configure_logging
+from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -62,19 +63,23 @@ def fetch_sent_recipients(imap_host: str, imap_port: int, username: str, passwor
     return recipients
 
 
+_SELECT = (
+    "SELECT c.id, c.name, c.city, c.email, d.status FROM contacts c" + organization_deal_join("c", "d")
+    + "WHERE c.email IS NOT NULL AND c.email != '' AND c.deleted_at IS NULL"
+)
+
+
 def get_organizations(city: str | None) -> list[dict]:
     from gcrm.db.connection import db
     with db() as conn:
         cur = conn.cursor()
         if city:
             cur.execute(
-                "SELECT id, name, city, email, status FROM contacts WHERE lower(city) = lower(%s) AND email IS NOT NULL AND email != '' AND deleted_at IS NULL",
+                f"{_SELECT} AND lower(c.city) = lower(%s)",
                 (city,),
             )
         else:
-            cur.execute(
-                "SELECT id, name, city, email, status FROM contacts WHERE email IS NOT NULL AND email != '' AND deleted_at IS NULL"
-            )
+            cur.execute(_SELECT)
         return [dict(row) for row in cur.fetchall()]
 
 
@@ -82,10 +87,9 @@ def mark_contacted(contact_ids: list[int]) -> None:
     from gcrm.db.connection import db
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE contacts SET status = 'contacted', updated_at = NOW() WHERE id = ANY(%s)",
-            (contact_ids,),
-        )
+        for contact_id in contact_ids:
+            set_organization_deal(cur, contact_id, status="contacted")
+        cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = ANY(%s)", (contact_ids,))
         # Log an interaction for each
         for cid in contact_ids:
             cur.execute(

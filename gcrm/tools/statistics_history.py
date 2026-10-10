@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from gcrm.activity_types import NOT_ACTIVITIES
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import CONSULTING, offer_id_sql
 from gcrm.tools.statistics import activities_sql, get_minute_defaults
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ SNAPSHOT_EVERY_SECONDS = 3600
 
 
 def record_pipeline_snapshot(day: date | None = None) -> int:
-    """Write today's stage counts for every workspace, replacing any earlier
-    snapshot of the same day. Returns the rows written."""
+    """Write today's deal counts per offer and stage for every workspace,
+    replacing any earlier snapshot of the same day. Returns the rows written."""
     day = day or date.today()
     with db() as conn:
         cur = conn.cursor()
@@ -32,14 +33,16 @@ def record_pipeline_snapshot(day: date | None = None) -> int:
         cur.execute("DELETE FROM pipeline_snapshots WHERE day = %s", (day,))
         cur.execute(
             """
-            INSERT INTO pipeline_snapshots (workspace_id, day, entity_type, stage, n)
-            SELECT workspace_id, %s, 'organization', pipeline_stage, COUNT(*) FROM contacts
-             WHERE deleted_at IS NULL AND workspace_id IS NOT NULL AND pipeline_stage IS NOT NULL
-             GROUP BY workspace_id, pipeline_stage
+            INSERT INTO pipeline_snapshots (workspace_id, day, offer_id, entity_type, stage, n)
+            SELECT d.workspace_id, %s, d.offer_id, 'organization', d.pipeline_stage, COUNT(*)
+              FROM deals d JOIN contacts c ON c.id = d.contact_id
+             WHERE d.deleted_at IS NULL AND c.deleted_at IS NULL
+             GROUP BY d.workspace_id, d.offer_id, d.pipeline_stage
             UNION ALL
-            SELECT workspace_id, %s, 'person', pipeline_stage, COUNT(*) FROM people
-             WHERE deleted_at IS NULL AND workspace_id IS NOT NULL AND pipeline_stage IS NOT NULL
-             GROUP BY workspace_id, pipeline_stage
+            SELECT d.workspace_id, %s, d.offer_id, 'person', d.pipeline_stage, COUNT(*)
+              FROM deals d JOIN people p ON p.id = d.person_id
+             WHERE d.deleted_at IS NULL AND p.deleted_at IS NULL
+             GROUP BY d.workspace_id, d.offer_id, d.pipeline_stage
             """,
             (day, day),
         )
@@ -126,8 +129,9 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None) -> dic
             new.setdefault(row["b"], {})[row["kind"]] = row["n"]
         cur.execute(
             "SELECT day, entity_type, stage, n FROM pipeline_snapshots "
-            "WHERE workspace_id = %s AND day BETWEEN %s AND %s ORDER BY day",
-            (workspace_id, first, today),
+            f"WHERE workspace_id = %s AND offer_id = {offer_id_sql('%s', CONSULTING)} "
+            "AND day BETWEEN %s AND %s ORDER BY day",
+            (workspace_id, workspace_id, first, today),
         )
         rows = cur.fetchall()
         # Each bucket shows its last logged day: find that day, then keep only its rows.

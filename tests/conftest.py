@@ -55,7 +55,7 @@ def clean_database(migrated_database):
                     FROM pg_tables
                     WHERE schemaname = 'public'
                       AND tablename NOT IN (
-                          'schema_migrations', 'workspaces', 'lookup_values', 'ignored_chains'
+                          'schema_migrations', 'workspaces', 'offers', 'lookup_values', 'ignored_chains'
                       );
                     EXECUTE truncate_statement;
                 END $$;

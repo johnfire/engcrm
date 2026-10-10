@@ -12,6 +12,7 @@ from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES, SUPPRESSION_FLAGS, is_typical
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import organization_deal_join
 from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
 from gcrm.tools.db_linkedin import get_known_people_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
@@ -20,6 +21,9 @@ from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.db_users import get_user_by_id
 
 logger = logging.getLogger(__name__)
+
+# Stage and status are the organization's Consulting deal's, aliased d.
+_DEAL_JOIN = organization_deal_join("c", "d")
 
 router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
 
@@ -120,10 +124,10 @@ def list_organizations(
             where.append("(c.name ILIKE %s OR c.city ILIKE %s OR c.type ILIKE %s)")
             filter_params += [f"%{search}%", f"%{search}%", f"%{search}%"]
         if status:
-            where.append("c.status = %s")
+            where.append("d.status = %s")
             filter_params.append(status)
         if stage:
-            where.append("c.pipeline_stage = %s")
+            where.append("d.pipeline_stage = %s")
             filter_params.append(stage)
         if personal_priority in {"1", "2", "3", "4", "5"}:
             where.append("cup.priority = %s")
@@ -145,7 +149,7 @@ def list_organizations(
         cur.execute(
             f"""
             SELECT c.id, c.name, c.city, c.country, c.type,
-                   c.pipeline_stage, c.status,
+                   d.pipeline_stage, d.status,
                    c.do_not_contact, c.email_bounced, c.research_exhausted,
                    c.email, c.website, c.fit_score, c.flagged, c.starred,
                    c.created_at, cup.priority AS personal_priority,
@@ -154,10 +158,11 @@ def list_organizations(
                      WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                    ) AS linkedin_connection_count
             FROM contacts c
+            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE {where_clause}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, d.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id
             LIMIT 50 OFFSET %s
             """,
@@ -188,15 +193,16 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.*, cup.priority AS personal_priority,
+            SELECT c.*, d.pipeline_stage, d.status, cup.priority AS personal_priority,
                    MAX(i.interaction_date) AS last_contact
             FROM contacts c
+            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE c.id = %s
               AND c.deleted_at IS NULL
               {workspace_filter}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, d.id, cup.priority
             """,
             priority_params
             + [contact_id]
@@ -376,11 +382,12 @@ def update_organization_state(
         raise HTTPException(status_code=400, detail="Unknown status")
 
     _, workspace_id = _personal_identity(payload)
-    scope = "AND workspace_id = %s" if workspace_id is not None else ""
+    scope = "AND c.workspace_id = %s" if workspace_id is not None else ""
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"SELECT pipeline_stage, status FROM contacts WHERE id = %s AND deleted_at IS NULL {scope}",
+            f"SELECT d.pipeline_stage, d.status FROM contacts c {_DEAL_JOIN}"
+            f"WHERE c.id = %s AND c.deleted_at IS NULL {scope}",
             [contact_id] + ([workspace_id] if workspace_id is not None else []),
         )
         current = cur.fetchone()

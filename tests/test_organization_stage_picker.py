@@ -35,10 +35,13 @@ def test_picking_a_stage_saves_only_the_stage_and_returns_to_the_same_list(admin
 
     assert response.status_code == 303
     assert response.headers["location"] == "/organizations/?stage=suspect&page=2"
-    sql, params = cursor.execute.call_args.args
-    assert sql.startswith("UPDATE contacts SET pipeline_stage = %s, updated_at = NOW()")
-    assert "status" not in sql and "deleted_at IS NULL" in sql
-    assert params == ("prospect", 7)
+    (touch, touch_params), (deal, params) = [c.args for c in cursor.execute.call_args_list]
+    # the organization must exist and not be deleted ...
+    assert touch.startswith("UPDATE contacts SET updated_at = NOW()") and "deleted_at IS NULL" in touch
+    assert touch_params == (7,)
+    # ... and the stage goes to its Consulting deal, with the status left as it is (None keeps it)
+    assert deal.lstrip().startswith("INSERT INTO deals") and "offer_id_for(c.workspace_id, 'consulting')" in deal
+    assert (params[0], params[2], params[4], params[5], params[6]) == ("prospect", None, 7, "prospect", None)
     audit.assert_called_once_with(None, None, "contact.stage_changed", "contact:7", "prospect")
 
 

@@ -95,12 +95,21 @@ class TestSavePerson:
     def test_stores_a_starting_stage(self):
         conn, cur = make_mock_conn()
         cur.fetchone.side_effect = [None, {"id": 15}]
-        with patch("gcrm.tools.db_people.db") as mock_db:
+        with patch("gcrm.tools.db_people.db") as mock_db, \
+             patch("gcrm.tools.db_people.set_person_stage") as set_stage:
             mock_db.return_value.__enter__.return_value = conn
             db_people.save_person(name="Anna Roth", pipeline_stage="prospect", source="test_fixture")
-        insert = cur.execute.call_args_list[-1]
-        assert "pipeline_stage" in insert.args[0]
-        assert "prospect" in insert.args[1]
+        # the stage is the new person's Consulting deal, written in the same transaction
+        set_stage.assert_called_once_with(cur, 15, "prospect")
+
+    def test_no_stage_means_no_deal(self):
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 15}]
+        with patch("gcrm.tools.db_people.db") as mock_db, \
+             patch("gcrm.tools.db_people.set_person_stage") as set_stage:
+            mock_db.return_value.__enter__.return_value = conn
+            db_people.save_person(name="Anna Roth", source="test_fixture")
+        set_stage.assert_not_called()
 
     def test_allow_duplicate_skips_the_lookup_and_inserts(self):
         conn, cur = make_mock_conn()
@@ -250,31 +259,42 @@ def admin_web():
 
 
 class TestPersonPipelineStage:
-    def update(self, values):
+    def update(self, values, rowcount=1):
         conn, cur = make_mock_conn()
-        cur.rowcount = 1
-        with patch("gcrm.tools.db_people.db") as mock_db:
+        cur.rowcount = rowcount
+        with patch("gcrm.tools.db_people.db") as mock_db, \
+             patch("gcrm.tools.db_people.set_person_stage") as set_stage:
             mock_db.return_value.__enter__.return_value = conn
             ok = db_people.update_person(3, values)
-        return ok, cur
+        return ok, cur, set_stage
 
     def test_a_known_stage_is_written(self):
-        ok, cur = self.update({"pipeline_stage": "prospect"})
+        ok, cur, set_stage = self.update({"pipeline_stage": "prospect"})
         assert ok is True
-        assert "pipeline_stage = %s" in cur.execute.call_args.args[0]
-        assert cur.execute.call_args.args[1][0] == "prospect"
+        # the person's own Consulting deal, in the same transaction as the row update
+        set_stage.assert_called_once_with(cur, 3, "prospect")
+        assert "pipeline_stage" not in cur.execute.call_args.args[0]
 
     def test_blank_clears_the_stage(self):
-        _, cur = self.update({"pipeline_stage": "  "})
-        assert cur.execute.call_args.args[1][0] is None
+        _, cur, set_stage = self.update({"pipeline_stage": "  "})
+        set_stage.assert_called_once_with(cur, 3, None)
+
+    def test_other_fields_leave_the_stage_alone(self):
+        _, _, set_stage = self.update({"name": "Anna"})
+        set_stage.assert_not_called()
+
+    def test_a_missing_person_gets_no_deal(self):
+        ok, _, set_stage = self.update({"pipeline_stage": "prospect"}, rowcount=0)
+        assert ok is False
+        set_stage.assert_not_called()
 
     def test_an_unknown_stage_is_refused_before_touching_the_database(self):
         with pytest.raises(ValueError):
             db_people.update_person(3, {"pipeline_stage": "bogus"})
 
     def test_the_stage_filter_is_a_whitelist_and_none_means_unset(self):
-        for stage, fragment in (("none", "person.pipeline_stage IS NULL"),
-                                ("suspect", "person.pipeline_stage = %s")):
+        for stage, fragment in (("none", "person_deal.pipeline_stage IS NULL"),
+                                ("suspect", "person_deal.pipeline_stage = %s")):
             conn, cur = make_mock_conn()
             with patch("gcrm.tools.db_people.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
@@ -399,7 +419,9 @@ class TestPersonStageInstantSave:
     """The detail page's stage select saves the moment it is picked (PUT, JSON)."""
 
     def put(self, body, updated=True):
-        with patch("gcrm.api.routers.people.update_person", return_value=updated) as update, \
+        stored = body.get("stage") if updated else None
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage",
+                   return_value=(updated, stored)) as update, \
              patch("gcrm.api.routers.people.log_audit") as audit:
             resp = client.put("/people/5/stage", json=body)
         return resp, update, audit
@@ -407,13 +429,13 @@ class TestPersonStageInstantSave:
     def test_sets_the_stage(self, admin_web):
         resp, update, audit = self.put({"stage": "opportunity"})
         assert resp.status_code == 200 and resp.json() == {"pipeline_stage": "opportunity"}
-        update.assert_called_once_with(5, {"pipeline_stage": "opportunity"})
+        update.assert_called_once_with(5, "opportunity")
         assert audit.call_args.args[2] == "person.stage_changed"
 
     def test_null_clears_the_stage(self, admin_web):
         resp, update, _ = self.put({"stage": None})
         assert resp.json() == {"pipeline_stage": None}
-        update.assert_called_once_with(5, {"pipeline_stage": ""})
+        update.assert_called_once_with(5, "")
 
     def test_an_unknown_stage_is_refused(self, admin_web):
         resp, update, _ = self.put({"stage": "bogus"})

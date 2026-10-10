@@ -10,6 +10,7 @@ from gcrm.geo import distance_km_sql
 from gcrm.linkedin import normalize_linkedin_url
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.sources import require_source
+from gcrm.tools.db_deals import organization_deal_join, person_deal_join, set_person_stage
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -113,20 +114,22 @@ def save_person(
             """
             INSERT INTO people
                 (name, title, email, phone, website, city, country, relationship,
-                 notes, met_at, contact_id, source, latitude, longitude, pipeline_stage,
+                 notes, met_at, contact_id, source, latitude, longitude,
                  workspace_id)
             VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
             (name, title or None, email or None, phone or None, website or None,
              city or None, country or None, relationship or None, notes or None,
-             met_at or None, contact_id, source, latitude, longitude, stage,
+             met_at or None, contact_id, source, latitude, longitude,
              get_workspace_id()),
         )
         person_id = cur.fetchone()["id"]
+        if stage is not None:
+            set_person_stage(cur, person_id, stage)
         logger.info("save_person: created id=%d  %s (contact_id=%s)", person_id, name, contact_id)
         return person_id
 
@@ -151,8 +154,10 @@ def update_person(person_id: int, values: dict) -> bool:
 
     `is_linkedin_contact` and `retention_hold` are the non-text fields: written as
     booleans when present. `pipeline_stage` is one of PIPELINE_STAGES (blank clears
-    it) and raises ValueError otherwise. A non-blank `linkedin_url` is stored in its canonical form, and
-    raises ValueError when it is not a linkedin.com link.
+    it) and raises ValueError otherwise; it is the stage of the person's own
+    Consulting deal (see db_deals.set_person_stage). A non-blank `linkedin_url` is
+    stored in its canonical form, and raises ValueError when it is not a
+    linkedin.com link.
     """
     updates = {
         column: ((values.get(column) or "").strip() or None)
@@ -167,26 +172,41 @@ def update_person(person_id: int, values: dict) -> bool:
     for column in BOOLEAN_COLUMNS:
         if column in values:
             updates[column] = bool(values[column])
-    if "pipeline_stage" in values:
-        stage = (values.get("pipeline_stage") or "").strip() or None
-        if stage is not None and stage not in PIPELINE_STAGES:
-            raise ValueError(f"unknown pipeline stage: {stage!r}")
-        updates["pipeline_stage"] = stage
-    if not updates:
+    sets_stage = "pipeline_stage" in values
+    stage = (values.get("pipeline_stage") or "").strip() or None
+    if stage is not None and stage not in PIPELINE_STAGES:
+        raise ValueError(f"unknown pipeline stage: {stage!r}")
+    if not updates and not sets_stage:
         return False
 
-    assignments = ", ".join(f"{column} = %s" for column in updates)
+    assignments = "".join(f"{column} = %s, " for column in updates)
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"UPDATE people SET {assignments}, updated_at = NOW() WHERE id = %s",
+            f"UPDATE people SET {assignments}updated_at = NOW() WHERE id = %s",
             list(updates.values()) + [person_id],
         )
         if cur.rowcount == 0:
             logger.warning("update_person: no person with id=%s", person_id)
             return False
-    logger.info("update_person: updated id=%d (%s)", person_id, ", ".join(updates))
+        if sets_stage:
+            set_person_stage(cur, person_id, stage)
+    logger.info("update_person: updated id=%d (%s)", person_id,
+                ", ".join([*updates, *(["pipeline_stage"] if sets_stage else [])]))
     return True
+
+
+def set_person_pipeline_stage(person_id: int, stage: str | None) -> tuple[bool, str | None]:
+    """Set (or with blank/None, clear) the stage of a person's Consulting deal.
+    Returns (person_found, the stage they end up with) — clearing can leave a
+    candidate when the deal holds an open next step (see
+    db_deals.set_person_stage). Raises ValueError for an unknown stage."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
+        if cur.rowcount == 0:
+            return False, None
+        return True, set_person_stage(cur, person_id, stage)
 
 
 _DISTANCE_KM_SQL = distance_km_sql(
@@ -195,9 +215,10 @@ _DISTANCE_KM_SQL = distance_km_sql(
 )
 
 _SELECT_WITH_COMPANY = (
-    "SELECT person.*, company.name AS company, "
+    "SELECT person.*, person_deal.pipeline_stage, person_deal.next_step, "
+    "person_deal.next_step_date, company.name AS company, "
     "company.preferred_language AS company_language, "
-    "company.pipeline_stage AS company_pipeline_stage, "
+    "company_deal.pipeline_stage AS company_pipeline_stage, "
     "company_priority.priority AS company_personal_priority, "
     "company_opportunity.opportunity_score AS company_opportunity_score, "
     "person_priority.priority AS value_rating, "
@@ -206,6 +227,8 @@ _SELECT_WITH_COMPANY = (
     f"({_DISTANCE_KM_SQL}) AS distance_km "
     "FROM people person "
     "LEFT JOIN contacts company ON company.id = person.contact_id "
+    + person_deal_join("person", "person_deal")
+    + organization_deal_join("company", "company_deal") +
     "LEFT JOIN ai_analysis company_opportunity "
     "ON company_opportunity.contact_id = company.id "
     "AND company_opportunity.analysis_kind = 'opportunity' "
@@ -229,7 +252,7 @@ SORT_COLUMNS = {
     "value_rating":     "person_priority.priority",
     "distance":         "distance_km",
     "connected_on":     "person.connected_on",
-    "next_step_date":   "person.next_step_date",
+    "next_step_date":   "person_deal.next_step_date",
 }
 
 # `linkedin` filter values -> WHERE fragment. "unlinked" is the review queue:
@@ -324,9 +347,9 @@ def get_people(
     if linkedin in _LINKEDIN_FILTERS:
         conditions.append(_LINKEDIN_FILTERS[linkedin])
     if stage == "none":
-        conditions.append("person.pipeline_stage IS NULL")
+        conditions.append("person_deal.pipeline_stage IS NULL")
     elif stage in PIPELINE_STAGES:
-        conditions.append("person.pipeline_stage = %s")
+        conditions.append("person_deal.pipeline_stage = %s")
         params.append(stage)
     if city.strip():
         conditions.append("lower(trim(person.city)) = lower(%s)")
@@ -453,9 +476,9 @@ def search_organizations(query: str, limit: int = 20) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, name, city, status FROM contacts "
-            "WHERE deleted_at IS NULL AND (name ILIKE %s OR city ILIKE %s) "
-            "ORDER BY lower(name) LIMIT %s",
+            "SELECT c.id, c.name, c.city, d.status FROM contacts c" + organization_deal_join("c", "d")
+            + "WHERE c.deleted_at IS NULL AND (c.name ILIKE %s OR c.city ILIKE %s) "
+            "ORDER BY lower(c.name) LIMIT %s",
             (like, like, limit),
         )
         return [dict(row) for row in cur.fetchall()]

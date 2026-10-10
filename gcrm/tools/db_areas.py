@@ -1,6 +1,7 @@
 """Area scan database operations — the map-pick / GPS-radius counterpart to
 db_cities.py. See docs/plans/2026-08-20-area-scanning-design.md."""
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools.db_deals import organization_deal_join
 from gcrm.vertical import SCAN_LEVELS
 from gcrm.workspace_context import get_workspace_id
 
@@ -174,10 +175,11 @@ def get_area_organizations(area_id: int, limit: int = 500) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT co.id, co.name, co.type, co.pipeline_stage, co.status,
+            SELECT co.id, co.name, co.type, deal.pipeline_stage, deal.status,
                    co.latitude, co.longitude, co.website,
                    ({dist}) AS distance_m
             FROM contacts co
+            {organization_deal_join("co", "deal")}
             JOIN scan_areas sa ON sa.id = %s
             WHERE co.latitude IS NOT NULL AND co.longitude IS NOT NULL
               AND co.deleted_at IS NULL

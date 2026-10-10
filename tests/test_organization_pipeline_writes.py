@@ -22,6 +22,12 @@ def executed_sql(cur):
     return " ".join(call.args[0] for call in cur.execute.call_args_list if call.args)
 
 
+def deal_write(cur):
+    """The one statement that wrote the organization's Consulting deal."""
+    [call] = [c for c in cur.execute.call_args_list if "INSERT INTO deals" in c.args[0]]
+    return call.args
+
+
 class TestSetOrganizationState:
     def test_writes_both_axes_in_one_statement(self):
         conn, cur = make_mock_conn()
@@ -30,16 +36,18 @@ class TestSetOrganizationState:
             db_organizations.set_organization_state(
                 7, pipeline_stage="opportunity", status="proposal", fit_score=80,
             )
-        statement = cur.execute.call_args.args[0]
-        assert "pipeline_stage = %s" in statement and "status = %s" in statement
-        assert cur.execute.call_args.args[1][:2] == ("opportunity", "proposal")
+        statement, params = deal_write(cur)
+        assert "pipeline_stage" in statement and "status" in statement
+        assert "offer_id_for(c.workspace_id, 'consulting')" in statement
+        assert (params[0], params[2], params[4]) == ("opportunity", "proposal", 7)
 
     def test_coerces_an_unknown_value_instead_of_writing_it(self):
         conn, cur = make_mock_conn()
         with patch("gcrm.tools.db_organizations.db") as mock_db, patch("gcrm.tools.db_organizations.log_audit"):
             mock_db.return_value.__enter__.return_value = conn
             db_organizations.set_organization_state(7, pipeline_stage="cold", status="accepted")
-        assert cur.execute.call_args.args[1][:2] == ("candidate", "none")
+        _, params = deal_write(cur)
+        assert (params[0], params[2]) == ("candidate", "none")
 
     def test_keeps_the_existing_score_when_none_is_given(self):
         conn, cur = make_mock_conn()
@@ -91,7 +99,7 @@ class TestOutreachSelection:
             mock_db.return_value.__enter__.return_value = conn
             db_organizations.get_organizations_ready_for_outreach()
         statement = executed_sql(cur)
-        assert "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = contacts.id" in statement
+        assert "NOT EXISTS (SELECT 1 FROM people p WHERE p.contact_id = c.id" in statement
         assert "p.is_linkedin_contact" in statement
         # a person deleted from the CRM no longer counts as a way in
         assert "p.deleted_at IS NULL" in statement

@@ -15,8 +15,8 @@ def test_the_list_query_returns_the_people_at_each_organization(clean_database, 
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO contacts (name, city, status, workspace_id) "
-            "VALUES ('Acme GmbH', 'Augsburg', 'none', (SELECT id FROM workspaces WHERE slug = 'default')) "
+            "INSERT INTO contacts (name, city, workspace_id) "
+            "VALUES ('Acme GmbH', 'Augsburg', (SELECT id FROM workspaces WHERE slug = 'default')) "
             "RETURNING id"
         )
         acme = cursor.fetchone()["id"]

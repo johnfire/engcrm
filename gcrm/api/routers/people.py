@@ -45,6 +45,7 @@ from gcrm.tools.db_people import (
     save_person,
     search_organizations,
     set_person_organization,
+    set_person_pipeline_stage,
     set_person_value_rating,
     update_person,
 )
@@ -681,9 +682,10 @@ def person_set_stage(
     the same filtered list."""
     if stage and stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    if not update_person(person_id, {"pipeline_stage": stage}):
+    found, stored = set_person_pipeline_stage(person_id, stage)
+    if not found:
         raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stage or "cleared")
+    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
     return local_redirect(next, fallback="/people/")
 
 
@@ -698,10 +700,11 @@ def person_put_stage(
     stage = (body.stage or "").strip()
     if stage and stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    if not update_person(person_id, {"pipeline_stage": stage}):
+    found, stored = set_person_pipeline_stage(person_id, stage)
+    if not found:
         raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stage or "cleared")
-    return {"pipeline_stage": stage or None}
+    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
+    return {"pipeline_stage": stored}
 
 
 @router.post("/people/{person_id}/edit")

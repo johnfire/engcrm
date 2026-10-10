@@ -1,5 +1,6 @@
 """Proximity query for the mobile recon view — contacts nearest a GPS point."""
 from gcrm.db.connection import db, serialize_row
+from gcrm.tools.db_deals import organization_deal_join
 
 # Anything past first contact counts as "already worked" and is excluded when
 # not_contacted=True. Stage carries that now: a candidate or suspect that is
@@ -12,15 +13,15 @@ def get_organizations_near(lat: float, lng: float, not_contacted: bool = False, 
     """Contacts that have coordinates, nearest the given point first, each with a
     distance_m. Skips soft-deleted and permanently/temporarily closed businesses."""
     clauses = [
-        "latitude IS NOT NULL",
-        "deleted_at IS NULL",
-        "(business_status IS NULL OR business_status = 'OPERATIONAL')",
+        "c.latitude IS NOT NULL",
+        "c.deleted_at IS NULL",
+        "(c.business_status IS NULL OR c.business_status = 'OPERATIONAL')",
     ]
     params = {"lat": lat, "lng": lng, "limit": limit}
     if not_contacted:
-        clauses.append("pipeline_stage NOT IN %(worked_stages)s")
-        clauses.append("(status IS NULL OR status NOT IN %(worked_statuses)s)")
-        clauses.append("do_not_contact = FALSE")
+        clauses.append("(d.pipeline_stage IS NULL OR d.pipeline_stage NOT IN %(worked_stages)s)")
+        clauses.append("(d.status IS NULL OR d.status NOT IN %(worked_statuses)s)")
+        clauses.append("c.do_not_contact = FALSE")
         params["worked_stages"] = _WORKED_STAGES
         params["worked_statuses"] = _WORKED_STATUSES
     where = " AND ".join(clauses)
@@ -28,16 +29,16 @@ def get_organizations_near(lat: float, lng: float, not_contacted: bool = False, 
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT id, name, type, city, latitude, longitude, rating, user_ratings,
-                   business_status, pipeline_stage, status, do_not_contact,
-                   fit_score, phone, website,
-                   google_data->>'googleMapsUri' AS maps_uri,
+            SELECT c.id, c.name, c.type, c.city, c.latitude, c.longitude, c.rating, c.user_ratings,
+                   c.business_status, d.pipeline_stage, d.status, c.do_not_contact,
+                   c.fit_score, c.phone, c.website,
+                   c.google_data->>'googleMapsUri' AS maps_uri,
                    (6371000 * acos(least(1, greatest(-1,
-                       cos(radians(%(lat)s)) * cos(radians(latitude)) *
-                       cos(radians(longitude) - radians(%(lng)s)) +
-                       sin(radians(%(lat)s)) * sin(radians(latitude))
+                       cos(radians(%(lat)s)) * cos(radians(c.latitude)) *
+                       cos(radians(c.longitude) - radians(%(lng)s)) +
+                       sin(radians(%(lat)s)) * sin(radians(c.latitude))
                    )))) AS distance_m
-            FROM contacts
+            FROM contacts c {organization_deal_join("c", "d")}
             WHERE {where}
             ORDER BY distance_m
             LIMIT %(limit)s

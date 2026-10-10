@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import set_organization_deal
 
 pytestmark = pytest.mark.integration
 
@@ -25,11 +26,13 @@ def _organization() -> int:
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO contacts (name, city, pipeline_stage, status, workspace_id) "
-            "VALUES ('Acme GmbH', 'Augsburg', 'suspect', 'ready', "
+            "INSERT INTO contacts (name, city, workspace_id) "
+            "VALUES ('Acme GmbH', 'Augsburg', "
             "(SELECT id FROM workspaces WHERE slug = 'default')) RETURNING id"
         )
-        return cursor.fetchone()["id"]
+        contact_id = cursor.fetchone()["id"]
+        set_organization_deal(cursor, contact_id, stage="suspect", status="ready")
+        return contact_id
 
 
 def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
@@ -41,8 +44,8 @@ def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
     assert post(f"/organizations/{acme}/sales",
                 {"amount_eur": "2.400,00".replace(".", ""), "won_on": date.today().isoformat(),
                  "description": "Painting"}).status_code == 303
-    with db() as connection:
-        connection.cursor().execute("UPDATE contacts SET pipeline_stage = 'customer' WHERE id = %s", (acme,))
+    # moved on from the Organizations list, as you would by hand
+    assert post(f"/organizations/{acme}/stage", {"stage": "customer"}).status_code == 303
 
     page = web.get("/statistics?period=month&lang=en")
 

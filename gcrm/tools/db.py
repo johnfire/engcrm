@@ -23,6 +23,7 @@ from gcrm.tools.db_cities import (
     record_scan_result,
     update_city_market,
 )
+from gcrm.tools.db_deals import organization_deal_join
 from gcrm.tools.db_inbox import (
     get_unprocessed_inbox,
     mark_bad_email,
@@ -151,9 +152,9 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT
-                c.*,
+                c.*, d.pipeline_stage, d.status,
                 EXTRACT(DAY FROM NOW() - MAX(i.interaction_date))::int AS days_since_contact,
                 (
                     SELECT summary FROM interactions
@@ -161,9 +162,10 @@ def get_overdue_contacts(days: int = 90) -> list[dict]:
                     ORDER BY interaction_date DESC LIMIT 1
                 ) AS last_subject
             FROM contacts c
+            {organization_deal_join("c", "d")}
             LEFT JOIN interactions i ON i.contact_id = c.id
-            WHERE c.status = 'contacted'
-            GROUP BY c.id
+            WHERE d.status = 'contacted'
+            GROUP BY c.id, d.id
             HAVING
                 MAX(i.interaction_date) < CURRENT_DATE - INTERVAL '%s days'
                 OR MAX(i.interaction_date) IS NULL

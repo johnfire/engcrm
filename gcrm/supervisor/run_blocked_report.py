@@ -9,6 +9,7 @@ Usage:
 import argparse
 
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import organization_deal_join
 
 
 def main():
@@ -36,11 +37,12 @@ def main():
                 c.name,
                 c.city,
                 c.type,
-                c.status,
+                d.status,
                 c.email,
                 COALESCE(cl.opt_out, FALSE)            AS opt_out,
                 COALESCE(cl.erasure_requested, FALSE)  AS erasure_requested
             FROM contacts c
+            {organization_deal_join("c", "d")}
             LEFT JOIN LATERAL (
                 SELECT opt_out, erasure_requested
                 FROM consent_log

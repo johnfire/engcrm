@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import set_organization_deal
 from gcrm.tools.statistics import add_sale
 from gcrm.tools.statistics_history import get_series, record_pipeline_snapshot
 
@@ -27,11 +28,13 @@ def _organization(name: str, stage: str, created: str = "2026-10-01") -> int:
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO contacts (name, pipeline_stage, status, workspace_id, created_at) "
-            "VALUES (%s, %s, 'none', (SELECT id FROM workspaces WHERE slug = 'default'), %s) RETURNING id",
-            (name, stage, created),
+            "INSERT INTO contacts (name, workspace_id, created_at) "
+            "VALUES (%s, (SELECT id FROM workspaces WHERE slug = 'default'), %s) RETURNING id",
+            (name, created),
         )
-        return cursor.fetchone()["id"]
+        contact_id = cursor.fetchone()["id"]
+        set_organization_deal(cursor, contact_id, stage=stage, status="none")
+        return contact_id
 
 
 def _snapshot_rows(day: date) -> dict:
@@ -50,10 +53,27 @@ def test_a_snapshot_counts_each_stage_and_a_later_one_replaces_the_day(clean_dat
     assert _snapshot_rows(TODAY) == {("organization", "prospect"): 2, ("organization", "candidate"): 1}
 
     with db() as connection:
-        connection.cursor().execute("UPDATE contacts SET pipeline_stage = 'customer' WHERE id = %s", (a,))
+        set_organization_deal(connection.cursor(), a, stage="customer")
     record_pipeline_snapshot(TODAY)
     assert _snapshot_rows(TODAY) == {("organization", "prospect"): 1, ("organization", "candidate"): 1,
                                      ("organization", "customer"): 1}
+
+
+def test_each_offer_is_logged_separately_and_the_series_shows_consulting(clean_database):
+    workspace = _workspace()
+    acme = _organization("Acme", "prospect")
+    with db() as connection:
+        set_organization_deal(connection.cursor(), acme, stage="customer", offer="learnwohl")
+    record_pipeline_snapshot(TODAY)
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT o.slug, s.stage, s.n FROM pipeline_snapshots s JOIN offers o ON o.id = s.offer_id "
+                       "WHERE s.day = %s ORDER BY o.slug", (TODAY,))
+        assert [tuple(r.values()) for r in cursor.fetchall()] == [("consulting", "prospect", 1),
+                                                                   ("learnwohl", "customer", 1)]
+    assert get_series(workspace, "month", today=TODAY)["pipeline"]["organization"] == {
+        "prospect": {date(2026, 10, 1): 1}}
 
 
 def test_two_workers_snapshotting_at_once_do_not_collide(clean_database):
@@ -86,7 +106,7 @@ def test_series_per_month_reach_back_and_the_pipeline_uses_each_months_last_logg
     add_sale(workspace, acme, Decimal("1200"), date(2026, 9, 20), "Painting")
     record_pipeline_snapshot(date(2026, 9, 3))
     with db() as connection:
-        connection.cursor().execute("UPDATE contacts SET pipeline_stage = 'customer' WHERE id = %s", (acme,))
+        set_organization_deal(connection.cursor(), acme, stage="customer")
     record_pipeline_snapshot(date(2026, 9, 28))
 
     series = get_series(workspace, "month", today=TODAY)

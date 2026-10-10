@@ -20,6 +20,7 @@ from gcrm.organization_state import (
 )
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
 from gcrm.tools.db_linkedin import (
     REACHABLE_PAGE_SIZE,
     get_known_people_for_org,
@@ -43,7 +44,7 @@ SORT_COLUMNS = {
     "name":         "lower(c.name)",
     "city":         "lower(c.city)",
     "type":         "lower(c.type)",
-    "status":       "c.status",
+    "status":       "d.status",
     "fit":          "c.fit_score",
     "personal_priority": "cup.priority",
     "starred":      "c.starred",
@@ -53,6 +54,9 @@ SORT_COLUMNS = {
 }
 
 _DISTANCE_KM_SQL = distance_km_sql("c.latitude", "c.longitude")
+
+# Every list query reads the stage and status from the organization's Consulting deal, aliased d.
+_DEAL_JOIN = organization_deal_join("c", "d")
 
 
 class PersonalPriorityBody(BaseModel):
@@ -79,10 +83,10 @@ def _build_organization_filters(
     conditions = ["c.deleted_at IS NULL"]
     params = []
     if status:
-        conditions.append("c.status = %s")
+        conditions.append("d.status = %s")
         params.append(status)
     if stage:
-        conditions.append("c.pipeline_stage = %s")
+        conditions.append("d.pipeline_stage = %s")
         params.append(stage)
     if suppressed in SUPPRESSION_FLAGS:
         conditions.append(f"c.{suppressed} = TRUE")
@@ -130,7 +134,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
         query_params = priority_params + params
 
         cur.execute(
-            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {priority_join} {where}",
+            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {_DEAL_JOIN} {priority_join} {where}",
             query_params,
         )
         total = cur.fetchone()["cnt"]
@@ -139,7 +143,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
             f"""
             SELECT
                 c.id, c.name, c.city, c.country, c.type,
-                c.pipeline_stage, c.status,
+                d.pipeline_stage, d.status,
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
@@ -154,10 +158,11 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 ) AS known_people,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
+            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, d.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             LIMIT {PAGE_SIZE} OFFSET {offset}
             """,
@@ -168,8 +173,9 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
         workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""
         workspace_params = [workspace_id] if workspace_id is not None else []
         cur.execute(
-            f"SELECT status, pipeline_stage, COUNT(*) AS cnt FROM contacts "
-            f"WHERE deleted_at IS NULL{workspace_filter} GROUP BY status, pipeline_stage",
+            f"SELECT d.status, d.pipeline_stage, COUNT(*) AS cnt FROM contacts c {_DEAL_JOIN}"
+            f"WHERE c.deleted_at IS NULL{workspace_filter.replace('workspace_id', 'c.workspace_id')} "
+            "GROUP BY d.status, d.pipeline_stage",
             workspace_params,
         )
         rows = cur.fetchall()
@@ -294,17 +300,18 @@ def organization_print(
             f"""
             SELECT
                 c.id, c.name, c.city, c.country, c.type,
-                c.pipeline_stage, c.status,
+                d.pipeline_stage, d.status,
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes,
                 cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
+            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, d.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             """,
             priority_params + params,
@@ -334,7 +341,11 @@ def organization_print(
 def organization_brief(contact_id: int, request: Request):
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT * FROM contacts WHERE id = %s AND deleted_at IS NULL", (contact_id,))
+        cur.execute(
+            f"SELECT c.*, d.pipeline_stage, d.status FROM contacts c {_DEAL_JOIN} "
+            "WHERE c.id = %s AND c.deleted_at IS NULL",
+            (contact_id,),
+        )
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="Contact not found")
@@ -361,9 +372,10 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         workspace_filter = "AND c.workspace_id = %s" if workspace_id is not None else ""
         cur.execute(
             f"""
-            SELECT c.*, cup.priority AS personal_priority,
+            SELECT c.*, d.pipeline_stage, d.status, cup.priority AS personal_priority,
                    ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
+            {_DEAL_JOIN}
             {priority_join}
             WHERE c.id = %s
               AND c.deleted_at IS NULL
@@ -479,10 +491,12 @@ def analyse_selected_organization(
     return local_redirect(f"/organizations/{contact_id}")
 
 
-def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None):
+def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None, stage=None, status=None):
     """Normalize blank strings to NULL, parse the numeric fit_score, and write the
     contact row. text_fields maps column name -> submitted string; flags maps
-    suppression column -> bool, written as-is since a false flag is meaningful."""
+    suppression column -> bool, written as-is since a false flag is meaningful.
+    The stage and status go to the organization's Consulting deal, in the same
+    transaction."""
     def empty_none(value):
         return value if value and value.strip() else None
 
@@ -506,6 +520,8 @@ def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None):
             f"WHERE id = %s AND deleted_at IS NULL",
             values,
         )
+        if cur.rowcount and (stage is not None or status is not None):
+            set_organization_deal(cur, contact_id, stage=stage, status=status)
 
 
 @router.post("/{contact_id}/edit")
@@ -542,7 +558,6 @@ def organization_edit(
 ):
     text_fields = {
         "name": name, "city": city, "country": country, "type": type,
-        "pipeline_stage": coerce_stage(pipeline_stage), "status": coerce_status(status),
         "email": email, "phone": phone, "website": website,
         "preferred_contact_method": preferred_contact_method, "decision_maker": decision_maker,
         "last_visited_at": last_visited_at, "best_visit_time": best_visit_time,
@@ -556,7 +571,10 @@ def organization_edit(
         "email_bounced": email_bounced,
         "research_exhausted": research_exhausted,
     }
-    _persist_organization_edit(contact_id, text_fields, fit_score, flags)
+    _persist_organization_edit(
+        contact_id, text_fields, fit_score, flags,
+        stage=coerce_stage(pipeline_stage), status=coerce_status(status),
+    )
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return local_redirect(f"/organizations/{contact_id}", saved="1")
 
@@ -576,12 +594,12 @@ def organization_set_stage(
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE contacts SET pipeline_stage = %s, updated_at = NOW() "
-            "WHERE id = %s AND deleted_at IS NULL",
-            (stage, contact_id),
+            "UPDATE contacts SET updated_at = NOW() WHERE id = %s AND deleted_at IS NULL",
+            (contact_id,),
         )
         if cur.rowcount == 0:
             raise HTTPException(status_code=404, detail="Organization not found")
+        set_organization_deal(cur, contact_id, stage=stage)
     log_audit(None, None, "contact.stage_changed", f"contact:{contact_id}", stage)
     return local_redirect(next, fallback="/organizations/")
 

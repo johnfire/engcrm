@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from gcrm.db.connection import db  # noqa: E402
 from gcrm.organization_state import is_typical  # noqa: E402
+from gcrm.tools.db_deals import organization_deal_join  # noqa: E402
 
 UMLAUT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 LEGAL = {"gmbh", "ag", "kg", "ohg", "gbr", "mbh", "ug", "eg", "ek", "co", "und",
@@ -103,8 +104,9 @@ def section(title: str, rows: list[str], note: str = "") -> None:
 def main() -> int:
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT id, name, website, email, pipeline_stage, status "
-                    "FROM contacts WHERE deleted_at IS NULL ORDER BY id")
+        cur.execute("SELECT c.id, c.name, c.website, c.email, d.pipeline_stage, d.status "
+                    "FROM contacts c" + organization_deal_join("c", "d")
+                    + "WHERE c.deleted_at IS NULL ORDER BY c.id")
         organizations = [dict(r) for r in cur.fetchall()]
 
     with_site = [c for c in organizations if (c["website"] or "").strip()]

@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import organization_deal_join
 
 router = APIRouter(prefix="/activity", tags=["activity"], dependencies=[Depends(require_login)])
 
@@ -54,7 +55,10 @@ def activity_feed(request: Request):
         """)
         agent_costs = [dict(row) for row in cur.fetchall()]
 
-        cur.execute("SELECT COUNT(*) AS count FROM contacts WHERE pipeline_stage = 'opportunity'")
+        cur.execute(
+            "SELECT COUNT(*) AS count FROM contacts c" + organization_deal_join("c", "d")
+            + "WHERE d.pipeline_stage = 'opportunity'"
+        )
         opportunity_count = cur.fetchone()["count"]
 
     cost_per_opportunity = (

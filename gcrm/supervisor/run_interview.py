@@ -14,6 +14,7 @@ from datetime import date
 
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
+from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
 from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -74,12 +75,12 @@ def search_organizations(query: str) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """
-            SELECT id, name, city, country, pipeline_stage, status, type
-            FROM contacts
-            WHERE deleted_at IS NULL
-              AND (lower(name) LIKE %s OR lower(city) LIKE %s)
-            ORDER BY lower(name)
+            f"""
+            SELECT c.id, c.name, c.city, c.country, d.pipeline_stage, d.status, c.type
+            FROM contacts c {organization_deal_join("c", "d")}
+            WHERE c.deleted_at IS NULL
+              AND (lower(c.name) LIKE %s OR lower(c.city) LIKE %s)
+            ORDER BY lower(c.name)
             LIMIT 15
             """,
             (f"%{query.lower()}%", f"%{query.lower()}%"),
@@ -120,16 +121,22 @@ def pick_organization() -> dict | None:
 # ── save ──────────────────────────────────────────────────────────────────────
 
 def save_updates(contact_id: int, updates: dict):
+    """Write the debrief: stage and status to the Consulting deal, the rest to the organization."""
     if not updates:
         return
-    fields = ", ".join(f"{column} = %s" for column in updates)
-    values = list(updates.values()) + [contact_id]
+    columns = {k: v for k, v in updates.items() if k not in ("pipeline_stage", "status")}
+    fields = "".join(f"{column} = %s, " for column in columns)
+    values = list(columns.values()) + [contact_id]
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            f"UPDATE contacts SET {fields}, updated_at = NOW() WHERE id = %s",
+            f"UPDATE contacts SET {fields}updated_at = NOW() WHERE id = %s",
             values,
         )
+        if "pipeline_stage" in updates or "status" in updates:
+            set_organization_deal(
+                cur, contact_id, stage=updates.get("pipeline_stage"), status=updates.get("status"),
+            )
 
 
 def append_notes(contact_id: int, new_text: str):

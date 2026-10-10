@@ -1,6 +1,6 @@
 """What happens next with a person: one current step (and an optional due date)
-on the person, with every change also written to their note log so the history
-of what was planned stays.
+on the person's Consulting deal, with every change also written to their note
+log so the history of what was planned stays.
 
 Log entries are language-neutral data, labelled by the UI through their method:
 `next_step` holds the step ("invite to coffee (2026-10-15)"), `next_step_done`
@@ -10,6 +10,7 @@ from datetime import date
 
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import person_deal_join, set_person_next_step_on_deal
 
 MAX_LENGTH = 500
 LOG_METHOD = "next_step"
@@ -33,7 +34,8 @@ def set_person_next_step(person_id: int, text: str, due: date | None) -> dict | 
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT next_step, next_step_date FROM people WHERE id = %s AND deleted_at IS NULL FOR UPDATE",
+            "SELECT d.next_step, d.next_step_date FROM people p" + person_deal_join("p", "d")
+            + "WHERE p.id = %s AND p.deleted_at IS NULL FOR UPDATE OF p",
             (person_id,),
         )
         current = cur.fetchone()
@@ -42,10 +44,8 @@ def set_person_next_step(person_id: int, text: str, due: date | None) -> dict | 
         previous = (current["next_step"] or "").strip()
         if (previous, current["next_step_date"]) == (text, due):
             return {"next_step": text or None, "next_step_date": due, "logged": False}
-        cur.execute(
-            "UPDATE people SET next_step = %s, next_step_date = %s, updated_at = NOW() WHERE id = %s",
-            (text or None, due, person_id),
-        )
+        set_person_next_step_on_deal(cur, person_id, text, due)
+        cur.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
         entry = (LOG_METHOD, log_entry(text, due)) if text else (DONE_METHOD, f"✓ {previous}")
         logged = bool(text or previous)
         if logged:

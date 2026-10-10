@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import set_organization_deal
 from gcrm.tools.db_people import save_person
 from gcrm.tools.statistics import add_sale, get_minute_defaults, get_statistics, set_minute_defaults
 
@@ -25,12 +26,14 @@ def _organization(name: str, stage: str = "candidate") -> int:
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(
-            "INSERT INTO contacts (name, city, pipeline_stage, status, workspace_id, created_at) "
-            "VALUES (%s, 'Augsburg', %s, 'none', (SELECT id FROM workspaces WHERE slug = 'default'), "
+            "INSERT INTO contacts (name, city, workspace_id, created_at) "
+            "VALUES (%s, 'Augsburg', (SELECT id FROM workspaces WHERE slug = 'default'), "
             "'2026-09-01') RETURNING id",
-            (name, stage),
+            (name,),
         )
-        return cursor.fetchone()["id"]
+        contact_id = cursor.fetchone()["id"]
+        set_organization_deal(cursor, contact_id, stage=stage, status="none")
+        return contact_id
 
 
 def _org_activity(contact_id: int, day: date, method: str | None, minutes=None, direction=None):
@@ -72,10 +75,10 @@ def world(clean_database, monkeypatch):
     add_sale(workspace, acme, Decimal("2400"), d + timedelta(days=2), "Painting")
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("UPDATE contacts SET pipeline_stage = 'prospect' WHERE id = %s", (acme,))
-        cursor.execute("UPDATE contacts SET pipeline_stage = 'prospect' WHERE id = %s", (acme,))  # no change
-        cursor.execute("UPDATE contacts SET pipeline_stage = 'not_in_pipeline' WHERE id = %s", (quiet,))
-        cursor.execute("UPDATE contacts SET pipeline_stage = 'prospect' WHERE id = %s", (quiet,))
+        set_organization_deal(cursor, acme, stage="prospect")
+        set_organization_deal(cursor, acme, stage="prospect")  # no change
+        set_organization_deal(cursor, quiet, stage="not_in_pipeline")
+        set_organization_deal(cursor, quiet, stage="prospect")
         cursor.execute("UPDATE stage_changes SET changed_at = '2026-10-14'")
     return {"workspace": workspace, "acme": acme, "quiet": quiet}
 

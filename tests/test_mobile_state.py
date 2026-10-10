@@ -89,7 +89,9 @@ class TestOrganizationState:
 
 class TestPersonStage:
     def set_stage(self, body, headers=ADMIN, updated=True, person_id=5):
-        with patch("gcrm.api.routers.api_people.update_person", return_value=updated) as update, \
+        stored = body.get("stage") if updated else None
+        with patch("gcrm.api.routers.api_people.set_person_pipeline_stage",
+                   return_value=(updated, stored)) as update, \
              patch("gcrm.api.routers.api_people.log_audit") as audit:
             response = client.patch(f"/api/people/{person_id}/stage", json=body, headers=headers)
         return response, update, audit
@@ -97,13 +99,13 @@ class TestPersonStage:
     def test_sets_the_stage(self):
         response, update, audit = self.set_stage({"stage": "prospect"})
         assert response.status_code == 200 and response.json() == {"pipeline_stage": "prospect"}
-        update.assert_called_once_with(5, {"pipeline_stage": "prospect"})
+        update.assert_called_once_with(5, "prospect")
         assert audit.call_args.args[2:] == ("person.stage_changed", "person:5", "prospect")
 
     def test_null_clears_the_stage(self):
         response, update, audit = self.set_stage({"stage": None})
-        assert response.status_code == 200
-        update.assert_called_once_with(5, {"pipeline_stage": ""})
+        assert response.status_code == 200 and response.json() == {"pipeline_stage": None}
+        update.assert_called_once_with(5, None)
         assert audit.call_args.args[4] == "cleared"
 
     def test_an_unknown_stage_is_refused(self):
@@ -113,6 +115,14 @@ class TestPersonStage:
 
     def test_a_missing_person_is_a_404(self):
         assert self.set_stage({"stage": "suspect"}, updated=False)[0].status_code == 404
+
+    def test_the_stage_actually_stored_comes_back(self):
+        """Clearing the stage of someone with an open next step leaves them a
+        candidate (the next step needs a deal to live on) — the phone shows that."""
+        with patch("gcrm.api.routers.api_people.set_person_pipeline_stage", return_value=(True, "candidate")), \
+             patch("gcrm.api.routers.api_people.log_audit"):
+            response = client.patch("/api/people/5/stage", json={"stage": None}, headers=ADMIN)
+        assert response.json() == {"pipeline_stage": "candidate"}
 
     def test_only_the_admin_may_set_it(self):
         response, update, _ = self.set_stage({"stage": "suspect"}, headers=VIEWER)

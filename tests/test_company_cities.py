@@ -401,7 +401,10 @@ class TestReachableFits:
     def test_only_fitting_unsuppressed_organizations_with_a_confirmed_connection(self):
         _, cursor = self.fetch([])
         select = [s for s, _ in cursor.executed if "LIMIT" in s][0]
-        assert "c.pipeline_stage = 'suspect'" in select and "c.status = 'ready'" in select
+        # stage and status are the organization's Consulting deal's
+        assert "LEFT JOIN deals d ON d.contact_id = c.id" in select
+        assert "offer_id_for(c.workspace_id, 'consulting')" in select
+        assert "d.pipeline_stage = 'suspect'" in select and "d.status = 'ready'" in select
         assert "c.do_not_contact = FALSE" in select and "c.deleted_at IS NULL" in select
         assert "k.is_linkedin_contact AND k.deleted_at IS NULL" in select
         assert "ORDER BY c.fit_score DESC NULLS LAST" in select
@@ -571,32 +574,32 @@ class TestPersonStage:
         assert '<option value="suspect" selected>' in response.text
 
     def test_changing_the_stage_from_the_list(self, admin_session):
-        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, "prospect")) as update, \
              patch("gcrm.api.routers.people.log_audit"):
             response = admin_session.post("/people/5/stage", data={
                 "stage": "prospect", "next": "/people/?linkedin=1"}, follow_redirects=False)
         assert response.status_code == 303 and response.headers["location"] == "/people/?linkedin=1"
-        update.assert_called_once_with(5, {"pipeline_stage": "prospect"})
+        update.assert_called_once_with(5, "prospect")
 
     def test_clearing_the_stage(self, admin_session):
-        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, None)) as update, \
              patch("gcrm.api.routers.people.log_audit"):
             admin_session.post("/people/5/stage", data={"stage": ""}, follow_redirects=False)
-        update.assert_called_once_with(5, {"pipeline_stage": ""})
+        update.assert_called_once_with(5, "")
 
     def test_an_unknown_stage_is_refused_and_an_offsite_next_is_ignored(self, admin_session):
-        with patch("gcrm.api.routers.people.update_person") as update:
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage") as update:
             bad = admin_session.post("/people/5/stage", data={"stage": "bogus"}, follow_redirects=False)
         assert bad.status_code == 400
         update.assert_not_called()
-        with patch("gcrm.api.routers.people.update_person", return_value=True), \
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, "suspect")), \
              patch("gcrm.api.routers.people.log_audit"):
             sneaky = admin_session.post("/people/5/stage", data={
                 "stage": "suspect", "next": "https://evil.test/x"}, follow_redirects=False)
         assert sneaky.headers["location"] == "/people/"
 
     def test_a_missing_person_is_a_404(self, admin_session):
-        with patch("gcrm.api.routers.people.update_person", return_value=False):
+        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(False, None)):
             response = admin_session.post("/people/99/stage", data={"stage": "suspect"}, follow_redirects=False)
         assert response.status_code == 404
 

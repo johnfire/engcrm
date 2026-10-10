@@ -221,11 +221,13 @@ class TestCommonWords:
 class FakeCursor:
     """Answers the importer's lookups from a dict and can fail one insert."""
 
-    def __init__(self, known_urls=None, fail_on_name=None, suppressed_hashes=()):
+    def __init__(self, known_urls=None, fail_on_name=None, suppressed_hashes=(), people_with_deals=()):
         self.suppressed_hashes = set(suppressed_hashes)
         self.executed = []
         self.known_urls = known_urls or {}
         self.fail_on_name = fail_on_name
+        self.people_with_deals = set(people_with_deals)
+        self.next_person_id = 100
         self.rowcount = 1
         self._rows = []
 
@@ -237,8 +239,15 @@ class FakeCursor:
             self._rows = [{"id": person_id}] if person_id else []
         elif sql.strip().startswith("SELECT 1 FROM person_import_suppressions"):
             self._rows = [{"?column?": 1}] if params[0] in self.suppressed_hashes else []
-        elif sql.strip().startswith("INSERT INTO people") and params[0] == self.fail_on_name:
-            raise RuntimeError("boom")
+        elif sql.strip().startswith("INSERT INTO people"):
+            if params[0] == self.fail_on_name:
+                raise RuntimeError("boom")
+            self.next_person_id += 1
+            self._rows = [{"id": self.next_person_id}]
+        elif sql.strip().startswith("SELECT d.* FROM people p"):
+            # the person's Consulting deal, if they have one
+            self._rows = [{"id": 1, "pipeline_stage": "prospect", "next_step": None, "next_step_date": None}] \
+                if params[0] in self.people_with_deals else []
 
     def fetchone(self):
         return self._rows[0] if self._rows else None
@@ -282,9 +291,21 @@ class TestImportConnections:
         assert "COALESCE(NULLIF(title, ''), %s)" in update
         [insert] = cursor.statements("INSERT INTO people")
         assert "'default'" in insert  # workspace falls back to the default one
-        assert "'candidate'" in insert  # a new connection starts as a candidate
-        # an existing person only gets the default when they have no stage yet
-        assert "pipeline_stage = COALESCE(pipeline_stage, 'candidate')" in update
+        # both start as candidates, on a Consulting deal: the new one, and the
+        # existing one because they have no stage yet
+        deals = [(sql, params) for sql, params in cursor.executed if sql.startswith("INSERT INTO deals")]
+        assert [params[0] for _, params in deals] == ["candidate", "candidate"]
+        assert sorted(params[-1] for _, params in deals) == [7, 101]
+
+    def test_an_existing_persons_chosen_stage_is_kept(self):
+        cursor = FakeCursor(known_urls={"https://www.linkedin.com/in/anna": 7}, people_with_deals={7})
+        patcher = patched_db(cursor)
+        try:
+            db_linkedin.import_connections([row("Anna Roth", "https://www.linkedin.com/in/anna")])
+        finally:
+            patcher.stop()
+        assert cursor.statements("INSERT INTO deals") == []
+        assert not any(sql.startswith("UPDATE deals") for sql, _ in cursor.executed)
 
     def test_one_failing_row_is_rolled_back_and_the_rest_still_import(self):
         cursor = FakeCursor(fail_on_name="Bad Row")
@@ -983,7 +1004,7 @@ class TestOrganizationsListFilter:
         from gcrm.api.routers.organizations import _build_organization_filters
 
         where, params = _build_organization_filters("ready", "", "", "", linkedin="1", stage="suspect")
-        assert "c.status = %s" in where and "c.pipeline_stage = %s" in where and "EXISTS" in where
+        assert "d.status = %s" in where and "d.pipeline_stage = %s" in where and "EXISTS" in where
         assert params == ["ready", "suspect"]
 
     def _list(self, query=""):
@@ -1172,7 +1193,10 @@ class TestApplyCompanyPlan:
         assert counts["created"] == 2 and counts["people_linked"] == 3 and counts["failed"] == 0
         [(insert, params), _] = cursor.statements("INSERT INTO contacts")
         assert "'needs_review'" in insert and "ON CONFLICT (workspace_id, company_key)" in insert
-        assert params[1:5] == ("candidate", "none", "linkedin", "acme")
+        assert params[1:3] == ("linkedin", "acme")
+        # each new employer enters the Consulting pipeline as a candidate with nothing going on
+        deals = cursor.statements("INSERT INTO deals")
+        assert [(p[0], p[2], p[4]) for _, p in deals] == [("candidate", "none", 101), ("candidate", "none", 102)]
         links = cursor.statements("UPDATE people")
         assert [p[1] for _, p in links] == [[1, 2], [3]]
         # An explicit unlink is never undone by a later promotion.

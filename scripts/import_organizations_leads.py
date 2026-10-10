@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import openpyxl
 
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import set_organization_deal
 
 WORKBOOK_PATH = Path(__file__).parent.parent / "art-marketing.xlsx"
 SHEET_NAME = "contacts  leads"
@@ -322,18 +323,19 @@ def import_organizations(organizations: list[dict], dry_run: bool = True):
             if not dry_run:
                 cur.execute("""
                     INSERT INTO contacts
-                        (name, city, country, type, pipeline_stage, status,
-                         best_visit_time, notes)
-                    VALUES (%s, %s, 'DE', %s, %s, %s, %s, %s)
+                        (name, city, country, type, best_visit_time, notes)
+                    VALUES (%s, %s, 'DE', %s, %s, %s)
+                    RETURNING id
                 """, (
                     c["name"],
                     c["city"],
                     c["type"] or None,
-                    c["pipeline_stage"],
-                    c["status"],
                     c["best_visit_time"] or None,
                     c["notes"] or None,
                 ))
+                set_organization_deal(
+                    cur, cur.fetchone()["id"], stage=c["pipeline_stage"], status=c["status"],
+                )
             created += 1
 
     return created, skipped_dup, needs_review

@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import organization_deal_join
 
 router = APIRouter(prefix="/inbox", tags=["inbox"], dependencies=[Depends(require_login)])
 
@@ -38,9 +39,10 @@ def inbox_list(
                 i.received_at, i.classification, i.classification_reasoning,
                 i.visit_when_nearby,
                 c.id AS contact_id, c.name AS contact_name,
-                c.city, c.status AS contact_status
+                c.city, d.status AS contact_status
             FROM inbox_messages i
             LEFT JOIN contacts c ON c.id = i.matched_contact_id
+            {organization_deal_join("c", "d")}
             {where}
             ORDER BY i.received_at DESC
             LIMIT 200

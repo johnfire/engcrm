@@ -113,8 +113,8 @@ def test_personal_priorities_are_private_per_user(clean_database):
         user_ids = [row["id"] for row in cursor.fetchall()]
         cursor.execute(
             """
-            INSERT INTO contacts (name, status, workspace_id)
-            VALUES ('Priority Venue', 'cold', %s)
+            INSERT INTO contacts (name, workspace_id)
+            VALUES ('Priority Venue', %s)
             RETURNING id
             """,
             (workspace_id,),

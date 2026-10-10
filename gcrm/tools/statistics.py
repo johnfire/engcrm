@@ -11,6 +11,7 @@ from gcrm.activity_types import ACTIVITY_TYPES, DEFAULT_MINUTES, NOT_ACTIVITIES,
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import organization_deal_join, person_deal_join
 
 PERIODS = ("week", "month", "quarter", "year")
 WORKING_STAGES = ("suspect", "prospect", "opportunity")
@@ -246,10 +247,11 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         new_by_source = [dict(row) for row in cur.fetchall()]
 
         cur.execute(
-            "SELECT 'organization' AS kind, pipeline_stage AS stage, COUNT(*) AS n FROM contacts "
-            "WHERE workspace_id = %s AND deleted_at IS NULL GROUP BY 2 UNION ALL "
-            "SELECT 'person', pipeline_stage, COUNT(*) FROM people "
-            "WHERE workspace_id = %s AND deleted_at IS NULL AND pipeline_stage IS NOT NULL GROUP BY 2",
+            "SELECT 'organization' AS kind, d.pipeline_stage AS stage, COUNT(*) AS n FROM contacts c"
+            + organization_deal_join("c", "d")
+            + "WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.id IS NOT NULL GROUP BY 2 UNION ALL "
+            "SELECT 'person', d.pipeline_stage, COUNT(*) FROM people p" + person_deal_join("p", "d")
+            + "WHERE p.workspace_id = %s AND p.deleted_at IS NULL AND d.id IS NOT NULL GROUP BY 2",
             (workspace_id, workspace_id),
         )
         stages_now = {"organization": {}, "person": {}}
@@ -258,9 +260,10 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
 
         cur.execute(
             f"WITH {acts_sql}, last AS (SELECT contact_id, MAX(day) AS last_day FROM acts GROUP BY contact_id) "
-            "SELECT c.id, c.name, c.pipeline_stage, last.last_day FROM contacts c "
+            "SELECT c.id, c.name, d.pipeline_stage, last.last_day FROM contacts c "
+            f"{organization_deal_join('c', 'd')} "
             "LEFT JOIN last ON last.contact_id = c.id "
-            "WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND c.pipeline_stage = ANY(%s) "
+            "WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.pipeline_stage = ANY(%s) "
             "AND (last.last_day IS NULL OR last.last_day < %s) "
             "ORDER BY last.last_day ASC NULLS FIRST, c.name LIMIT 25",
             base + [workspace_id, list(WORKING_STAGES), today - timedelta(days=STUCK_AFTER_DAYS)],

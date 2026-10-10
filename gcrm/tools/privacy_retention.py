@@ -92,7 +92,7 @@ def _purge_expired_people(cursor) -> int:
     go with their organization. People marked "keep" are exempt from the age rule.
 
     "Touched" is the latest of: created, edited (which includes a re-import),
-    last note, last rating, last queued draft."""
+    last note, last rating, last queued draft, last change to a deal they own."""
     cursor.execute(
         """
         DELETE FROM people p
@@ -104,7 +104,8 @@ def _purge_expired_people(cursor) -> int:
                     p.updated_at,
                     (SELECT MAX(occurred_at) FROM people_interactions WHERE person_id = p.id),
                     (SELECT MAX(updated_at)  FROM person_user_priorities WHERE person_id = p.id),
-                    (SELECT MAX(created_at)  FROM approval_queue WHERE person_id = p.id)
+                    (SELECT MAX(created_at)  FROM approval_queue WHERE person_id = p.id),
+                    (SELECT MAX(updated_at)  FROM deals WHERE person_id = p.id)
                 ) < NOW() - (%s * INTERVAL '1 day')
            )
         """,

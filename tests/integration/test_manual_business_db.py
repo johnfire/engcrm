@@ -6,6 +6,7 @@ from gcrm.api.routers.api_record_edit import OrganizationFields, save_manual_org
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.tools.db_deals import organization_deal_join
 
 pytestmark = pytest.mark.integration
 
@@ -19,7 +20,8 @@ def test_manual_business_persists_stage_and_never_overwrites_duplicate(clean_dat
         created = save_manual_organization(fields, "manual_web")
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("SELECT pipeline_stage, status, source, decision_maker, notes FROM contacts WHERE id=%s",
+        cursor.execute("SELECT d.pipeline_stage, d.status, c.source, c.decision_maker, c.notes FROM contacts c"
+                       + organization_deal_join("c", "d") + "WHERE c.id=%s",
                        (created["id"],))
         assert dict(cursor.fetchone()) == {"pipeline_stage": stage, "status": "none", "source": "manual_web",
                                           "decision_maker": "Ann", "notes": "Entered by hand"}
@@ -37,3 +39,5 @@ def test_manual_business_persists_stage_and_never_overwrites_duplicate(clean_dat
         assert cursor.fetchone()["count"] == 1
         cursor.execute("SELECT notes FROM contacts WHERE id=%s", (created["id"],))
         assert cursor.fetchone()["notes"] == "Entered by hand"
+        cursor.execute("SELECT pipeline_stage FROM deals WHERE contact_id=%s AND deleted_at IS NULL", (created["id"],))
+        assert [row["pipeline_stage"] for row in cursor.fetchall()] == [stage]

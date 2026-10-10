@@ -17,6 +17,7 @@ from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import (
     find_existing_person,
     save_person,
+    set_person_pipeline_stage,
     set_person_value_rating,
     update_person,
 )
@@ -189,13 +190,13 @@ def set_person_stage(
     if body.stage is not None and body.stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     try:
-        updated = update_person(person_id, {"pipeline_stage": body.stage or ""})
+        found, stored = set_person_pipeline_stage(person_id, body.stage)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    if not updated:
+    if not found:
         raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", body.stage or "cleared")
-    return {"pipeline_stage": body.stage}
+    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
+    return {"pipeline_stage": stored}
 
 
 class ValueRatingBody(BaseModel):

@@ -20,10 +20,16 @@ from gcrm.linkedin import (
     normalize_company,
     plan_company_promotion,
 )
-from gcrm.organization_state import coerce_stage, coerce_status
 from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_company_web import apply_reading
+from gcrm.tools.db_deals import (
+    get_person_deal,
+    organization_deal_join,
+    person_deal_join,
+    set_organization_deal,
+    set_person_stage,
+)
 from gcrm.workspace_context import get_workspace_id
 
 logger = logging.getLogger(__name__)
@@ -145,28 +151,32 @@ def _upsert_connection(cur, row: dict) -> tuple[str, bool]:
                 company_raw  = COALESCE(NULLIF(company_raw, ''), %s),
                 title        = COALESCE(NULLIF(title, ''), %s),
                 email        = COALESCE(NULLIF(email, ''), %s),
-                pipeline_stage = COALESCE(pipeline_stage, 'candidate'),
                 updated_at   = NOW()
             WHERE id = %s
             """,
             (row["linkedin_url"], row["connected_on"], row["company"] or None,
              row["title"] or None, row["email"] or None, person_id),
         )
+        # Every connection is at least a candidate; a stage chosen by hand stays.
+        if get_person_deal(cur, person_id) is None:
+            set_person_stage(cur, person_id, "candidate")
         return "updated", flagged
     cur.execute(
         """
         INSERT INTO people
             (name, title, email, country, source, is_linkedin_contact,
-             linkedin_url, connected_on, company_raw, pipeline_stage, workspace_id)
+             linkedin_url, connected_on, company_raw, workspace_id)
         VALUES (
-            %s, %s, %s, NULL, %s, TRUE, %s, %s, %s, 'candidate',
+            %s, %s, %s, NULL, %s, TRUE, %s, %s, %s,
             COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
         )
+        RETURNING id
         """,
         (row["name"], row["title"] or None, row["email"] or None, IMPORT_SOURCE,
          row["linkedin_url"], row["connected_on"], row["company"] or None,
          get_workspace_id()),
     )
+    set_person_stage(cur, cur.fetchone()["id"], "candidate")
     return "created", False
 
 
@@ -210,7 +220,8 @@ def get_match_suggestions() -> list[dict]:
         if not people:
             return []
         cur.execute(
-            "SELECT id, name, city, status FROM contacts WHERE deleted_at IS NULL"
+            "SELECT c.id, c.name, c.city, d.status FROM contacts c" + organization_deal_join("c", "d")
+            + "WHERE c.deleted_at IS NULL"
         )
         organizations = [dict(row) for row in cur.fetchall()]
         cur.execute("SELECT person_id, contact_id FROM person_match_rejections")
@@ -284,10 +295,10 @@ def get_known_people_for_org(contact_id: int) -> dict:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, name, title, email, linkedin_url, connected_on, source, met_at, "
-            "pipeline_stage, is_linkedin_contact FROM people "
-            "WHERE contact_id = %s AND deleted_at IS NULL "
-            "ORDER BY CASE source WHEN 'card_capture' THEN 0 WHEN 'manual' THEN 1 ELSE 2 END, name",
+            "SELECT p.id, p.name, p.title, p.email, p.linkedin_url, p.connected_on, p.source, p.met_at, "
+            "pd.pipeline_stage, p.is_linkedin_contact FROM people p" + person_deal_join("p", "pd")
+            + "WHERE p.contact_id = %s AND p.deleted_at IS NULL "
+            "ORDER BY CASE p.source WHEN 'card_capture' THEN 0 WHEN 'manual' THEN 1 ELSE 2 END, p.name",
             (contact_id,),
         )
         linked = [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -356,19 +367,19 @@ def _create_company_organization(cur, group: dict) -> tuple[int, bool]:
     cur.execute(
         """
         INSERT INTO contacts
-            (name, pipeline_stage, status, source, company_key, city_status, workspace_id)
-        VALUES (%s, %s, %s, %s, %s, 'needs_review',
+            (name, source, company_key, city_status, workspace_id)
+        VALUES (%s, %s, %s, 'needs_review',
                 COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default')))
         ON CONFLICT (workspace_id, company_key)
             WHERE source = 'linkedin' AND company_key IS NOT NULL AND deleted_at IS NULL
         DO NOTHING
         RETURNING id
         """,
-        (group["name"], coerce_stage("candidate"), coerce_status("none"),
-         ORGANIZATION_SOURCE, group["key"], get_workspace_id()),
+        (group["name"], ORGANIZATION_SOURCE, group["key"], get_workspace_id()),
     )
     created = cur.fetchone()
     if created:
+        set_organization_deal(cur, created["id"], stage="candidate", status="none")
         return created["id"], True
     cur.execute(
         "SELECT id FROM contacts WHERE source = 'linkedin' AND company_key = %s "
@@ -669,7 +680,7 @@ def get_reachable_fits(page: int = 1, workspace_id: int | None = None) -> dict:
     that opted out are left off. Returns {total, rows}."""
     offset = (max(page, 1) - 1) * REACHABLE_PAGE_SIZE
     conditions = [
-        "c.pipeline_stage = 'suspect'", "c.status = 'ready'",
+        "d.pipeline_stage = 'suspect'", "d.status = 'ready'",
         "c.deleted_at IS NULL", "c.do_not_contact = FALSE",
         "EXISTS (SELECT 1 FROM people k WHERE k.contact_id = c.id "
         "AND k.is_linkedin_contact AND k.deleted_at IS NULL)",
@@ -681,7 +692,8 @@ def get_reachable_fits(page: int = 1, workspace_id: int | None = None) -> dict:
     where = " AND ".join(conditions)
     with db() as conn:
         cur = conn.cursor()
-        cur.execute(f"SELECT COUNT(*) AS n FROM contacts c WHERE {where}", params)
+        deal_join = organization_deal_join("c", "d")
+        cur.execute(f"SELECT COUNT(*) AS n FROM contacts c {deal_join} WHERE {where}", params)
         total = cur.fetchone()["n"]
         cur.execute(
             f"""
@@ -693,7 +705,7 @@ def get_reachable_fits(page: int = 1, workspace_id: int | None = None) -> dict:
                       FROM people p
                      WHERE p.contact_id = c.id AND p.is_linkedin_contact
                        AND p.deleted_at IS NULL) AS people
-              FROM contacts c
+              FROM contacts c {deal_join}
              WHERE {where}
              ORDER BY c.fit_score DESC NULLS LAST, lower(c.name), c.id
              LIMIT %s OFFSET %s

@@ -9,6 +9,7 @@ from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import update_organization_status
 
 router = APIRouter(prefix="/drafts", tags=["drafts"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -149,10 +150,10 @@ def approve(
             WHERE id = %s
         """, (final_status, note or None, subject, body, sender, item_id))
         if row["contact_id"]:
-            cur.execute("""
-                UPDATE contacts SET status = 'contacted', updated_at = NOW()
-                WHERE id = %s AND status NOT IN ('contacted', 'meeting', 'proposal')
-            """, (row["contact_id"],))
+            if update_organization_status(
+                cur, row["contact_id"], "contacted", not_from=("contacted", "meeting", "proposal"),
+            ):
+                cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (row["contact_id"],))
         drafts = _fetch_held_drafts(conn)
     log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 

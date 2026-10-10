@@ -62,7 +62,24 @@ class TestSaveOrganization:
             call for call in cur.execute.call_args_list if "INSERT INTO contacts" in call.args[0]
         )
         assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
-        assert (48.1, 11.5) == insert.args[1][13:15]
+        assert (48.1, 11.5) == insert.args[1][11:13]
+
+    def test_a_new_organization_enters_the_consulting_pipeline(self):
+        """Its stage and status are its Consulting deal's, written in the same transaction."""
+        from gcrm.tools.db import save_organization
+        conn, cur = make_mock_conn()
+        cur.fetchone.side_effect = [None, {"id": 42}, None]
+
+        with patch("gcrm.tools.db.db") as mock_db, \
+             patch("gcrm.tools.db_organizations.geocode", return_value=None):
+            mock_db.return_value.__enter__.return_value = conn
+            save_organization("Galerie Nord", "Munich", pipeline_stage="suspect", status="ready",
+                              source="test_fixture")
+
+        insert = next(call for call in cur.execute.call_args_list if "INSERT INTO contacts" in call.args[0])
+        assert "pipeline_stage" not in insert.args[0] and "status" not in insert.args[0].replace("business_status", "")
+        deal = next(call for call in cur.execute.call_args_list if "INSERT INTO deals" in call.args[0])
+        assert (deal.args[1][0], deal.args[1][2], deal.args[1][4]) == ("suspect", "ready", 42)
 
     def test_skips_geocoding_when_google_data_has_coords(self):
         from gcrm.tools.db import save_organization

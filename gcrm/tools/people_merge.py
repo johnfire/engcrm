@@ -17,8 +17,13 @@ from datetime import date
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
 
-# Columns that describe the row rather than the person.
-_ROW_COLUMNS = {"id", "created_at", "updated_at", "deleted_at", "workspace_id"}
+# Columns that describe the row rather than the person, and the columns
+# migration 064 retired (the stage and next step now live on deals, which are
+# moved below).
+_ROW_COLUMNS = {
+    "id", "created_at", "updated_at", "deleted_at", "workspace_id",
+    "legacy_pipeline_stage", "legacy_next_step", "legacy_next_step_date",
+}
 
 # Every table with a foreign key to people(id), and how a clash on the kept
 # person is resolved. An unlisted table stops the merge: moving rows blindly
@@ -31,7 +36,14 @@ _CHILD_TABLES = {
     ("person_user_priorities", "person_id"): "user_id",
     # "Does not work at X" — the same fact twice is one fact.
     ("person_match_rejections", "person_id"): "contact_id",
+    # One live deal per offer: the kept person's deal wins, the other is noted.
+    ("deals", "person_id"): "offer_id",
+    # Being the contact person on an organization's deal clashes with nothing.
+    ("deals", "contact_person_id"): None,
 }
+
+# Rows that only clash while both are live: a soft-deleted deal blocks nothing.
+_LIVE_ONLY = {("deals", "person_id")}
 
 
 class MergeRefused(Exception):
@@ -102,15 +114,17 @@ def _move_children(cur, table: str, column: str, keep_id: int, drop_id: int) -> 
     clash_key = _CHILD_TABLES[(table, column)]
     clashes: list = []
     if clash_key:
+        live = ("AND d.deleted_at IS NULL AND k.deleted_at IS NULL"
+                if (table, column) in _LIVE_ONLY else "")
         cur.execute(
             f"SELECT d.* FROM {table} d WHERE d.{column} = %s AND EXISTS "
-            f"(SELECT 1 FROM {table} k WHERE k.{column} = %s AND k.{clash_key} = d.{clash_key})",
+            f"(SELECT 1 FROM {table} k WHERE k.{column} = %s AND k.{clash_key} = d.{clash_key} {live})",
             (drop_id, keep_id),
         )
         clashes = [serialize_row(dict(r)) for r in cur.fetchall()]
         cur.execute(
             f"DELETE FROM {table} d WHERE d.{column} = %s AND EXISTS "
-            f"(SELECT 1 FROM {table} k WHERE k.{column} = %s AND k.{clash_key} = d.{clash_key})",
+            f"(SELECT 1 FROM {table} k WHERE k.{column} = %s AND k.{clash_key} = d.{clash_key} {live})",
             (drop_id, keep_id),
         )
     cur.execute(f"UPDATE {table} SET {column} = %s WHERE {column} = %s", (keep_id, drop_id))
@@ -149,6 +163,8 @@ def merge_people(keep_id: int, drop_id: int, apply: bool = False, today: date | 
             moved[table], clashes[table] = rows, left
             if table == "person_user_priorities" and left:
                 updates["notes"] = _note_rating_clash(updates.get("notes", keep.get("notes")), left)
+            if table == "deals" and column == "person_id" and left:
+                updates["notes"] = _note_deal_clash(updates.get("notes", keep.get("notes")), left)
         if updates:
             assignments = ", ".join(f"{col} = %s" for col in updates)
             cur.execute(
@@ -173,6 +189,16 @@ def merge_people(keep_id: int, drop_id: int, apply: bool = False, today: date | 
     if apply:
         log_audit(None, None, "person.merge", f"person:{keep_id}", f"merged person:{drop_id}")
     return report
+
+
+def _note_deal_clash(notes, clashes: list) -> str:
+    detail = "; ".join(
+        f"deal #{row['id']} (offer {row['offer_id']}): stage {row['pipeline_stage']}, status {row['status']}"
+        + (f", next step {row['next_step']}" if row.get("next_step") else "")
+        + (f" by {row['next_step_date']}" if row.get("next_step_date") else "")
+        for row in clashes
+    )
+    return f"{(notes or '').rstrip()}\nDeal not carried over (kept person already has one for that offer): {detail}"
 
 
 def _note_rating_clash(notes, clashes: list) -> str:

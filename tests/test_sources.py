@@ -62,8 +62,8 @@ def test_organization_insert_stores_the_source():
          patch("gcrm.tools.db_organizations.log_audit"):
         database.return_value.__enter__.return_value = connection
         assert db_organizations.save_organization("Acme", "Augsburg", source=sources.VOICE) == 5
-    sql, params = cursor.execute.call_args_list[-1].args
-    assert "INSERT INTO contacts" in sql and "source" in sql
+    [(sql, params)] = [c.args for c in cursor.execute.call_args_list if "INSERT INTO contacts" in c.args[0]]
+    assert "source" in sql
     assert sources.VOICE in params
 
 

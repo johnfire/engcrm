@@ -1,5 +1,6 @@
 """City master-list and per-city scan-level database operations."""
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import organization_deal_join
 from gcrm.vertical import SCAN_LEVELS
 
 
@@ -89,7 +90,7 @@ def get_all_city_scan_status() -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT
                 ci.id, ci.city, ci.country, ci.region,
                 COALESCE(
@@ -108,18 +109,18 @@ def get_all_city_scan_status() -> list[dict]:
                 COALESCE(
                     json_object_agg(emailed.scan_level::text, emailed.cnt)
                         FILTER (WHERE emailed.scan_level IS NOT NULL),
-                    '{}'
+                    '{{}}'
                 ) AS emailed_by_level,
                 COALESCE(live.cnt, 0) AS total_contacts
             FROM cities ci
             LEFT JOIN city_scans cs ON cs.city_id = ci.id
             LEFT JOIN (
-                SELECT lower(city) AS city_lower, scan_level, COUNT(*) AS cnt
-                FROM contacts
-                WHERE status IN ('contacted', 'meeting', 'proposal')
-                   OR pipeline_stage IN ('prospect', 'opportunity', 'customer')
-                  AND scan_level IS NOT NULL
-                GROUP BY lower(city), scan_level
+                SELECT lower(c.city) AS city_lower, c.scan_level, COUNT(*) AS cnt
+                FROM contacts c {organization_deal_join("c", "d")}
+                WHERE d.status IN ('contacted', 'meeting', 'proposal')
+                   OR d.pipeline_stage IN ('prospect', 'opportunity', 'customer')
+                  AND c.scan_level IS NOT NULL
+                GROUP BY lower(c.city), c.scan_level
             ) emailed ON lower(ci.city) = emailed.city_lower
             LEFT JOIN (
                 SELECT lower(city) AS city_lower, COUNT(*) AS cnt

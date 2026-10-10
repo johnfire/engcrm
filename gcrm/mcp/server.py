@@ -17,6 +17,11 @@ from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
 from gcrm.tools.db import log_interaction, update_city_market
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import (
+    organization_deal_join,
+    set_organization_deal,
+    update_organization_status,
+)
 from gcrm.tools.email import send_email
 from gcrm.vertical import SCAN_LEVELS
 
@@ -45,13 +50,10 @@ def pipeline_status() -> str:
     try:
         with db() as conn:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT status, COUNT(*) AS count
-                FROM contacts
-                WHERE name != '[removed]'
-                GROUP BY status
-                ORDER BY status
-            """)
+            cur.execute(
+                "SELECT d.status, COUNT(*) AS count FROM contacts c" + organization_deal_join("c", "d")
+                + "WHERE c.name != '[removed]' GROUP BY d.status ORDER BY d.status"
+            )
             counts = {row["status"]: row["count"] for row in cur.fetchall()}
 
             cur.execute("SELECT COUNT(*) AS count FROM approval_queue WHERE status = 'pending'")
@@ -81,25 +83,27 @@ def organizations_list(status: str = "", limit: int = 200) -> str:
         with db() as conn:
             cur = conn.cursor()
             if status:
-                cur.execute("""
-                    SELECT c.id, c.name, c.city, c.email, c.type, c.status, c.fit_score, c.notes,
+                cur.execute(f"""
+                    SELECT c.id, c.name, c.city, c.email, c.type, d.status, c.fit_score, c.notes,
                            MAX(i.interaction_date) AS last_contact
                     FROM contacts c
+                    {organization_deal_join("c", "d")}
                     LEFT JOIN interactions i ON i.contact_id = c.id
-                    WHERE c.status = %s AND c.name != '[removed]'
-                    GROUP BY c.id
+                    WHERE d.status = %s AND c.name != '[removed]'
+                    GROUP BY c.id, d.id
                     ORDER BY c.updated_at DESC
                     LIMIT %s
                 """, (status, limit))
             else:
-                cur.execute("""
-                    SELECT c.id, c.name, c.city, c.email, c.type, c.status, c.fit_score, c.notes,
+                cur.execute(f"""
+                    SELECT c.id, c.name, c.city, c.email, c.type, d.status, c.fit_score, c.notes,
                            MAX(i.interaction_date) AS last_contact
                     FROM contacts c
+                    {organization_deal_join("c", "d")}
                     LEFT JOIN interactions i ON i.contact_id = c.id
                     WHERE c.name != '[removed]'
-                    GROUP BY c.id
-                    ORDER BY c.status, c.updated_at DESC
+                    GROUP BY c.id, d.id
+                    ORDER BY d.status, c.updated_at DESC
                     LIMIT %s
                 """, (limit,))
             rows = [dict(row) for row in cur.fetchall()]
@@ -189,10 +193,11 @@ def approval_approve(item_id: int, note: str = "") -> str:
                 SET status = %s, reviewed_at = NOW(), reviewer_note = %s
                 WHERE id = %s
             """, (final_status, note or None, item_id))
-            cur.execute("""
-                UPDATE contacts SET status = 'contacted', last_emailed_at = NOW(), updated_at = NOW()
-                WHERE id = %s AND status IN ('ready', 'on_hold')
-            """, (row["contact_id"],))
+            if update_organization_status(cur, row["contact_id"], "contacted", only_from=("ready", "on_hold")):
+                cur.execute(
+                    "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                    (row["contact_id"],),
+                )
         log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 
         return json.dumps({
@@ -223,10 +228,8 @@ def approval_reject(item_id: int, note: str = "") -> str:
             row = cur.fetchone()
             if not row:
                 return json.dumps({"error": f"Item {item_id} not found or already reviewed"})
-            cur.execute(
-                "UPDATE contacts SET status = 'dropped', updated_at = NOW() WHERE id = %s",
-                (row["contact_id"],),
-            )
+            update_organization_status(cur, row["contact_id"], "dropped")
+            cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (row["contact_id"],))
         log_audit(None, None, "approval.reject", f"approval:{item_id}", "rejected")
 
         return json.dumps({"rejected": True, "item_id": item_id})
@@ -281,14 +284,14 @@ def manual_drop(contact_id: int, reason: str = "") -> str:
             note = f"[Manually dropped] {reason}".strip() if reason else "[Manually dropped]"
             cur.execute("""
                 UPDATE contacts
-                SET pipeline_stage = 'not_in_pipeline', status = 'dropped',
-                    notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
+                SET notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
                                  ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
                 WHERE id = %s
             """, (note, note, contact_id))
             if cur.rowcount == 0:
                 return json.dumps({"error": f"Contact {contact_id} not found"})
+            set_organization_deal(cur, contact_id, stage="not_in_pipeline", status="dropped")
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
         log_audit(None, None, "contact.manual_drop", f"contact:{contact_id}", "dropped")
@@ -311,14 +314,14 @@ def manual_promote(contact_id: int, note: str = "") -> str:
             note_text = f"[Manually promoted] {note}".strip() if note else "[Manually promoted]"
             cur.execute("""
                 UPDATE contacts
-                SET pipeline_stage = 'suspect', status = 'ready',
-                    notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
+                SET notes = CASE WHEN notes IS NULL OR notes = '' THEN %s
                                  ELSE notes || E'\n' || %s END,
                     updated_at = NOW()
                 WHERE id = %s
             """, (note_text, note_text, contact_id))
             if cur.rowcount == 0:
                 return json.dumps({"error": f"Contact {contact_id} not found"})
+            set_organization_deal(cur, contact_id, stage="suspect", status="ready")
             cur.execute("SELECT name, city FROM contacts WHERE id = %s", (contact_id,))
             row = cur.fetchone()
         log_audit(None, None, "contact.manual_promote", f"contact:{contact_id}", "suspect/ready")
@@ -500,13 +503,10 @@ def resource_pipeline() -> str:
     try:
         with db() as conn:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT status, COUNT(*) AS count
-                FROM contacts
-                WHERE name != '[removed]'
-                GROUP BY status
-                ORDER BY status
-            """)
+            cur.execute(
+                "SELECT d.status, COUNT(*) AS count FROM contacts c" + organization_deal_join("c", "d")
+                + "WHERE c.name != '[removed]' GROUP BY d.status ORDER BY d.status"
+            )
             counts = {row["status"]: row["count"] for row in cur.fetchall()}
 
             cur.execute("SELECT COUNT(*) AS count FROM approval_queue WHERE status = 'pending'")

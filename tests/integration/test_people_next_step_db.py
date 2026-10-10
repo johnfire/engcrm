@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import person_deal_join
 from gcrm.tools.db_people import save_person
 from gcrm.tools.people_next_step import set_person_next_step
 
@@ -14,7 +15,8 @@ pytestmark = pytest.mark.integration
 def _state(person_id: int) -> tuple:
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("SELECT next_step, next_step_date FROM people WHERE id = %s", (person_id,))
+        cursor.execute("SELECT d.next_step, d.next_step_date FROM people p" + person_deal_join("p", "d")
+                       + "WHERE p.id = %s", (person_id,))
         row = cursor.fetchone()
         cursor.execute("SELECT method, note FROM people_interactions WHERE person_id = %s ORDER BY id",
                        (person_id,))
@@ -41,6 +43,21 @@ def test_the_field_holds_the_current_step(clean_database):
     set_person_next_step(person, "Call after the fair", date(2026, 11, 2))
 
     assert _state(person)[0] == ("Call after the fair", date(2026, 11, 2))
+
+
+def test_a_next_step_lives_on_the_consulting_deal_and_keeps_a_chosen_stage(clean_database):
+    staged = save_person("Eva Stage", pipeline_stage="opportunity", allow_duplicate=True, source="test_fixture")
+    unstaged = save_person("Finn Plain", allow_duplicate=True, source="test_fixture")
+
+    set_person_next_step(staged, "Send proposal", None)
+    set_person_next_step(unstaged, "Say hello", None)
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT person_id, pipeline_stage, next_step FROM deals ORDER BY person_id")
+        deals = [tuple(row.values()) for row in cursor.fetchall()]
+    # someone with no stage yet gets a candidate deal for the step to live on
+    assert deals == [(staged, "opportunity", "Send proposal"), (unstaged, "candidate", "Say hello")]
 
 
 def test_clearing_an_empty_step_logs_nothing_and_unknown_people_are_none(clean_database):

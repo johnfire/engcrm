@@ -1,12 +1,14 @@
 """Group contacted people before filtering, sorting and paginating businesses."""
 from gcrm.tools.db_contact_dates import CONTACT_HISTORY_FILTER, contact_day_sql
+from gcrm.tools.db_deals import organization_deal_join, person_deal_join
 
 CONTACT_FEED_SQL = f"""
 WITH active_people AS (
-    SELECT person.*, organization.id AS business_id,
+    SELECT person.*, person_deal.pipeline_stage, organization.id AS business_id,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
              WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
       FROM people person
+      {person_deal_join("person", "person_deal")}
       LEFT JOIN contacts organization ON organization.id=person.contact_id
            AND organization.deleted_at IS NULL AND organization.workspace_id=person.workspace_id
      WHERE person.deleted_at IS NULL
@@ -21,10 +23,11 @@ WITH active_people AS (
       FROM active_people WHERE business_id IS NOT NULL AND last_contact IS NOT NULL
      GROUP BY business_id
 ), business_contacts AS (
-    SELECT organization.*, linked.people, linked.searchable_people,
+    SELECT organization.*, organization_deal.pipeline_stage, linked.people, linked.searchable_people,
            direct.last_contact AS direct_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
       FROM contacts organization
+      {organization_deal_join("organization", "organization_deal")}
       LEFT JOIN business_people linked ON linked.business_id=organization.id
       LEFT JOIN LATERAL (
           SELECT MAX(interaction_date) AS last_contact FROM interactions

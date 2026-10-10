@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from gcrm.api.jwt_auth import require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.db.connection import db
+from gcrm.tools.db_deals import organization_deal_join, person_deal_join
 
 router = APIRouter(prefix="/api/search", tags=["mobile-search"])
 
@@ -58,11 +59,11 @@ def search(
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT c.id, c.name, c.city, c.country, c.type, c.pipeline_stage, c.status,
+            SELECT c.id, c.name, c.city, c.country, c.type, d.pipeline_stage, d.status,
                    (SELECT COUNT(*) FROM people lp
                      WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                    ) AS linkedin_connection_count
-            FROM contacts c
+            FROM contacts c {organization_deal_join("c", "d")}
             WHERE c.deleted_at IS NULL AND {org_where}{org_scope}
             ORDER BY (c.name ILIKE %s ESCAPE '!') DESC, lower(c.name), c.id
             LIMIT {LIMIT}
@@ -72,10 +73,12 @@ def search(
         organizations = [dict(r) for r in cur.fetchall()]
         cur.execute(
             f"""
-            SELECT p.id, p.name, p.title, p.city, p.pipeline_stage, p.is_linkedin_contact,
+            SELECT p.id, p.name, p.title, p.city, pd.pipeline_stage, p.is_linkedin_contact,
                    p.contact_id, COALESCE(c.name, p.company_raw) AS company,
-                   c.pipeline_stage AS company_pipeline_stage
-            FROM people p LEFT JOIN contacts c ON c.id = p.contact_id AND c.deleted_at IS NULL
+                   cd.pipeline_stage AS company_pipeline_stage
+            FROM people p {person_deal_join("p", "pd")}
+            LEFT JOIN contacts c ON c.id = p.contact_id AND c.deleted_at IS NULL
+            {organization_deal_join("c", "cd")}
             WHERE p.deleted_at IS NULL AND {people_where}{people_scope}
             ORDER BY (p.name ILIKE %s ESCAPE '!') DESC, lower(p.name), p.id
             LIMIT {LIMIT}
