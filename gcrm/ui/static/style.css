@@ -474,6 +474,11 @@ pre {
   border: 1px solid var(--border);
   color: var(--muted);
 }
+.badge-not_interested {
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-style: italic;
+}
 
 /* Badges — suppression flags, alongside whatever status is showing */
 .badge-flag {

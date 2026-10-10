@@ -25,6 +25,7 @@ export const STATUSES = [
   "dormant",
   "on_hold",
   "dropped",
+  "not_interested",
 ] as const;
 
 export const SUPPRESSION_FLAGS = [
@@ -59,7 +60,7 @@ export const TYPICAL_STATUSES_BY_STAGE: Record<PipelineStage, readonly Organizat
   prospect: ["contacted", "dormant", "on_hold"],
   opportunity: ["meeting", "proposal", "dormant", "on_hold"],
   customer: ["none", "dormant", "on_hold"],
-  not_in_pipeline: ["dropped", "none"],
+  not_in_pipeline: ["not_interested", "dropped", "none"],
 };
 
 export function isTypicalPair(stage: PipelineStage, status: OrganizationStatus): boolean {

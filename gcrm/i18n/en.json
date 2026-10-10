@@ -578,6 +578,7 @@
   "status.dormant": "Dormant",
   "status.on_hold": "On hold",
   "status.dropped": "Dropped",
+  "status.not_interested": "Not interested",
   "flag.do_not_contact": "Do not contact",
   "flag.email_bounced": "Email bounced",
   "flag.research_exhausted": "No more data findable",

@@ -35,7 +35,8 @@ STATUSES = (
     "proposal",   # proposal or quote sent, awaiting decision
     "dormant",    # was active, gone quiet past the dormancy threshold
     "on_hold",    # parked on purpose — timing or budget
-    "dropped",    # not being pursued
+    "dropped",         # not being pursued — our decision
+    "not_interested",  # they said no — their decision
 )
 
 SUPPRESSION_FLAGS = (
@@ -56,7 +57,7 @@ TYPICAL_STATUSES_BY_STAGE = {
     "prospect":        ("contacted", "dormant", "on_hold"),
     "opportunity":     ("meeting", "proposal", "dormant", "on_hold"),
     "customer":        ("none", "dormant", "on_hold"),
-    "not_in_pipeline": ("dropped", "none"),
+    "not_in_pipeline": ("not_interested", "dropped", "none"),
 }
 
 

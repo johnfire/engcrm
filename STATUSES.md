@@ -38,7 +38,8 @@ else defines a status list.
 | `proposal`  | Proposal or quote sent, awaiting decision                      |
 | `dormant`   | Was active, gone quiet past the dormancy threshold (12 months) |
 | `on_hold`   | Parked on purpose — timing or budget                           |
-| `dropped`   | Not being pursued                                              |
+| `dropped`   | Not being pursued — our decision                               |
+| `not_interested` | They said no — their decision                             |
 
 `ready` is what used to be called `cold`. The old name meant the opposite of
 what it said: not an untouched cold lead, but the readiest state there was.
@@ -68,7 +69,7 @@ and unusual pairs are logged but always written.
 | `prospect`        | `contacted`, `dormant`, `on_hold`         |
 | `opportunity`     | `meeting`, `proposal`, `dormant`, `on_hold` |
 | `customer`        | `none`, `dormant`, `on_hold`              |
-| `not_in_pipeline` | `dropped`, `none`                         |
+| `not_in_pipeline` | `not_interested`, `dropped`, `none`       |
 
 ## Who writes what
 
