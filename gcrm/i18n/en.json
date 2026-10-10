@@ -72,11 +72,11 @@
   "nav.privacy": "Privacy",
   "privacy.pageTitle": "EngCRM — Privacy information",
   "privacy.title": "Privacy information",
-  "privacy.reviewNotice": "Controller-approved privacy information, last updated 2026-07-23. Provider contracts and international-transfer safeguards are maintained separately in the processor register.",
+  "privacy.reviewNotice": "Controller-approved privacy information, last updated 2026-10-10. Provider contracts and international-transfer safeguards are maintained separately in the processor register.",
   "privacy.controllerHeader": "Controller",
   "privacy.processingHeader": "Processing activities",
   "privacy.processingText": "EngCRM is an internal B2B CRM for research, contact management and human-approved outreach.",
-  "privacy.leadProcessing": "Lead management: business/contact details, research notes, interaction history and AI fit scores.",
+  "privacy.leadProcessing": "Lead management: business/contact details, research notes, interaction history, AI fit scores, and which of our products each contact was offered and how far that has got.",
   "privacy.outreachProcessing": "Outreach and inbox: recipient details, draft and sent messages, replies and opt-out records.",
   "privacy.accountProcessing": "Staff accounts: name, email, password hash, role, authentication and audit data.",
   "privacy.cardProcessing": "Business-card capture: card images, extracted contact details and optional capture location.",
@@ -861,5 +861,10 @@
   "offerFilter.label": "Offer",
   "offerFilter.all": "All offers",
   "logOffer.label": "About",
-  "logOffer.general": "General"
+  "logOffer.general": "General",
+  "privacy.purposeHeader": "Purpose and legal basis",
+  "privacy.purposeText": "We process business contact data for direct marketing of our own consulting services and software products to businesses, and to manage the business relationship with prospects and customers.",
+  "privacy.offersText": "The products and services we currently offer:",
+  "privacy.legalBasisText": "Legal basis: our legitimate interest in business-to-business direct marketing (Art. 6(1)(f) GDPR) for prospects; for customers, the performance of the contract (Art. 6(1)(b) GDPR).",
+  "privacy.objectionText": "You can object to direct marketing at any time (Art. 21(3) GDPR). An objection ends all marketing to you, for every product and service, not just the one you were contacted about."
 }

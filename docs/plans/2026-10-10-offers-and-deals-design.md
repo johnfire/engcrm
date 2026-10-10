@@ -1,6 +1,6 @@
 # Offers and deals: one CRM, several things to sell
 
-Date: 2026-10-10 · Status: phase 1 built (see "Phase 1 as built")
+Date: 2026-10-10 · Status: phases 1 and 2 built (see "as built" sections)
 
 ## Why
 
@@ -229,6 +229,21 @@ Where the build differs from the plan above, and why:
    (read-only, run right after the deploy). `tests/e2e/test_every_page_renders.py` loads every
    GET page and endpoint against the real schema, so a missed query is a test failure, not a
    500 in production. It caught one (the inbox) during the build.
+
+## Phase 2 as built (2026-10-10)
+
+1. **People list with every offer shown lists everyone**, people with no deal included, as
+   before; one offer lists that pipeline. The phone's lists keep the Consulting view and list
+   everyone unless they ask for an offer, so the installed app is unaffected.
+2. **A list row's stage select only changes existing deals.** Removing a deal, or pitching a
+   new offer, happens on the organization's or person's page.
+3. **Log entries:** "General" is sent as 0 (a blank form field arrives as "not sent", which
+   means "pick automatically"). A person's automatic pick includes their organization's deals.
+4. **Privacy:** the notice names the purpose, legal basis and objection rule, and lists the
+   active offers live. The Art. 30 record's purpose and legal basis are filled in. The
+   retention rule for running subscriptions moves to phase 3, with subscriptions. There is no
+   data export to extend.
+5. **New status `not_interested`** (they said no), next to `dropped` (we stopped).
 
 ## Build order
 

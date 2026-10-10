@@ -21,6 +21,19 @@
       <p>Christopher Rehm, Rehm KI Consulting<br />Alpenstr. 3, 86836 Klosterlechfeld, Deutschland<br />
         <a href="mailto:car2187bus@pm.me">car2187bus@pm.me</a></p>
 
+      <h2>{{ t('privacy.purposeHeader') }}</h2>
+      <p>{{ t('privacy.purposeText') }}</p>
+      {% if offers %}
+      <p>{{ t('privacy.offersText') }}</p>
+      <ul>
+        {% for offer in offers %}
+        <li>{{ offer.name }}{% if offer.website %} — <a href="{{ offer.website }}" rel="noopener">{{ offer.website }}</a>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <p>{{ t('privacy.legalBasisText') }}</p>
+      <p>{{ t('privacy.objectionText') }}</p>
+
       <h2>{{ t('privacy.processingHeader') }}</h2>
       <p>{{ t('privacy.processingText') }}</p>
       <ul>

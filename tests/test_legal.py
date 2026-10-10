@@ -1,4 +1,6 @@
 """Public legal pages — no auth required."""
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 import gcrm.api.main as main
@@ -35,3 +37,18 @@ class TestPrivacyInformation:
         response = client.get("/login")
 
         assert '<a href="/privacy">Privacy</a>' in response.text
+
+    def test_names_the_purpose_legal_basis_and_every_active_offer(self):
+        offers = [{"name": "Consulting", "website": "https://christopherrehm.de"},
+                  {"name": "LearnWohl", "website": None}]
+        with patch("gcrm.api.routers.legal.list_offers", return_value=offers):
+            page = client.get("/privacy?lang=en").text
+        assert "direct marketing of our own consulting services and software products" in page
+        assert "Art. 6(1)(f) GDPR" in page and "Art. 21(3) GDPR" in page
+        assert '<li>Consulting — <a href="https://christopherrehm.de"' in page and "<li>LearnWohl</li>" in page
+
+    def test_stays_reachable_when_the_offers_cannot_be_read(self):
+        with patch("gcrm.api.routers.legal.list_offers", side_effect=RuntimeError("db down")):
+            response = client.get("/privacy?lang=en")
+        assert response.status_code == 200
+        assert "direct marketing" in response.text and "currently offer" not in response.text

@@ -72,11 +72,11 @@
   "nav.privacy": "Datenschutz",
   "privacy.pageTitle": "EngCRM — Datenschutzhinweise",
   "privacy.title": "Datenschutzhinweise",
-  "privacy.reviewNotice": "Vom Verantwortlichen freigegebene Datenschutzhinweise, zuletzt aktualisiert am 23.07.2026. Verträge mit Auftragsverarbeitern und Garantien für internationale Datenübermittlungen werden getrennt im Verzeichnis der Auftragsverarbeiter geführt.",
+  "privacy.reviewNotice": "Vom Verantwortlichen freigegebene Datenschutzhinweise, zuletzt aktualisiert am 10.10.2026. Verträge mit Auftragsverarbeitern und Garantien für internationale Datenübermittlungen werden getrennt im Verzeichnis der Auftragsverarbeiter geführt.",
   "privacy.controllerHeader": "Verantwortlicher",
   "privacy.processingHeader": "Verarbeitungstätigkeiten",
   "privacy.processingText": "EngCRM ist ein internes B2B-CRM für Recherche, Kontaktverwaltung und menschlich freigegebene Ansprache.",
-  "privacy.leadProcessing": "Lead-Verwaltung: Geschäfts- und Kontaktdaten, Recherchenotizen, Interaktionsverlauf und KI-Eignungsbewertungen.",
+  "privacy.leadProcessing": "Lead-Verwaltung: Geschäfts- und Kontaktdaten, Recherchenotizen, Interaktionsverlauf, KI-Eignungsbewertungen sowie welche unserer Produkte einem Kontakt angeboten wurden und wie weit das gediehen ist.",
   "privacy.outreachProcessing": "Ansprache und Posteingang: Empfängerdaten, Entwürfe und gesendete Nachrichten, Antworten und Widerspruchsprotokolle.",
   "privacy.accountProcessing": "Mitarbeiterkonten: Name, E-Mail, Passwort-Hash, Rolle, Anmeldung und Auditdaten.",
   "privacy.cardProcessing": "Visitenkartenerfassung: Kartenbilder, extrahierte Kontaktdaten und optionaler Erfassungsort.",
@@ -861,5 +861,10 @@
   "offerFilter.label": "Angebot",
   "offerFilter.all": "Alle Angebote",
   "logOffer.label": "Worum es ging",
-  "logOffer.general": "Allgemein"
+  "logOffer.general": "Allgemein",
+  "privacy.purposeHeader": "Zweck und Rechtsgrundlage",
+  "privacy.purposeText": "Wir verarbeiten geschäftliche Kontaktdaten zur Direktwerbung für unsere eigenen Beratungsleistungen und Softwareprodukte gegenüber Unternehmen sowie zur Pflege der Geschäftsbeziehung mit Interessenten und Kunden.",
+  "privacy.offersText": "Unsere aktuellen Produkte und Leistungen:",
+  "privacy.legalBasisText": "Rechtsgrundlage: unser berechtigtes Interesse an Direktwerbung gegenüber Unternehmen (Art. 6 Abs. 1 lit. f DSGVO) bei Interessenten; bei Kunden die Erfüllung des Vertrags (Art. 6 Abs. 1 lit. b DSGVO).",
+  "privacy.objectionText": "Sie können der Direktwerbung jederzeit widersprechen (Art. 21 Abs. 3 DSGVO). Ein Widerspruch beendet jede Werbung an Sie, für alle Produkte und Leistungen, nicht nur für das Angebot, zu dem Sie kontaktiert wurden."
 }
