@@ -65,6 +65,7 @@ PERSON_DRAFT_ROW = {
     "person_id": 3,
     "email": "anna@example.com",
     "from_email": None,
+    "offer_id": None,  # a person's draft is about no particular offer
     "created_at": datetime.now(),
 }
 ORG_DRAFT_ROW = {
@@ -74,6 +75,7 @@ ORG_DRAFT_ROW = {
     "person_id": None,
     "email": "info@acme.de",
     "from_email": None,
+    "offer_id": 1,  # the outreach agent's drafts are Consulting
     "created_at": datetime.now(),
 }
 
@@ -112,7 +114,7 @@ class TestDraftApprove:
             resp = client.post("/drafts/5/approve", data={}, headers={"HX-Request": "true"})
         assert resp.status_code == 200
         send.assert_called_once_with(to_email="anna@example.com", subject=PERSON_DRAFT_ROW["draft_subject"], body=PERSON_DRAFT_ROW["draft_body"], from_email=None)
-        log_note.assert_called_once_with(3, "email", f"Sent: {PERSON_DRAFT_ROW['draft_subject']}")
+        log_note.assert_called_once_with(3, "email", f"Sent: {PERSON_DRAFT_ROW['draft_subject']}", offer_id=None)
         log_interaction.assert_not_called()
 
     def test_org_targeted_sends_and_logs_interaction_not_person_note(self, admin_web):
@@ -121,13 +123,16 @@ class TestDraftApprove:
              patch("gcrm.tools.email.send_email", return_value=True) as send, \
              patch("gcrm.tools.db.log_interaction") as log_interaction, \
              patch("gcrm.tools.db_people_interactions.log_person_note") as log_note, \
+             patch("gcrm.api.routers.drafts.offer_slug_for", return_value="consulting") as slug, \
              patch("gcrm.api.routers.drafts.log_audit"):
             mock_db.return_value.__enter__.return_value = conn
             resp = client.post("/drafts/5/approve", data={}, headers={"HX-Request": "true"})
         assert resp.status_code == 200
         send.assert_called_once_with(to_email="info@acme.de", subject=ORG_DRAFT_ROW["draft_subject"], body=ORG_DRAFT_ROW["draft_body"], from_email=None)
         log_interaction.assert_called_once()
-        assert log_interaction.call_args.kwargs["contact_id"] == 42
+        # logged, and the deal moved, for the draft's offer
+        assert log_interaction.call_args.kwargs["contact_id"] == 42 and log_interaction.call_args.kwargs["offer_id"] == 1
+        assert slug.call_args.args[1] == 1
         log_note.assert_not_called()
 
     def test_edited_subject_and_body_from_full_page_editor_are_sent(self, admin_web):

@@ -106,7 +106,7 @@ def test_mobile_counts_use_the_signed_in_workspace():
          patch("gcrm.api.routers.contact_feed._personal_identity", return_value=(9, 3)):
         response = TestClient(app).get("/api/contact-feed/counts", headers=AUTH)
     assert response.status_code == 200 and response.json() == COUNTS
-    counts.assert_called_once_with(3)
+    counts.assert_called_once_with(3, offer=None)
 
 
 def test_web_page_shows_month_and_since_start_counts_in_both_languages():

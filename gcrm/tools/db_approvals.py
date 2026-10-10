@@ -69,13 +69,15 @@ def set_opt_out(contact_id: int) -> None:
     log_audit(None, None, "contact.opted_out", f"contact:{contact_id}", "do_not_contact")
 
 
-def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str) -> int:
-    """Persist a draft then best-effort notify registered mobile devices."""
+def queue_for_approval(contact_id: int, run_id: int, subject: str, body: str, offer: str = "consulting") -> int:
+    """Persist a draft then best-effort notify registered mobile devices. The
+    draft is about `offer` (a slug): approving it moves that offer's deal."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO approval_queue (contact_id, agent_run_id, draft_subject, draft_body) VALUES (%s, %s, %s, %s) RETURNING id",
-            (contact_id, run_id or None, subject, body),
+            "INSERT INTO approval_queue (contact_id, agent_run_id, draft_subject, draft_body, offer_id) "
+            "VALUES (%s, %s, %s, %s, (SELECT offer_id_for(workspace_id, %s) FROM contacts WHERE id = %s)) RETURNING id",
+            (contact_id, run_id or None, subject, body, offer, contact_id),
         )
         queue_id = cursor.fetchone()["id"]
         cursor.execute("SELECT name FROM contacts WHERE id = %s", (contact_id,))

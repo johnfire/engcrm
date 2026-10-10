@@ -18,7 +18,7 @@ from gcrm.organization_state import (
 from gcrm.sources import require_source
 from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
+from gcrm.tools.db_deals import CONSULTING, organization_deal_join, set_organization_deal
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
@@ -99,10 +99,13 @@ def save_organization(
     latitude: float | None = None,
     longitude: float | None = None,
     google: dict | None = None,
+    offer: str = CONSULTING,
 ) -> int:
     """
     Insert a new contact (a fresh `candidate` with nothing going on by default).
     `source` says how it was created (see gcrm.sources) and is required.
+    `pipeline_stage` and `status` are those of its deal for `offer` — Consulting
+    unless the person adding it chose another.
 
     `research_exhausted=True` records that the research agent could find no web
     presence at all — a fact about the data, not a pipeline position, so the
@@ -197,7 +200,7 @@ def save_organization(
             ),
         )
         contact_id = cur.fetchone()["id"]
-        set_organization_deal(cur, contact_id, stage=pipeline_stage, status=status)
+        set_organization_deal(cur, contact_id, stage=pipeline_stage, status=status, offer=offer)
         ensure_consent_log(contact_id, conn=conn)
         logger.info("save_organization: created id=%d  %s / %s", contact_id, name, city)
     log_audit(None, None, "contact.created", f"contact:{contact_id}", "created")

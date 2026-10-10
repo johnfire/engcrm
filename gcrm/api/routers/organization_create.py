@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_admin
+from gcrm.api.offer_filter import LAST_OFFER_KEY, last_used_offer
 from gcrm.api.routers.api_record_edit import (
     TEXT_LIMITS,
     OrganizationFields,
@@ -15,6 +16,7 @@ from gcrm.audit_context import audit_scope
 from gcrm.i18n import translate
 from gcrm.organization_state import DEFAULT_STAGE, PIPELINE_STAGES
 from gcrm.sources import MANUAL_WEB
+from gcrm.tools.db_offers import list_offers
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/organizations", dependencies=[Depends(require_admin)])
@@ -33,12 +35,14 @@ def render_business_form(request: Request, values: dict, error=None, status_code
     return templates.TemplateResponse("organization_new.html", {
         "request": request, "values": values, "error": message, "existing_id": existing_id,
         "labels": FIELD_LABELS, "limits": TEXT_LIMITS, "stages": PIPELINE_STAGES,
+        "offers": list_offers(request.session.get("workspace_id")),
     }, status_code=status_code)
 
 
 @router.get("/new", response_class=HTMLResponse)
 def new_business(request: Request):
-    return render_business_form(request, {"country": "DE", "pipeline_stage": DEFAULT_STAGE})
+    return render_business_form(request, {"country": "DE", "pipeline_stage": DEFAULT_STAGE,
+                                          "offer": last_used_offer(request)})
 
 
 @router.post("/new", response_class=HTMLResponse)
@@ -54,4 +58,6 @@ def create_business(request: Request, body: OrganizationFields = Form(...)):
         logger.exception("manual business creation failed")
         message = translate("businessForm.failed", request.session.get("ui_language", "en"))
         return render_business_form(request, values, message, 503)
+    if body.offer:
+        request.session[LAST_OFFER_KEY] = body.offer
     return RedirectResponse(f"/organizations/{created['id']}", status_code=303)

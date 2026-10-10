@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
+from gcrm.api.offer_filter import creation_offer
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
@@ -55,6 +56,7 @@ class OrganizationFields(BaseModel):
     notes: str | None = None
     do_not_contact: bool | None = None
     pipeline_stage: str | None = None  # Creation only; existing stages use the stage endpoint.
+    offer: str | None = None  # Creation only: whose pipeline the stage is (slug); default Consulting.
 
 
 def clean_fields(body: BaseModel, limits: dict[str, int], *, require_name: bool) -> dict:
@@ -141,6 +143,10 @@ def save_manual_organization(body: OrganizationFields, source: str) -> dict:
     stage = DEFAULT_STAGE if body.pipeline_stage is None else body.pipeline_stage.strip()
     if stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Choose a valid pipeline stage")
+    try:
+        offer = creation_offer(body.offer, get_workspace_id())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Choose a valid offer")
     name = fields["name"]
     city = fields.get("city") or ""
     email = fields.get("email") or ""
@@ -149,7 +155,7 @@ def save_manual_organization(body: OrganizationFields, source: str) -> dict:
         name, city, country=fields.get("country") or "DE",
         type=fields.get("type") or "", website=fields.get("website") or "",
         email=email, phone=fields.get("phone") or "", notes=fields.get("notes") or "",
-        pipeline_stage=stage, source=source,
+        pipeline_stage=stage, source=source, offer=offer,
     )
     if not contact_id:
         raise HTTPException(status_code=409, detail={

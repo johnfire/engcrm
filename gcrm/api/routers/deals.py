@@ -17,6 +17,7 @@ from gcrm.tools.deal_records import (
     contact_people,
     get_deals,
     get_deals_as_contact_person,
+    log_offer_default,
     remove_deal,
     set_deal_next_step,
     update_deal,
@@ -117,12 +118,17 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
     workspace_id = request.session.get("workspace_id")
     deals = get_deals(owner, owner_id, workspace_id)
     pitched = {deal["offer_id"] for deal in deals}
+    offers = list_offers(workspace_id)
     return {
         "deal_owner": owner,
         "deal_owner_id": owner_id,
         "deal_page": page,
         "deals": deals,
-        "addable_offers": [o for o in list_offers(workspace_id) if o["id"] not in pitched],
+        "addable_offers": [o for o in offers if o["id"] not in pitched],
+        # the log forms: which offer a new entry is about, preselected when there
+        # is exactly one open deal
+        "log_offers": offers,
+        "log_offer_default": log_offer_default(owner, owner_id),
         "contact_people": contact_people(owner_id) if owner == "organization" else [],
         "contact_person_deals": (get_deals_as_contact_person(owner_id, workspace_id)
                                  if owner == "person" else []),

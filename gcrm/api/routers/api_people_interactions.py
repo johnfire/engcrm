@@ -14,6 +14,7 @@ from gcrm.tools.db_people_interactions import (
     get_person_interactions,
     log_person_note,
 )
+from gcrm.tools.deal_records import resolve_log_offer
 
 router = APIRouter(prefix="/api/people", tags=["mobile-people-interactions"])
 
@@ -41,6 +42,7 @@ class NoteBody(BaseModel):
     note: str
     method: str | None = None
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
+    offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
 
 
 @router.post("/{person_id}/notes")
@@ -57,7 +59,11 @@ def add_note(person_id: int, body: NoteBody, _role: str = Depends(require_jwt_ad
         minutes = parse_minutes(body.duration_minutes)
     except ValueError:
         raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
-    note_id = log_person_note(person_id, method, note, duration_minutes=minutes)
+    try:
+        offer_id = resolve_log_offer("person", person_id, body.offer)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown offer")
+    note_id = log_person_note(person_id, method, note, duration_minutes=minutes, offer_id=offer_id)
     return {"id": note_id}
 
 

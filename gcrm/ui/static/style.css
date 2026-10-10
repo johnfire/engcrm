@@ -1366,3 +1366,4 @@ main.statistics-page { max-width: none; }
 /* Lists showing every offer: each deal's stage is labelled with its offer. */
 .stage-form + .stage-form, .deal-status + .deal-status { margin-top: 0.25rem; }
 .deal-offer-label { display: block; font-size: 0.75em; color: var(--muted); line-height: 1.2; }
+.log-offer { color: var(--accent); }

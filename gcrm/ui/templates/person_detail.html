@@ -176,6 +176,10 @@
       </select>
     </div>
     <div class="field-row">
+      <label for="person-note-offer">{{ t('logOffer.label') }}</label>
+      {% with select_id='person-note-offer' %}{% include 'partials/log_offer_select.html' %}{% endwith %}
+    </div>
+    <div class="field-row">
       <label for="person-note-minutes">{{ t('activity.minutesLabel') }}</label>
       <input id="person-note-minutes" type="number" name="duration_minutes" min="0" max="1440" step="1"
              placeholder="{{ t('activity.minutesPlaceholder') }}" />
@@ -209,7 +213,7 @@
         <td class="muted small nowrap">
           {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
         </td>
-        <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}{% if entry.duration_minutes is number %} · {{ t('activity.minutes', minutes=entry.duration_minutes) }}{% endif %}</td>
+        <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}{% if entry.duration_minutes is number %} · {{ t('activity.minutes', minutes=entry.duration_minutes) }}{% endif %}{% if entry.offer %} · <span class="log-offer">{{ entry.offer }}</span>{% endif %}</td>
         <td>{{ entry.note }}</td>
         <td>
           <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"

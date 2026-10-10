@@ -9,7 +9,7 @@ from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import update_organization_status
+from gcrm.tools.db_deals import offer_slug_for, update_organization_status
 
 router = APIRouter(prefix="/drafts", tags=["drafts"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ def approve(
     with db() as conn:
         cur = conn.cursor()
         cur.execute(f"""
-            SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.person_id, aq.from_email,
+            SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.person_id, aq.from_email, aq.offer_id,
                    COALESCE(c.email, p.email) AS email
             {_RECIPIENT_JOIN}
             WHERE aq.id = %s AND aq.status = 'on_hold'
@@ -131,10 +131,11 @@ def approve(
                 direction="outbound",
                 summary=subject,
                 outcome="no_reply",
+                offer_id=row["offer_id"],
             )
         else:
             from gcrm.tools.db_people_interactions import log_person_note
-            log_person_note(row["person_id"], "email", f"Sent: {subject}")
+            log_person_note(row["person_id"], "email", f"Sent: {subject}", offer_id=row["offer_id"])
     except Exception as error:
         logger.error("drafts approve send failed: item_id=%d error=%s", item_id, error)
         success = False
@@ -152,6 +153,7 @@ def approve(
         if row["contact_id"]:
             if update_organization_status(
                 cur, row["contact_id"], "contacted", not_from=("contacted", "meeting", "proposal"),
+                offer=offer_slug_for(cur, row["offer_id"]),
             ):
                 cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (row["contact_id"],))
         drafts = _fetch_held_drafts(conn)

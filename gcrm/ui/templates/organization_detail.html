@@ -404,6 +404,9 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
           <option value="">{{ t('activity.note') }}</option>
         </select>
       </label>
+      <label>{{ t('logOffer.label') }}
+        {% with select_id='activity-offer' %}{% include 'partials/log_offer_select.html' %}{% endwith %}
+      </label>
       <label>{{ t('activity.minutesLabel') }}
         <input type="number" name="duration_minutes" min="0" max="1440" step="1"
                placeholder="{{ t('activity.minutesPlaceholder') }}" />
@@ -469,7 +472,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
           {{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date else
           '—' }}
         </td>
-        <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}</td>
+        <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}{% if i.offer %} · <span class="log-offer">{{ i.offer }}</span>{% endif %}</td>
         <td class="muted">{{ i.direction or '—' }}</td>
         <td class="muted small">{{ i.summary or '—' }}</td>
         <td class="muted small">{{ i.outcome or '—' }}</td>

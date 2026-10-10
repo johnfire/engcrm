@@ -20,6 +20,7 @@ from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_organizations import set_organization_state
 from gcrm.tools.db_personal_priorities import set_personal_priority
 from gcrm.tools.db_users import get_user_by_id
+from gcrm.tools.deal_records import resolve_log_offer
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +298,7 @@ class MeetingNoteBody(BaseModel):
     follow_up_date: str | None = None   # YYYY-MM-DD
     follow_up_text: str | None = None
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
+    offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
 
 
 def _require_organization(contact_id: int, payload: dict) -> None:
@@ -342,8 +344,12 @@ def add_organization_note(
     except ValueError:
         raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
     _require_organization(contact_id, payload)
+    try:
+        offer_id = resolve_log_offer("organization", contact_id, body.offer)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown offer")
     note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None,
-                               duration_minutes=minutes)
+                               duration_minutes=minutes, offer_id=offer_id)
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
 
 

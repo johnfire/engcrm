@@ -18,6 +18,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db import log_interaction, update_city_market
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import (
+    offer_slug_for,
     organization_deal_join,
     set_organization_deal,
     update_organization_status,
@@ -160,7 +161,7 @@ def approval_approve(item_id: int, note: str = "") -> str:
         with db() as conn:
             cur = conn.cursor()
             cur.execute("""
-                SELECT aq.draft_subject, aq.draft_body, aq.contact_id, c.email, c.name
+                SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.offer_id, c.email, c.name
                 FROM approval_queue aq
                 JOIN contacts c ON c.id = aq.contact_id
                 WHERE aq.id = %s AND aq.status = 'pending'
@@ -184,6 +185,7 @@ def approval_approve(item_id: int, note: str = "") -> str:
             direction="outbound",
             summary=row["draft_subject"],
             outcome="no_reply",
+            offer_id=row["offer_id"],
         )
 
         with db() as conn:
@@ -193,7 +195,8 @@ def approval_approve(item_id: int, note: str = "") -> str:
                 SET status = %s, reviewed_at = NOW(), reviewer_note = %s
                 WHERE id = %s
             """, (final_status, note or None, item_id))
-            if update_organization_status(cur, row["contact_id"], "contacted", only_from=("ready", "on_hold")):
+            if update_organization_status(cur, row["contact_id"], "contacted", only_from=("ready", "on_hold"),
+                                          offer=offer_slug_for(cur, row["offer_id"])):
                 cur.execute(
                     "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
                     (row["contact_id"],),

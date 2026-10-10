@@ -77,6 +77,7 @@ def save_person(
     contact_id: int | None = None,
     pipeline_stage: str = "",
     allow_duplicate: bool = False,
+    offer: str = CONSULTING,
 ) -> int:
     """
     Insert a person, optionally linked to their company contact. Returns the new
@@ -92,7 +93,8 @@ def save_person(
     failures leave latitude/longitude NULL rather than blocking the save.
 
     `pipeline_stage` is one of PIPELINE_STAGES or blank (no stage), and raises
-    ValueError otherwise — checked before anything is written.
+    ValueError otherwise — checked before anything is written. A stage gives the
+    new person a deal for `offer` (Consulting unless chosen otherwise).
 
     `allow_duplicate` skips the dedup and always inserts: for a person typed in by
     hand after being shown the match and confirming it is someone else (two
@@ -136,7 +138,7 @@ def save_person(
         )
         person_id = cur.fetchone()["id"]
         if stage is not None:
-            set_person_stage(cur, person_id, stage)
+            set_person_stage(cur, person_id, stage, offer)
         logger.info("save_person: created id=%d  %s (contact_id=%s)", person_id, name, contact_id)
         return person_id
 

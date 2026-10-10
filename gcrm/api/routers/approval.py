@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
-from gcrm.tools.db_deals import set_organization_deal, update_organization_status
+from gcrm.tools.db_deals import offer_slug_for, set_organization_deal, update_organization_status
 
 router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -54,8 +54,10 @@ def _fetch_rejected(conn) -> list[dict]:
     return [dict(row) for row in cur.fetchall()]
 
 
-def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, body: str) -> tuple[bool, str]:
-    """Attempt to send an approved email via SMTP. Returns (success, message)."""
+def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, body: str,
+                  offer_id: int | None = None) -> tuple[bool, str]:
+    """Attempt to send an approved email via SMTP. Returns (success, message).
+    The send is logged against the draft's offer, and that offer's deal moves."""
     try:
         from gcrm.tools.db import log_interaction
         from gcrm.tools.email import send_email
@@ -66,11 +68,13 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
             direction="outbound",
             summary=subject,
             outcome="no_reply",
+            offer_id=offer_id,
         )
         # Mark as contacted on approval regardless of whether email sent
         with db() as conn:
             cur = conn.cursor()
-            if update_organization_status(cur, contact_id, "contacted", only_from=("ready", "on_hold")):
+            offer = offer_slug_for(cur, offer_id)
+            if update_organization_status(cur, contact_id, "contacted", only_from=("ready", "on_hold"), offer=offer):
                 cur.execute(
                     "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
                     (contact_id,),
@@ -101,7 +105,7 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
             SET status = 'approved', reviewed_at = NOW(), reviewer_note = %s
             FROM contacts c
             WHERE aq.id = %s AND aq.status IN ('pending', 'on_hold') AND c.id = aq.contact_id
-            RETURNING aq.draft_subject, aq.draft_body, aq.contact_id, c.email
+            RETURNING aq.draft_subject, aq.draft_body, aq.contact_id, aq.offer_id, c.email
         """, (note or None, item_id))
         row = cur.fetchone()
         if not row:
@@ -113,6 +117,7 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
         to_email=row["email"] or "",
         subject=row["draft_subject"],
         body=row["draft_body"],
+        offer_id=row["offer_id"],
     )
 
     # Already claimed as 'approved'; downgrade only if the send failed.

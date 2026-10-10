@@ -224,3 +224,62 @@ def contact_people(contact_id: int) -> list[dict]:
         cur.execute("SELECT id, name, title FROM people WHERE contact_id = %s AND deleted_at IS NULL "
                     "ORDER BY lower(name)", (contact_id,))
         return [dict(row) for row in cur.fetchall()]
+
+
+# --- Which offer a log entry is about ----------------------------------------
+
+def _open_deal_offers(cur, owner: str, owner_id: int) -> list[int]:
+    """The offers this organization or person has an open deal for (any stage but
+    not_in_pipeline). A person's include their organization's."""
+    if owner == "organization":
+        cur.execute("SELECT DISTINCT offer_id FROM deals WHERE contact_id = %s AND deleted_at IS NULL "
+                    "AND pipeline_stage <> 'not_in_pipeline'", (owner_id,))
+    else:
+        cur.execute(
+            "SELECT DISTINCT d.offer_id FROM deals d LEFT JOIN people p ON p.id = %s "
+            "WHERE d.deleted_at IS NULL AND d.pipeline_stage <> 'not_in_pipeline' "
+            "AND (d.person_id = %s OR (p.contact_id IS NOT NULL AND d.contact_id = p.contact_id))",
+            (owner_id, owner_id),
+        )
+    return [row["offer_id"] for row in cur.fetchall()]
+
+
+GENERAL = ("", "0", "general")
+
+
+def resolve_log_offer(owner: str, owner_id: int, choice: str | int | None,
+                      workspace_id: int | None = None) -> int | None:
+    """The offer id a new log entry is about, or None for "general".
+
+    `choice` None means nobody chose (an older phone build, an agent): the one
+    open deal's offer when there is exactly one, else general. "", "0" and
+    "general" mean general; an offer id or slug must be an active offer of the
+    owner's workspace (else ValueError)."""
+    _column(owner)
+    with db() as conn:
+        cur = conn.cursor()
+        if choice is None:
+            offers = _open_deal_offers(cur, owner, owner_id)
+            return offers[0] if len(offers) == 1 else None
+        choice = str(choice).strip()
+        if choice in GENERAL:
+            return None
+        table = "contacts" if owner == "organization" else "people"
+        column = "o.id = %s" if choice.isdigit() else "o.slug = %s"
+        cur.execute(
+            f"SELECT o.id FROM offers o JOIN {table} x ON x.id = %s "
+            "AND o.workspace_id = COALESCE(x.workspace_id, (SELECT id FROM workspaces WHERE slug = 'default')) "
+            f"WHERE {column} AND o.archived_at IS NULL"
+            + ("" if workspace_id is None else " AND o.workspace_id = %s"),
+            [owner_id, int(choice) if choice.isdigit() else choice]
+            + ([] if workspace_id is None else [workspace_id]),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError(f"unknown offer: {choice!r}")
+        return row["id"]
+
+
+def log_offer_default(owner: str, owner_id: int) -> int | None:
+    """What a log form preselects: the one open deal's offer, else general."""
+    return resolve_log_offer(owner, owner_id, None)

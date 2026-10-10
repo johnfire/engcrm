@@ -78,8 +78,10 @@ def _reset_auth_rate_limiter():
 @pytest.fixture(autouse=True)
 def _no_deals_database(request):
     """Page tests mock the person or organization they render; the Deals panel on
-    those pages reads its own data. Outside the real-database suites it reads
-    nothing — a test about the panel patches these functions with its deals."""
+    those pages, the offer pickers and the "which offer was this note about"
+    lookup read their own data. Outside the real-database suites they read
+    nothing (notes come out "general") — a test about them patches these
+    functions itself."""
     if request.node.get_closest_marker("integration") or request.node.get_closest_marker("e2e"):
         yield
         return
@@ -88,7 +90,14 @@ def _no_deals_database(request):
          patch("gcrm.api.routers.deals.list_offers", return_value=[]), \
          patch("gcrm.api.routers.deals.contact_people", return_value=[]), \
          patch("gcrm.api.routers.deals.get_deals_as_contact_person", return_value=[]), \
-         patch("gcrm.api.offer_filter.list_offers", return_value=SEEDED_OFFERS):
+         patch("gcrm.api.routers.deals.log_offer_default", return_value=None), \
+         patch("gcrm.api.offer_filter.list_offers", return_value=SEEDED_OFFERS), \
+         patch("gcrm.api.routers.organization_create.list_offers", return_value=SEEDED_OFFERS), \
+         patch("gcrm.api.routers.people.list_offers", return_value=SEEDED_OFFERS), \
+         patch("gcrm.api.routers.statistics.resolve_log_offer", return_value=None), \
+         patch("gcrm.api.routers.people.resolve_log_offer", return_value=None), \
+         patch("gcrm.api.routers.api_people_interactions.resolve_log_offer", return_value=None), \
+         patch("gcrm.api.routers.api_organizations.resolve_log_offer", return_value=None):
         yield
 
 

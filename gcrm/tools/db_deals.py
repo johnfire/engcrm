@@ -278,3 +278,12 @@ def stage_and_status_counts(cur, table: str, alias: str, column: str, offer: str
         if row["status"] in statuses:
             statuses[row["status"]] += row["cnt"]
     return stages, statuses
+
+
+def offer_slug_for(cur, offer_id: int | None) -> str:
+    """The slug of an offer by id — Consulting for a record from before offers."""
+    if offer_id is None:
+        return CONSULTING
+    cur.execute("SELECT slug FROM offers WHERE id = %s", (offer_id,))
+    row = cur.fetchone()
+    return row["slug"] if row else CONSULTING

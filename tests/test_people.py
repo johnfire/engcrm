@@ -100,7 +100,7 @@ class TestSavePerson:
             mock_db.return_value.__enter__.return_value = conn
             db_people.save_person(name="Anna Roth", pipeline_stage="prospect", source="test_fixture")
         # the stage is the new person's Consulting deal, written in the same transaction
-        set_stage.assert_called_once_with(cur, 15, "prospect")
+        set_stage.assert_called_once_with(cur, 15, "prospect", "consulting")
 
     def test_no_stage_means_no_deal(self):
         conn, cur = make_mock_conn()
@@ -563,7 +563,7 @@ class TestDbPeopleInteractions:
         assert note_id == 5
         insert = cur.execute.call_args_list[0]
         assert "INSERT INTO people_interactions" in insert.args[0]
-        assert insert.args[1] == (3, "visit", "Great chat about the new series.", None)  # no typed duration
+        assert insert.args[1] == (3, "visit", "Great chat about the new series.", None, None)  # no duration, general
         update = cur.execute.call_args_list[1]
         assert "UPDATE people SET updated_at" in update.args[0]
         mlog.assert_called_once()
@@ -578,7 +578,7 @@ class TestDbPeopleInteractions:
         assert entries[0]["note"] == "Follow-up call."
         sql = cur.execute.call_args.args[0]
         assert "deleted_at IS NULL" in sql
-        assert "ORDER BY occurred_at DESC" in sql
+        assert "ORDER BY pi.occurred_at DESC" in sql
 
     def test_delete_person_interaction_soft_deletes(self):
         conn, cur = make_mock_conn()
@@ -637,7 +637,7 @@ class TestPersonNotesWebRoutes:
                                 follow_redirects=False)
         assert resp.status_code == 303
         assert resp.headers["location"] == "/people/3?saved=1"
-        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None)
+        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None, offer_id=None)
 
     def test_add_note_rejects_blank(self, admin_web):
         with patch("gcrm.api.routers.people.get_person", return_value=PERSON_ROW), \
@@ -689,7 +689,7 @@ class TestPersonNotesMobileRoutes:
                                 json={"note": "Great visit", "method": "visit"})
         assert resp.status_code == 200
         assert resp.json()["id"] == 9
-        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None)
+        mlog.assert_called_once_with(3, "visit", "Great visit", duration_minutes=None, offer_id=None)
 
     def test_add_note_rejects_blank(self):
         with patch("gcrm.api.routers.api_people_interactions.get_person", return_value=PERSON_ROW), \

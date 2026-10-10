@@ -26,9 +26,15 @@ def check_feed_filters(kind: str, stage: str, sort: str) -> None:
 
 
 @router.get("/api/contact-feed/counts")
-def mobile_contact_counts(payload: dict = Depends(require_jwt_payload)) -> dict:
+def mobile_contact_counts(offer: str | None = None, payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Contacted this month and since the start; `offer=<slug>` counts only
+    contacts logged as being about that offer. Without it, every contact counts."""
     _, workspace_id = _personal_identity(payload)
-    return get_contact_counts(workspace_id)
+    try:
+        chosen = None if offer in (None, "", "all") else api_offer_filter(offer, workspace_id)
+    except ValueError as failure:
+        raise HTTPException(400, str(failure)) from failure
+    return get_contact_counts(workspace_id, offer=chosen)
 
 
 @router.get("/api/contact-feed")
@@ -47,10 +53,10 @@ def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", sta
                             workspace_id=workspace_id, offer=chosen, only_pitched=offer not in (None, "", "all"))
 
 
-def safe_contact_counts(workspace_id: int | None) -> dict | None:
+def safe_contact_counts(workspace_id: int | None, offer: str | None = None) -> dict | None:
     """The counts are a nicety; if they cannot be read the contact list still loads."""
     try:
-        return get_contact_counts(workspace_id)
+        return get_contact_counts(workspace_id, offer=offer)
     except Exception:
         logger.exception("contact counts unavailable")
         return None
@@ -86,7 +92,7 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
         "stages": PIPELINE_STAGES, "page": page, "offers": offers, "active_offer": active_offer,
-        "counts": safe_contact_counts(request.session.get("workspace_id")),
+        "counts": safe_contact_counts(request.session.get("workspace_id"), active_offer),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,
     })

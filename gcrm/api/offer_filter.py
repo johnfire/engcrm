@@ -41,3 +41,21 @@ def api_offer_filter(offer: str | None, workspace_id: int | None) -> str | None:
     if offer not in {o["slug"] for o in _known(workspace_id)}:
         raise ValueError(f"unknown offer: {offer!r}")
     return offer
+
+
+LAST_OFFER_KEY = "last_offer"
+
+
+def creation_offer(offer: str | None, workspace_id: int | None) -> str:
+    """The offer a new organization or person is entered into: the one chosen,
+    else Consulting. Raises ValueError for anything but an active offer."""
+    if not offer:
+        return CONSULTING
+    if offer not in {o["slug"] for o in _known(workspace_id) if not o["archived"]}:
+        raise ValueError(f"unknown offer: {offer!r}")
+    return offer
+
+
+def last_used_offer(request) -> str:
+    """What the web's creation forms preselect: the offer used last."""
+    return request.session.get(LAST_OFFER_KEY, CONSULTING)

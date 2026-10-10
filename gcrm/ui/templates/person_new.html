@@ -38,6 +38,14 @@
         <input id="person-title" type="text" name="title" value="{{ values.title or '' }}" maxlength="{{ limits.title }}" />
       </div>
       <div class="field-row">
+        <label for="person-offer">{{ t('offerFilter.label') }}</label>
+        <select id="person-offer" name="offer">
+          {% for o in offers %}
+          <option value="{{ o.slug }}" {% if values.offer == o.slug %}selected{% endif %}>{{ o.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field-row">
         <label for="person-stage">{{ t('common.pipelineStage') }}</label>
         <select id="person-stage" name="pipeline_stage">
           <option value="" {% if not values.pipeline_stage %}selected{% endif %}>—</option>

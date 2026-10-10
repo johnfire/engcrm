@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payload
-from gcrm.api.offer_filter import api_offer_filter
+from gcrm.api.offer_filter import api_offer_filter, creation_offer
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.routers.api_record_edit import clean_fields
 from gcrm.db.connection import db
@@ -97,9 +97,11 @@ class PersonFields(BaseModel):
     linkedin_url: str | None = None
     # create only: the organization this person works at
     contact_id: int | None = None
-    # create only: their starting stage (blank/null = none). An existing person's
-    # stage changes through PATCH /{id}/stage.
+    # create only: their starting stage (blank/null = none), on a deal for `offer`
+    # (a slug; Consulting when absent). An existing person's stage changes through
+    # PATCH /{id}/stage or the deal endpoints.
     pipeline_stage: str | None = None
+    offer: str | None = None
 
 
 def _organization_exists(contact_id: int, workspace_id: int | None) -> bool:
@@ -132,8 +134,12 @@ def create_person(
         from gcrm.linkedin import normalize_linkedin_url
         if normalize_linkedin_url(fields["linkedin_url"]) is None:
             raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")
+    _, workspace_id = _personal_identity(payload)
+    try:
+        offer = creation_offer(body.offer, workspace_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown offer")
     if body.contact_id is not None:
-        _, workspace_id = _personal_identity(payload)
         if not _organization_exists(body.contact_id, workspace_id):
             raise HTTPException(status_code=404, detail="Organization not found")
     with db() as conn:
@@ -151,7 +157,7 @@ def create_person(
         city=fields.get("city") or "", country=fields.get("country") or "DE",
         relationship=fields.get("relationship") or "", notes=fields.get("notes") or "",
         met_at=fields.get("met_at") or "", contact_id=body.contact_id, source=MANUAL_MOBILE,
-        pipeline_stage=stage,
+        pipeline_stage=stage, offer=offer,
     )
     if fields.get("linkedin_url"):
         update_person(person_id, {"linkedin_url": fields["linkedin_url"]})

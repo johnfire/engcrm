@@ -1,0 +1,8 @@
+{# Which offer a log entry is about. Needs log_offers, log_offer_default, select_id.
+   0 is "general" — a blank value would arrive as "not chosen" and be auto-picked. #}
+<select id="{{ select_id }}" name="offer">
+  <option value="0" {% if not log_offer_default %}selected{% endif %}>{{ t('logOffer.general') }}</option>
+  {% for o in log_offers %}
+  <option value="{{ o.id }}" {% if o.id == log_offer_default %}selected{% endif %}>{{ o.name }}</option>
+  {% endfor %}
+</select>

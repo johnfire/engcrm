@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from gcrm.activity_types import PERSON_METHODS, parse_minutes
 from gcrm.api.auth import require_admin, require_login
-from gcrm.api.offer_filter import web_offer_filter
+from gcrm.api.offer_filter import LAST_OFFER_KEY, creation_offer, last_used_offer, web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.routers.api_people import PERSON_LIMITS, PersonFields
 from gcrm.api.routers.api_record_edit import clean_fields
@@ -39,6 +39,7 @@ from gcrm.tools.db_linkedin import (
     promote_linkedin_companies,
     run_city_lookup,
 )
+from gcrm.tools.db_offers import list_offers
 from gcrm.tools.db_people import (
     find_existing_person,
     get_people,
@@ -56,6 +57,7 @@ from gcrm.tools.db_people_interactions import (
     get_person_interactions,
     log_person_note,
 )
+from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.email_extract import extract_person_from_email
 from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
@@ -150,7 +152,9 @@ def _new_person_page(
     (`existing`)."""
     return templates.TemplateResponse(
         "person_new.html",
-        {"request": request, "stages": PIPELINE_STAGES, "values": values or {},
+        {"request": request, "stages": PIPELINE_STAGES,
+         "values": {"offer": last_used_offer(request), **(values or {})},
+         "offers": list_offers(request.session.get("workspace_id")),
          "error": error, "existing": existing, "limits": PERSON_LIMITS},
         status_code=status_code,
     )
@@ -175,6 +179,7 @@ def person_create(
     met_at: str = Form(""),
     notes: str = Form(""),
     pipeline_stage: str = Form(""),
+    offer: str = Form(""),
     allow_duplicate: bool = Form(False),
     _admin: str = Depends(require_admin),
 ):
@@ -187,13 +192,17 @@ def person_create(
         "city": city, "country": country, "relationship": relationship, "met_at": met_at,
         "notes": notes,
     }
-    values = {**typed, "pipeline_stage": pipeline_stage}
+    values = {**typed, "pipeline_stage": pipeline_stage, "offer": offer}
     try:
         fields = clean_fields(PersonFields(**typed), PERSON_LIMITS, require_name=True)
     except HTTPException as refused:
         return _new_person_page(request, values, error=refused.detail, status_code=400)
     if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
         return _new_person_page(request, values, error="Unknown pipeline stage", status_code=400)
+    try:
+        chosen_offer = creation_offer(offer, request.session.get("workspace_id"))
+    except ValueError:
+        return _new_person_page(request, values, error="Choose a valid offer", status_code=400)
     text = {column: value or "" for column, value in fields.items()}
 
     if not allow_duplicate:
@@ -208,7 +217,10 @@ def person_create(
         website=text["website"], city=text["city"], country=text["country"] or "DE",
         relationship=text["relationship"], notes=text["notes"], met_at=text["met_at"],
         source=MANUAL_WEB, pipeline_stage=pipeline_stage, allow_duplicate=allow_duplicate,
+        offer=chosen_offer,
     )
+    if pipeline_stage:
+        request.session[LAST_OFFER_KEY] = chosen_offer
     log_audit(None, None, "person.created", f"person:{person_id}",
               "created:confirmed-not-duplicate" if allow_duplicate else "created")
     return local_redirect(f"/people/{person_id}", saved="1")
@@ -786,6 +798,7 @@ def add_note(
     note: str = Form(""),
     method: str = Form(""),
     duration_minutes: str = Form(""),
+    offer: str | None = Form(None),
     _admin: str = Depends(require_admin),
 ):
     if get_person(person_id) is None:
@@ -798,7 +811,11 @@ def add_note(
         minutes = parse_minutes(duration_minutes)
     except ValueError:
         raise HTTPException(status_code=400, detail="Minutes must be a whole number from 0 to 1440")
-    log_person_note(person_id, method.strip() or None, note.strip(), duration_minutes=minutes)
+    try:
+        offer_id = resolve_log_offer("person", person_id, offer)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown offer")
+    log_person_note(person_id, method.strip() or None, note.strip(), duration_minutes=minutes, offer_id=offer_id)
     return local_redirect(f"/people/{person_id}", saved="1")
 
 

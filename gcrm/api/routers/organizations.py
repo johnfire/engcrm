@@ -396,9 +396,10 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
             raise HTTPException(status_code=404, detail="Contact not found")
         organization = dict(row)
         cur.execute(
-            "SELECT interaction_date, method, direction, summary, outcome, next_action, next_action_date, "
-            "duration_minutes FROM interactions WHERE contact_id = %s AND deleted_at IS NULL "
-            "ORDER BY interaction_date DESC, id DESC LIMIT 20",
+            "SELECT i.interaction_date, i.method, i.direction, i.summary, i.outcome, i.next_action, "
+            "i.next_action_date, i.duration_minutes, o.name AS offer FROM interactions i "
+            "LEFT JOIN offers o ON o.id = i.offer_id WHERE i.contact_id = %s AND i.deleted_at IS NULL "
+            "ORDER BY i.interaction_date DESC, i.id DESC LIMIT 20",
             (contact_id,),
         )
         interactions = [dict(row) for row in cur.fetchall()]

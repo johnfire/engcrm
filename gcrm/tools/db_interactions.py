@@ -5,14 +5,16 @@ from gcrm.tools.db_audit import log_audit
 
 
 def log_interaction(
-    contact_id: int, method: str, direction: str, summary: str, outcome: str
+    contact_id: int, method: str, direction: str, summary: str, outcome: str, offer_id: int | None = None,
 ) -> None:
-    """Log an interaction and touch its contact."""
+    """Log an interaction and touch its contact. `offer_id` is the offer it was
+    about (None: general)."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO interactions (contact_id, interaction_date, method, direction, summary, outcome) VALUES (%s, CURRENT_DATE, %s, %s, %s, %s)",
-            (contact_id, method, direction, summary, outcome),
+            "INSERT INTO interactions (contact_id, interaction_date, method, direction, summary, outcome, offer_id) "
+            "VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s)",
+            (contact_id, method, direction, summary, outcome, offer_id),
         )
         cursor.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))
     log_audit(None, None, "interaction.logged", f"contact:{contact_id}", outcome)
@@ -25,9 +27,10 @@ def log_meeting_note(
     follow_up_date=None,
     follow_up_text: str | None = None,
     duration_minutes: int | None = None,
+    offer_id: int | None = None,
 ) -> int:
     """Record a note about a meeting, call or visit on an organization, with an
-    optional follow-up date. Direction is left empty (it is neither an outbound nor
+    optional follow-up date and the offer it was about (None: general). Direction is left empty (it is neither an outbound nor
     an inbound message) and no status changes: only an explicit stage change does that.
     The organization is touched so it sorts as recently active. Returns the row id."""
     with db() as conn:
@@ -35,9 +38,9 @@ def log_meeting_note(
         cursor.execute(
             "INSERT INTO interactions "
             "(contact_id, interaction_date, method, summary, outcome, next_action, next_action_date, "
-            "duration_minutes) "
-            "VALUES (%s, CURRENT_DATE, %s, %s, 'note', %s, %s, %s) RETURNING id",
-            (contact_id, method, note, follow_up_text or None, follow_up_date, duration_minutes),
+            "duration_minutes, offer_id) "
+            "VALUES (%s, CURRENT_DATE, %s, %s, 'note', %s, %s, %s, %s) RETURNING id",
+            (contact_id, method, note, follow_up_text or None, follow_up_date, duration_minutes, offer_id),
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))

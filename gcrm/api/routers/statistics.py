@@ -16,6 +16,7 @@ from gcrm.db.connection import db
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_interactions import log_meeting_note
+from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.statistics import (
     PERIODS,
     add_sale,
@@ -165,9 +166,12 @@ def log_activity(
     method: str = Form(""),
     duration_minutes: str = Form(""),
     note: str = Form(""),
+    offer: str | None = Form(None),
     _admin: str = Depends(require_admin),
 ):
-    """Log a drop-in, meeting, call, video call, email or plain note on an organization."""
+    """Log a drop-in, meeting, call, video call, email or plain note on an
+    organization, and which offer it was about (0: general; absent: picked from
+    the open deals)."""
     method = method.strip() or None
     if method is not None and method not in ORGANIZATION_METHODS:
         raise HTTPException(status_code=400, detail="Unknown activity type")
@@ -183,5 +187,9 @@ def log_activity(
                     (contact_id, _workspace_id(request)))
         if cur.fetchone() is None:
             raise HTTPException(status_code=404, detail="Organization not found")
-    log_meeting_note(contact_id, method, note.strip(), duration_minutes=minutes)
+    try:
+        offer_id = resolve_log_offer("organization", contact_id, offer, _workspace_id(request))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown offer")
+    log_meeting_note(contact_id, method, note.strip(), duration_minutes=minutes, offer_id=offer_id)
     return local_redirect(f"/organizations/{contact_id}", saved="1")

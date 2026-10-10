@@ -9,7 +9,15 @@
 {% endif %}
 <form method="post" action="/organizations/new" class="person-edit-form">
   <section class="detail-section">
-    <div class="field-row field-row--wide">
+    <div class="field-row">
+      <label for="business-offer">{{ t('offerFilter.label') }}</label>
+      <select id="business-offer" name="offer">
+        {% for o in offers %}
+        <option value="{{ o.slug }}" {% if values.offer == o.slug %}selected{% endif %}>{{ o.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field-row">
       <label for="business-stage">{{ t('common.pipelineStage') }}</label>
       <select id="business-stage" name="pipeline_stage" required>
         {% for stage in stages %}

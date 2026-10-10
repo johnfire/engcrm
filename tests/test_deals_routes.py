@@ -115,6 +115,7 @@ class TestPanelOnThePage:
         assert "Demo for Jamie" in page and "next-step__due--overdue" in page
         # what is already pitched is not offered again
         add_form = page[page.index('action="/deals/new"'):]
+        add_form = add_form[:add_form.index("</form>")]
         assert '<option value="1">Consulting</option>' in add_form and ">LearnWohl<" not in add_form
 
 
