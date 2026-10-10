@@ -6,7 +6,7 @@
 # signature change to a shared agent dependency (get_or_create_dossier) was
 # committed and pushed without the opportunity-agent's own tests catching it
 # --- CI's test loop only covers research/scout/enrichment/outreach/followup,
-# not opportunity or engcrm-interview-agent, so this is stricter than CI on
+# not opportunity, so this is stricter than CI on
 # purpose, not redundant with it.
 set -uo pipefail
 
@@ -44,9 +44,6 @@ while IFS= read -r f; do
     agents/*/*)
       agent_dir=$(printf '%s' "$f" | cut -d/ -f1-2)
       add_suite "$agent_dir" "uv run pytest $agent_dir/tests -q"
-      ;;
-    engcrm-interview-agent/*)
-      add_suite "engcrm-interview-agent" "cd engcrm-interview-agent && uv run pytest tests -q"
       ;;
     engcrm-mobile/*)
       add_suite "engcrm-mobile" "cd engcrm-mobile && npx jest --silent"

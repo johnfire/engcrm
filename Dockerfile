@@ -14,7 +14,6 @@ COPY agents/gcrm-scout-agent/      ./agents/gcrm-scout-agent/
 COPY agents/gcrm-outreach-agent/   ./agents/gcrm-outreach-agent/
 COPY agents/gcrm-followup-agent/   ./agents/gcrm-followup-agent/
 COPY agents/gcrm-opportunity-agent/ ./agents/gcrm-opportunity-agent/
-COPY engcrm-interview-agent/       ./engcrm-interview-agent/
 COPY gcrm/                         ./gcrm/
 COPY scripts/                      ./scripts/
 COPY pyproject.toml uv.lock ./
