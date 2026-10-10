@@ -172,23 +172,6 @@ def set_person_stage(cur, person_id: int, stage: str | None, offer: str = CONSUL
     return stage
 
 
-def set_person_next_step_on_deal(
-    cur, person_id: int, text: str | None, due, offer: str = CONSULTING,
-) -> None:
-    """Write the next step onto the person's deal for `offer`. A person with no
-    deal yet gets one at candidate, so a next step always has a deal to live on."""
-    deal = get_person_deal(cur, person_id, offer)
-    if deal is None:
-        if not text and due is None:
-            return
-        _insert_person_deal(cur, person_id, offer, next_step=text, next_step_date=due)
-        return
-    cur.execute(
-        "UPDATE deals SET next_step = %s, next_step_date = %s WHERE id = %s",
-        (text or None, due, deal["id"]),
-    )
-
-
 def _insert_person_deal(cur, person_id: int, offer: str, *, stage: str = DEFAULT_STAGE,
                         next_step: str | None = None, next_step_date=None) -> None:
     cur.execute(

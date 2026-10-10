@@ -115,8 +115,8 @@ def test_mail_groups_the_three_links_in_the_requested_order(language):
 def test_admin_groups_the_requested_links_in_order(language, role):
     nav = render_nav("/organizations/", language=language, role=role)
     admin_menu = menu_markup(nav, "admin")
-    keys = ["activity", "dropped", "help", "settings"]
-    hrefs = ["/activity/", "/approvals/dropped/", "/help/", "/settings"]
+    keys = ["activity", "dropped", "help", "offers", "settings"]
+    hrefs = ["/activity/", "/approvals/dropped/", "/help/", "/offers/", "/settings"]
     if role == "admin":
         keys.append("users")
         hrefs.append("/users/")

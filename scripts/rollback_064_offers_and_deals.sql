@@ -8,11 +8,21 @@
 --
 -- Nothing is lost: each organization's and person's Consulting deal is copied
 -- back into the columns the old code reads, including every stage change made
--- since the deploy. Deals for other offers have nowhere to go in the old schema
--- and are dropped with the deals table — before phase 2 there are none.
+-- since the deploy. Deals for other offers (LearnWohl, LeGuild.art, ...) have
+-- nowhere to go in the old schema and are dropped with the deals table: back
+-- them up first if they matter (pg_dump -t deals -t offers).
 -- schema_migrations forgets 064, so the next deploy of the new code runs it
 -- again and rebuilds the deals from the restored columns.
+--
+-- Migration 065 (which offer a log entry or draft is about) points at offers,
+-- so it is undone first, when it has been applied. Log entries keep their text;
+-- only the offer they were tagged with is lost.
 BEGIN;
+
+ALTER TABLE interactions        DROP COLUMN IF EXISTS offer_id;
+ALTER TABLE people_interactions DROP COLUMN IF EXISTS offer_id;
+ALTER TABLE approval_queue      DROP COLUMN IF EXISTS offer_id;
+DELETE FROM schema_migrations WHERE migration_name = '065_offer_on_records.sql';
 
 ALTER TABLE contacts RENAME COLUMN legacy_pipeline_stage TO pipeline_stage;
 ALTER TABLE contacts RENAME COLUMN legacy_status         TO status;

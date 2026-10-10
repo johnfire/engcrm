@@ -73,3 +73,19 @@ def _reset_auth_rate_limiter():
     from gcrm.api.rate_limit import _auth_limiter
     _auth_limiter.reset()
     yield
+
+
+@pytest.fixture(autouse=True)
+def _no_deals_database(request):
+    """Page tests mock the person or organization they render; the Deals panel on
+    those pages reads its own data. Outside the real-database suites it reads
+    nothing — a test about the panel patches these functions with its deals."""
+    if request.node.get_closest_marker("integration") or request.node.get_closest_marker("e2e"):
+        yield
+        return
+    from unittest.mock import patch
+    with patch("gcrm.api.routers.deals.get_deals", return_value=[]), \
+         patch("gcrm.api.routers.deals.list_offers", return_value=[]), \
+         patch("gcrm.api.routers.deals.contact_people", return_value=[]), \
+         patch("gcrm.api.routers.deals.get_deals_as_contact_person", return_value=[]):
+        yield

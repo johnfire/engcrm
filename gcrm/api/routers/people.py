@@ -10,6 +10,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.routers.api_people import PERSON_LIMITS, PersonFields
 from gcrm.api.routers.api_record_edit import clean_fields
+from gcrm.api.routers.deals import panel_context
 from gcrm.api.templates import templates
 from gcrm.config import MAIL_SENDER_OPTIONS, MAX_UPLOAD_BYTES, PEOPLE_RETENTION_DAYS
 from gcrm.db.connection import db
@@ -580,8 +581,7 @@ def person_detail(
         "interactions": get_person_interactions(person_id),
         "mail_sender_options": MAIL_SENDER_OPTIONS,
         "people_retention_days": PEOPLE_RETENTION_DAYS,
-        "stages": PIPELINE_STAGES,
-        "today": date.today().isoformat(),
+        **panel_context(request, "person", person_id, f"/people/{person_id}"),
     })
 
 

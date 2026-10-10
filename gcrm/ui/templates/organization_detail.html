@@ -4,10 +4,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   <h1>{{ organization.name }}</h1>
   <span class="muted"
     >{{ organization.city }}{% if organization.country %} · {{ organization.country }}{% endif
-    %}{% if organization.distance_km is not none %} · {{ organization.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif %} ·
-    <span class="badge badge-{{ organization.status }}"
-      >{{ organization.status }}</span
-    ></span
+    %}{% if organization.distance_km is not none %} · {{ organization.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif %}</span
   >
 </div>
 
@@ -24,6 +21,8 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 {% include 'partials/linkedin_notice.html' %}
 
 {% include 'partials/personal_priority.html' %}
+
+{% include 'partials/deals_panel.html' %}
 
 <form method="post" action="/organizations/{{ organization.id }}/edit" class="organization-edit-form">
   <div class="detail-grid">
@@ -50,32 +49,6 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       <div class="field-row">
         <label for="organization-type">{{ t('common.type') }}</label>
         <input id="organization-type" type="text" name="type" value="{{ organization.type or '' }}" />
-      </div>
-      <div class="field-row">
-        <label for="organization-pipeline-stage">{{ t('common.pipelineStage') }}</label>
-        <select id="organization-pipeline-stage" name="pipeline_stage">
-          {% for stage_value in pipeline_stages %}
-          <option
-            value="{{ stage_value }}"
-            {% if stage_value == organization.pipeline_stage %}selected{% endif %}
-          >
-            {{ t('stage.' ~ stage_value) }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field-row">
-        <label for="organization-status">{{ t('common.status') }}</label>
-        <select id="organization-status" name="status">
-          {% for status_value in statuses %}
-          <option
-            value="{{ status_value }}"
-            {% if status_value == organization.status %}selected{% endif %}
-          >
-            {{ t('status.' ~ status_value) }}
-          </option>
-          {% endfor %}
-        </select>
       </div>
       <div class="field-row field-row--wide">
         <span class="field-group-label">{{ t('organizations.suppression') }}</span>
@@ -496,7 +469,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
           {{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date else
           '—' }}
         </td>
-        <td>{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}</td>
+        <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}</td>
         <td class="muted">{{ i.direction or '—' }}</td>
         <td class="muted small">{{ i.summary or '—' }}</td>
         <td class="muted small">{{ i.outcome or '—' }}</td>

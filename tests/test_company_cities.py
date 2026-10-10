@@ -1,6 +1,7 @@
 """City resolution for LinkedIn-created organizations: the pure decision rule,
 the Places request, and the resolver's caching and failure handling. DB and
 network are mocked — runs without Postgres or a Google key."""
+import re
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -605,17 +606,23 @@ class TestPersonStage:
 
     def test_the_person_page_has_a_stage_select_and_saving_it_is_optional(self, admin_session):
         person = self.listed(title="CTO", distance_km=None)
+        deal = {"id": 9, "offer_id": 1, "offer_slug": "consulting", "offer_name": "Consulting",
+                "revenue_kind": "one_off", "offer_archived": False, "contact_id": None, "person_id": 1,
+                "pipeline_stage": "candidate", "status": "none", "next_step": None, "next_step_date": None,
+                "notes": None, "contact_person_id": None, "contact_person_name": None}
         with patch("gcrm.api.routers.people.get_person", return_value=person), \
-             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=[]), \
+             patch("gcrm.api.routers.deals.get_deals", return_value=[deal]):
             page = admin_session.get("/people/1").text
-        # the select saves on its own (PUT /people/{id}/stage) the moment it is picked,
-        # so it carries no name: the Save button's form never sends or overwrites it
-        assert 'id="person-stage"' in page
-        assert '<option value="candidate" selected>Candidate</option>' in page
+        # the stage is the Consulting deal's, on the Deals panel; its select saves on its
+        # own the moment it is picked, outside the edit form, which never sends or
+        # overwrites it
+        assert 'action="/deals/9"' in page
+        assert re.search(r'<option value="candidate" selected>\s*Candidate</option>', page)
         for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
             assert f'<option value="{stage}" ' in page
         assert 'name="pipeline_stage"' not in page
-        assert "/stage`, {" in page and 'method: "PUT"' in page
+        assert 'onchange="this.form.submit()"' in page
         # an old cached form that never sent the field must not wipe the stage
         with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
              patch("gcrm.api.routers.people.log_audit"):

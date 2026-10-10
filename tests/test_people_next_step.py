@@ -68,11 +68,18 @@ class TestPages:
     def test_the_person_page_shows_the_step_overdue_and_labels_the_log(self, admin_web):
         log = [{"id": 1, "occurred_at": "2026-10-05T10:00:00", "method": "next_step",
                 "note": "Invite to coffee (2020-01-31)"}]
+        deal = {"id": 9, "offer_id": 1, "offer_slug": "consulting", "offer_name": "Consulting",
+                "revenue_kind": "one_off", "offer_archived": False, "contact_id": None, "person_id": 3,
+                "pipeline_stage": "prospect", "status": "none", "next_step": "Invite to coffee",
+                "next_step_date": "2020-01-31", "notes": None, "contact_person_id": None,
+                "contact_person_name": None}
         with patch("gcrm.api.routers.people.get_person", return_value=PERSON), \
-             patch("gcrm.api.routers.people.get_person_interactions", return_value=log):
+             patch("gcrm.api.routers.people.get_person_interactions", return_value=log), \
+             patch("gcrm.api.routers.deals.get_deals", return_value=[deal]):
             response = client.get("/people/3?lang=en")
         assert response.status_code == 200, response.text[:400]
-        assert 'action="/people/3/next-step"' in response.text
+        # the next step is the deal's, set from its card on the Deals panel
+        assert 'action="/deals/9/next-step"' in response.text
         assert "<strong>Invite to coffee</strong>" in response.text
         assert "next-step__due--overdue" in response.text and "overdue" in response.text
         assert 'name="done" value="1"' in response.text

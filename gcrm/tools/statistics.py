@@ -124,10 +124,11 @@ def delete_sale(contact_id: int, sale_id: int) -> bool:
 
 def activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
     """A CTE `acts(day, kind, minutes, typed, contact_id)` over both activity logs of
-    one workspace: inbound messages and next-step entries are not work; a person's
-    activities count towards their organization."""
+    one workspace: inbound messages and next-step entries (on either log) are not
+    work; a person's activities count towards their organization."""
     values = ", ".join("(%s, %s)" for _ in defaults)
     excluded = ", ".join("%s" for _ in NOT_ACTIVITIES)
+    plans = ", ".join(f"'{method}'" for method in NOT_ACTIVITIES)  # constants, never input
     sql = f"""
         defaults(kind, minutes) AS (VALUES {values}),
         raw AS (
@@ -136,6 +137,7 @@ def activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
               FROM interactions i JOIN contacts c ON c.id = i.contact_id
              WHERE i.deleted_at IS NULL AND c.workspace_id = %s
                AND COALESCE(i.direction, '') <> 'inbound'
+               AND COALESCE(i.method, '') NOT IN ({plans})
             UNION ALL
             SELECT pi.occurred_at::date, {type_case_sql('pi.method')},
                    pi.duration_minutes, p.contact_id

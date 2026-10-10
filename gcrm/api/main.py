@@ -20,6 +20,7 @@ from gcrm.api.routers import (
     api_areas,
     api_auth,
     api_cards,
+    api_deals,
     api_documents,
     api_help,
     api_inbox,
@@ -39,11 +40,13 @@ from gcrm.api.routers import (
     areas,
     contact_dates,
     contact_feed,
+    deals,
     drafts,
     help,
     inbox,
     legal,
     marketing,
+    offers,
     organization_create,
     organizations,
     people,
@@ -125,6 +128,8 @@ app.include_router(activity.router)
 app.include_router(organization_create.router)
 app.include_router(organizations.router)
 app.include_router(people.router)
+app.include_router(deals.router)
+app.include_router(offers.router)
 app.include_router(research.router)
 app.include_router(statistics.router)
 app.include_router(areas.router)
@@ -148,6 +153,7 @@ app.include_router(api_cards.router)
 app.include_router(api_signs.router)
 app.include_router(api_documents.router)
 app.include_router(api_voice.router)
+app.include_router(api_deals.router)
 app.include_router(api_people.router)
 app.include_router(api_people_interactions.router)
 app.include_router(api_search.router)

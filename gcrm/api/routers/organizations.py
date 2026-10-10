@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
+from gcrm.api.routers.deals import panel_context
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.geo import distance_km_sql
@@ -425,14 +426,12 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         "organization": organization,
         "interactions": interactions,
         "sales": sales,
-        "today": date.today().isoformat(),
         "linkedin": linkedin,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
-        "pipeline_stages": PIPELINE_STAGES,
-        "statuses": STATUSES,
         "suppression_flags": SUPPRESSION_FLAGS,
         "saved": saved,
         "opportunity_flash": request.session.pop("opportunity_flash", None),
+        **panel_context(request, "organization", contact_id, f"/organizations/{contact_id}"),
     })
 
 
@@ -532,8 +531,8 @@ def organization_edit(
     city: str = Form(""),
     country: str = Form(""),
     type: str = Form(""),
-    pipeline_stage: str = Form(""),
-    status: str = Form(""),
+    pipeline_stage: Optional[str] = Form(None),
+    status: Optional[str] = Form(None),
     do_not_organization: bool = Form(False),
     email_bounced: bool = Form(False),
     research_exhausted: bool = Form(False),
@@ -571,9 +570,12 @@ def organization_edit(
         "email_bounced": email_bounced,
         "research_exhausted": research_exhausted,
     }
+    # The stage and status are edited on the Deals panel now; a form that still
+    # sends them (an old cached page) moves the Consulting deal, as it always did.
     _persist_organization_edit(
         contact_id, text_fields, fit_score, flags,
-        stage=coerce_stage(pipeline_stage), status=coerce_status(status),
+        stage=None if pipeline_stage is None else coerce_stage(pipeline_stage),
+        status=None if status is None else coerce_status(status),
     )
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return local_redirect(f"/organizations/{contact_id}", saved="1")

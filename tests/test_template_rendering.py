@@ -385,13 +385,20 @@ class TestOrganizationDetailPage:
                 "discovery_questions": ["How are quotes prepared?"],
                 "analysis_date": None,
             }
+            deal = {"id": 9, "offer_id": 1, "offer_slug": "consulting", "offer_name": "Consulting",
+                    "revenue_kind": "one_off", "offer_archived": False, "contact_id": 1, "person_id": None,
+                    "pipeline_stage": "candidate", "status": "none", "next_step": None, "next_step_date": None,
+                    "notes": None, "contact_person_id": None, "contact_person_name": None}
             for lang in ("en", "de"):
                 conn, cur = make_mock_conn([INTERACTION_ROW], fetchone_sequence=[full_organization, opportunity_analysis])
-                with patch("gcrm.api.routers.organizations.db") as mock_db:
+                with patch("gcrm.api.routers.organizations.db") as mock_db, \
+                     patch("gcrm.api.routers.deals.get_deals", return_value=[deal]):
                     mock_db.return_value.__enter__.return_value = conn
                     response = client.get(f"/organizations/1?lang={lang}")
                 assert response.status_code == 200, response.text
+                # the stage is on the Consulting deal's card, not in the edit form
                 assert re.search(r'value="candidate"\s+selected', response.text)
+                assert 'action="/deals/9"' in response.text and 'name="pipeline_stage"' not in response.text
                 assert re.search(r'value="email"\s+selected', response.text)
                 assert len(re.findall(r'value="warm"\s+selected', response.text)) == 2
                 assert 'class="organization-edit-form"' in response.text

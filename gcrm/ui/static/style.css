@@ -1321,3 +1321,44 @@ main.statistics-page { max-width: none; }
 .contact-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0.5rem 0 1rem; }
 .contact-counts dt { font-size: 0.8rem; opacity: 0.7; }
 .contact-counts dd { margin: 0; font-weight: 600; }
+
+/* ── Deals: one card per offer pitched to an organization or person ───────── */
+.deals { margin-bottom: 1rem; }
+.deals h2 { font-size: 1rem; margin-bottom: 0.6rem; }
+.deals__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr)); gap: 0.75rem; }
+.deal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.deal-card__header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+.deal-card__header h3 { font-size: 1rem; margin: 0; }
+.deal-card__state { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0; }
+.deal-card__state label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; }
+.deal-card__next .next-step__form { grid-template-columns: minmax(0, 1fr) 10rem; }
+.deal-card__next .next-step__form .detail-actions { grid-column: 1 / -1; }
+@media (max-width: 700px) {
+  .deal-card__next .next-step__form { grid-template-columns: minmax(0, 1fr); }
+}
+.deal-card__remove { margin: 0; align-self: flex-end; }
+.deals__subhead { font-size: 0.9rem; margin: 0.9rem 0 0.4rem; }
+.deals__as-contact { margin: 0; padding-left: 1.1rem; }
+.deals__add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
+.deals__add label { font-size: 0.85em; color: var(--muted); }
+
+/* Offers page */
+.offers-table { width: 100%; margin-bottom: 1.5rem; }
+.offer-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0; }
+.offer-form input, .offer-form select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font); font-size: 0.95em; padding: 0.35rem 0.55rem; border-radius: 0; min-width: 0;
+}
+.offer-form input[name="name"] { flex: 1 1 10rem; }
+.offer-form input[name="website"] { flex: 2 1 14rem; }
+.offer-actions { white-space: nowrap; }
+.offer-actions form { display: inline; margin: 0; }

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ t('offers.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('offers.title') }}</h1></div>
+<p class="muted">{{ t('offers.hint') }}</p>
+{% if error %}<p class="error">{{ t('offers.invalid') }}</p>{% endif %}
+
+<div class="table-scroll">
+<table class="offers-table">
+  <thead><tr>
+    <th colspan="3">{{ t('common.name') }} · {{ t('common.website') }} · {{ t('offers.revenueKind') }}</th>
+    <th>{{ t('offers.deals') }}</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for offer in offers %}
+    <tr class="{% if offer.archived %}muted{% endif %}">
+      <td colspan="3">
+        <form method="post" action="/offers/{{ offer.id }}" class="offer-form">
+          <input type="text" name="name" value="{{ offer.name }}" maxlength="80" required
+                 aria-label="{{ t('common.name') }}" />
+          <input type="text" name="website" value="{{ offer.website or '' }}" placeholder="https://…"
+                 aria-label="{{ t('common.website') }}" />
+          <select name="revenue_kind" aria-label="{{ t('offers.revenueKind') }}">
+            {% for kind in revenue_kinds %}
+            <option value="{{ kind }}" {% if kind == offer.revenue_kind %}selected{% endif %}>{{ t('offers.kind.' ~ kind) }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-tiny">{{ t('common.save') }}</button>
+        </form>
+      </td>
+      <td>{{ offer.deals }}{% if offer.archived %} · {{ t('offers.archived') }}{% endif %}</td>
+      <td class="offer-actions">
+        {% if not offer.archived %}
+        <form method="post" action="/offers/{{ offer.id }}/move"><input type="hidden" name="direction" value="up" />
+          <button class="btn-tiny" aria-label="{{ t('offers.moveUp') }}" title="{{ t('offers.moveUp') }}">↑</button></form>
+        <form method="post" action="/offers/{{ offer.id }}/move"><input type="hidden" name="direction" value="down" />
+          <button class="btn-tiny" aria-label="{{ t('offers.moveDown') }}" title="{{ t('offers.moveDown') }}">↓</button></form>
+        {% endif %}
+        <form method="post" action="/offers/{{ offer.id }}/archive">
+          <input type="hidden" name="archived" value="{{ '0' if offer.archived else '1' }}" />
+          <button class="btn-tiny">{{ t('offers.restore') if offer.archived else t('offers.archive') }}</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="card">
+  <h2>{{ t('offers.addTitle') }}</h2>
+  <form method="post" action="/offers/" class="offer-form">
+    <input type="text" name="name" maxlength="80" required placeholder="{{ t('offers.namePlaceholder') }}"
+           aria-label="{{ t('common.name') }}" />
+    <input type="text" name="website" placeholder="https://…" aria-label="{{ t('common.website') }}" />
+    <select name="revenue_kind" aria-label="{{ t('offers.revenueKind') }}">
+      {% for kind in revenue_kinds %}<option value="{{ kind }}">{{ t('offers.kind.' ~ kind) }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">{{ t('offers.addButton') }}</button>
+  </form>
+</section>
+{% endblock %}
