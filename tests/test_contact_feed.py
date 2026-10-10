@@ -33,11 +33,14 @@ def test_search_parameters_are_literal_and_workspace_and_type_are_bound():
     predicate, parameters = feed_predicates("100% a_b!", "person", "suspect", 3)
     assert "workspace_id=%s" in predicate and "kind=%s" in predicate
     assert "100%" not in predicate
+    assert "%s = ANY(deal_stages)" in predicate  # one of the shown deals is at that stage
     assert parameters[:3] == [3, "person", "suspect"]
     assert parameters[3:10] == ["%100!%%"] * 7
     assert parameters[10:] == ["%a!_b!!%"] * 7
-    assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND NULLIF(pipeline_stage, '') IS NULL", [])
+    assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND cardinality(deal_stages) = 0", [])
     assert feed_predicates("", "", "", None) == ("last_contact IS NOT NULL", [])
+    assert feed_predicates("", "", "", None, only_pitched=True) == (
+        "last_contact IS NOT NULL AND cardinality(deal_stages) > 0", [])
 
 
 def test_web_filters_are_remembered_and_clear_resets_them():
@@ -54,7 +57,9 @@ def test_mobile_contacts_pass_filters_and_signed_in_workspace_to_query():
          patch("gcrm.api.routers.contact_feed._personal_identity", return_value=(9, 3)):
         response = TestClient(app).get("/api/contact-feed?search=Ann&kind=person&stage=candidate&sort=name&page=2", headers=AUTH)
     assert response.status_code == 200 and response.json() == [CONTACT]
-    fetch.assert_called_once_with(search="Ann", kind="person", stage="candidate", sort="name", page=2, workspace_id=3)
+    # no offer asked for: the Consulting view, nobody hidden — what the installed app expects
+    fetch.assert_called_once_with(search="Ann", kind="person", stage="candidate", sort="name", page=2, workspace_id=3,
+                                  offer="consulting", only_pitched=False)
 
 
 @pytest.mark.parametrize("parameters", ["kind=alien", "stage=bogus", "sort=bogus", "page=0", "search=" + "x" * 101])

@@ -290,15 +290,19 @@ class TestOrganizationsPage:
         with_login_session()
         try:
             conn, cur = make_mock_conn(
-                [{**CONTACT_ROW, "pipeline_stage": "suspect"}], [], [], fetchone_sequence=[{"cnt": 1}],
+                [{**CONTACT_ROW, "deals": [{"id": 41, "offer": "Consulting", "slug": "consulting",
+                                            "stage": "suspect", "status": "ready"}]}],
+                [], [], fetchone_sequence=[{"cnt": 1}],
             )
             with patch("gcrm.api.routers.organizations.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
-                response = client.get("/organizations/?lang=en")
+                response = client.get("/organizations/?lang=en&offer=all")
 
             assert response.status_code == 200, response.text
-            assert f'action="/organizations/{CONTACT_ROW["id"]}/stage"' in response.text
-            assert 'aria-label="Pipeline stage: Acme GmbH"' in response.text
+            # one select per deal, saving that deal; with every offer shown it names its offer
+            assert 'action="/deals/41"' in response.text
+            assert 'aria-label="Pipeline stage · Consulting: Acme GmbH"' in response.text
+            assert '<span class="deal-offer-label">Consulting</span>' in response.text
             assert '<option value="suspect" selected>Suspect</option>' in response.text
             assert '<option value="not_in_pipeline" >Not in pipeline</option>' in response.text
         finally:

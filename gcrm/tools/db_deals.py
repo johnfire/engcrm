@@ -184,3 +184,97 @@ def _insert_person_deal(cur, person_id: int, offer: str, *, stage: str = DEFAULT
         (stage, next_step or None, next_step_date, person_id),
     )
     logger.info("deal created: person %d, offer %s, stage %s", person_id, offer, stage)
+
+
+# --- Lists filtered by offer --------------------------------------------------
+# The Organizations, People and Contacts lists show either one offer's pipeline
+# (`offer` = its slug) or every offer at once (`offer` = None). These build the
+# SQL both modes share. The owner is an organization (column contact_id) or a
+# person (person_id); `alias` is the owner's alias in the caller's query.
+
+_OWNER_COLUMNS = ("contact_id", "person_id")
+
+
+def _owner(alias: str, column: str) -> tuple[str, str]:
+    if column not in _OWNER_COLUMNS:
+        raise ValueError(f"not a deal owner column: {column!r}")
+    return _alias(alias), column
+
+
+def deals_json_sql(alias: str, column: str, offer: str | None) -> str:
+    """A JSON array of the owner's live deals — every offer's, or just `offer`'s —
+    each {id, offer, slug, stage, status}, in offer order. Never NULL."""
+    alias, column = _owner(alias, column)
+    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
+    return (
+        "(SELECT COALESCE(json_agg(json_build_object('id', x.id, 'offer', o.name, 'slug', o.slug, "
+        "'stage', x.pipeline_stage, 'status', x.status) ORDER BY o.sort_order, o.id), '[]'::json) "
+        f"FROM deals x JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id "
+        f"AND x.deleted_at IS NULL {only})"
+    )
+
+
+def deal_filters(alias: str, column: str, offer: str | None, stage: str = "",
+                 status: str = "", only_pitched: bool = True) -> tuple[list[str], list]:
+    """WHERE conditions (and their params) for one offer's pipeline: the owner
+    has a live deal for `offer` (unless `only_pitched` is off), at `stage`
+    and/or with `status` when given. Stage "none" means no such deal. With
+    offer None, a stage or status means "has a deal, any offer, at it", and
+    "none" means no deal at all."""
+    alias, column = _owner(alias, column)
+    base = f"SELECT 1 FROM deals x WHERE x.{column} = {alias}.id AND x.deleted_at IS NULL"
+    if offer:
+        base += f" AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}"
+    conditions, params = [], []
+    if stage == "none":
+        return [f"NOT EXISTS ({base})"], []
+    if (offer and only_pitched) or stage or status:
+        clause = base
+        if stage:
+            clause += " AND x.pipeline_stage = %s"
+            params.append(stage)
+        if status:
+            clause += " AND x.status = %s"
+            params.append(status)
+        conditions.append(f"EXISTS ({clause})")
+    return conditions, params
+
+
+def deal_sort_sql(alias: str, column: str, offer: str | None, field: str) -> str:
+    """Sort key for a deal field (pipeline_stage, status, next_step_date): that
+    offer's value, or across every offer the values in offer order."""
+    alias, column = _owner(alias, column)
+    if field not in ("pipeline_stage", "status", "next_step_date"):
+        raise ValueError(f"not a sortable deal field: {field!r}")
+    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
+    if field == "next_step_date":  # the soonest one
+        return (f"(SELECT MIN(x.next_step_date) FROM deals x WHERE x.{column} = {alias}.id "
+                f"AND x.deleted_at IS NULL {only})")
+    return (f"(SELECT string_agg(x.{field}, ',' ORDER BY o.sort_order, o.id) FROM deals x "
+            f"JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id AND x.deleted_at IS NULL {only})")
+
+
+def stage_and_status_counts(cur, table: str, alias: str, column: str, offer: str | None,
+                            workspace_id: int | None) -> tuple[dict, dict]:
+    """How many live deals sit at each stage and each status — one offer's, or
+    every offer's — for the filter dropdowns. Returns ({stage: n}, {status: n})
+    over the whole vocabulary, zeros included."""
+    from gcrm.organization_state import STATUSES
+    alias, column = _owner(alias, column)
+    if table not in ("contacts", "people"):
+        raise ValueError(f"not an owner table: {table!r}")
+    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
+    scope = f"AND {alias}.workspace_id = %s" if workspace_id is not None else ""
+    cur.execute(
+        f"SELECT x.pipeline_stage, x.status, COUNT(*) AS cnt FROM {table} {alias} "
+        f"JOIN deals x ON x.{column} = {alias}.id AND x.deleted_at IS NULL {only} "
+        f"WHERE {alias}.deleted_at IS NULL {scope} GROUP BY 1, 2",
+        [workspace_id] if workspace_id is not None else [],
+    )
+    stages, statuses = dict.fromkeys(PIPELINE_STAGES, 0), dict.fromkeys(STATUSES, 0)
+    for row in cur.fetchall():
+        if row["pipeline_stage"] in stages:
+            stages[row["pipeline_stage"]] += row["cnt"]
+        if row["status"] in statuses:
+            statuses[row["status"]] += row["cnt"]
+    return stages, statuses

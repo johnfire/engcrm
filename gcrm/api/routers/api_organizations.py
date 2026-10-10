@@ -7,12 +7,13 @@ from pydantic import BaseModel
 
 from gcrm.activity_types import ORGANIZATION_METHODS, parse_minutes
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
+from gcrm.api.offer_filter import api_offer_filter
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES, SUPPRESSION_FLAGS, is_typical
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import organization_deal_join
+from gcrm.tools.db_deals import deal_filters, deals_json_sql, organization_deal_join
 from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
 from gcrm.tools.db_linkedin import get_known_people_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
@@ -110,25 +111,33 @@ def list_organizations(
     personal_priority: str = Query(""),
     linkedin: str = Query(""),
     suppressed: str = Query(""),
+    offer: str | None = Query(None),
     payload: dict = Depends(require_jwt_payload),
 ) -> list[dict]:
+    """Organizations, with `pipeline_stage`/`status` of their deal for `offer`
+    and `deals` listing them. No `offer` is the Consulting view the installed app
+    expects (everyone listed); `offer=<slug>` lists only those pitched it;
+    `offer=all` lists everyone with every deal and no single stage."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     user_id, workspace_id = _personal_identity(payload)
+    try:
+        chosen = api_offer_filter(offer, workspace_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    deal_join = organization_deal_join("c", "d", chosen) if chosen else ""
+    stage_columns = "d.pipeline_stage, d.status" if chosen else "NULL::text AS pipeline_stage, NULL::text AS status"
     priority_join, priority_params = _priority_join(user_id)
     with db() as conn:
         cur = conn.cursor()
-        filter_params: list = []
         where = ["c.deleted_at IS NULL"]
+        deal_conditions, filter_params = deal_filters(
+            "c", "contact_id", chosen, stage, status, only_pitched=offer not in (None, "", "all"),
+        )
+        where += deal_conditions
         if search:
             where.append("(c.name ILIKE %s OR c.city ILIKE %s OR c.type ILIKE %s)")
             filter_params += [f"%{search}%", f"%{search}%", f"%{search}%"]
-        if status:
-            where.append("d.status = %s")
-            filter_params.append(status)
-        if stage:
-            where.append("d.pipeline_stage = %s")
-            filter_params.append(stage)
         if personal_priority in {"1", "2", "3", "4", "5"}:
             where.append("cup.priority = %s")
             filter_params.append(int(personal_priority))
@@ -149,7 +158,8 @@ def list_organizations(
         cur.execute(
             f"""
             SELECT c.id, c.name, c.city, c.country, c.type,
-                   d.pipeline_stage, d.status,
+                   {stage_columns},
+                   {deals_json_sql("c", "contact_id", chosen)} AS deals,
                    c.do_not_contact, c.email_bounced, c.research_exhausted,
                    c.email, c.website, c.fit_score, c.flagged, c.starred,
                    c.created_at, cup.priority AS personal_priority,
@@ -158,11 +168,11 @@ def list_organizations(
                      WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                    ) AS linkedin_connection_count
             FROM contacts c
-            {_DEAL_JOIN}
+            {deal_join}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             WHERE {where_clause}
-            GROUP BY c.id, d.id, cup.priority
+            GROUP BY c.id, {"d.id, " if chosen else ""}cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id
             LIMIT 50 OFFSET %s
             """,

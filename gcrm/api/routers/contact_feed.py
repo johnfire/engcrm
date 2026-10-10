@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from gcrm.api.auth import require_login
 from gcrm.api.jwt_auth import require_jwt_payload
+from gcrm.api.offer_filter import api_offer_filter, web_offer_filter
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.templates import templates
 from gcrm.organization_state import PIPELINE_STAGES
@@ -32,12 +33,18 @@ def mobile_contact_counts(payload: dict = Depends(require_jwt_payload)) -> dict:
 
 @router.get("/api/contact-feed")
 def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", stage: str = "",
-                    sort: str = "last_contact", page: int = Query(1, ge=1),
+                    sort: str = "last_contact", page: int = Query(1, ge=1), offer: str | None = None,
                     payload: dict = Depends(require_jwt_payload)) -> list[dict]:
+    """Without `offer` this is the Consulting view the installed app expects;
+    `offer=<slug>` is that offer's pipeline, `offer=all` every offer."""
     check_feed_filters(kind, stage, sort)
     _, workspace_id = _personal_identity(payload)
-    return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort,
-                            page=page, workspace_id=workspace_id)
+    try:
+        chosen = api_offer_filter(offer, workspace_id)
+    except ValueError as failure:
+        raise HTTPException(400, str(failure)) from failure
+    return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort, page=page,
+                            workspace_id=workspace_id, offer=chosen, only_pitched=offer not in (None, "", "all"))
 
 
 def safe_contact_counts(workspace_id: int | None) -> dict | None:
@@ -71,13 +78,14 @@ def feed_page_link(page: int, filters: dict) -> str:
 @router.get("/contact-feed/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
                  kind: str | None = None, stage: str | None = None, sort: str | None = None,
-                 page: int = Query(1, ge=1)):
+                 offer: str | None = None, page: int = Query(1, ge=1)):
     filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort)
+    active_offer, offers = web_offer_filter(request, offer)
     contacts = get_contact_feed(**filters, page=page, workspace_id=request.session.get("workspace_id"),
-                                extra_row=True)
+                                extra_row=True, offer=active_offer, only_pitched=active_offer is not None)
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
-        "stages": PIPELINE_STAGES, "page": page,
+        "stages": PIPELINE_STAGES, "page": page, "offers": offers, "active_offer": active_offer,
         "counts": safe_contact_counts(request.session.get("workspace_id")),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,

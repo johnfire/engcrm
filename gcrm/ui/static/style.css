@@ -1362,3 +1362,7 @@ main.statistics-page { max-width: none; }
 .offer-form input[name="website"] { flex: 2 1 14rem; }
 .offer-actions { white-space: nowrap; }
 .offer-actions form { display: inline; margin: 0; }
+
+/* Lists showing every offer: each deal's stage is labelled with its offer. */
+.stage-form + .stage-form, .deal-status + .deal-status { margin-top: 0.25rem; }
+.deal-offer-label { display: block; font-size: 0.75em; color: var(--muted); line-height: 1.2; }

@@ -24,6 +24,7 @@
     <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>{{ t('contactFeed.' ~ ('standalone' if kind == 'person' else kind or 'all')) }}</option>
     {% endfor %}
   </select>
+  {% include 'partials/offer_filter.html' %}
   <select name="stage" aria-label="{{ t('common.pipelineStage') }}">
     <option value="">{{ t('contactFeed.allStages') }}</option>
     <option value="none" {% if filters.stage == 'none' %}selected{% endif %}>{{ t('contactFeed.noStage') }}</option>
@@ -67,7 +68,7 @@
           </details>{% endif %}
         </td>
         <td>{{ contact.city or '—' }}</td><td>{{ contact.email or contact.phone or '—' }}</td>
-        <td>{% if contact.pipeline_stage %}<span class="badge badge-stage-{{ contact.pipeline_stage }}">{{ t('stage.' ~ contact.pipeline_stage) }}</span>{% else %}—{% endif %}</td>
+        <td>{% for d in contact.deals %}<span class="badge badge-stage-{{ d.stage }}">{% if not active_offer %}{{ d.offer }}: {% endif %}{{ t('stage.' ~ d.stage) }}</span> {% else %}—{% endfor %}</td>
         <td>{{ (contact.last_contact or '')[:10] }}
           {% if contact.kind == 'organization' and contact.last_contact_kind == 'person' %}
           <br><span class="muted">{{ t('contactFeed.via', name=contact.last_contact_name) }}</span>

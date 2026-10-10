@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.routers.deals import panel_context
 from gcrm.api.templates import templates
@@ -14,14 +15,20 @@ from gcrm.db.connection import db
 from gcrm.geo import distance_km_sql
 from gcrm.organization_state import (
     PIPELINE_STAGES,
-    STATUSES,
     SUPPRESSION_FLAGS,
     coerce_stage,
     coerce_status,
 )
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
+from gcrm.tools.db_deals import (
+    deal_filters,
+    deal_sort_sql,
+    deals_json_sql,
+    organization_deal_join,
+    set_organization_deal,
+    stage_and_status_counts,
+)
 from gcrm.tools.db_linkedin import (
     REACHABLE_PAGE_SIZE,
     get_known_people_for_org,
@@ -45,7 +52,6 @@ SORT_COLUMNS = {
     "name":         "lower(c.name)",
     "city":         "lower(c.city)",
     "type":         "lower(c.type)",
-    "status":       "d.status",
     "fit":          "c.fit_score",
     "personal_priority": "cup.priority",
     "starred":      "c.starred",
@@ -74,21 +80,25 @@ def _priority_join(user_id: int | None) -> tuple[str, list]:
     )
 
 
+def _sort_column(sort: str, offer: str | None) -> str:
+    """The ORDER BY expression; status sorts by the shown offer's deal (or every
+    offer's, in offer order)."""
+    if sort == "status":
+        return deal_sort_sql("c", "contact_id", offer, "status")
+    return SORT_COLUMNS.get(sort, "c.created_at")
+
+
 def _build_organization_filters(
     status, type, q, has_contact, personal_priority="", workspace_id=None, stage="", suppressed="",
-    linkedin="",
+    linkedin="", offer=None,
 ):
     """Build the WHERE clause + bound params for the contact list from the query
     filters. The name/city search is a parenthesized OR so it can't leak past an
-    AND — don't regress that."""
+    AND — don't regress that. With an `offer`, only organizations pitched it are
+    listed and stage/status are that deal's; without one, any deal counts."""
     conditions = ["c.deleted_at IS NULL"]
-    params = []
-    if status:
-        conditions.append("d.status = %s")
-        params.append(status)
-    if stage:
-        conditions.append("d.pipeline_stage = %s")
-        params.append(stage)
+    deal_conditions, params = deal_filters("c", "contact_id", offer, stage, status)
+    conditions += deal_conditions
     if suppressed in SUPPRESSION_FLAGS:
         conditions.append(f"c.{suppressed} = TRUE")
     if type:
@@ -119,7 +129,8 @@ def _build_organization_filters(
     return where, params
 
 
-def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None):
+def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id=None, workspace_id=None,
+                              offer=None):
     """Run the count + page queries for the given filters, and gather the option
     lists for the filter bar. Returns (contacts, status_counts, stage_counts,
     types, total).
@@ -135,7 +146,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
         query_params = priority_params + params
 
         cur.execute(
-            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {_DEAL_JOIN} {priority_join} {where}",
+            f"SELECT COUNT(DISTINCT c.id) AS cnt FROM contacts c {priority_join} {where}",
             query_params,
         )
         total = cur.fetchone()["cnt"]
@@ -144,7 +155,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
             f"""
             SELECT
                 c.id, c.name, c.city, c.country, c.type,
-                d.pipeline_stage, d.status,
+                {deals_json_sql("c", "contact_id", offer)} AS deals,
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
@@ -159,11 +170,10 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 ) AS known_people,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
-            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, d.id, cup.priority
+            GROUP BY c.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             LIMIT {PAGE_SIZE} OFFSET {offset}
             """,
@@ -171,23 +181,9 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
         )
         organizations = [dict(row) for row in cur.fetchall()]
 
+        stage_counts, status_counts = stage_and_status_counts(cur, "contacts", "c", "contact_id", offer, workspace_id)
         workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""
         workspace_params = [workspace_id] if workspace_id is not None else []
-        cur.execute(
-            f"SELECT d.status, d.pipeline_stage, COUNT(*) AS cnt FROM contacts c {_DEAL_JOIN}"
-            f"WHERE c.deleted_at IS NULL{workspace_filter.replace('workspace_id', 'c.workspace_id')} "
-            "GROUP BY d.status, d.pipeline_stage",
-            workspace_params,
-        )
-        rows = cur.fetchall()
-        status_counts = {value: 0 for value in STATUSES}
-        stage_counts = {value: 0 for value in PIPELINE_STAGES}
-        for row in rows:
-            if row["status"] in status_counts:
-                status_counts[row["status"]] += row["cnt"]
-            if row["pipeline_stage"] in stage_counts:
-                stage_counts[row["pipeline_stage"]] += row["cnt"]
-
         cur.execute(
             f"SELECT DISTINCT type FROM contacts "
             f"WHERE type IS NOT NULL AND type != ''{workspace_filter} ORDER BY type",
@@ -209,21 +205,24 @@ def organization_list(
     has_contact: str = Query(default=""),
     personal_priority: str = Query(default=""),
     linkedin: str = Query(default=""),
+    offer: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
 ):
     offset = (page - 1) * PAGE_SIZE
-    sort_col = SORT_COLUMNS.get(sort, "c.created_at")
+    active_offer, offers = web_offer_filter(request, offer)
+    sort_col = _sort_column(sort, active_offer)
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
     user_id = request.session.get("user_id")
     workspace_id = request.session.get("workspace_id")
     where, params = _build_organization_filters(
         status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed, linkedin,
+        active_offer,
     )
     organizations, status_counts, stage_counts, types, total = _fetch_organizations_page(
-        where, params, sort_col, sort_dir, offset, user_id, workspace_id,
+        where, params, sort_col, sort_dir, offset, user_id, workspace_id, active_offer,
     )
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -244,6 +243,8 @@ def organization_list(
         "has_contact": has_contact,
         "personal_priority": personal_priority,
         "linkedin": linkedin,
+        "offers": offers,
+        "active_offer": active_offer,
         "page": page,
         "total_pages": total_pages,
         "total": total,
@@ -281,10 +282,13 @@ def organization_print(
     type: str = Query(default=""),
     q: str = Query(default=""),
     personal_priority: str = Query(default=""),
+    stage: str = Query(default=""),
+    offer: Optional[str] = Query(default=None),
     sort: str = Query(default="created_at"),
     dir: str = Query(default="desc"),
 ):
-    sort_col = SORT_COLUMNS.get(sort, "c.created_at")
+    active_offer, _ = web_offer_filter(request, offer)
+    sort_col = _sort_column(sort, active_offer)
     sort_dir = "DESC" if dir == "desc" else "ASC"
 
     # Same filters as the list view (no has_contact toggle on the print page).
@@ -292,7 +296,7 @@ def organization_print(
     workspace_id = request.session.get("workspace_id")
     priority_join, priority_params = _priority_join(user_id)
     where, params = _build_organization_filters(
-        status, type, q, "", personal_priority, workspace_id,
+        status, type, q, "", personal_priority, workspace_id, stage, offer=active_offer,
     )
 
     with db() as conn:
@@ -301,18 +305,17 @@ def organization_print(
             f"""
             SELECT
                 c.id, c.name, c.city, c.country, c.type,
-                d.pipeline_stage, d.status,
+                {deals_json_sql("c", "contact_id", active_offer)} AS deals,
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes,
                 cup.priority AS personal_priority,
                 MAX(i.interaction_date) AS last_contact,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
-            {_DEAL_JOIN}
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, d.id, cup.priority
+            GROUP BY c.id, cup.priority
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             """,
             priority_params + params,
@@ -320,6 +323,10 @@ def organization_print(
         organizations = [dict(row) for row in cur.fetchall()]
 
     active_filters = []
+    if active_offer:
+        active_filters.append(f"offer: {active_offer}")
+    if stage:
+        active_filters.append(f"stage: {stage}")
     if status:
         active_filters.append(f"status: {status}")
     if type:

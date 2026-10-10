@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payload
+from gcrm.api.offer_filter import api_offer_filter
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.routers.api_record_edit import clean_fields
 from gcrm.db.connection import db
@@ -40,21 +41,30 @@ def list_people(
     city: str = "",
     value_rating: str = "",
     page: int | None = Query(default=None, ge=1),
+    offer: str | None = Query(default=None),
     payload: dict = Depends(require_jwt_payload),
 ) -> list[dict]:
     """People, newest first by default. `stage` is a pipeline stage or "none" (no
     stage set); `linkedin` is "1" (LinkedIn connections) or "unlinked" (connections
     not yet tied to an organization); `city` limits to one city (see /cities). Without `page` the whole list comes back, as
-    older app builds expect; with it, one page of PAGE_SIZE."""
+    older app builds expect; with it, one page of PAGE_SIZE. Without `offer` the
+    stage is the Consulting deal's and everyone is listed, as the installed app
+    expects; `offer=<slug>` lists that offer's pipeline, `offer=all` everyone
+    with every deal in `deals`."""
     if stage and stage != "none" and stage not in PIPELINE_STAGES:
         raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     if linkedin not in ("", "1", "unlinked"):
         raise HTTPException(status_code=400, detail="Unknown linkedin filter")
     paging = {} if page is None else {"limit": PAGE_SIZE, "offset": (page - 1) * PAGE_SIZE}
     # Ratings are private: each user sees and filters by their own.
-    user_id, _ = _personal_identity(payload)
+    user_id, workspace_id = _personal_identity(payload)
+    try:
+        chosen = api_offer_filter(offer, workspace_id)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return get_people(search, sort, dir, user_id, value_rating=value_rating,
-                      linkedin=linkedin, stage=stage, city=city, **paging)
+                      linkedin=linkedin, stage=stage, city=city, offer=chosen,
+                      only_pitched=offer not in (None, "", "all"), **paging)
 
 
 @router.get("/cities")

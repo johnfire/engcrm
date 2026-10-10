@@ -87,5 +87,17 @@ def _no_deals_database(request):
     with patch("gcrm.api.routers.deals.get_deals", return_value=[]), \
          patch("gcrm.api.routers.deals.list_offers", return_value=[]), \
          patch("gcrm.api.routers.deals.contact_people", return_value=[]), \
-         patch("gcrm.api.routers.deals.get_deals_as_contact_person", return_value=[]):
+         patch("gcrm.api.routers.deals.get_deals_as_contact_person", return_value=[]), \
+         patch("gcrm.api.offer_filter.list_offers", return_value=SEEDED_OFFERS):
         yield
+
+
+# What migration 064 gives the default workspace, as list_offers returns it.
+SEEDED_OFFERS = [
+    {"id": n, "slug": slug, "name": name, "website": None, "revenue_kind": kind,
+     "sort_order": n * 10, "archived": False, "deals": 0}
+    for n, (slug, name, kind) in enumerate((
+        ("consulting", "Consulting", "one_off"), ("learnwohl", "LearnWohl", "subscription"),
+        ("leguild", "LeGuild.art", "subscription"), ("notes-world", "notes-world", "subscription"),
+    ), start=1)
+]

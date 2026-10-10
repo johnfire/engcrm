@@ -1,0 +1,7 @@
+{# Which offer's pipeline a list shows; the choice is remembered. Needs offers, active_offer. #}
+<select name="offer" aria-label="{{ t('offerFilter.label') }}" class="offer-filter">
+  <option value="all" {% if not active_offer %}selected{% endif %}>{{ t('offerFilter.all') }}</option>
+  {% for o in offers %}
+  <option value="{{ o.slug }}" {% if o.slug == active_offer %}selected{% endif %}>{{ o.name }}</option>
+  {% endfor %}
+</select>

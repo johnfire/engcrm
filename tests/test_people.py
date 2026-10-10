@@ -293,18 +293,23 @@ class TestPersonPipelineStage:
             db_people.update_person(3, {"pipeline_stage": "bogus"})
 
     def test_the_stage_filter_is_a_whitelist_and_none_means_unset(self):
-        for stage, fragment in (("none", "person_deal.pipeline_stage IS NULL"),
-                                ("suspect", "person_deal.pipeline_stage = %s")):
+        # "none" is no Consulting deal; a stage is a Consulting deal at that stage
+        for stage, fragment in (("none", "NOT EXISTS (SELECT 1 FROM deals x WHERE x.person_id = person.id"),
+                                ("suspect", "AND x.pipeline_stage = %s)")):
             conn, cur = make_mock_conn()
             with patch("gcrm.tools.db_people.db") as mock_db:
                 mock_db.return_value.__enter__.return_value = conn
                 db_people.get_people(stage=stage)
             assert fragment in cur.execute.call_args.args[0]
-        conn, cur = make_mock_conn()
-        with patch("gcrm.tools.db_people.db") as mock_db:
-            mock_db.return_value.__enter__.return_value = conn
-            db_people.get_people(stage="x'; DROP TABLE people; --")
-        assert "pipeline_stage" not in cur.execute.call_args.args[0].split("ORDER BY")[0].split("WHERE")[-1]
+        queries = []
+        for stage in ("", "x'; DROP TABLE people; --"):
+            conn, cur = make_mock_conn()
+            with patch("gcrm.tools.db_people.db") as mock_db:
+                mock_db.return_value.__enter__.return_value = conn
+                db_people.get_people(stage=stage)
+            queries.append(cur.execute.call_args.args)
+        # an unknown stage adds nothing at all: the same query as no stage
+        assert queries[0] == queries[1]
 
 
 class TestUpdatePerson:

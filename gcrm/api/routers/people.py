@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from gcrm.activity_types import PERSON_METHODS, parse_minutes
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.routers.api_people import PERSON_LIMITS, PersonFields
 from gcrm.api.routers.api_record_edit import clean_fields
@@ -99,12 +100,15 @@ def people_list(
     linkedin: str = Query(default=""),
     stage: str | None = Query(default=None),
     city: str = Query(default=""),
+    offer: str | None = Query(default=None),
     deleted: bool = Query(default=False),
 ):
     stage = remember_people_stage(request, stage)
+    active_offer, offers = web_offer_filter(request, offer)
+    # One offer's pipeline lists the people pitched it; every offer lists everyone.
     people = get_people(
         q, sort, dir, request.session.get("user_id"), company_priority, value_rating,
-        linkedin, stage=stage, city=city,
+        linkedin, stage=stage, city=city, offer=active_offer, only_pitched=active_offer is not None,
     )
     return templates.TemplateResponse("people.html", {
         "request": request,
@@ -120,6 +124,9 @@ def people_list(
         "city": city,
         "cities": get_person_cities(),
         "stages": PIPELINE_STAGES,
+        "pipeline_stages": PIPELINE_STAGES,
+        "offers": offers,
+        "active_offer": active_offer,
         "deleted": deleted,
     })
 

@@ -857,5 +857,7 @@
   "offers.moveDown": "Nach unten",
   "offers.addTitle": "Angebot hinzufügen",
   "offers.addButton": "Angebot hinzufügen",
-  "offers.namePlaceholder": "z. B. LearnWohl"
+  "offers.namePlaceholder": "z. B. LearnWohl",
+  "offerFilter.label": "Angebot",
+  "offerFilter.all": "Alle Angebote"
 }

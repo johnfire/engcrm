@@ -857,5 +857,7 @@
   "offers.moveDown": "Move down",
   "offers.addTitle": "Add an offer",
   "offers.addButton": "Add offer",
-  "offers.namePlaceholder": "e.g. LearnWohl"
+  "offers.namePlaceholder": "e.g. LearnWohl",
+  "offerFilter.label": "Offer",
+  "offerFilter.all": "All offers"
 }

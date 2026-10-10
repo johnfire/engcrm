@@ -542,7 +542,8 @@ class TestDbPeopleLinkedin:
             mock_db.return_value.__enter__.return_value = conn
             db_people.get_people(user_id=7, linkedin="1")
         sql, params = cur.execute.call_args.args
-        assert sql.split("WHERE", 2)[-1].lstrip().startswith("person.is_linkedin_contact")
+        # the list's own WHERE (deal subqueries have theirs) starts with the filter
+        assert "FALSE WHERE person.is_linkedin_contact" not in sql and " WHERE person.is_linkedin_contact" in sql
         assert params == [7, 7]
 
     def test_filter_unlinked_connections(self):
@@ -1004,8 +1005,9 @@ class TestOrganizationsListFilter:
         from gcrm.api.routers.organizations import _build_organization_filters
 
         where, params = _build_organization_filters("ready", "", "", "", linkedin="1", stage="suspect")
-        assert "d.status = %s" in where and "d.pipeline_stage = %s" in where and "EXISTS" in where
-        assert params == ["ready", "suspect"]
+        # without an offer chosen: some deal, any offer, at that stage with that status
+        assert "x.pipeline_stage = %s AND x.status = %s" in where and "lp.is_linkedin_contact" in where
+        assert params == ["suspect", "ready"]
 
     def _list(self, query=""):
         org = {**ORG_ROW, "linkedin_connection_count": 2, "do_not_contact": False, "email_bounced": False,

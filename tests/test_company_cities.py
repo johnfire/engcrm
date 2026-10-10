@@ -538,11 +538,15 @@ class TestPersonStage:
     """Every LinkedIn connection is a candidate, and the stage is a real field you can change."""
 
     def listed(self, **extra):
-        return {"id": 1, "name": "Ann", "title": None, "company": None, "contact_id": None, "company_raw": None,
-                "is_linkedin_contact": True, "pipeline_stage": "candidate", "company_pipeline_stage": None,
-                "company_opportunity_score": None, "company_personal_priority": None, "value_rating": None,
-                "last_contact": None, "city": None, "relationship": None, "distance_km": None,
-                "created_at": "2026-10-03", **extra}
+        row = {"id": 1, "name": "Ann", "title": None, "company": None, "contact_id": None, "company_raw": None,
+               "is_linkedin_contact": True, "pipeline_stage": "candidate", "company_pipeline_stage": None,
+               "company_opportunity_score": None, "company_personal_priority": None, "value_rating": None,
+               "last_contact": None, "city": None, "relationship": None, "distance_km": None,
+               "created_at": "2026-10-03", **extra}
+        # the stage is the person's Consulting deal's
+        row.setdefault("deals", [{"id": 41, "offer": "Consulting", "slug": "consulting",
+                                  "stage": row["pipeline_stage"], "status": "none"}] if row["pipeline_stage"] else [])
+        return row
 
     def page(self, admin_session, row, url="/people/"):
         with patch("gcrm.api.routers.people.get_person_cities", return_value=[]), patch("gcrm.api.routers.people.get_people", return_value=[row]) as mget:
@@ -550,15 +554,17 @@ class TestPersonStage:
 
     def test_the_list_shows_the_stored_stage_as_an_editable_select(self, admin_session):
         response, _ = self.page(admin_session, self.listed())
-        assert 'action="/people/1/stage"' in response.text
+        assert 'action="/deals/41"' in response.text
         assert '<option value="candidate" selected>Candidate</option>' in response.text
         for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
             assert f'<option value="{stage}" ' in response.text
         assert 'onchange="this.form.submit()"' in response.text
 
-    def test_a_person_without_a_stage_shows_a_blank_choice(self, admin_session):
+    def test_a_person_without_a_stage_shows_a_dash(self, admin_session):
+        """Not pitched anything: nothing to change from the list; offers are added on the person's page."""
         response, _ = self.page(admin_session, self.listed(pipeline_stage=None, is_linkedin_contact=False))
-        assert '<option value="" selected>—</option>' in response.text
+        assert 'action="/deals/' not in response.text
+        assert re.search(r'<td>\s*<span class="muted">—</span>', response.text)
 
     def test_the_organizations_stage_is_shown_separately_not_instead(self, admin_session):
         response, _ = self.page(admin_session, self.listed(company_pipeline_stage="suspect"))

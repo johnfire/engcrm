@@ -10,7 +10,14 @@ from gcrm.geo import distance_km_sql
 from gcrm.linkedin import normalize_linkedin_url
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.sources import require_source
-from gcrm.tools.db_deals import organization_deal_join, person_deal_join, set_person_stage
+from gcrm.tools.db_deals import (
+    CONSULTING,
+    deal_filters,
+    deals_json_sql,
+    organization_deal_join,
+    person_deal_join,
+    set_person_stage,
+)
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -214,26 +221,45 @@ _DISTANCE_KM_SQL = distance_km_sql(
     "COALESCE(person.longitude, company.longitude)",
 )
 
-_SELECT_WITH_COMPANY = (
-    "SELECT person.*, person_deal.pipeline_stage, person_deal.next_step, "
-    "person_deal.next_step_date, company.name AS company, "
-    "company.preferred_language AS company_language, "
-    "company_deal.pipeline_stage AS company_pipeline_stage, "
-    "company_priority.priority AS company_personal_priority, "
-    "company_opportunity.opportunity_score AS company_opportunity_score, "
-    "person_priority.priority AS value_rating, "
-    "(SELECT MAX(pi.occurred_at) FROM people_interactions pi "
-    " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact, "
-    f"({_DISTANCE_KM_SQL}) AS distance_km "
-    "FROM people person "
-    "LEFT JOIN contacts company ON company.id = person.contact_id "
-    + person_deal_join("person", "person_deal")
-    + organization_deal_join("company", "company_deal") +
-    "LEFT JOIN ai_analysis company_opportunity "
-    "ON company_opportunity.contact_id = company.id "
-    "AND company_opportunity.analysis_kind = 'opportunity' "
-    "AND company_opportunity.deleted_at IS NULL "
-)
+def _select_with_company(offer: str | None = CONSULTING) -> str:
+    """A person with their company, and the stage and next step of their deal
+    for `offer` (Consulting unless told otherwise). With offer None (every
+    offer), the next step shown is the soonest one across their deals, and
+    there is no single stage — `deals` lists them all."""
+    if offer:
+        deal_columns = ("person_deal.pipeline_stage, person_deal.next_step, person_deal.next_step_date, "
+                        "NULL::text AS next_step_offer, company_deal.pipeline_stage AS company_pipeline_stage, ")
+        deal_joins = person_deal_join("person", "person_deal", offer) + organization_deal_join(
+            "company", "company_deal", offer)
+    else:
+        deal_columns = ("NULL::text AS pipeline_stage, person_deal.next_step, person_deal.next_step_date, "
+                        "person_deal.offer AS next_step_offer, NULL::text AS company_pipeline_stage, ")
+        deal_joins = (
+            " LEFT JOIN LATERAL (SELECT x.next_step, x.next_step_date, o.name AS offer FROM deals x "
+            "JOIN offers o ON o.id = x.offer_id WHERE x.person_id = person.id AND x.deleted_at IS NULL "
+            "AND x.next_step IS NOT NULL ORDER BY x.next_step_date NULLS LAST, o.sort_order LIMIT 1"
+            ") person_deal ON TRUE "
+        )
+    return (
+        "SELECT person.*, " + deal_columns
+        + deals_json_sql("person", "person_id", offer) + " AS deals, "
+        "company.name AS company, "
+        "company.preferred_language AS company_language, "
+        "company_priority.priority AS company_personal_priority, "
+        "company_opportunity.opportunity_score AS company_opportunity_score, "
+        "person_priority.priority AS value_rating, "
+        "(SELECT MAX(pi.occurred_at) FROM people_interactions pi "
+        " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact, "
+        f"({_DISTANCE_KM_SQL}) AS distance_km "
+        "FROM people person "
+        "LEFT JOIN contacts company ON company.id = person.contact_id "
+        + deal_joins +
+        "LEFT JOIN ai_analysis company_opportunity "
+        "ON company_opportunity.contact_id = company.id "
+        "AND company_opportunity.analysis_kind = 'opportunity' "
+        "AND company_opportunity.deleted_at IS NULL "
+    )
+
 
 # Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
 # last_name strips everything up to the final space in the full name — there's
@@ -265,7 +291,7 @@ _LINKEDIN_FILTERS = {
 
 def _rating_joins(user_id: int | None) -> tuple[str, list]:
     """The two private per-user rating joins (company priority, person value
-    rating), placed right after the FROM/company JOIN in _SELECT_WITH_COMPANY.
+    rating), placed right after the FROM/company JOIN in _select_with_company().
     Without a signed-in user_id both are unconditionally FALSE so the columns
     come back NULL rather than leaking another user's ratings."""
     if user_id is None:
@@ -313,13 +339,16 @@ def get_people(
     limit: int | None = None,
     offset: int = 0,
     city: str = "",
+    offer: str | None = CONSULTING,
+    only_pitched: bool = False,
 ) -> list[dict]:
     """All people, optionally filtered by name/email/city text search and/or
     company_priority / value_rating ("1".."5", "unrated", or "" for any —
     only meaningful when user_id is given, since both are private per-user)
     and/or `linkedin` ("1" = LinkedIn connections, "unlinked" = connections not
     yet tied to an organization, "" = everyone), and/or `stage` (a pipeline
-    stage, "none" = no stage set, "" = any),
+    stage of the `offer` deal, "none" = no such deal, "" = any; with offer None
+    any deal counts), and only people pitched `offer` when `only_pitched`,
     and/or `city` (exact match ignoring case and surrounding spaces, "" = any),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
     opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
@@ -334,7 +363,7 @@ def get_people(
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
-    select = _SELECT_WITH_COMPANY + rating_joins
+    select = _select_with_company(offer) + rating_joins
 
     conditions = []
     params = list(rating_params)
@@ -346,11 +375,11 @@ def get_people(
     _rating_filter(conditions, params, "person_priority.priority", value_rating)
     if linkedin in _LINKEDIN_FILTERS:
         conditions.append(_LINKEDIN_FILTERS[linkedin])
-    if stage == "none":
-        conditions.append("person_deal.pipeline_stage IS NULL")
-    elif stage in PIPELINE_STAGES:
-        conditions.append("person_deal.pipeline_stage = %s")
-        params.append(stage)
+    if stage not in ("none", *PIPELINE_STAGES):
+        stage = ""
+    stage_conditions, stage_params = deal_filters("person", "person_id", offer, stage, only_pitched=only_pitched)
+    conditions += stage_conditions
+    params += stage_params
     if city.strip():
         conditions.append("lower(trim(person.city)) = lower(%s)")
         params.append(city.strip())
@@ -393,7 +422,7 @@ def get_person(person_id: int, user_id: int | None = None) -> dict | None:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            _SELECT_WITH_COMPANY + rating_joins + "WHERE person.id = %s",
+            _select_with_company() + rating_joins + "WHERE person.id = %s",
             rating_params + [person_id],
         )
         row = cur.fetchone()
