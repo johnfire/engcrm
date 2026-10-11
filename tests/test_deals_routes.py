@@ -2,6 +2,7 @@
 they send to gcrm/tools/deal_records.py and db_offers.py, and what they refuse.
 The deal logic itself runs against Postgres in tests/integration/test_deal_records_db.py."""
 from datetime import date
+from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
@@ -179,3 +180,30 @@ class TestMobileEndpoints:
                                   json={"next_step": "Demo", "next_step_date": "2026-10-20"})
         assert response.json()["next_step_date"] == "2026-10-20"
         setter.assert_called_once_with(9, "Demo", date(2026, 10, 20), None)
+
+
+class TestSubscriptionRoutes:
+    def test_the_card_starts_and_ends_a_subscription(self, admin_web):
+        with patch("gcrm.api.routers.deals.start_subscription") as start:
+            response = post("/deals/9/subscription", {"amount_eur_month": "49,50", "started_on": "2026-10-01",
+                                                      "next": "/organizations/4"})
+        assert response.headers["location"] == "/organizations/4"
+        assert start.call_args.args[:3] == (9, Decimal("49.50"), date(2026, 10, 1))
+        with patch("gcrm.api.routers.deals.end_subscription", return_value=False):
+            assert post("/deals/9/subscription/end", {"ended_on": "2026-12-31"}).status_code == 404
+
+    def test_bad_amounts_and_overlaps_are_refused(self, admin_web):
+        assert post("/deals/9/subscription", {"amount_eur_month": "lots", "started_on": "2026-10-01"}).status_code == 400
+        with patch("gcrm.api.routers.deals.start_subscription", side_effect=ValueError("overlap")):
+            assert post("/deals/9/subscription", {"amount_eur_month": "49", "started_on": "2026-10-01"}).status_code == 400
+
+    def test_the_phone_records_sales_and_subscriptions(self):
+        with patch("gcrm.api.routers.api_deals.start_subscription", return_value=3) as start:
+            response = client.post("/api/deals/9/subscription", headers=ADMIN,
+                                   json={"amount_eur_month": "19", "started_on": "2026-10-01"})
+        assert response.status_code == 201 and start.call_args.args[:3] == (9, Decimal("19"), date(2026, 10, 1))
+        with patch("gcrm.api.routers.api_deals.add_deal_sale", side_effect=ValueError("a person's deal")):
+            assert client.post("/api/deals/9/sales", headers=ADMIN,
+                               json={"amount_eur": "100", "won_on": "2026-10-05"}).status_code == 400
+        assert client.post("/api/deals/9/subscription", headers=VIEWER,
+                           json={"amount_eur_month": "19", "started_on": "2026-10-01"}).status_code == 403

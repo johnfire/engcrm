@@ -25,6 +25,7 @@
 <div class="stat-layout">
 <div class="stat-layout__period">
 <form method="get" action="/statistics" class="stat-periods" aria-label="{{ t('statistics.period') }}">
+  {% include 'partials/offer_filter.html' %}
   {% for p in periods %}
   <button type="submit" name="period" value="{{ p }}" class="{{ 'btn-primary' if period == p else 'btn-secondary' }}">{{ t('statistics.period.' ~ p) }}</button>
   {% endfor %}
@@ -44,6 +45,14 @@
     <strong class="stat-tile__value">{{ cur.hours }}</strong>{{ delta(cur.hours, prev.hours, ' h') }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.won') }}</span>
     <strong class="stat-tile__value">{{ cur.won_eur | eur }}</strong>{{ delta(cur.won_eur, prev.won_eur, money=true) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.mrrNow') }}</span>
+    <strong class="stat-tile__value">{{ stats.mrr_now | eur }}</strong>
+    <span class="stat-delta">{{ t('statistics.subscribersNow', count=stats.subscribers_now) }}</span></div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.subscriptionRevenue') }} <span class="muted" title="{{ t('statistics.calculatedHint') }}">≈</span></span>
+    <strong class="stat-tile__value">{{ cur.subscription_eur | eur }}</strong>{{ delta(cur.subscription_eur, prev.subscription_eur, money=true) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.mrrMoves') }}</span>
+    <strong class="stat-tile__value">+{{ cur.new_mrr | eur }}</strong>
+    <span class="stat-delta stat-delta--down">−{{ cur.lost_mrr | eur }}</span></div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.sales') }}</span>
     <strong class="stat-tile__value">{{ cur.sales }}</strong>{{ delta(cur.sales, prev.sales) }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.eurPerHour') }}</span>
@@ -134,12 +143,13 @@
   {% if stats.sales %}
   <div class="table-scroll">
   <table>
-    <thead><tr><th>{{ t('nav.organizations') }}</th><th class="num">€</th><th>{{ t('sales.wonOn') }}</th>
+    <thead><tr><th>{{ t('nav.organizations') }}</th><th>{{ t('offerFilter.label') }}</th><th class="num">€</th><th>{{ t('sales.wonOn') }}</th>
       <th class="num">{{ t('statistics.weeks') }}</th><th class="num">{{ t('statistics.activities') }}</th>
       <th class="num">{{ t('statistics.hours') }}</th><th class="num">{{ t('statistics.eurPerHour') }}</th><th>{{ t('sales.description') }}</th></tr></thead>
     <tbody>
     {% for s in stats.sales %}
       <tr><td><a href="/organizations/{{ s.contact_id }}">{{ s.organization }}</a></td>
+        <td class="muted">{{ s.offer or '—' }}</td>
         <td class="num">{{ s.amount_eur | eur }}</td><td class="nowrap">{{ s.won_on }}</td>
         <td class="num">{{ s.weeks if s.weeks is not none else '—' }}</td><td class="num">{{ s.activities }}</td>
         <td class="num">{{ s.hours }}</td><td class="num">{{ (s.eur_per_hour | eur) if s.eur_per_hour is not none else '—' }}</td>
@@ -156,7 +166,7 @@
   {% if stats.stuck %}
   <ul class="stat-stuck">
     {% for o in stats.stuck %}
-    <li><a href="/organizations/{{ o.id }}">{{ o.name }}</a> · {{ t('stage.' ~ o.pipeline_stage) }} ·
+    <li><a href="/organizations/{{ o.id }}">{{ o.name }}</a> · {% if not active_offer %}{{ o.offer }}: {% endif %}{{ t('stage.' ~ o.pipeline_stage) }} ·
       <span class="muted">{{ t('statistics.lastActivity', date=o.last_day) if o.last_day else t('statistics.neverContacted') }}</span></li>
     {% endfor %}
   </ul>

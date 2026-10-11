@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from gcrm.activity_types import NOT_ACTIVITIES
 from gcrm.db.connection import db
-from gcrm.tools.db_deals import CONSULTING, offer_id_sql
+from gcrm.tools.db_deals import offer_id_sql
 from gcrm.tools.statistics import activities_sql, get_minute_defaults
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,22 @@ def record_pipeline_snapshot(day: date | None = None) -> int:
             (day, day),
         )
         return cur.rowcount
+
+
+def _subscription_series(cur, workspace_id: int, trunc: str, first: date, today: date,
+                         offer_id: str | None) -> dict:
+    """Calculated subscription revenue per bucket from `first` up to today —
+    the same rule as statistics.subscription_revenue."""
+    only = f" AND s.deal_id IN (SELECT id FROM deals WHERE offer_id = {offer_id})" if offer_id else ""
+    cur.execute(
+        f"SELECT date_trunc('{trunc}', d)::date AS b, SUM(s.amount_eur_month / EXTRACT(DAY FROM "
+        "(date_trunc('month', d) + interval '1 month' - interval '1 day'))) AS revenue FROM subscriptions s "
+        "CROSS JOIN LATERAL generate_series(GREATEST(s.started_on, %s::date), "
+        "LEAST(COALESCE(s.ended_on, %s::date), %s::date), interval '1 day') AS d "
+        f"WHERE s.workspace_id = %s AND s.deleted_at IS NULL{only} GROUP BY 1",
+        (first, today, today, workspace_id),
+    )
+    return {row["b"]: Decimal(row["revenue"]).quantize(Decimal("0.01")) for row in cur.fetchall()}
 
 
 def _snapshot_loop() -> None:
@@ -93,14 +109,17 @@ def bucket_starts(bucket: str, today: date) -> list[date]:
     raise ValueError(f"unknown bucket {bucket!r}")
 
 
-def get_series(workspace_id: int, bucket: str, today: date | None = None) -> dict:
-    """Per bucket: activities, hours, € won, new organizations and people; and the
-    pipeline per stage as logged on the last logged day of each bucket."""
+def get_series(workspace_id: int, bucket: str, today: date | None = None, offer: str | None = None) -> dict:
+    """Per bucket: activities, hours, € won (one-off sales plus calculated
+    subscription revenue), new organizations and people; and the pipeline per
+    stage as logged on the last logged day of each bucket — one offer's, or
+    every offer's added together when `offer` is None."""
     today = today or date.today()
     starts = bucket_starts(bucket, today)
     first = starts[0]
     trunc = {"week": "week", "month": "month", "year": "year"}[bucket]
-    acts_sql, acts_params = activities_sql(get_minute_defaults(workspace_id))
+    acts_sql, acts_params = activities_sql(get_minute_defaults(workspace_id), offer, workspace_id)
+    offer_id = offer_id_sql(str(int(workspace_id)), offer) if offer else None
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -110,12 +129,15 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None) -> dic
             acts_params + [workspace_id, workspace_id, *NOT_ACTIVITIES, first, today],
         )
         effort = {row["b"]: row for row in cur.fetchall()}
+        sales_offer = f" AND deal_id IN (SELECT id FROM deals WHERE offer_id = {offer_id})" if offer else ""
         cur.execute(
             f"SELECT date_trunc('{trunc}', won_on)::date AS b, SUM(amount_eur) AS won FROM sales "
-            "WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s GROUP BY 1",
+            f"WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s{sales_offer} GROUP BY 1",
             (workspace_id, first, today),
         )
-        won = {row["b"]: row["won"] for row in cur.fetchall()}
+        won = {row["b"]: Decimal(row["won"]) for row in cur.fetchall()}
+        for b, revenue in _subscription_series(cur, workspace_id, trunc, first, today, offer_id).items():
+            won[b] = won.get(b, Decimal("0")) + revenue
         cur.execute(
             f"SELECT date_trunc('{trunc}', created_at)::date AS b, 'organization' AS kind, COUNT(*) AS n "
             "FROM contacts WHERE workspace_id = %s AND deleted_at IS NULL AND created_at::date BETWEEN %s AND %s "
@@ -128,10 +150,11 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None) -> dic
         for row in cur.fetchall():
             new.setdefault(row["b"], {})[row["kind"]] = row["n"]
         cur.execute(
-            "SELECT day, entity_type, stage, n FROM pipeline_snapshots "
-            f"WHERE workspace_id = %s AND offer_id = {offer_id_sql('%s', CONSULTING)} "
-            "AND day BETWEEN %s AND %s ORDER BY day",
-            (workspace_id, workspace_id, first, today),
+            "SELECT day, entity_type, stage, SUM(n) AS n FROM pipeline_snapshots "
+            "WHERE workspace_id = %s AND day BETWEEN %s AND %s "
+            + (f"AND offer_id = {offer_id} " if offer else "")
+            + "GROUP BY day, entity_type, stage ORDER BY day",
+            (workspace_id, first, today),
         )
         rows = cur.fetchall()
         # Each bucket shows its last logged day: find that day, then keep only its rows.
@@ -144,7 +167,7 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None) -> dic
             b = bucket_start(bucket, row["day"])
             if row["day"] == last_day[b]:
                 pipeline.setdefault(row["entity_type"], {}).setdefault(row["stage"], {})[b] = row["n"]
-        cur.execute("SELECT MIN(day) AS first FROM pipeline_snapshots WHERE workspace_id = %s", (workspace_id,))
+        cur.execute("SELECT MIN(day) AS first FROM pipeline_snapshots WHERE workspace_id = %s", (workspace_id,))  # any offer
         logged_since = cur.fetchone()["first"]
 
     periods = []

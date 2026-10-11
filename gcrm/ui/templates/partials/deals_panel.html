@@ -74,6 +74,54 @@
         </form>
       </div>
 
+      {# What the deal earns. One-off sales are recorded in the organization's Sales
+         card; subscriptions here: starting one while another runs is a price change. #}
+      {% set money = deal_money.get(deal.id, {}) %}
+      <div class="deal-card__money">
+        {% if money.running %}
+        <p class="deal-card__mrr"><strong>{{ money.running.amount_eur_month | eur }} {{ t('subscription.perMonth') }}</strong>
+          <span class="muted small">{{ t('subscription.since', date=money.running.started_on) }}</span></p>
+        {% endif %}
+        {% if money.sales_total %}
+        <p class="small">{{ t('deals.oneOffTotal', amount=money.sales_total | eur, count=money.sales | length) }}</p>
+        {% endif %}
+        <details class="deal-card__subscription" {% if deal.revenue_kind == 'subscription' and not money.subscriptions %}open{% endif %}>
+          <summary>{{ t('subscription.title') }}</summary>
+          <form method="post" action="/deals/{{ deal.id }}/subscription" class="record-form">
+            <input type="hidden" name="next" value="{{ deal_page }}" />
+            <label>{{ t('subscription.amount') }}
+              <input type="text" name="amount_eur_month" inputmode="decimal" required placeholder="49" />
+            </label>
+            <label>{{ t('subscription.startedOn') }}
+              <input type="date" name="started_on" required value="{{ today }}" />
+            </label>
+            <button type="submit" class="btn-secondary">{{ t('subscription.change') if money.running else t('subscription.start') }}</button>
+          </form>
+          {% if money.running %}
+          <form method="post" action="/deals/{{ deal.id }}/subscription/end" class="record-form">
+            <input type="hidden" name="next" value="{{ deal_page }}" />
+            <label>{{ t('subscription.endedOn') }}
+              <input type="date" name="ended_on" required value="{{ today }}" />
+            </label>
+            <button type="submit" class="btn-secondary">{{ t('subscription.end') }}</button>
+          </form>
+          {% endif %}
+          {% if money.subscriptions %}
+          <ul class="sales-list">
+            {% for sub in money.subscriptions %}
+            <li>{{ sub.amount_eur_month | eur }} {{ t('subscription.perMonth') }} · {{ sub.started_on }} – {{ sub.ended_on or t('subscription.running') }}
+              <form method="post" action="/deals/{{ deal.id }}/subscription/{{ sub.id }}/delete" style="display:inline"
+                    onsubmit="return confirm({{ t('subscription.deleteConfirm') | tojson | forceescape }})">
+                <input type="hidden" name="next" value="{{ deal_page }}" />
+                <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </details>
+      </div>
+
       <form method="post" action="/deals/{{ deal.id }}/remove" class="deal-card__remove"
             onsubmit="return confirm({{ t('deals.removeConfirm', offer=deal.offer_name) | tojson | forceescape }})">
         <input type="hidden" name="next" value="{{ deal_page }}" />

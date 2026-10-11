@@ -4,6 +4,7 @@ along, name the contact person, set its next step, stop pitching it.
 Plain forms that come back to the page they were sent from, so the stage and
 status selects can submit themselves the moment they are picked."""
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 
@@ -11,6 +12,12 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_offers import list_offers
+from gcrm.tools.deal_money import (
+    deal_money,
+    delete_subscription,
+    end_subscription,
+    start_subscription,
+)
 from gcrm.tools.deal_records import (
     DealNotFound,
     add_deal,
@@ -111,6 +118,57 @@ def deal_remove(request: Request, deal_id: int, next: str = Form(""), _admin: st
     return _back(next, "/organizations/")
 
 
+@router.post("/{deal_id}/subscription")
+def deal_subscription_start(
+    request: Request,
+    deal_id: int,
+    amount_eur_month: str = Form(...),
+    started_on: str = Form(...),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Start the deal's subscription, or change its price from a day on."""
+    try:
+        amount = Decimal(amount_eur_month.replace(",", ".").strip())
+        start_subscription(deal_id, amount, date.fromisoformat(started_on), workspace_id=request.session.get("workspace_id"))
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter an amount above 0 and a date")
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/subscription/end")
+def deal_subscription_end(
+    request: Request,
+    deal_id: int,
+    ended_on: str = Form(...),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """End the running subscription; `ended_on` is the last day paid for."""
+    try:
+        if not end_subscription(deal_id, date.fromisoformat(ended_on), request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="No running subscription")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/subscription/{subscription_id}/delete")
+def deal_subscription_delete(request: Request, deal_id: int, subscription_id: int, next: str = Form(""),
+                             _admin: str = Depends(require_admin)):
+    """Remove a mistyped subscription."""
+    try:
+        if not delete_subscription(deal_id, subscription_id, request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Subscription not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return _back(next, "/organizations/")
+
+
 def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dict:
     """Everything partials/deals_panel.html needs, for an organization's or a
     person's page. The panel is part of the page, so a failure here fails it —
@@ -132,6 +190,7 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
         "contact_people": contact_people(owner_id) if owner == "organization" else [],
         "contact_person_deals": (get_deals_as_contact_person(owner_id, workspace_id)
                                  if owner == "person" else []),
+        "deal_money": deal_money([deal["id"] for deal in deals]),
         "pipeline_stages": PIPELINE_STAGES,
         "statuses": STATUSES,
         "today": date.today().isoformat(),

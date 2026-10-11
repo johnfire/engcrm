@@ -1,6 +1,7 @@
 """Mobile endpoints for offers and deals (JSON, JWT) — the same operations as
 the web Deals panel (gcrm/api/routers/deals.py), for the phone."""
 from datetime import date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_offers import list_offers
+from gcrm.tools.deal_money import add_deal_sale, deal_money, end_subscription, start_subscription
 from gcrm.tools.deal_records import (
     DealNotFound,
     add_deal,
@@ -33,16 +35,22 @@ def offers(payload: dict = Depends(require_jwt_payload)) -> list[dict]:
             for offer in list_offers(_workspace(payload))]
 
 
+def _with_money(deals: list[dict]) -> list[dict]:
+    """Each deal with what it earns: {sales_total, sales, subscriptions, running}."""
+    money = deal_money([deal["id"] for deal in deals])
+    return [{**deal, "money": money[deal["id"]]} for deal in deals]
+
+
 @router.get("/contacts/{contact_id}/deals")
 def organization_deals(contact_id: int, payload: dict = Depends(require_jwt_payload)) -> list[dict]:
-    return get_deals("organization", contact_id, _workspace(payload))
+    return _with_money(get_deals("organization", contact_id, _workspace(payload)))
 
 
 @router.get("/people/{person_id}/deals")
 def person_deals(person_id: int, payload: dict = Depends(require_jwt_payload)) -> dict:
     """The deals a person owns, and the organizations' deals they are the contact person on."""
     workspace = _workspace(payload)
-    return {"owned": get_deals("person", person_id, workspace),
+    return {"owned": _with_money(get_deals("person", person_id, workspace)),
             "contact_person_for": get_deals_as_contact_person(person_id, workspace)}
 
 
@@ -120,3 +128,57 @@ def delete_deal(deal_id: int, _role: str = Depends(require_jwt_admin),
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     return {"removed": True}
+
+
+class Sale(BaseModel):
+    amount_eur: Decimal
+    won_on: date
+    description: str = ""
+
+
+@router.post("/deals/{deal_id}/sales", status_code=201)
+def record_deal_sale(deal_id: int, body: Sale, _role: str = Depends(require_jwt_admin),
+                     payload: dict = Depends(require_jwt_payload)) -> dict:
+    """A one-off sale on an organization's deal."""
+    try:
+        return {"id": add_deal_sale(deal_id, body.amount_eur, body.won_on, body.description, _workspace(payload))}
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+class SubscriptionStart(BaseModel):
+    amount_eur_month: Decimal
+    started_on: date
+    note: str = ""
+
+
+@router.post("/deals/{deal_id}/subscription", status_code=201)
+def start_deal_subscription(deal_id: int, body: SubscriptionStart, _role: str = Depends(require_jwt_admin),
+                            payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Start the deal's subscription, or change its price from `started_on`."""
+    try:
+        return {"id": start_subscription(deal_id, body.amount_eur_month, body.started_on, body.note,
+                                         _workspace(payload))}
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+class SubscriptionEnd(BaseModel):
+    ended_on: date  # the last day paid for
+
+
+@router.post("/deals/{deal_id}/subscription/end")
+def end_deal_subscription(deal_id: int, body: SubscriptionEnd, _role: str = Depends(require_jwt_admin),
+                          payload: dict = Depends(require_jwt_payload)) -> dict:
+    try:
+        if not end_subscription(deal_id, body.ended_on, _workspace(payload)):
+            raise HTTPException(status_code=404, detail="No running subscription")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return {"ended": True}

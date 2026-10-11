@@ -1,6 +1,6 @@
 # Offers and deals: one CRM, several things to sell
 
-Date: 2026-10-10 · Status: phases 1 and 2 built (see "as built" sections)
+Date: 2026-10-10 · Status: phases 1–3 built (see "as built" sections)
 
 ## Why
 
@@ -244,6 +244,21 @@ Where the build differs from the plan above, and why:
    retention rule for running subscriptions moves to phase 3, with subscriptions. There is no
    data export to extend.
 5. **New status `not_interested`** (they said no), next to `dropped` (we stopped).
+
+## Phase 3 as built (2026-10-11)
+
+1. **Subscriptions** live on the deal card (any deal). Starting one while another runs is a
+   price change: the old row ends the day before. `ended_on` is the last day paid for.
+2. **One-off sales** stay in the organization's Sales card, now with a "For" offer picker;
+   each sale belongs to a deal. A person's own deal earns by subscription only.
+3. **Statistics** take the offer filter. Subscription revenue is calculated per day
+   (€/month × days ÷ days in that month) up to today, never beyond. New/lost MRR leave
+   price changes out. "Won" is one-off plus subscriptions, and so is € per hour.
+4. **Retention:** an organization or person with a running subscription is never purged for
+   age or inactivity; an erasure request still erases.
+5. The phone API gets the same: money on each deal, `/api/deals/{id}/sales`,
+   `/subscription`, `/subscription/end`. The rollback script undoes 066 too, and drops
+   subscriptions — back them up first.
 
 ## Build order
 

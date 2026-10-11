@@ -59,7 +59,7 @@ def test_a_snapshot_counts_each_stage_and_a_later_one_replaces_the_day(clean_dat
                                      ("organization", "customer"): 1}
 
 
-def test_each_offer_is_logged_separately_and_the_series_shows_consulting(clean_database):
+def test_each_offer_is_logged_separately_and_the_series_shows_one_or_all(clean_database):
     workspace = _workspace()
     acme = _organization("Acme", "prospect")
     with db() as connection:
@@ -72,8 +72,11 @@ def test_each_offer_is_logged_separately_and_the_series_shows_consulting(clean_d
                        "WHERE s.day = %s ORDER BY o.slug", (TODAY,))
         assert [tuple(r.values()) for r in cursor.fetchall()] == [("consulting", "prospect", 1),
                                                                    ("learnwohl", "customer", 1)]
-    assert get_series(workspace, "month", today=TODAY)["pipeline"]["organization"] == {
+    assert get_series(workspace, "month", today=TODAY, offer="consulting")["pipeline"]["organization"] == {
         "prospect": {date(2026, 10, 1): 1}}
+    # every offer: the deals added together, stage by stage
+    assert get_series(workspace, "month", today=TODAY)["pipeline"]["organization"] == {
+        "prospect": {date(2026, 10, 1): 1}, "customer": {date(2026, 10, 1): 1}}
 
 
 def test_two_workers_snapshotting_at_once_do_not_collide(clean_database):

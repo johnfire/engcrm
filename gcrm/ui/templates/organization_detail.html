@@ -424,7 +424,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     <ul class="sales-list">
       {% for sale in sales %}
       <li>
-        <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on }}{% if sale.description %} · {{ sale.description }}{% endif %}
+        <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on }}{% if sale.offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}{% if sale.description %} · {{ sale.description }}{% endif %}
         <form method="post" action="/organizations/{{ organization.id }}/sales/{{ sale.id }}/delete" style="display:inline"
               onsubmit="return confirm('{{ t('sales.deleteConfirm') }}')">
           <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
@@ -442,6 +442,13 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       <label>{{ t('sales.wonOn') }}
         <input type="date" name="won_on" required value="{{ today }}" />
       </label>
+      {% if deals %}
+      <label class="record-form__wide">{{ t('sales.forOffer') }}
+        <select name="deal_id">
+          {% for deal in deals %}<option value="{{ deal.id }}">{{ deal.offer_name }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endif %}
       <label class="record-form__wide">{{ t('sales.description') }}
         <input type="text" name="description" maxlength="500" placeholder="{{ t('sales.descriptionPlaceholder') }}" />
       </label>

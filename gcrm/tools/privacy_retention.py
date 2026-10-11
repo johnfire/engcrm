@@ -86,19 +86,31 @@ def erase_person(person_id: int, suppress_reimport: bool = True) -> bool:
     return True
 
 
+# A customer paying a subscription is kept however old or quiet the record is:
+# deleting it would lose a running contract. An erasure request still erases.
+def _paying(owner_column: str, alias: str) -> str:
+    return (
+        "EXISTS (SELECT 1 FROM subscriptions s JOIN deals d ON d.id = s.deal_id "
+        f"WHERE d.{owner_column} = {alias}.id AND d.deleted_at IS NULL AND s.deleted_at IS NULL "
+        "AND (s.ended_on IS NULL OR s.ended_on >= CURRENT_DATE))"
+    )
+
+
 def _purge_expired_people(cursor) -> int:
     """Delete people nobody has touched for PEOPLE_RETENTION_DAYS, plus anything
     already soft-deleted. Only people not linked to an organization: linked ones
-    go with their organization. People marked "keep" are exempt from the age rule.
+    go with their organization. People marked "keep", and people paying a
+    subscription, are exempt from the age rule.
 
     "Touched" is the latest of: created, edited (which includes a re-import),
     last note, last rating, last queued draft, last change to a deal they own."""
     cursor.execute(
-        """
+        f"""
         DELETE FROM people p
         WHERE p.deleted_at IS NOT NULL
            OR (
                 p.contact_id IS NULL AND p.linked_contact_id IS NULL AND NOT p.retention_hold
+                AND NOT {_paying("person_id", "p")}
                 AND GREATEST(
                     p.created_at,
                     p.updated_at,
@@ -136,7 +148,8 @@ def purge_expired_data() -> dict[str, int]:
         cursor.execute("SELECT contact_id FROM consent_log WHERE erasure_requested = TRUE")
         erasure_ids = [row["contact_id"] for row in cursor.fetchall()]
         cursor.execute(
-            "SELECT id FROM contacts WHERE created_at < NOW() - (%s * INTERVAL '1 day')",
+            "SELECT id FROM contacts c WHERE c.created_at < NOW() - (%s * INTERVAL '1 day') "
+            f"AND NOT {_paying('contact_id', 'c')}",
             (CONTACT_RETENTION_DAYS,),
         )
         expired_contact_ids = [row["id"] for row in cursor.fetchall()]

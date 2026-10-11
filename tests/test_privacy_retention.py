@@ -77,7 +77,9 @@ def test_purge_expired_data_erases_organizations_from_creation_date():
     erase_organization.assert_called_once_with(12)
     assert counts["contacts"] == 1
     statements = " ".join(str(call) for call in cursor.execute.call_args_list)
-    assert "SELECT id FROM contacts WHERE created_at" in statements
+    assert "SELECT id FROM contacts c WHERE c.created_at" in statements
+    # a customer paying a subscription is not expired, however old the record
+    assert "AND NOT EXISTS (SELECT 1 FROM subscriptions s" in statements
     assert "matched_contact_id IS NULL" in statements
 
 

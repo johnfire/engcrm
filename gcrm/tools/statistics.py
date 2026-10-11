@@ -11,7 +11,7 @@ from gcrm.activity_types import ACTIVITY_TYPES, DEFAULT_MINUTES, NOT_ACTIVITIES,
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import organization_deal_join, person_deal_join
+from gcrm.tools.db_deals import CONSULTING, offer_id_sql
 
 PERIODS = ("week", "month", "quarter", "year")
 WORKING_STAGES = ("suspect", "prospect", "opportunity")
@@ -78,17 +78,27 @@ def set_minute_defaults(workspace_id: int, minutes: dict[str, int]) -> None:
 
 # --- Sales ---------------------------------------------------------------------
 
-def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str) -> int | None:
-    """Record a sale on an organization of this workspace. None if there is no such organization."""
+def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str,
+             deal_id: int | None = None) -> int | None:
+    """Record a sale on an organization of this workspace, for one of its deals
+    (`deal_id`; its Consulting deal when not given). None if there is no such
+    organization, or the deal is not one of its live deals."""
     if amount_eur <= 0:
         raise ValueError("amount must be more than 0")
+    deal = ("%s" if deal_id is not None else
+            f"(SELECT x.id FROM deals x WHERE x.contact_id = c.id AND x.deleted_at IS NULL "
+            f"AND x.offer_id = {offer_id_sql('c.workspace_id', CONSULTING)})")
+    deal_check = ("AND EXISTS (SELECT 1 FROM deals x WHERE x.id = %s AND x.contact_id = c.id "
+                  "AND x.deleted_at IS NULL)" if deal_id is not None else "")
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sales (workspace_id, contact_id, amount_eur, won_on, description) "
-            "SELECT %s, c.id, %s, %s, %s FROM contacts c "
-            "WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL RETURNING id",
-            (workspace_id, amount_eur, won_on, description.strip() or None, contact_id, workspace_id),
+            "INSERT INTO sales (workspace_id, contact_id, deal_id, amount_eur, won_on, description) "
+            f"SELECT %s, c.id, {deal}, %s, %s, %s FROM contacts c "
+            f"WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL {deal_check} RETURNING id",
+            [workspace_id, *([deal_id] if deal_id is not None else []), amount_eur, won_on,
+             description.strip() or None, contact_id, workspace_id,
+             *([deal_id] if deal_id is not None else [])],
         )
         row = cur.fetchone()
     if row:
@@ -100,8 +110,9 @@ def get_sales(contact_id: int) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, amount_eur, won_on, description FROM sales "
-            "WHERE contact_id = %s AND deleted_at IS NULL ORDER BY won_on DESC, id DESC",
+            "SELECT s.id, s.amount_eur, s.won_on, s.description, o.name AS offer FROM sales s "
+            "LEFT JOIN deals d ON d.id = s.deal_id LEFT JOIN offers o ON o.id = d.offer_id "
+            "WHERE s.contact_id = %s AND s.deleted_at IS NULL ORDER BY s.won_on DESC, s.id DESC",
             (contact_id,),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -122,25 +133,33 @@ def delete_sale(contact_id: int, sale_id: int) -> bool:
 
 # --- The numbers ---------------------------------------------------------------
 
-def activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
+def _offer_sql(workspace_id: int, offer: str) -> str:
+    """The id of `offer` in this workspace, as SQL. The workspace id is the
+    server's own integer, the slug is checked by offer_id_sql."""
+    return offer_id_sql(str(int(workspace_id)), offer)
+
+
+def activities_sql(defaults: dict[str, int], offer: str | None = None, workspace_id: int | None = None) -> tuple[str, list]:
     """A CTE `acts(day, kind, minutes, typed, contact_id)` over both activity logs of
     one workspace: inbound messages and next-step entries (on either log) are not
-    work; a person's activities count towards their organization."""
+    work; a person's activities count towards their organization. With an
+    `offer`, only activities logged as being about it."""
     values = ", ".join("(%s, %s)" for _ in defaults)
     excluded = ", ".join("%s" for _ in NOT_ACTIVITIES)
     plans = ", ".join(f"'{method}'" for method in NOT_ACTIVITIES)  # constants, never input
+    only = f"WHERE raw.offer_id = {_offer_sql(workspace_id, offer)}" if offer else ""
     sql = f"""
         defaults(kind, minutes) AS (VALUES {values}),
         raw AS (
             SELECT i.interaction_date AS day, {type_case_sql('i.method')} AS kind,
-                   i.duration_minutes AS typed, c.id AS contact_id
+                   i.duration_minutes AS typed, c.id AS contact_id, i.offer_id
               FROM interactions i JOIN contacts c ON c.id = i.contact_id
              WHERE i.deleted_at IS NULL AND c.workspace_id = %s
                AND COALESCE(i.direction, '') <> 'inbound'
                AND COALESCE(i.method, '') NOT IN ({plans})
             UNION ALL
             SELECT pi.occurred_at::date, {type_case_sql('pi.method')},
-                   pi.duration_minutes, p.contact_id
+                   pi.duration_minutes, p.contact_id, pi.offer_id
               FROM people_interactions pi JOIN people p ON p.id = pi.person_id
              WHERE pi.deleted_at IS NULL AND p.deleted_at IS NULL AND p.workspace_id = %s
                AND COALESCE(pi.method, '') NOT IN ({excluded})
@@ -149,13 +168,71 @@ def activities_sql(defaults: dict[str, int]) -> tuple[str, list]:
             SELECT raw.day, raw.kind, raw.typed, raw.contact_id,
                    COALESCE(raw.typed, defaults.minutes, 0) AS minutes
               FROM raw LEFT JOIN defaults ON defaults.kind = raw.kind
+             {only}
         )"""
     params = [x for kind, minutes in defaults.items() for x in (kind, minutes)]
     return sql, params
 
 
-def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: date, end: date) -> dict:
+def _sales_offer(workspace_id: int, offer: str | None, column: str = "deal_id") -> str:
+    return (f" AND {column} IN (SELECT id FROM deals WHERE offer_id = {_offer_sql(workspace_id, offer)})"
+            if offer else "")
+
+
+def subscription_revenue(cur, workspace_id: int, start: date, end: date, offer: str | None,
+                         today: date) -> Decimal:
+    """What the subscriptions earned in [start, end], up to `today`: €/month ×
+    each day they ran ÷ the days in that day's month. Calculated, not paid."""
+    last = min(end, today)
+    if last < start:
+        return Decimal("0")
+    cur.execute(
+        "SELECT COALESCE(SUM(s.amount_eur_month / EXTRACT(DAY FROM (date_trunc('month', d) "
+        "+ interval '1 month' - interval '1 day'))), 0) AS revenue FROM subscriptions s "
+        "CROSS JOIN LATERAL generate_series(GREATEST(s.started_on, %s::date), "
+        "LEAST(COALESCE(s.ended_on, %s::date), %s::date), interval '1 day') AS d "
+        f"WHERE s.workspace_id = %s AND s.deleted_at IS NULL{_sales_offer(workspace_id, offer, 's.deal_id')}",
+        (start, last, last, workspace_id),
+    )
+    return Decimal(cur.fetchone()["revenue"]).quantize(Decimal("0.01"))
+
+
+def _mrr_moves(cur, workspace_id: int, start: date, end: date, offer: str | None) -> dict:
+    """New MRR (subscriptions starting with nothing running the day before on that
+    deal) and lost MRR (ending with nothing starting the next day): a price
+    change is neither."""
+    scope = _sales_offer(workspace_id, offer, "s.deal_id")
+    cur.execute(
+        "SELECT "
+        " COALESCE(SUM(s.amount_eur_month) FILTER (WHERE s.started_on BETWEEN %s AND %s AND NOT EXISTS ("
+        "   SELECT 1 FROM subscriptions b WHERE b.deal_id = s.deal_id AND b.deleted_at IS NULL "
+        "   AND b.ended_on = s.started_on - 1)), 0) AS new_mrr, "
+        " COALESCE(SUM(s.amount_eur_month) FILTER (WHERE s.ended_on BETWEEN %s AND %s AND NOT EXISTS ("
+        "   SELECT 1 FROM subscriptions a WHERE a.deal_id = s.deal_id AND a.deleted_at IS NULL "
+        "   AND a.started_on = s.ended_on + 1)), 0) AS lost_mrr "
+        f"FROM subscriptions s WHERE s.workspace_id = %s AND s.deleted_at IS NULL{scope}",
+        (start, end, start, end, workspace_id),
+    )
+    row = cur.fetchone()
+    return {"new_mrr": Decimal(row["new_mrr"]), "lost_mrr": Decimal(row["lost_mrr"])}
+
+
+def mrr_now(cur, workspace_id: int, offer: str | None, today: date) -> dict:
+    """The monthly recurring revenue running today, and how many deals pay it."""
+    cur.execute(
+        "SELECT COALESCE(SUM(s.amount_eur_month), 0) AS mrr, COUNT(DISTINCT s.deal_id) AS subscribers "
+        "FROM subscriptions s WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND s.started_on <= %s "
+        f"AND (s.ended_on IS NULL OR s.ended_on >= %s){_sales_offer(workspace_id, offer, 's.deal_id')}",
+        (workspace_id, today, today),
+    )
+    row = cur.fetchone()
+    return {"mrr": Decimal(row["mrr"]), "subscribers": row["subscribers"]}
+
+
+def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: date, end: date,
+             offer: str | None = None, today: date | None = None) -> dict:
     """The headline figures for one period, used for both the period and the one before."""
+    today = today or date.today()
     cur.execute(
         f"WITH {acts_sql} SELECT kind, COUNT(*) AS n, SUM(minutes) AS minutes, "
         "COUNT(*) FILTER (WHERE typed IS NULL AND minutes > 0) AS estimated "
@@ -168,14 +245,17 @@ def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: da
                      "estimated": by_kind.get(kind, {}).get("estimated", 0)} for kind in ACTIVITY_TYPES}
     cur.execute(
         "SELECT COALESCE(SUM(amount_eur), 0) AS won, COUNT(*) AS sales FROM sales "
-        "WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s",
+        f"WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s{_sales_offer(workspace_id, offer)}",
         (workspace_id, start, end),
     )
     money = cur.fetchone()
+    subscriptions = subscription_revenue(cur, workspace_id, start, end, offer, today)
+    moves = _mrr_moves(cur, workspace_id, start, end, offer)
     cur.execute(
         "SELECT entity_type, from_stage, to_stage, COUNT(*) AS n FROM stage_changes "
         "WHERE workspace_id = %s AND changed_at::date BETWEEN %s AND %s "
-        "GROUP BY entity_type, from_stage, to_stage ORDER BY n DESC",
+        + (f"AND offer_id = {_offer_sql(workspace_id, offer)} " if offer else "")
+        + "GROUP BY entity_type, from_stage, to_stage ORDER BY n DESC",
         (workspace_id, start, end),
     )
     changes = [{**dict(row), "direction": stage_direction(row["from_stage"], row["to_stage"])}
@@ -190,7 +270,8 @@ def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: da
     new = cur.fetchone()
     minutes = sum(e["minutes"] for e in effort.values())
     activities = sum(e["count"] for kind, e in effort.items() if kind != "note")
-    won = Decimal(money["won"])
+    one_off = Decimal(money["won"])
+    won = one_off + subscriptions
     return {
         "effort": effort,
         "activities": activities,
@@ -198,6 +279,10 @@ def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: da
         "hours": round(minutes / 60, 1),
         "estimated": sum(e["estimated"] for e in effort.values()),
         "won_eur": won,
+        "one_off_eur": one_off,
+        "subscription_eur": subscriptions,
+        "new_mrr": moves["new_mrr"],
+        "lost_mrr": moves["lost_mrr"],
         "sales": money["sales"],
         "eur_per_hour": round(won / Decimal(minutes) * 60, 2) if minutes else None,
         "stage_changes": changes,
@@ -216,17 +301,22 @@ def stage_direction(from_stage: str | None, to_stage: str | None) -> str:
     return "other"
 
 
-def get_statistics(workspace_id: int, start: date, end: date, today: date | None = None) -> dict:
-    """Everything the Statistics page shows for [start, end]."""
+def get_statistics(workspace_id: int, start: date, end: date, today: date | None = None,
+                   offer: str | None = None) -> dict:
+    """Everything the Statistics page shows for [start, end] — for one offer, or
+    for every offer when `offer` is None. New contacts are counted either way:
+    a contact is not created for an offer."""
     today = today or date.today()
     defaults = get_minute_defaults(workspace_id)
-    acts_sql, acts_params = activities_sql(defaults)
+    acts_sql, acts_params = activities_sql(defaults, offer, workspace_id)
     base = acts_params + [workspace_id, workspace_id, *NOT_ACTIVITIES]
     prev_start, prev_end = previous_period(start, end)
+    only = f"AND d.offer_id = {_offer_sql(workspace_id, offer)} " if offer else ""
     with db() as conn:
         cur = conn.cursor()
-        current = _summary(cur, acts_sql, acts_params, workspace_id, start, end)
-        previous = _summary(cur, acts_sql, acts_params, workspace_id, prev_start, prev_end)
+        current = _summary(cur, acts_sql, acts_params, workspace_id, start, end, offer, today)
+        previous = _summary(cur, acts_sql, acts_params, workspace_id, prev_start, prev_end, offer, today)
+        recurring = mrr_now(cur, workspace_id, offer, today)
 
         cur.execute(
             f"WITH {acts_sql} SELECT date_trunc('week', day)::date AS week, COUNT(*) FILTER "
@@ -249,12 +339,12 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         new_by_source = [dict(row) for row in cur.fetchall()]
 
         cur.execute(
-            "SELECT 'organization' AS kind, d.pipeline_stage AS stage, COUNT(*) AS n FROM contacts c"
-            + organization_deal_join("c", "d")
-            + "WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.id IS NOT NULL GROUP BY 2 UNION ALL "
-            "SELECT 'person', d.pipeline_stage, COUNT(*) FROM people p" + person_deal_join("p", "d")
-            + "WHERE p.workspace_id = %s AND p.deleted_at IS NULL AND d.id IS NOT NULL GROUP BY 2",
-            (workspace_id, workspace_id),
+            "SELECT CASE WHEN d.contact_id IS NOT NULL THEN 'organization' ELSE 'person' END AS kind, "
+            "d.pipeline_stage AS stage, COUNT(*) AS n FROM deals d "
+            "LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id "
+            "WHERE d.workspace_id = %s AND d.deleted_at IS NULL AND c.deleted_at IS NULL AND p.deleted_at IS NULL "
+            f"{only}GROUP BY 1, 2",
+            (workspace_id,),
         )
         stages_now = {"organization": {}, "person": {}}
         for row in cur.fetchall():
@@ -262,10 +352,11 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
 
         cur.execute(
             f"WITH {acts_sql}, last AS (SELECT contact_id, MAX(day) AS last_day FROM acts GROUP BY contact_id) "
-            "SELECT c.id, c.name, d.pipeline_stage, last.last_day FROM contacts c "
-            f"{organization_deal_join('c', 'd')} "
+            "SELECT c.id, c.name, d.pipeline_stage, o.name AS offer, last.last_day FROM deals d "
+            "JOIN contacts c ON c.id = d.contact_id JOIN offers o ON o.id = d.offer_id "
             "LEFT JOIN last ON last.contact_id = c.id "
-            "WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.pipeline_stage = ANY(%s) "
+            f"WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.deleted_at IS NULL {only}"
+            "AND d.pipeline_stage = ANY(%s) "
             "AND (last.last_day IS NULL OR last.last_day < %s) "
             "ORDER BY last.last_day ASC NULLS FIRST, c.name LIMIT 25",
             base + [workspace_id, list(WORKING_STAGES), today - timedelta(days=STUCK_AFTER_DAYS)],
@@ -276,10 +367,11 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
             f"""WITH {acts_sql},
             s AS (
                 SELECT s.id, s.contact_id, s.amount_eur, s.won_on, s.description, c.name AS organization,
-                       c.created_at::date AS added_on,
+                       c.created_at::date AS added_on, o.name AS offer,
                        LAG(s.won_on) OVER (PARTITION BY s.contact_id ORDER BY s.won_on, s.id) AS previous_won
                   FROM sales s JOIN contacts c ON c.id = s.contact_id
-                 WHERE s.workspace_id = %s AND s.deleted_at IS NULL
+                  LEFT JOIN deals x ON x.id = s.deal_id LEFT JOIN offers o ON o.id = x.offer_id
+                 WHERE s.workspace_id = %s AND s.deleted_at IS NULL{_sales_offer(workspace_id, offer, "s.deal_id")}
             )
             SELECT s.*,
                    LEAST((SELECT MIN(day) FROM acts a WHERE a.contact_id = s.contact_id), s.added_on) AS first_contact,
@@ -304,5 +396,6 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         "start": start, "end": end, "previous_start": prev_start, "previous_end": prev_end,
         "current": current, "previous": previous, "weeks": weeks, "new_by_source": new_by_source,
         "stages_now": stages_now, "stuck": stuck, "stuck_after_days": STUCK_AFTER_DAYS,
-        "sales": sales, "defaults": defaults,
+        "sales": sales, "defaults": defaults, "offer": offer,
+        "mrr_now": recurring["mrr"], "subscribers_now": recurring["subscribers"],
     }

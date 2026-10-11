@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 
 from gcrm.activity_types import ACTIVITY_TYPES, ORGANIZATION_METHODS, parse_minutes
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import eur, templates
 from gcrm.charts import bar_chart, spark
@@ -102,18 +103,20 @@ def statistics_page(
     start: str = Query(default=""),
     end: str = Query(default=""),
     trend: str = Query(default="month"),
+    offer: str | None = Query(default=None),
     saved: bool = Query(default=False),
 ):
     period, first, last = _period(period, start, end, date.today())
     trend = trend if trend in BUCKETS else "month"
     workspace_id = _workspace_id(request)
-    stats = get_statistics(workspace_id, first, last)
+    active_offer, offers = web_offer_filter(request, offer)
+    stats = get_statistics(workspace_id, first, last, offer=active_offer)
     lang = request.session.get("ui_language", DEFAULT_LANGUAGE)
-    trends = _trend_charts(get_series(workspace_id, trend), lang)
+    trends = _trend_charts(get_series(workspace_id, trend, offer=active_offer), lang)
     return templates.TemplateResponse("statistics.html", {
         "request": request, "stats": stats, "period": period, "periods": PERIODS,
         "activity_types": ACTIVITY_TYPES, "saved": saved, "trend": trend, "trends": trends,
-        "buckets": list(BUCKETS),
+        "buckets": list(BUCKETS), "offers": offers, "active_offer": active_offer,
     })
 
 
@@ -139,12 +142,15 @@ def record_sale(
     amount_eur: str = Form(...),
     won_on: str = Form(...),
     description: str = Form(""),
+    deal_id: int | None = Form(None),
     _admin: str = Depends(require_admin),
 ):
+    """Record a one-off sale for one of the organization's deals (Consulting's
+    when the form names none)."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
         when = date.fromisoformat(won_on)
-        sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500])
+        sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id)
     except (InvalidOperation, ValueError):
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
     if sale_id is None:

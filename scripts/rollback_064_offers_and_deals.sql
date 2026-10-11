@@ -6,7 +6,7 @@
 --   sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d gcrm -v ON_ERROR_STOP=1' \
 --       < rollback_064_offers_and_deals.sql
 --
--- Nothing is lost: each organization's and person's Consulting deal is copied
+-- No stage is lost: each organization's and person's Consulting deal is copied
 -- back into the columns the old code reads, including every stage change made
 -- since the deploy. Deals for other offers (LearnWohl, LeGuild.art, ...) have
 -- nowhere to go in the old schema and are dropped with the deals table: back
@@ -14,10 +14,16 @@
 -- schema_migrations forgets 064, so the next deploy of the new code runs it
 -- again and rebuilds the deals from the restored columns.
 --
--- Migration 065 (which offer a log entry or draft is about) points at offers,
--- so it is undone first, when it has been applied. Log entries keep their text;
--- only the offer they were tagged with is lost.
+-- Migrations 066 (subscriptions, sales on deals) and 065 (which offer a log
+-- entry or draft is about) point at deals and offers, so they are undone first,
+-- when applied. Sales and log entries stay; the deal and offer they were tied
+-- to are lost, and so are SUBSCRIPTIONS — back them up first
+-- (pg_dump -t subscriptions).
 BEGIN;
+
+DROP TABLE IF EXISTS subscriptions;
+ALTER TABLE sales DROP COLUMN IF EXISTS deal_id;
+DELETE FROM schema_migrations WHERE migration_name = '066_subscriptions_and_deal_sales.sql';
 
 ALTER TABLE interactions        DROP COLUMN IF EXISTS offer_id;
 ALTER TABLE people_interactions DROP COLUMN IF EXISTS offer_id;

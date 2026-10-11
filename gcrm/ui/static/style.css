@@ -1367,3 +1367,6 @@ main.statistics-page { max-width: none; }
 .stage-form + .stage-form, .deal-status + .deal-status { margin-top: 0.25rem; }
 .deal-offer-label { display: block; font-size: 0.75em; color: var(--muted); line-height: 1.2; }
 .log-offer { color: var(--accent); }
+.deal-card__money p { margin: 0 0 0.3rem; }
+.deal-card__mrr strong { color: var(--accent-bright); }
+.deal-card__subscription summary { cursor: pointer; font-size: 0.9em; color: var(--muted); }
