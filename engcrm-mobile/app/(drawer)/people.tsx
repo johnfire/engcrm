@@ -16,6 +16,10 @@ import { PIPELINE_STAGES, stageLabelKey } from "../../services/organizationState
 import { usePagedList } from "../../services/usePagedList";
 import { ChipRow, FilterChip } from "../../components/FilterChips";
 import { useTranslation } from "../../i18n/I18nContext";
+import { DealChips } from "../../components/DealChips";
+import { OfferFilterChips } from "../../components/OfferFilterChips";
+import { useOfferFilter } from "../../hooks/useOfferFilter";
+import { ALL_OFFERS } from "../../services/deals";
 import { linkedinLabel, openWebsite } from "../../services/webLinks";
 
 const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string }[] = [
@@ -52,10 +56,14 @@ export default function PeopleScreen() {
   const [sort, setSort] = useState<PersonSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
+  const { offer, offers, choose: chooseOffer } = useOfferFilter();
+
   const fetchPage = useCallback(
     (page: number): Promise<Person[]> =>
-      fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, page }),
-    [search, sort, dir, stage, linkedin, rating],
+      offer === null
+        ? Promise.resolve([]) // the remembered offer is still being read
+        : fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, offer, page }),
+    [search, sort, dir, stage, linkedin, rating, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(fetchPage, PEOPLE_PAGE_SIZE);
 
@@ -95,6 +103,7 @@ export default function PeopleScreen() {
         )}
       </View>
 
+      {offer !== null && <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />}
       <ChipRow label={t("common.pipelineStage")}>
         {STAGE_FILTERS.map((filter) => (
           <FilterChip
@@ -139,7 +148,7 @@ export default function PeopleScreen() {
         ))}
       </ChipRow>
 
-      {loading ? (
+      {loading || offer === null ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>
@@ -150,6 +159,7 @@ export default function PeopleScreen() {
           renderItem={({ item }) => (
             <PersonRow
               person={item}
+              showOffer={offer === ALL_OFFERS}
               onPress={(id) => router.push({ pathname: "/(drawer)/person-detail", params: { id: String(id) } })}
             />
           )}
@@ -170,11 +180,12 @@ export default function PeopleScreen() {
 // A row opens the person; when they have a LinkedIn profile, its own button opens
 // that straight away (in the LinkedIn app when installed, where Message is), so a
 // list of candidates can be worked through without opening each record.
-function PersonRow({ person, onPress }: { person: Person; onPress: (id: number) => void }) {
+function PersonRow({ person, onPress, showOffer }: { person: Person; onPress: (id: number) => void; showOffer: boolean }) {
   const { t } = useTranslation();
   const subtitle = [person.title, person.company].filter(Boolean).join(" · ");
   const meta = [`#${person.id}`, person.city, person.email].filter(Boolean).join("  ·  ");
-  const shownStage = person.pipeline_stage ?? null;
+  // Its deals when the server sent them; an older server sent the Consulting stage alone.
+  const shownStage = person.deals ? null : (person.pipeline_stage ?? null);
   const profile = linkedinLabel(person.linkedin_url);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(person.id)}>
@@ -192,6 +203,7 @@ function PersonRow({ person, onPress }: { person: Person; onPress: (id: number) 
           </Text>
         )}
       </View>
+      <DealChips deals={person.deals} showOffer={showOffer} />
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!meta && <Text style={styles.meta}>{meta}</Text>}
       {!!profile && (

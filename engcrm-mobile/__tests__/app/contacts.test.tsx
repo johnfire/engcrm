@@ -10,6 +10,16 @@ jest.mock("../../services/contact-feed", () => ({
   fetchContactFeed: (...args: unknown[]) => mockFetch(...args),
   fetchContactCounts: () => Promise.reject(new Error("counts are optional")),
 }));
+const mockSetOfferFilter = jest.fn();
+jest.mock("../../services/deals", () => ({
+  ...jest.requireActual("../../services/deals"),
+  fetchOffers: () => Promise.resolve([
+    { id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" },
+    { id: 2, slug: "learnwohl", name: "LearnWohl", website: null, revenue_kind: "subscription" },
+  ]),
+  getOfferFilter: () => Promise.resolve("all"),
+  setOfferFilter: (...args: unknown[]) => mockSetOfferFilter(...args),
+}));
 jest.mock("expo-router", () => {
   const React = jest.requireActual("react");
   return {
@@ -35,7 +45,7 @@ it("shows both contact types and opens their correct detail screen even with the
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByLabelText("Person: Ann Example")).toBeTruthy());
   expect(screen.getByLabelText("Organization: Academy")).toBeTruthy();
-  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", page: 1 });
+  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", page: 1, offer: "all" });
   fireEvent.press(screen.getByLabelText("Person: Ann Example"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "1" } });
   fireEvent.press(screen.getByLabelText("Organization: Academy"));
@@ -49,7 +59,15 @@ it("combines search, contact type and stage and changes sort without losing filt
   fireEvent.press(screen.getByText("People without business"));
   fireEvent.press(screen.getAllByText("Candidate")[0]);
   fireEvent.press(screen.getByText("Name"));
-  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", page: 1 }));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", page: 1, offer: "all" }));
+});
+
+it("shows one offer's pipeline when picked, and remembers the choice", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("LearnWohl")).toBeTruthy());
+  fireEvent.press(screen.getByText("LearnWohl"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ offer: "learnwohl" })));
+  expect(mockSetOfferFilter).toHaveBeenCalledWith("learnwohl");
 });
 
 it("loads another page without dropping people who share an organization ID", async () => {

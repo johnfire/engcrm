@@ -6,6 +6,9 @@ import { ContactCountsStrip } from "../../components/contact-counts";
 import { ContactFeedRow } from "../../components/contact-feed-row";
 import { ContactFeedControls } from "../../components/contact-feed-controls";
 import { useTranslation } from "../../i18n/I18nContext";
+import { OfferFilterChips } from "../../components/OfferFilterChips";
+import { useOfferFilter } from "../../hooks/useOfferFilter";
+import { ALL_OFFERS } from "../../services/deals";
 import { CONTACT_FEED_PAGE_SIZE, ContactKind, ContactSort, contactKey, fetchContactFeed } from "../../services/contact-feed";
 import { useAdminRole } from "../../services/use-admin-role";
 import { usePagedList } from "../../services/usePagedList";
@@ -18,21 +21,25 @@ export default function ContactsScreen() {
   const [kind, setKind] = useState<ContactKind | "">("");
   const [stage, setStage] = useState("");
   const [sort, setSort] = useState<ContactSort>("last_contact");
-  const fetchPage = useCallback((page: number) => fetchContactFeed({ search, kind, stage, sort, page }),
-    [search, kind, stage, sort]);
+  const { offer, offers, choose: chooseOffer } = useOfferFilter();
+  const fetchPage = useCallback((page: number) => offer === null
+    ? Promise.resolve([]) // the remembered offer is still being read
+    : fetchContactFeed({ search, kind, stage, sort, page, offer }),
+    [search, kind, stage, sort, offer]);
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(fetchPage, CONTACT_FEED_PAGE_SIZE, contactKey);
   useFocusEffect(useCallback(() => { void reload(); }, [reload]));
 
   return (
     <View style={styles.container}>
       <AddBusinessButton isAdmin={!!isAdmin} />
-      <ContactCountsStrip />
+      <ContactCountsStrip offer={offer} />
+      {offer !== null && <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />}
       <ContactFeedControls search={search} kind={kind} stage={stage} sort={sort}
         onSearchChange={setSearch} onKindChange={setKind} onStageChange={setStage} onSortChange={setSort} onSubmit={reload} />
       {error && <Text style={styles.message}>{t("common.couldntLoadRefresh")}</Text>}
-      {loading ? <ActivityIndicator style={styles.loading} color="#7c6fff" /> : <FlatList
+      {loading || offer === null ? <ActivityIndicator style={styles.loading} color="#7c6fff" /> : <FlatList
         data={items} keyExtractor={contactKey} contentContainerStyle={styles.list}
-        renderItem={({ item: contact }) => <ContactFeedRow contact={contact} canEdit={!!isAdmin} onPress={() => router.push({
+        renderItem={({ item: contact }) => <ContactFeedRow contact={contact} canEdit={!!isAdmin} showOffer={offer === ALL_OFFERS} onPress={() => router.push({
           pathname: contact.kind === "person" ? "/(drawer)/person-detail" : "/(drawer)/organization-detail",
           params: { id: String(contact.id) },
         })} />}

@@ -2,6 +2,7 @@ import axios from "axios";
 import { router } from "expo-router";
 import { clearToken, getToken } from "./auth";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
+import type { DealChip } from "./deals";
 
 export const API_BASE = "https://engcrm.christopherrehm.de";
 
@@ -163,6 +164,7 @@ export async function fetchOrganizations(params: {
   personal_priority?: string;
   linkedin?: string; // "1": organizations where I know someone on LinkedIn
   suppressed?: string; // a suppression flag, e.g. "do_not_contact"
+  offer?: string; // an offer's slug: that pipeline only; "all": every offer, each deal in `deals`
 }): Promise<Organization[]> {
   const resp = await client.get("/api/contacts", { params });
   return resp.data;
@@ -458,6 +460,8 @@ export interface InboxMessage {
 }
 
 export interface Organization {
+  /** Its deals for the offer the list asked for, or every offer's. */
+  deals?: DealChip[];
   id: number;
   name: string;
   city: string;
@@ -738,6 +742,7 @@ export async function fetchPeople(params: {
   // My rating: "1".."5" exactly, "2+" / "3+" that rating or better (1 is best), "unrated"
   value_rating?: string;
   page?: number; // omit for the whole list
+  offer?: string; // an offer's slug: that pipeline only; "all": everyone, each deal in `deals`
 } = {}): Promise<Person[]> {
   const resp = await client.get("/api/people", { params });
   return resp.data;
@@ -748,6 +753,8 @@ export async function fetchPerson(id: number): Promise<Person> {
 }
 
 export interface Person {
+  /** Its deals for the offer the list asked for, or every offer's. */
+  deals?: DealChip[];
   id: number;
   name: string;
   title: string | null;
@@ -802,8 +809,11 @@ export async function addPersonNote(
   note: string,
   method: string | null,
   durationMinutes: number | null = null, // how long it took; blank uses the type's default
+  offer?: string, // what it was about: an offer's slug or "general"; absent: the server picks
 ): Promise<{ id: number }> {
-  const resp = await client.post(`/api/people/${personId}/notes`, { note, method, duration_minutes: durationMinutes });
+  const resp = await client.post(`/api/people/${personId}/notes`, {
+    note, method, duration_minutes: durationMinutes, ...(offer ? { offer } : {}),
+  });
   return resp.data;
 }
 
@@ -819,6 +829,7 @@ export async function addOrganizationNote(
     follow_up_date: string | null; // YYYY-MM-DD
     follow_up_text: string | null;
     duration_minutes?: number | null; // how long it took; blank uses the type's default
+    offer?: string; // what it was about: an offer's slug or "general"; absent: the server picks
   },
 ): Promise<{ id: number; follow_up_date: string | null }> {
   const resp = await client.post(`/api/contacts/${id}/notes`, note);
@@ -878,7 +889,7 @@ export type OrganizationFields = Partial<
     | "decision_maker" | "preferred_contact_method" | "notes",
     string
   >
-> & { do_not_contact?: boolean; pipeline_stage?: PipelineStage };
+> & { do_not_contact?: boolean; pipeline_stage?: PipelineStage; offer?: string };
 
 export type PersonFields = Partial<
   Record<
@@ -898,7 +909,7 @@ export async function editOrganization(id: number, changed: OrganizationFields):
 }
 
 export async function createPerson(
-  fields: PersonFields & { contact_id?: number; pipeline_stage?: PipelineStage },
+  fields: PersonFields & { contact_id?: number; pipeline_stage?: PipelineStage; offer?: string },
 ): Promise<{ id: number }> {
   const resp = await client.post("/api/people", fields);
   return resp.data;

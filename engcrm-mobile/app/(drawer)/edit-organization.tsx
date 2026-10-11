@@ -14,6 +14,8 @@ import { getRole } from "../../services/auth";
 import { notifyChanged, organizationKey } from "../../services/refreshBus";
 import { ORGANIZATION_FIELDS } from "../../services/recordFields";
 import { BusinessStagePicker } from "../../components/business-stage-picker";
+import { OfferPicker } from "../../components/OfferPicker";
+import { useCreationOffer } from "../../hooks/useCreationOffer";
 import { PipelineStage } from "../../services/organizationState";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -41,6 +43,7 @@ export default function EditOrganizationScreen() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [stage, setStage] = useState<PipelineStage>("candidate");
+  const creationOffer = useCreationOffer();
   const [error, setError] = useState<string | null>(null);
   const [doNotContact, setDoNotContact] = useState<boolean | null>(null);
 
@@ -97,7 +100,8 @@ export default function EditOrganizationScreen() {
     }
     try {
       if (id === null) {
-        const created = await createOrganization({ ...body, pipeline_stage: stage });
+        const created = await createOrganization({ ...body, pipeline_stage: stage, offer: creationOffer.sent });
+        void creationOffer.remember();
         goToDetail(created.id);
       } else {
         await editOrganization(id, body);
@@ -156,6 +160,10 @@ export default function EditOrganizationScreen() {
       extraChange={id !== null && doNotContact !== !!organization?.do_not_contact}
       onSubmit={save}
     >
+      {id === null && (
+        <OfferPicker offers={creationOffer.offers} value={creationOffer.offer} onChange={creationOffer.choose}
+          label={t("offerFilter.label")} disabled={saving} />
+      )}
       {id === null && <BusinessStagePicker stage={stage} disabled={saving} onChange={setStage} />}
       {id !== null && (
         <View style={styles.switchRow}>

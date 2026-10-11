@@ -32,6 +32,26 @@ jest.mock("../../services/api", () => ({
   transcribePersonNote: (...a: any[]) => mockTranscribePerson(...a),
 }));
 
+// The note's offer and the deal it moves (one deal per offer pitched).
+const mockFetchDeals = jest.fn();
+const mockChangeDeal = jest.fn();
+const mockSetDealNextStep = jest.fn();
+jest.mock("../../services/deals", () => ({
+  ...jest.requireActual("../../services/deals"),
+  fetchOffers: () => Promise.resolve([
+    { id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" },
+    { id: 2, slug: "learnwohl", name: "LearnWohl", website: null, revenue_kind: "subscription" },
+  ]),
+  fetchDeals: (...a: any[]) => mockFetchDeals(...a),
+  changeDeal: (...a: any[]) => mockChangeDeal(...a),
+  setDealNextStep: (...a: any[]) => mockSetDealNextStep(...a),
+}));
+const deal = (id: number, owner: "organization" | "person", pipeline_stage: string, status = "none") => ({
+  id, offer_id: 1, offer_slug: "consulting", offer_name: "Consulting", revenue_kind: "one_off", offer_archived: false,
+  contact_id: owner === "organization" ? 42 : null, person_id: owner === "person" ? 7 : null,
+  pipeline_stage, status, next_step: null, next_step_date: null, contact_person_id: null, contact_person_name: null,
+});
+
 const mockGetRole = jest.fn();
 jest.mock("../../services/auth", () => ({ getRole: (...a: any[]) => mockGetRole(...a) }));
 
@@ -71,6 +91,8 @@ function setup(kind: "organization" | "person" = "organization", role = "admin")
   mockGetRole.mockResolvedValue(role);
   mockFetchOrg.mockResolvedValue(ORG);
   mockFetchPerson.mockResolvedValue(PERSON);
+  mockFetchDeals.mockImplementation(async (owner: string) =>
+    owner === "organization" ? [deal(70, "organization", "candidate")] : [deal(90, "person", "candidate")]);
   return render(<LogMeetingScreen />);
 }
 
@@ -86,6 +108,7 @@ describe("log a meeting — organization", () => {
     mockCanGoBack.mockReturnValue(true);
     mockAddOrgNote.mockResolvedValue({ id: 1, follow_up_date: null });
     mockUpdateState.mockResolvedValue({ pipeline_stage: "suspect", status: "ready", typical: true });
+    mockChangeDeal.mockResolvedValue(deal(70, "organization", "suspect", "ready"));
   });
 
   it("saves a note, a follow-up and a stage change with one tap, then goes back", async () => {
@@ -107,10 +130,12 @@ describe("log a meeting — organization", () => {
       follow_up_date: dateInDays(7),
       follow_up_text: "send quote",
       duration_minutes: null,
+      offer: "consulting", // its one open deal's offer, picked for you
     });
-    expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "suspect", status: "ready" });
+    expect(mockChangeDeal).toHaveBeenCalledWith(70, { stage: "suspect", status: "ready" });
+    expect(mockUpdateState).not.toHaveBeenCalled();
     // the note is sent first, so a failing stage change can never lose it
-    expect(mockAddOrgNote.mock.invocationCallOrder[0]).toBeLessThan(mockUpdateState.mock.invocationCallOrder[0]);
+    expect(mockAddOrgNote.mock.invocationCallOrder[0]).toBeLessThan(mockChangeDeal.mock.invocationCallOrder[0]);
     expect(changed).toHaveBeenCalledTimes(1); // the screen underneath reloads
     expect(Object.keys(store)).toEqual([]); // the draft is gone
     off();
@@ -121,11 +146,12 @@ describe("log a meeting — organization", () => {
     await typeNote(screen, "Quick call, no news");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddOrgNote).toHaveBeenCalledWith(42, {
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({
       note: "Quick call, no news", method: null, follow_up_date: null, follow_up_text: null,
       duration_minutes: null,
     });
-    expect(mockUpdateState).not.toHaveBeenCalled();
+    expect(mockChangeDeal).not.toHaveBeenCalled();
   });
 
   it("ignores follow-up text when no follow-up date is chosen", async () => {
@@ -146,7 +172,7 @@ describe("log a meeting — organization", () => {
     fireEvent.press(screen.getByText("Save stage change"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddOrgNote).not.toHaveBeenCalled();
-    expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "prospect", status: "contacted" });
+    expect(mockChangeDeal).toHaveBeenCalledWith(70, { stage: "prospect", status: "contacted" });
   });
 
   it("will not save when there is nothing to save", async () => {
@@ -154,7 +180,7 @@ describe("log a meeting — organization", () => {
     await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
     fireEvent.press(screen.getByText("Save note"));
     expect(mockAddOrgNote).not.toHaveBeenCalled();
-    expect(mockUpdateState).not.toHaveBeenCalled();
+    expect(mockChangeDeal).not.toHaveBeenCalled();
     expect(mockBack).not.toHaveBeenCalled();
   });
 
@@ -174,7 +200,7 @@ describe("log a meeting — organization", () => {
   });
 
   it("if the note saved but the stage change failed, says so and retries only the stage", async () => {
-    mockUpdateState.mockRejectedValueOnce(new Error("boom"));
+    mockChangeDeal.mockRejectedValueOnce(new Error("boom"));
     const screen = setup();
     await typeNote(screen, "Met them");
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
@@ -186,7 +212,7 @@ describe("log a meeting — organization", () => {
     fireEvent.press(screen.getByText("Retry stage change"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddOrgNote).toHaveBeenCalledTimes(1);
-    expect(mockUpdateState).toHaveBeenCalledTimes(2);
+    expect(mockChangeDeal).toHaveBeenCalledTimes(2);
   });
 
   it("restores an unsent note, and shows it was restored", async () => {
@@ -224,6 +250,17 @@ describe("log a meeting — organization", () => {
     }));
   });
 
+  it("a note can be about another offer, or general, and then moves no deal", async () => {
+    const screen = setup();
+    await typeNote(screen, "Asked about the language app");
+    fireEvent.press(await screen.findByLabelText("LearnWohl"));
+    expect(screen.queryByLabelText("Suspect")).toBeNull(); // not pitched LearnWohl yet: no stage to move
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ offer: "learnwohl" });
+    expect(mockChangeDeal).not.toHaveBeenCalled();
+  });
+
   it("is for the admin only", async () => {
     const screen = setup("organization", "viewer");
     await waitFor(() => expect(screen.getByText("Only the admin can log notes.")).toBeTruthy());
@@ -237,6 +274,7 @@ describe("log a meeting — person", () => {
     for (const k of Object.keys(store)) delete store[k];
     mockCanGoBack.mockReturnValue(true);
     mockAddPersonNote.mockResolvedValue({ id: 1 });
+    mockChangeDeal.mockResolvedValue(deal(90, "person", "prospect", "contacted"));
   });
 
   it("saves a person note using the person vocabulary and tells the person screen to reload", async () => {
@@ -247,7 +285,7 @@ describe("log a meeting — person", () => {
     fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit", null);
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit", null, "consulting");
     expect(mockAddOrgNote).not.toHaveBeenCalled();
     expect(changed).toHaveBeenCalledTimes(1);
     off();
@@ -260,44 +298,48 @@ describe("log a meeting — person", () => {
     fireEvent.changeText(screen.getByLabelText("Minutes"), "40");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Video call with Anna", "video", 40);
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Video call with Anna", "video", 40, "consulting");
   });
 
-  it("offers the person's stage and a next step", async () => {
-    mockUpdatePersonStage.mockResolvedValue({ pipeline_stage: "prospect" });
+  it("offers the stage of the person's deal and a next step, saved with the note", async () => {
     const screen = setup("person");
-    await waitFor(() => expect(screen.getByText("Their organization: Suspect")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
     expect(screen.getByText("Next step")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Prospect"));
-    await waitFor(() => expect(mockUpdatePersonStage).toHaveBeenCalledWith(7, "prospect"));
+    fireEvent.press(screen.getByText("Save stage change"));
+    await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(90, { stage: "prospect", status: "contacted" }));
+    expect(mockUpdatePersonStage).not.toHaveBeenCalled();
   });
 
   it("a person's follow-up becomes their next step, saved after the note", async () => {
-    mockSetNextStep.mockResolvedValue({ next_step: "Invite to coffee", next_step_date: dateInDays(7), logged: true });
+    mockSetDealNextStep.mockResolvedValue({ next_step: "Invite to coffee", next_step_date: dateInDays(7), logged: true });
     const screen = setup("person");
     await typeNote(screen, "Met at the fair");
     fireEvent.press(screen.getByLabelText("1 week"));
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Invite to coffee");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null);
-    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Invite to coffee", dateInDays(7));
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null, "consulting");
+    // on the deal the note is about
+    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Invite to coffee", dateInDays(7));
   });
 
   it("can set only a next step, with no note", async () => {
-    mockSetNextStep.mockResolvedValue({ next_step: "Follow up", next_step_date: dateInDays(1), logged: true });
+    mockSetDealNextStep.mockResolvedValue({ next_step: "Follow up", next_step_date: dateInDays(1), logged: true });
     const screen = setup("person");
+    await screen.findByLabelText("Prospect"); // the deal has loaded
     fireEvent.press(await screen.findByLabelText("Tomorrow"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddPersonNote).not.toHaveBeenCalled();
-    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Follow up", dateInDays(1));
+    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Follow up", dateInDays(1));
   });
 
   it("if the note saved but the next step failed, says so and retries only the next step", async () => {
-    mockSetNextStep.mockRejectedValueOnce(new Error("offline"));
-    mockSetNextStep.mockResolvedValueOnce({ next_step: "Call", next_step_date: dateInDays(3), logged: true });
+    mockSetDealNextStep.mockRejectedValueOnce(new Error("offline"));
+    mockSetDealNextStep.mockResolvedValueOnce({ next_step: "Call", next_step_date: dateInDays(3), logged: true });
     const screen = setup("person");
+    await screen.findByLabelText("Prospect"); // the deal has loaded
     await typeNote(screen, "Quick chat");
     fireEvent.press(screen.getByLabelText("3 days"));
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Call");
@@ -309,7 +351,7 @@ describe("log a meeting — person", () => {
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddPersonNote).toHaveBeenCalledTimes(1);
-    expect(mockSetNextStep).toHaveBeenCalledTimes(2);
+    expect(mockSetDealNextStep).toHaveBeenCalledTimes(2);
   });
 });
 

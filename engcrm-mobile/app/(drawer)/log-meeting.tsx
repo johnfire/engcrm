@@ -16,25 +16,20 @@ import {
   addOrganizationNote,
   addPersonNote,
   setPersonNextStep,
-  fetchOrganization,
   fetchPerson,
   MeetingMethod,
-  OrganizationDetail,
-  Person,
   transcribeOrganizationNote,
   transcribePersonNote,
-  updateOrganizationState,
-  updatePersonStage,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
 import { clearDraft, loadDraft, saveDraft } from "../../services/drafts";
 import { notifyChanged, organizationKey, personKey } from "../../services/refreshBus";
 import { useVoiceDictation } from "../../services/useVoiceDictation";
-import { PipelineStage } from "../../services/organizationState";
 import { useTranslation } from "../../i18n/I18nContext";
 import { Chip, StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
 import { dateInDays, FOLLOW_UPS, followUpDate } from "../../services/followUps";
-import { PersonStagePicker } from "../../components/PersonStagePicker";
+import { OfferPicker } from "../../components/OfferPicker";
+import { changeDeal, Deal, defaultLogOffer, fetchDeals, fetchOffers, Offer, setDealNextStep } from "../../services/deals";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "in_person", labelKey: "meeting.methodVisit" },
@@ -81,13 +76,17 @@ export default function LogMeetingScreen() {
   const draftKey = `${kind}:${targetId}`;
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [subject, setSubject] = useState<OrganizationDetail | Person | null>(null);
   const [note, setNote] = useState("");
   const [method, setMethod] = useState<MeetingMethod | null>(null);
   const [minutes, setMinutes] = useState("");
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
   const [pendingChange, setPendingChange] = useState<StageStatusChange | null>(null);
+  // What the note is about, and the deals that could be about: the subject's own,
+  // and for a person their organization's (which only steer the default).
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [about, setAbout] = useState<string | null>(null);
   const [restored, setRestored] = useState(false);
   const [draftReady, setDraftReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,9 +99,24 @@ export default function LogMeetingScreen() {
   }, []);
 
   useEffect(() => {
-    const load = kind === "organization" ? fetchOrganization(targetId) : fetchPerson(targetId);
-    load.then(setSubject).catch(() => setSubject(null));
+    // Offline, nothing is chosen and nothing sent: the server picks, as it always did.
+    Promise.all([fetchOffers(), fetchDeals(kind, targetId)])
+      .then(async ([available, own]) => {
+        let steering: Deal[] = own;
+        if (kind === "person") {
+          const person = await fetchPerson(targetId).catch(() => null);
+          if (person?.contact_id) steering = [...own, ...(await fetchDeals("organization", person.contact_id).catch(() => []))];
+        }
+        setOffers(available);
+        setDeals(own);
+        setAbout(defaultLogOffer(steering));
+      })
+      .catch(() => undefined);
   }, [kind, targetId]);
+
+  // The deal the note is about, when the subject has one for that offer: its stage
+  // can move with the note, and a person's follow-up becomes its next step.
+  const aboutDeal = deals.find((deal) => deal.offer_slug === about) ?? null;
 
   useEffect(() => {
     loadDraft(draftKey).then((draft) => {
@@ -162,9 +176,11 @@ export default function LogMeetingScreen() {
             follow_up_date: date,
             follow_up_text: date === null ? null : followUpText.trim() || null,
             duration_minutes: typedMinutes(minutes),
+            ...(about ? { offer: about } : {}),
           });
         } else {
-          await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null, typedMinutes(minutes));
+          await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null, typedMinutes(minutes),
+            about ?? undefined);
         }
         setNoteSaved(true);
         setNote("");
@@ -179,17 +195,19 @@ export default function LogMeetingScreen() {
     //    changes nothing on the server, so a retry is safe.
     if (kind === "person" && followUp !== "none") {
       try {
-        await setPersonNextStep(targetId, followUpText.trim() || t("meeting.followUp"), followUpDate(followUp));
+        const step = followUpText.trim() || t("meeting.followUp");
+        if (aboutDeal) await setDealNextStep(aboutDeal.id, step, followUpDate(followUp));
+        else await setPersonNextStep(targetId, step, followUpDate(followUp)); // their Consulting deal
       } catch (err: any) {
         setError(err?.response?.data?.detail || t("meeting.nextStepFailedNoteSaved"));
         setSaving(false);
         return;
       }
     }
-    // 3. the stage change, if any (organizations; a person's stage saves when tapped)
-    if (kind === "organization" && pendingChange) {
+    // 3. the stage change of the deal the note is about, if any
+    if (aboutDeal && pendingChange) {
       try {
-        await updateOrganizationState(targetId, pendingChange);
+        await changeDeal(aboutDeal.id, { stage: pendingChange.pipeline_stage, status: pendingChange.status });
         setPendingChange(null);
       } catch (err: any) {
         setError(err?.response?.data?.detail || t("meeting.stageFailedNoteSaved"));
@@ -302,23 +320,21 @@ export default function LogMeetingScreen() {
           </View>
         )}
 
-        {subject && kind === "organization" && (
-          <StageStatusPicker
-            key={`log-${targetId}`}
-            embedded
-            stage={(subject as OrganizationDetail).pipeline_stage}
-            status={(subject as OrganizationDetail).status}
-            onChange={setPendingChange}
-          />
+        {about !== null && (
+          <OfferPicker offers={offers} value={about} label={t("logOffer.label")} withGeneral disabled={saving}
+            onChange={(next) => {
+              setAbout(next);
+              setPendingChange(null); // a stage picked for one deal is not the next one's
+            }} />
         )}
-        {subject && kind === "person" && (
-          <PersonStagePicker
-            key={`log-person-${targetId}`}
-            stage={(subject as Person).pipeline_stage ?? null}
-            organizationStage={(subject as Person).company_pipeline_stage ?? null}
-            onSave={async (stage: PipelineStage | null) => {
-              await updatePersonStage(targetId, stage);
-            }}
+        {aboutDeal && (
+          <StageStatusPicker
+            key={`log-${aboutDeal.id}`}
+            embedded
+            title={aboutDeal.offer_name}
+            stage={aboutDeal.pipeline_stage}
+            status={aboutDeal.status}
+            onChange={setPendingChange}
           />
         )}
 

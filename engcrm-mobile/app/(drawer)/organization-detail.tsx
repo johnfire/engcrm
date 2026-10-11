@@ -15,7 +15,6 @@ import {
   deleteOrganizationNote,
   fetchOrganization,
   runOpportunityAnalysis,
-  updateOrganizationState,
   updatePersonalPriority,
   OrganizationDetail,
   OpportunityAnalysis,
@@ -27,15 +26,13 @@ import { onChanged, organizationKey } from "../../services/refreshBus";
 import {
   SUPPRESSION_FLAGS,
   flagLabelKey,
-  stageLabelKey,
-  statusLabelKey,
 } from "../../services/organizationState";
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { sourceLabelKey } from "../../services/sourceLabel";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
-import { StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
+import { DealsPanel } from "../../components/DealsPanel";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -110,16 +107,6 @@ export default function OrganizationDetailScreen() {
     );
   }
 
-  async function handleStateSave(change: StageStatusChange) {
-    const stored = await updateOrganizationState(Number(id), change);
-    // Keep the badges above in step with what the server now holds.
-    setContact((current) =>
-      current
-        ? { ...current, pipeline_stage: stored.pipeline_stage, status: stored.status }
-        : current,
-    );
-  }
-
   if (loading)
     return (
       <View style={styles.center}>
@@ -143,8 +130,6 @@ export default function OrganizationDetailScreen() {
       </Text>
       <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(organization.source)) })}</Text>
       <View style={styles.statusRow}>
-        <Text style={styles.stageBadge}>{t(stageLabelKey(organization.pipeline_stage))}</Text>
-        <Text style={styles.statusBadge}>{t(statusLabelKey(organization.status))}</Text>
         {organization.fit_score !== null && (
           <Text style={styles.score}>{t("organizationDetail.score", { score: organization.fit_score })}</Text>
         )}
@@ -201,14 +186,13 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
 
-      {isAdmin && (
-        <StageStatusPicker
-          key={`state-${organization.id}-${organization.pipeline_stage}-${organization.status}`}
-          stage={organization.pipeline_stage}
-          status={organization.status}
-          onSave={handleStateSave}
-        />
-      )}
+      {/* Stage, status, contact person, next step and money per offer pitched here. */}
+      <DealsPanel
+        owner="organization"
+        ownerId={organization.id}
+        canEdit={isAdmin}
+        contactPeople={(organization.linkedin_connections?.linked ?? []).map((p) => ({ id: p.id, name: p.name }))}
+      />
 
       <LinkedInNotice connections={organization.linkedin_connections} />
 

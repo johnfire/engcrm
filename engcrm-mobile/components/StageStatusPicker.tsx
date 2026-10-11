@@ -27,6 +27,8 @@ interface Props {
    *  change is reported through `onChange` (null when nothing differs) and saved by the form. */
   embedded?: boolean;
   onChange?: (change: StageStatusChange | null) => void;
+  /** Heading above the chips (a deal card names its offer); defaults to "Stage & status". */
+  title?: string;
 }
 
 /** Status choices for a stage: the ones that normally go with it first. */
@@ -43,7 +45,7 @@ export function orderedStatuses(stage: PipelineStage): OrganizationStatus[] {
  * changeable). An unusual pairing is allowed and only marked. A failed save puts the
  * last saved choice back and says so.
  */
-export function StageStatusPicker({ stage, status, onSave, embedded, onChange }: Props) {
+export function StageStatusPicker({ stage, status, onSave, embedded, onChange, title }: Props) {
   const { t } = useTranslation();
   const [saved, setSaved] = useState({ stage, status });
   const [draft, setDraft] = useState({ stage, status });
@@ -101,7 +103,7 @@ export function StageStatusPicker({ stage, status, onSave, embedded, onChange }:
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t("stageStatus.title")}</Text>
+      <Text style={styles.title}>{title ?? t("stageStatus.title")}</Text>
 
       <Text style={styles.label}>{t("stageStatus.stage")}</Text>
       <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("stageStatus.stage")}>

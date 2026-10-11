@@ -4,6 +4,10 @@ module.exports = {
     "^expo-secure-store$": "<rootDir>/__mocks__/expo-secure-store.js",
     "^expo-device$": "<rootDir>/__mocks__/expo-device.js",
     "^expo-notifications$": "<rootDir>/__mocks__/expo-notifications.js",
+    // The package's own in-memory mock; a test that needs to watch the calls
+    // still replaces it with jest.mock().
+    "^@react-native-async-storage/async-storage$":
+      "<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js",
   },
   testMatch: ["**/__tests__/**/*.[jt]s?(x)"],
   // The first test in a screen file pays for transforming the React Native

@@ -15,6 +15,33 @@ jest.mock("../../services/api", () => ({
   updatePersonalPriority: (...args: any[]) => mockUpdatePersonalPriority(...args),
 }));
 
+// The stage and status are the deals' now (the Deals panel), one per offer.
+const mockFetchDeals = jest.fn();
+const mockChangeDeal = jest.fn();
+jest.mock("../../services/deals", () => ({
+  fetchDeals: (...args: any[]) => mockFetchDeals(...args),
+  fetchOffers: () => Promise.resolve([{ id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" }]),
+  changeDeal: (...args: any[]) => mockChangeDeal(...args),
+  createDeal: jest.fn(),
+  removeDeal: jest.fn(),
+  setDealNextStep: jest.fn(),
+  startSubscription: jest.fn(),
+  endSubscription: jest.fn(),
+}));
+
+function consultingDeal(pipeline_stage: string, status: string) {
+  return {
+    id: 7, offer_id: 1, offer_slug: "consulting", offer_name: "Consulting", revenue_kind: "one_off",
+    offer_archived: false, contact_id: 42, person_id: null, pipeline_stage, status,
+    next_step: null, next_step_date: null, contact_person_id: null, contact_person_name: null,
+  };
+}
+
+beforeEach(() => {
+  mockFetchDeals.mockReset().mockResolvedValue([]);
+  mockChangeDeal.mockReset();
+});
+
 const mockGetRole = jest.fn();
 jest.mock("../../services/auth", () => ({
   getRole: (...args: any[]) => mockGetRole(...args),
@@ -201,12 +228,14 @@ describe("organization detail — state", () => {
     mockGetRole.mockReset().mockResolvedValue("viewer");
   });
 
-  it("shows the pipeline stage and the current status as separate facts", async () => {
+  it("shows each offer's pipeline stage and current status as separate facts", async () => {
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT });
+    mockFetchDeals.mockResolvedValue([consultingDeal("suspect", "ready")]);
 
     const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByText("Suspect")).toBeTruthy());
-    expect(screen.getByText("Ready to contact")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Suspect · Ready to contact")).toBeTruthy());
+    expect(screen.getByText("Consulting")).toBeTruthy();
+    expect(mockFetchDeals).toHaveBeenCalledWith("organization", 42);
   });
 
   it("shows suppression flags without disturbing stage or status", async () => {
@@ -218,10 +247,11 @@ describe("organization detail — state", () => {
       email_bounced: true,
     });
 
+    mockFetchDeals.mockResolvedValue([consultingDeal("opportunity", "meeting")]);
+
     const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByText("Meeting")).toBeTruthy());
     // The whole point of the split: a bounce does not cost you the meeting.
-    expect(screen.getByText("Opportunity")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Opportunity · Meeting")).toBeTruthy());
     expect(screen.getByText("Do not contact")).toBeTruthy();
     expect(screen.getByText("Email bounced")).toBeTruthy();
     expect(screen.queryByText("No more data findable")).toBeNull();
@@ -343,33 +373,29 @@ describe("organization detail — stage and status", () => {
     mockGetRole.mockReset();
     mockUpdateState.mockReset();
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, pipeline_stage: "candidate", status: "none" });
+    mockFetchDeals.mockResolvedValue([consultingDeal("candidate", "none")]);
   });
 
-  it("lets the admin move the organization along the pipeline, and the badges follow", async () => {
+  it("lets the admin move the deal along the pipeline with one tap", async () => {
     mockGetRole.mockResolvedValue("admin");
-    mockUpdateState.mockResolvedValue({ pipeline_stage: "suspect", status: "ready", typical: true });
+    mockChangeDeal.mockResolvedValue(consultingDeal("suspect", "ready"));
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect")); // saves at once — no Save button
-    await waitFor(() =>
-      expect(mockUpdateState).toHaveBeenCalledWith(42, { pipeline_stage: "suspect", status: "ready" }),
-    );
-    // the read-only badges above the picker now show the server's answer
-    await waitFor(() => expect(screen.getAllByText("Ready to contact").length).toBeGreaterThan(0));
+    await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(7, { stage: "suspect", status: "ready" }));
+    expect(mockUpdateState).not.toHaveBeenCalled(); // the organization-wide endpoint is the old app's
   });
 
   it("shows the picker to the admin only; everyone else just sees the badges", async () => {
     mockGetRole.mockResolvedValue("viewer");
     const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Candidate · —")).toBeTruthy());
     expect(screen.queryByLabelText("Suspect")).toBeNull();
-    expect(screen.queryByText("Pipeline")).toBeNull();
-    expect(screen.getByText("Candidate")).toBeTruthy();
   });
 
-  it("a failed save leaves the organization where it was", async () => {
+  it("a failed save leaves the deal where it was", async () => {
     mockGetRole.mockResolvedValue("admin");
-    mockUpdateState.mockRejectedValue(new Error("offline"));
+    mockChangeDeal.mockRejectedValue(new Error("offline"));
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect"));

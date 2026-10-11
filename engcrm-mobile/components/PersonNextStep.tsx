@@ -9,15 +9,20 @@ import { notifyChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 import { Chip } from "./StageStatusPicker";
 
+type Saved = { next_step: string | null; next_step_date: string | null };
+
 type Props = {
   personId: number;
   step: string | null;
   date: string | null;
   canEdit: boolean;
   onSaved: (step: string | null, date: string | null) => void;
+  /** Where the step is stored. Defaults to the person's Consulting deal; a deal
+   *  card passes its own deal's. */
+  save?: (step: string | null, date: string | null) => Promise<Saved>;
 };
 
-export function PersonNextStep({ personId, step, date, canEdit, onSaved }: Props) {
+export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store }: Props) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(step ?? "");
@@ -30,7 +35,8 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved }: Props
     setSaving(true);
     setFailed(false);
     try {
-      const stored = await setPersonNextStep(personId, nextText.trim() || null, nextText.trim() ? nextDate : null);
+      const write = store ?? ((s: string | null, d: string | null) => setPersonNextStep(personId, s, d));
+      const stored = await write(nextText.trim() || null, nextText.trim() ? nextDate : null);
       onSaved(stored.next_step, stored.next_step_date);
       notifyChanged(personKey(personId));
       setEditing(false);

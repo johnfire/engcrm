@@ -4,16 +4,17 @@ import { useFocusEffect } from "expo-router";
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactCounts, fetchContactCounts } from "../services/contact-feed";
 
-// People and organizations actually contacted: this month, and since the business began.
-// A failed load just hides the strip — the contact list below must keep working.
-export function ContactCountsStrip() {
+// People and organizations actually contacted: this month, and since the business began —
+// with one offer chosen, only contacts logged as being about it. A failed load just hides
+// the strip — the contact list below must keep working.
+export function ContactCountsStrip({ offer = null }: { offer?: string | null }) {
   const { t } = useTranslation();
   const [counts, setCounts] = useState<ContactCounts | null>(null);
   useFocusEffect(useCallback(() => {
     let active = true;
-    fetchContactCounts().then((loaded) => { if (active) setCounts(loaded); }).catch(() => { if (active) setCounts(null); });
+    fetchContactCounts(offer ?? undefined).then((loaded) => { if (active) setCounts(loaded); }).catch(() => { if (active) setCounts(null); });
     return () => { active = false; };
-  }, []));
+  }, [offer]));
   if (!counts) return null;
   const line = (totals: ContactCounts["month"]) =>
     `${t("contactFeed.countPeople", { count: totals.people })} · ${t("contactFeed.countOrganizations", { count: totals.organizations })}`;

@@ -1,9 +1,12 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Organization } from "../services/api";
+import { DealChips } from "./DealChips";
 
 interface Props {
   item: Organization;
   onPress: (id: number) => void;
+  /** Name each deal's offer — the list shows every offer. */
+  showOffer?: boolean;
 }
 
 function scoreBadgeColor(score: number | null) {
@@ -13,7 +16,7 @@ function scoreBadgeColor(score: number | null) {
   return "#888";
 }
 
-export function OrganizationRow({ item, onPress }: Props) {
+export function OrganizationRow({ item, onPress, showOffer = false }: Props) {
   const color = scoreBadgeColor(item.fit_score);
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(item.id)}>
@@ -22,6 +25,7 @@ export function OrganizationRow({ item, onPress }: Props) {
         <Text style={styles.sub}>
           {item.city} · {item.type}
         </Text>
+        <DealChips deals={item.deals} showOffer={showOffer} />
       </View>
       <View style={styles.badges}>
         {(item.linkedin_connection_count ?? 0) > 0 && (

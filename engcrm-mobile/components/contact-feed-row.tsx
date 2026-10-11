@@ -4,9 +4,10 @@ import { ContactDateLink } from "./contact-date-link";
 import { ContactEntry } from "../services/contact-feed";
 import { stageLabelKey } from "../services/organizationState";
 import { useTranslation } from "../i18n/I18nContext";
+import { DealChips } from "./DealChips";
 
-export function ContactFeedRow({ contact, onPress, canEdit }: {
-  contact: ContactEntry; onPress: () => void; canEdit: boolean;
+export function ContactFeedRow({ contact, onPress, canEdit, showOffer = false }: {
+  contact: ContactEntry; onPress: () => void; canEdit: boolean; showOffer?: boolean;
 }) {
   const { t } = useTranslation();
   const subtitle = [contact.description, contact.company].filter(Boolean).join(" · ");
@@ -21,8 +22,10 @@ export function ContactFeedRow({ contact, onPress, canEdit }: {
         </View>
         {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         {!!details && <Text style={styles.details}>{details}</Text>}
+        <DealChips deals={contact.deals} showOffer={showOffer} />
         <View style={styles.heading}>
-          {!!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
+          {/* its deals when the server sent them; an older server sent the Consulting stage alone */}
+          {!contact.deals && !!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
           {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {contact.last_contact}</Text>}
         </View>
       </TouchableOpacity>

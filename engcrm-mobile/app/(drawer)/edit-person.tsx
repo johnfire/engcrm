@@ -8,6 +8,8 @@ import { PipelineStage } from "../../services/organizationState";
 import { notifyChanged, personKey } from "../../services/refreshBus";
 import { PERSON_FIELDS } from "../../services/recordFields";
 import { PersonStagePicker } from "../../components/PersonStagePicker";
+import { OfferPicker } from "../../components/OfferPicker";
+import { useCreationOffer } from "../../hooks/useCreationOffer";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 
@@ -38,6 +40,7 @@ export default function EditPersonScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<PipelineStage | null>(null);
+  const creationOffer = useCreationOffer();
 
   useEffect(() => {
     getRole().then((role) => setIsAdmin(role === "admin"));
@@ -85,8 +88,9 @@ export default function EditPersonScreen() {
         const created = await createPerson({
           ...changed,
           ...(companyId !== null ? { contact_id: companyId } : {}),
-          ...(stage !== null ? { pipeline_stage: stage } : {}),
+          ...(stage !== null ? { pipeline_stage: stage, offer: creationOffer.sent } : {}),
         });
+        if (stage !== null) void creationOffer.remember();
         goToDetail(created.id);
       } else {
         await editPerson(id, changed);
@@ -135,6 +139,10 @@ export default function EditPersonScreen() {
       onSubmit={save}
     >
       {!!at && <Text style={styles.at}>{t("recordForm.worksAt", { company: at })}</Text>}
+      {id === null && (
+        <OfferPicker offers={creationOffer.offers} value={creationOffer.offer} onChange={creationOffer.choose}
+          label={t("offerFilter.label")} disabled={saving} />
+      )}
       {id === null && <PersonStagePicker stage={stage} onSave={async (next) => setStage(next)} />}
     </RecordForm>
   );

@@ -12,6 +12,33 @@ jest.mock("../../services/api", () => ({
   deletePerson: (...args: any[]) => mockDeletePerson(...args),
 }));
 
+// A person's stage and next step are their deals' now (the Deals panel).
+const mockFetchDeals = jest.fn();
+const mockChangeDeal = jest.fn();
+const mockCreateDeal = jest.fn();
+jest.mock("../../services/deals", () => ({
+  fetchDeals: (...args: any[]) => mockFetchDeals(...args),
+  fetchOffers: () => Promise.resolve([{ id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" }]),
+  changeDeal: (...args: any[]) => mockChangeDeal(...args),
+  createDeal: (...args: any[]) => mockCreateDeal(...args),
+  removeDeal: jest.fn(),
+  setDealNextStep: jest.fn(),
+  startSubscription: jest.fn(),
+  endSubscription: jest.fn(),
+}));
+
+const PERSON_DEAL = {
+  id: 9, offer_id: 1, offer_slug: "consulting", offer_name: "Consulting", revenue_kind: "one_off",
+  offer_archived: false, contact_id: null, person_id: 7, pipeline_stage: "candidate", status: "none",
+  next_step: null, next_step_date: null, contact_person_id: null, contact_person_name: null,
+};
+
+beforeEach(() => {
+  mockFetchDeals.mockReset().mockResolvedValue([]);
+  mockChangeDeal.mockReset();
+  mockCreateDeal.mockReset();
+});
+
 const mockGetRole = jest.fn();
 jest.mock("../../services/auth", () => ({
   getRole: (...args: any[]) => mockGetRole(...args),
@@ -142,30 +169,33 @@ describe("person detail — stage", () => {
     mockFetchPerson.mockResolvedValue({ ...PERSON, pipeline_stage: "candidate", company_pipeline_stage: "suspect" });
   });
 
-  it("lets the admin change a person's stage with one tap", async () => {
+  it("lets the admin change the stage of a person's deal with one tap", async () => {
     mockGetRole.mockResolvedValue("admin");
-    mockUpdateStage.mockResolvedValue({ pipeline_stage: "prospect" });
+    mockFetchDeals.mockResolvedValue([PERSON_DEAL]);
+    mockChangeDeal.mockResolvedValue({ ...PERSON_DEAL, pipeline_stage: "prospect", status: "contacted" });
     const screen = render(<PersonDetailScreen />);
     await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
     expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
-    expect(screen.getByText("Their organization: Suspect")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Prospect"));
-    await waitFor(() => expect(mockUpdateStage).toHaveBeenCalledWith(7, "prospect"));
+    await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(9, { stage: "prospect", status: "contacted" }));
+    expect(mockUpdateStage).not.toHaveBeenCalled(); // the person-wide endpoint is the old app's
   });
 
   it("does not show the stage picker to anyone but the admin", async () => {
     mockGetRole.mockResolvedValue("viewer");
+    mockFetchDeals.mockResolvedValue([PERSON_DEAL]);
     const screen = render(<PersonDetailScreen />);
-    await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Candidate · —")).toBeTruthy());
     expect(screen.queryByLabelText("Prospect")).toBeNull();
   });
 
-  it("works for a person with no stage yet", async () => {
+  it("a person with no deal yet can be pitched an offer", async () => {
     mockGetRole.mockResolvedValue("admin");
-    mockFetchPerson.mockResolvedValue({ ...PERSON });
+    mockCreateDeal.mockResolvedValue({ id: 9 });
     const screen = render(<PersonDetailScreen />);
-    await waitFor(() => expect(screen.getByLabelText("Prospect")).toBeTruthy());
-    expect(screen.getByLabelText("Prospect").props.accessibilityState.selected).toBe(false);
+    await waitFor(() => expect(screen.getByText("Nothing pitched here yet.")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("+ Consulting"));
+    await waitFor(() => expect(mockCreateDeal).toHaveBeenCalledWith("person", 7, 1));
   });
 });
 

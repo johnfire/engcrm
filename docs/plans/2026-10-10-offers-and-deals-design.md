@@ -1,6 +1,6 @@
 # Offers and deals: one CRM, several things to sell
 
-Date: 2026-10-10 · Status: phases 1–3 built (see "as built" sections)
+Date: 2026-10-10 · Status: phases 1–4 built (see "as built" sections)
 
 ## Why
 
@@ -259,6 +259,22 @@ Where the build differs from the plan above, and why:
 5. The phone API gets the same: money on each deal, `/api/deals/{id}/sales`,
    `/subscription`, `/subscription/end`. The rollback script undoes 066 too, and drops
    subscriptions — back them up first.
+
+## Phase 4 as built (2026-10-11)
+
+1. **Organization and person screens** show the Deals panel (`components/DealsPanel.tsx`):
+   a card per offer with the stage/status chips (saved on tap), contact person chips
+   (organizations), the next step, what it earns, a € per month field with "start / new price
+   from today" and "end today", "stop pitching", and "+ offer" chips. The old consulting-only
+   stage picker, next-step box and header badges are gone from those screens.
+2. **Lists** (Organizations, People, Contacts) get an offer chip row, remembered on the phone;
+   rows show each deal's stage, named by its offer when every offer is shown. The contacted
+   counts follow the offer.
+3. **New organization / person** forms pick the offer (the last one used preselected).
+4. **The meeting log** asks what the note was about (preselected as on the web); the stage
+   chips and a person's follow-up apply to the deal for that offer, and a note about an offer
+   not pitched yet moves nothing.
+5. Phone dates for subscriptions are "today" — other dates are entered on the web.
 
 ## Build order
 

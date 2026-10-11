@@ -11,17 +11,15 @@ import {
 } from "react-native";
 import { ContactDateLink } from "../../components/contact-date-link";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deletePerson, fetchPerson, Person, updatePersonStage, updatePersonValueRating } from "../../services/api";
-import { PipelineStage } from "../../services/organizationState";
+import { deletePerson, fetchPerson, Person, updatePersonValueRating } from "../../services/api";
 import { getRole } from "../../services/auth";
 import { onChanged, personKey } from "../../services/refreshBus";
 import { openWebsite, browsableUrl, linkedinLabel } from "../../services/webLinks";
 import { sourceLabelKey } from "../../services/sourceLabel";
 import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
-import { PersonNextStep } from "../../components/PersonNextStep";
+import { DealsPanel } from "../../components/DealsPanel";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
-import { PersonStagePicker } from "../../components/PersonStagePicker";
 
 export default function PersonDetailScreen() {
   const { t } = useTranslation();
@@ -84,11 +82,6 @@ export default function PersonDetailScreen() {
     setPerson((current) => (current ? { ...current, value_rating: stored } : current));
   }
 
-  async function saveStage(stage: PipelineStage | null) {
-    const stored = await updatePersonStage(Number(id), stage);
-    setPerson((current) => (current ? { ...current, pipeline_stage: stored.pipeline_stage } : current));
-  }
-
   if (loading)
     return (
       <View style={styles.center}>
@@ -145,16 +138,8 @@ export default function PersonDetailScreen() {
         onSave={saveRating}
       />
 
-      <PersonNextStep
-        key={`next-${person.id}-${person.next_step ?? ""}-${person.next_step_date ?? ""}`}
-        personId={person.id}
-        step={person.next_step ?? null}
-        date={person.next_step_date ?? null}
-        canEdit={isAdmin}
-        onSaved={(step, date) =>
-          setPerson((current) => (current ? { ...current, next_step: step, next_step_date: date } : current))
-        }
-      />
+      {/* Stage, status, next step and money per offer pitched to this person. */}
+      <DealsPanel owner="person" ownerId={person.id} canEdit={isAdmin} />
 
       {!!linkedinLabel(person.linkedin_url) && (
         <TouchableOpacity
@@ -213,15 +198,6 @@ export default function PersonDetailScreen() {
         >
           <Text style={styles.secondaryButtonText}>{t("recordForm.edit")}</Text>
         </TouchableOpacity>
-      )}
-
-      {isAdmin && (
-        <PersonStagePicker
-          key={`stage-${person.id}-${person.pipeline_stage ?? "none"}`}
-          stage={person.pipeline_stage ?? null}
-          organizationStage={person.company_pipeline_stage ?? null}
-          onSave={saveStage}
-        />
       )}
 
       <PersonNotesLog personId={person.id} />

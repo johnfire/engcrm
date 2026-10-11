@@ -21,6 +21,9 @@ import { usePagedList } from "../../services/usePagedList";
 import { OrganizationListControls } from "../../components/OrganizationListControls";
 import { OrganizationRow } from "../../components/OrganizationRow";
 import { useTranslation } from "../../i18n/I18nContext";
+import { OfferFilterChips } from "../../components/OfferFilterChips";
+import { useOfferFilter } from "../../hooks/useOfferFilter";
+import { ALL_OFFERS } from "../../services/deals";
 
 export default function OrganizationsScreen() {
   const router = useRouter();
@@ -35,20 +38,25 @@ export default function OrganizationsScreen() {
   const [sort, setSort] = useState<OrganizationSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
+  const { offer, offers, choose: chooseOffer } = useOfferFilter();
+
   const fetchPage = useCallback(
     (page: number): Promise<Organization[]> =>
-      fetchOrganizations({
-        search,
-        stage,
-        status,
-        sort,
-        dir,
-        personal_priority: personalPriority,
-        linkedin,
-        suppressed,
-        page,
-      }),
-    [search, stage, status, sort, dir, personalPriority, linkedin, suppressed],
+      offer === null
+        ? Promise.resolve([]) // the remembered offer is still being read
+        : fetchOrganizations({
+            search,
+            stage,
+            status,
+            sort,
+            dir,
+            personal_priority: personalPriority,
+            linkedin,
+            suppressed,
+            offer,
+            page,
+          }),
+    [search, stage, status, sort, dir, personalPriority, linkedin, suppressed, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(
     fetchPage,
@@ -89,6 +97,7 @@ export default function OrganizationsScreen() {
           </TouchableOpacity>
         )}
       </View>
+      {offer !== null && <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />}
       <OrganizationListControls
         stage={stage}
         status={status}
@@ -107,7 +116,7 @@ export default function OrganizationsScreen() {
           setDir(nextDirection);
         }}
       />
-      {loading ? (
+      {loading || offer === null ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>
@@ -118,6 +127,7 @@ export default function OrganizationsScreen() {
           renderItem={({ item }) => (
             <OrganizationRow
               item={item}
+              showOffer={offer === ALL_OFFERS}
               onPress={(id) =>
                 router.push({
                   pathname: "/(drawer)/organization-detail",

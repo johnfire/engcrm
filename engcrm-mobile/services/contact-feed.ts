@@ -1,4 +1,5 @@
 import { client } from "./api";
+import type { DealChip } from "./deals";
 
 export const CONTACT_FEED_PAGE_SIZE = 50;
 export type ContactKind = "person" | "organization";
@@ -25,6 +26,7 @@ export interface ContactEntry {
   email: string | null;
   phone: string | null;
   pipeline_stage: string | null;
+  deals?: DealChip[];
   created_at: string | null;
   last_contact: string | null;
   people?: ContactPerson[];
@@ -39,6 +41,7 @@ export function contactKey(contact: Pick<ContactEntry, "kind" | "id">): string {
 
 export async function fetchContactFeed(filters: {
   search: string; kind: ContactKind | ""; stage: string; sort: ContactSort; page: number;
+  offer?: string; // a slug: that pipeline only; "all": every offer, each deal in `deals`
 }): Promise<ContactEntry[]> {
   const response = await client.get("/api/contact-feed", { params: filters });
   return response.data;
@@ -50,7 +53,7 @@ export interface ContactCounts {
   business_start: string;
 }
 
-export async function fetchContactCounts(): Promise<ContactCounts> {
-  const response = await client.get("/api/contact-feed/counts");
+export async function fetchContactCounts(offer?: string): Promise<ContactCounts> {
+  const response = await client.get("/api/contact-feed/counts", { params: offer && offer !== "all" ? { offer } : {} });
   return response.data;
 }

@@ -10,6 +10,15 @@ jest.mock("../../services/api", () => ({
   fetchOrganization: (...a: any[]) => mockFetch(...a),
   duplicateOf: jest.requireActual("../../services/api").duplicateOf,
 }));
+const mockSetLastOffer = jest.fn();
+jest.mock("../../services/deals", () => ({
+  fetchOffers: () => Promise.resolve([
+    { id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" },
+    { id: 2, slug: "learnwohl", name: "LearnWohl", website: null, revenue_kind: "subscription" },
+  ]),
+  getLastOffer: () => Promise.resolve("consulting"),
+  setLastOffer: (...a: any[]) => mockSetLastOffer(...a),
+}));
 const mockGetRole = jest.fn();
 jest.mock("../../services/auth", () => ({ getRole: (...a: any[]) => mockGetRole(...a) }));
 
@@ -145,7 +154,7 @@ describe("edit organization", () => {
       await waitFor(() =>
         expect(mockReplace).toHaveBeenCalledWith({ pathname: "/(drawer)/organization-detail", params: { id: "99" } }),
       );
-      expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", city: "Ulm", pipeline_stage: "candidate" });
+      expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", city: "Ulm", pipeline_stage: "candidate", offer: "consulting" });
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -155,7 +164,20 @@ describe("edit organization", () => {
       fireEvent.press(screen.getByText("Customer"));
       expect(mockCreate).not.toHaveBeenCalled();
       fireEvent.press(screen.getByText("Add business"));
-      await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", pipeline_stage: "customer" }));
+      await waitFor(() =>
+        expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", pipeline_stage: "customer", offer: "consulting" }),
+      );
+    });
+
+    it("enters the new business into the chosen offer's pipeline, and remembers the offer", async () => {
+      const screen = render(<EditOrganizationScreen />);
+      await waitFor(() => expect(screen.getByLabelText("LearnWohl")).toBeTruthy());
+      fireEvent.press(screen.getByLabelText("LearnWohl"));
+      fireEvent.press(screen.getByText("Add business"));
+      await waitFor(() =>
+        expect(mockCreate).toHaveBeenCalledWith({ name: "Neue Firma", pipeline_stage: "candidate", offer: "learnwohl" }),
+      );
+      expect(mockSetLastOffer).toHaveBeenCalledWith("learnwohl");
     });
 
     it("offers to open an organization that already exists instead of adding a second", async () => {
