@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.jwt_auth import create_token
+from gcrm.tools.deal_records import DealNotFound
 from gcrm.tools.people_next_step import log_entry
 
 client = TestClient(main.app)
@@ -38,30 +39,36 @@ def test_the_log_entry_carries_the_date_when_there_is_one():
 
 
 class TestWebForm:
-    def post(self, data, result=None):
-        with patch("gcrm.api.routers.people.set_person_next_step", return_value=result) as setter:
-            response = client.post("/people/3/next-step", data=data, follow_redirects=False)
+    """The next step is the deal's (Deals panel, POST /deals/{id}/next-step); the
+    person-wide POST /people/{id}/next-step is gone (phase 5)."""
+
+    def post(self, data, error=None):
+        with patch("gcrm.api.routers.deals.set_deal_next_step", side_effect=error) as setter:
+            response = client.post("/deals/9/next-step", data={"next": "/people/3", **data},
+                                   follow_redirects=False)
         return response, setter
 
     def test_saving_sets_the_step_and_date_and_returns_to_the_person(self, admin_web):
-        response, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15"},
-                                     result={"logged": True})
-        assert response.status_code == 303 and response.headers["location"].startswith("/people/3")
-        setter.assert_called_once_with(3, "Invite to coffee", date(2026, 10, 15))
+        response, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15"})
+        assert response.status_code == 303 and response.headers["location"] == "/people/3"
+        setter.assert_called_once_with(9, "Invite to coffee", date(2026, 10, 15), None)
 
     def test_done_clears_the_step_whatever_the_fields_say(self, admin_web):
-        _, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15", "done": "1"},
-                              result={"logged": True})
-        setter.assert_called_once_with(3, "", None)
+        _, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15", "done": "1"})
+        setter.assert_called_once_with(9, "", None, None)
 
     def test_a_bad_date_is_refused(self, admin_web):
         response, setter = self.post({"next_step": "x", "next_step_date": "15.10.2026"})
         assert response.status_code == 400
         setter.assert_not_called()
 
-    def test_an_unknown_person_is_a_404(self, admin_web):
-        response, _ = self.post({"next_step": "x"}, result=None)
+    def test_an_unknown_deal_is_a_404(self, admin_web):
+        response, _ = self.post({"next_step": "x"}, error=DealNotFound())
         assert response.status_code == 404
+
+    def test_the_old_person_route_is_gone(self, admin_web):
+        response = client.post("/people/3/next-step", data={"next_step": "x"}, follow_redirects=False)
+        assert response.status_code in (404, 405)
 
 
 class TestPages:

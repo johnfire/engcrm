@@ -55,7 +55,7 @@ class OrganizationFields(BaseModel):
     preferred_contact_method: str | None = None
     notes: str | None = None
     do_not_contact: bool | None = None
-    pipeline_stage: str | None = None  # Creation only; existing stages use the stage endpoint.
+    pipeline_stage: str | None = None  # Creation only; existing stages are changed on the deals.
     offer: str | None = None  # Creation only: whose pipeline the stage is (slug); default Consulting.
 
 
@@ -194,7 +194,7 @@ def edit_organization(
 ) -> dict:
     """Change the fields sent; leave every other field alone."""
     if "pipeline_stage" in body.model_fields_set:
-        raise HTTPException(status_code=400, detail="Use the stage endpoint to change an existing stage")
+        raise HTTPException(status_code=400, detail="Change an existing stage on the deal (PATCH /api/deals/{id})")
     fields = clean_fields(body, TEXT_LIMITS, require_name=False)
     if not fields and body.do_not_contact is None:
         raise HTTPException(status_code=400, detail="Nothing to change")

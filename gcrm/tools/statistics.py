@@ -82,22 +82,18 @@ def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: da
              deal_id: int | None = None) -> int | None:
     """Record a sale on an organization of this workspace, for one of its deals
     (`deal_id`; its Consulting deal when not given). None if there is no such
-    organization, or the deal is not one of its live deals."""
+    organization, or no such live deal of it."""
     if amount_eur <= 0:
         raise ValueError("amount must be more than 0")
-    deal = ("%s" if deal_id is not None else
-            f"(SELECT x.id FROM deals x WHERE x.contact_id = c.id AND x.deleted_at IS NULL "
-            f"AND x.offer_id = {offer_id_sql('c.workspace_id', CONSULTING)})")
-    deal_check = ("AND EXISTS (SELECT 1 FROM deals x WHERE x.id = %s AND x.contact_id = c.id "
-                  "AND x.deleted_at IS NULL)" if deal_id is not None else "")
+    which = "x.id = %s" if deal_id is not None else f"x.offer_id = {offer_id_sql('c.workspace_id', CONSULTING)}"
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sales (workspace_id, contact_id, deal_id, amount_eur, won_on, description) "
-            f"SELECT %s, c.id, {deal}, %s, %s, %s FROM contacts c "
-            f"WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL {deal_check} RETURNING id",
-            [workspace_id, *([deal_id] if deal_id is not None else []), amount_eur, won_on,
-             description.strip() or None, contact_id, workspace_id,
+            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description) "
+            "SELECT %s, x.id, %s, %s, %s FROM contacts c JOIN deals x ON x.contact_id = c.id "
+            f"WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL AND x.deleted_at IS NULL "
+            f"AND {which} RETURNING id",
+            [workspace_id, amount_eur, won_on, description.strip() or None, contact_id, workspace_id,
              *([deal_id] if deal_id is not None else [])],
         )
         row = cur.fetchone()
@@ -111,8 +107,8 @@ def get_sales(contact_id: int) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             "SELECT s.id, s.amount_eur, s.won_on, s.description, o.name AS offer FROM sales s "
-            "LEFT JOIN deals d ON d.id = s.deal_id LEFT JOIN offers o ON o.id = d.offer_id "
-            "WHERE s.contact_id = %s AND s.deleted_at IS NULL ORDER BY s.won_on DESC, s.id DESC",
+            "JOIN deals d ON d.id = s.deal_id JOIN offers o ON o.id = d.offer_id "
+            "WHERE d.contact_id = %s AND s.deleted_at IS NULL ORDER BY s.won_on DESC, s.id DESC",
             (contact_id,),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
@@ -122,7 +118,8 @@ def delete_sale(contact_id: int, sale_id: int) -> bool:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE sales SET deleted_at = NOW() WHERE id = %s AND contact_id = %s AND deleted_at IS NULL",
+            "UPDATE sales SET deleted_at = NOW() WHERE id = %s AND deleted_at IS NULL "
+            "AND deal_id IN (SELECT id FROM deals WHERE contact_id = %s)",
             (sale_id, contact_id),
         )
         deleted = cur.rowcount > 0
@@ -366,11 +363,11 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         cur.execute(
             f"""WITH {acts_sql},
             s AS (
-                SELECT s.id, s.contact_id, s.amount_eur, s.won_on, s.description, c.name AS organization,
+                SELECT s.id, x.contact_id, s.amount_eur, s.won_on, s.description, c.name AS organization,
                        c.created_at::date AS added_on, o.name AS offer,
-                       LAG(s.won_on) OVER (PARTITION BY s.contact_id ORDER BY s.won_on, s.id) AS previous_won
-                  FROM sales s JOIN contacts c ON c.id = s.contact_id
-                  LEFT JOIN deals x ON x.id = s.deal_id LEFT JOIN offers o ON o.id = x.offer_id
+                       LAG(s.won_on) OVER (PARTITION BY x.contact_id ORDER BY s.won_on, s.id) AS previous_won
+                  FROM sales s JOIN deals x ON x.id = s.deal_id JOIN contacts c ON c.id = x.contact_id
+                  JOIN offers o ON o.id = x.offer_id
                  WHERE s.workspace_id = %s AND s.deleted_at IS NULL{_sales_offer(workspace_id, offer, "s.deal_id")}
             )
             SELECT s.*,

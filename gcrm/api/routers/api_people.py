@@ -18,7 +18,6 @@ from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import (
     find_existing_person,
     save_person,
-    set_person_pipeline_stage,
     set_person_value_rating,
     update_person,
 )
@@ -191,28 +190,6 @@ def person_detail(person_id: int, payload: dict = Depends(require_jwt_payload)) 
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     return person
-
-
-class StageBody(BaseModel):
-    stage: str | None = None  # null clears the stage
-
-
-@router.patch("/{person_id}/stage")
-def set_person_stage(
-    person_id: int, body: StageBody, _role: str = Depends(require_jwt_admin)
-) -> dict:
-    """Set (or clear) the stage tag on a person. Admin only. An unknown stage is
-    refused, not replaced."""
-    if body.stage is not None and body.stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    try:
-        found, stored = set_person_pipeline_stage(person_id, body.stage)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    if not found:
-        raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
-    return {"pipeline_stage": stored}
 
 
 class ValueRatingBody(BaseModel):

@@ -268,16 +268,19 @@ class TestPersonPipelineStage:
             ok = db_people.update_person(3, values)
         return ok, cur, set_stage
 
-    def test_a_known_stage_is_written(self):
-        ok, cur, set_stage = self.update({"pipeline_stage": "prospect"})
+    def test_a_stage_sent_to_the_edit_is_ignored(self):
+        """The stage lives on the person's deals and is changed there (phase 5);
+        update_person neither writes it nor touches a deal."""
+        ok, cur, set_stage = self.update({"name": "Anna", "pipeline_stage": "prospect"})
         assert ok is True
-        # the person's own Consulting deal, in the same transaction as the row update
-        set_stage.assert_called_once_with(cur, 3, "prospect")
+        set_stage.assert_not_called()
         assert "pipeline_stage" not in cur.execute.call_args.args[0]
 
-    def test_blank_clears_the_stage(self):
-        _, cur, set_stage = self.update({"pipeline_stage": "  "})
-        set_stage.assert_called_once_with(cur, 3, None)
+    def test_a_stage_alone_is_nothing_to_change(self):
+        ok, cur, set_stage = self.update({"pipeline_stage": "  "})
+        assert ok is False
+        cur.execute.assert_not_called()
+        set_stage.assert_not_called()
 
     def test_other_fields_leave_the_stage_alone(self):
         _, _, set_stage = self.update({"name": "Anna"})
@@ -288,9 +291,11 @@ class TestPersonPipelineStage:
         assert ok is False
         set_stage.assert_not_called()
 
-    def test_an_unknown_stage_is_refused_before_touching_the_database(self):
-        with pytest.raises(ValueError):
-            db_people.update_person(3, {"pipeline_stage": "bogus"})
+    def test_an_unknown_stage_is_not_an_error_any_more(self):
+        """Nothing reads it, so there is nothing to refuse."""
+        ok, _, set_stage = self.update({"name": "Anna", "pipeline_stage": "bogus"})
+        assert ok is True
+        set_stage.assert_not_called()
 
     def test_the_stage_filter_is_a_whitelist_and_none_means_unset(self):
         # "none" is no Consulting deal; a stage is a Consulting deal at that stage
@@ -420,40 +425,19 @@ class TestExtractEmailEndpoint:
         assert resp.json()["fields"]["error"] == email_extract._EXTRACTION_FAILED
 
 
-class TestPersonStageInstantSave:
-    """The detail page's stage select saves the moment it is picked (PUT, JSON)."""
+class TestPersonStageOnTheDetailPage:
+    """The detail page's stage select is the deal's (Deals panel, POST /deals/{id});
+    the old PUT /people/{id}/stage is gone (phase 5)."""
 
-    def put(self, body, updated=True):
-        stored = body.get("stage") if updated else None
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage",
-                   return_value=(updated, stored)) as update, \
-             patch("gcrm.api.routers.people.log_audit") as audit:
-            resp = client.put("/people/5/stage", json=body)
-        return resp, update, audit
+    def test_the_old_instant_save_is_gone(self, admin_web):
+        assert client.put("/people/5/stage", json={"stage": "suspect"}).status_code in (404, 405)
 
-    def test_sets_the_stage(self, admin_web):
-        resp, update, audit = self.put({"stage": "opportunity"})
-        assert resp.status_code == 200 and resp.json() == {"pipeline_stage": "opportunity"}
-        update.assert_called_once_with(5, "opportunity")
-        assert audit.call_args.args[2] == "person.stage_changed"
-
-    def test_null_clears_the_stage(self, admin_web):
-        resp, update, _ = self.put({"stage": None})
-        assert resp.json() == {"pipeline_stage": None}
-        update.assert_called_once_with(5, "")
-
-    def test_an_unknown_stage_is_refused(self, admin_web):
-        resp, update, _ = self.put({"stage": "bogus"})
-        assert resp.status_code == 400
-        update.assert_not_called()
-
-    def test_a_missing_person_is_a_404(self, admin_web):
-        resp, _, _ = self.put({"stage": "suspect"}, updated=False)
-        assert resp.status_code == 404
-
-    def test_admin_only(self):
-        resp = client.put("/people/5/stage", json={"stage": "suspect"}, follow_redirects=False)
-        assert resp.status_code in (303, 307, 401, 403)
+    def test_picking_a_stage_saves_it_on_the_deal_and_stays_on_the_page(self, admin_web):
+        with patch("gcrm.api.routers.deals.update_deal", return_value={"id": 9, "person_id": 5}) as update:
+            response = client.post("/deals/9", data={"stage": "opportunity", "next": "/people/5"},
+                                   follow_redirects=False)
+        assert response.status_code == 303 and response.headers["location"] == "/people/5"
+        update.assert_called_once_with(9, None, stage="opportunity", status=None)
 
 
 class TestPersonNewPage:

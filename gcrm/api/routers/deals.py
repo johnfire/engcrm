@@ -80,12 +80,13 @@ def deal_update(
         except ValueError:
             raise HTTPException(status_code=400, detail="Unknown contact person")
     try:
-        update_deal(deal_id, request.session.get("workspace_id"), **changes)
+        deal = update_deal(deal_id, request.session.get("workspace_id"), **changes)
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    return _back(next, "/organizations/")
+    # back to the list the select was on; its owner's list when `next` is unusable
+    return _back(next, "/people/" if deal.get("person_id") else "/organizations/")
 
 
 @router.post("/{deal_id}/next-step")

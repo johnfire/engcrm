@@ -3,11 +3,9 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 
 const mockFetchPerson = jest.fn();
 const mockDeletePerson = jest.fn();
-const mockUpdateStage = jest.fn();
 const mockUpdateRating = jest.fn();
 jest.mock("../../services/api", () => ({
   updatePersonValueRating: (...args: any[]) => mockUpdateRating(...args),
-  updatePersonStage: (...args: any[]) => mockUpdateStage(...args),
   fetchPerson: (...args: any[]) => mockFetchPerson(...args),
   deletePerson: (...args: any[]) => mockDeletePerson(...args),
 }));
@@ -165,7 +163,6 @@ describe("person detail — stage", () => {
     jest.restoreAllMocks();
     mockFetchPerson.mockReset();
     mockGetRole.mockReset();
-    mockUpdateStage.mockReset();
     mockFetchPerson.mockResolvedValue({ ...PERSON, pipeline_stage: "candidate", company_pipeline_stage: "suspect" });
   });
 
@@ -178,7 +175,6 @@ describe("person detail — stage", () => {
     expect(screen.getByLabelText("Candidate").props.accessibilityState.selected).toBe(true);
     fireEvent.press(screen.getByLabelText("Prospect"));
     await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(9, { stage: "prospect", status: "contacted" }));
-    expect(mockUpdateStage).not.toHaveBeenCalled(); // the person-wide endpoint is the old app's
   });
 
   it("does not show the stage picker to anyone but the admin", async () => {

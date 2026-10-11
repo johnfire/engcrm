@@ -162,11 +162,9 @@ def update_person(person_id: int, values: dict) -> bool:
     person does not exist, so the caller can 404 rather than silently no-op.
 
     `is_linkedin_contact` and `retention_hold` are the non-text fields: written as
-    booleans when present. `pipeline_stage` is one of PIPELINE_STAGES (blank clears
-    it) and raises ValueError otherwise; it is the stage of the person's own
-    Consulting deal (see db_deals.set_person_stage). A non-blank `linkedin_url` is
-    stored in its canonical form, and raises ValueError when it is not a
-    linkedin.com link.
+    booleans when present. The stage lives on the person's deals (deal_records).
+    A non-blank `linkedin_url` is stored in its canonical form, and raises
+    ValueError when it is not a linkedin.com link.
     """
     updates = {
         column: ((values.get(column) or "").strip() or None)
@@ -181,11 +179,7 @@ def update_person(person_id: int, values: dict) -> bool:
     for column in BOOLEAN_COLUMNS:
         if column in values:
             updates[column] = bool(values[column])
-    sets_stage = "pipeline_stage" in values
-    stage = (values.get("pipeline_stage") or "").strip() or None
-    if stage is not None and stage not in PIPELINE_STAGES:
-        raise ValueError(f"unknown pipeline stage: {stage!r}")
-    if not updates and not sets_stage:
+    if not updates:
         return False
 
     assignments = "".join(f"{column} = %s, " for column in updates)
@@ -198,24 +192,8 @@ def update_person(person_id: int, values: dict) -> bool:
         if cur.rowcount == 0:
             logger.warning("update_person: no person with id=%s", person_id)
             return False
-        if sets_stage:
-            set_person_stage(cur, person_id, stage)
-    logger.info("update_person: updated id=%d (%s)", person_id,
-                ", ".join([*updates, *(["pipeline_stage"] if sets_stage else [])]))
+    logger.info("update_person: updated id=%d (%s)", person_id, ", ".join(updates))
     return True
-
-
-def set_person_pipeline_stage(person_id: int, stage: str | None) -> tuple[bool, str | None]:
-    """Set (or with blank/None, clear) the stage of a person's Consulting deal.
-    Returns (person_found, the stage they end up with) — clearing can leave a
-    candidate when the deal holds an open next step (see
-    db_deals.set_person_stage). Raises ValueError for an unknown stage."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
-        if cur.rowcount == 0:
-            return False, None
-        return True, set_person_stage(cur, person_id, stage)
 
 
 _DISTANCE_KM_SQL = distance_km_sql(

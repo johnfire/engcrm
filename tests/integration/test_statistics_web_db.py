@@ -35,6 +35,13 @@ def _organization() -> int:
         return contact_id
 
 
+def _deal(contact_id: int) -> int:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM deals WHERE contact_id = %s AND deleted_at IS NULL", (contact_id,))
+        return cursor.fetchone()["id"]
+
+
 def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
     acme = _organization()
     post = lambda url, data: web.post(url, data=data, follow_redirects=False)  # noqa: E731
@@ -45,7 +52,7 @@ def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
                 {"amount_eur": "2.400,00".replace(".", ""), "won_on": date.today().isoformat(),
                  "description": "Painting"}).status_code == 303
     # moved on from the Organizations list, as you would by hand
-    assert post(f"/organizations/{acme}/stage", {"stage": "customer"}).status_code == 303
+    assert post(f"/deals/{_deal(acme)}", {"stage": "customer", "next": "/organizations/"}).status_code == 303
 
     page = web.get("/statistics?period=month&lang=en")
 

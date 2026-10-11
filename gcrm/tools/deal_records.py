@@ -70,9 +70,16 @@ def get_deals_as_contact_person(person_id: int, workspace_id: int | None = None)
 
 
 def get_deal(cur, deal_id: int, workspace_id: int | None = None) -> dict:
+    """A live deal whose organization or person is not deleted either: a deleted
+    organization keeps its deal (so restoring it needs no second step), but
+    nothing may change it meanwhile. Raises DealNotFound otherwise."""
     scope, params = _scope(workspace_id)
     cur.execute(
-        f"SELECT {_DEAL_COLUMNS} {_DEAL_FROM} WHERE d.id = %s AND d.deleted_at IS NULL{scope}",
+        f"SELECT {_DEAL_COLUMNS} {_DEAL_FROM} "
+        "LEFT JOIN contacts owner_c ON owner_c.id = d.contact_id "
+        "LEFT JOIN people owner_p ON owner_p.id = d.person_id "
+        f"WHERE d.id = %s AND d.deleted_at IS NULL "
+        f"AND COALESCE(owner_c.deleted_at, owner_p.deleted_at) IS NULL{scope}",
         [deal_id, *params],
     )
     row = cur.fetchone()

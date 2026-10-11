@@ -38,8 +38,8 @@ def add_deal_sale(deal_id: int, amount_eur, won_on: date, description: str = "",
         if deal["contact_id"] is None:
             raise ValueError("one-off sales are recorded on an organization's deal")
         cur.execute(
-            "INSERT INTO sales (workspace_id, contact_id, deal_id, amount_eur, won_on, description) "
-            "SELECT workspace_id, contact_id, id, %s, %s, %s FROM deals WHERE id = %s RETURNING id",
+            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description) "
+            "SELECT workspace_id, id, %s, %s, %s FROM deals WHERE id = %s RETURNING id",
             (amount, won_on, (description or "").strip()[:500] or None, deal_id),
         )
         sale_id = cur.fetchone()["id"]

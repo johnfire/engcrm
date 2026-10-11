@@ -13,8 +13,6 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
 
 const mockAddOrgNote = jest.fn();
 const mockAddPersonNote = jest.fn();
-const mockUpdateState = jest.fn();
-const mockUpdatePersonStage = jest.fn();
 const mockFetchOrg = jest.fn();
 const mockFetchPerson = jest.fn();
 const mockTranscribeOrg = jest.fn();
@@ -24,8 +22,6 @@ jest.mock("../../services/api", () => ({
   setPersonNextStep: (...a: any[]) => mockSetNextStep(...a),
   addOrganizationNote: (...a: any[]) => mockAddOrgNote(...a),
   addPersonNote: (...a: any[]) => mockAddPersonNote(...a),
-  updateOrganizationState: (...a: any[]) => mockUpdateState(...a),
-  updatePersonStage: (...a: any[]) => mockUpdatePersonStage(...a),
   fetchOrganization: (...a: any[]) => mockFetchOrg(...a),
   fetchPerson: (...a: any[]) => mockFetchPerson(...a),
   transcribeOrganizationNote: (...a: any[]) => mockTranscribeOrg(...a),
@@ -107,7 +103,6 @@ describe("log a meeting — organization", () => {
     for (const k of Object.keys(store)) delete store[k];
     mockCanGoBack.mockReturnValue(true);
     mockAddOrgNote.mockResolvedValue({ id: 1, follow_up_date: null });
-    mockUpdateState.mockResolvedValue({ pipeline_stage: "suspect", status: "ready", typical: true });
     mockChangeDeal.mockResolvedValue(deal(70, "organization", "suspect", "ready"));
   });
 
@@ -133,7 +128,6 @@ describe("log a meeting — organization", () => {
       offer: "consulting", // its one open deal's offer, picked for you
     });
     expect(mockChangeDeal).toHaveBeenCalledWith(70, { stage: "suspect", status: "ready" });
-    expect(mockUpdateState).not.toHaveBeenCalled();
     // the note is sent first, so a failing stage change can never lose it
     expect(mockAddOrgNote.mock.invocationCallOrder[0]).toBeLessThan(mockChangeDeal.mock.invocationCallOrder[0]);
     expect(changed).toHaveBeenCalledTimes(1); // the screen underneath reloads
@@ -308,7 +302,6 @@ describe("log a meeting — person", () => {
     fireEvent.press(screen.getByLabelText("Prospect"));
     fireEvent.press(screen.getByText("Save stage change"));
     await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(90, { stage: "prospect", status: "contacted" }));
-    expect(mockUpdatePersonStage).not.toHaveBeenCalled();
   });
 
   it("a person's follow-up becomes their next step, saved after the note", async () => {

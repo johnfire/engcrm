@@ -276,6 +276,28 @@ Where the build differs from the plan above, and why:
    not pitched yet moves nothing.
 5. Phone dates for subscriptions are "today" — other dates are entered on the web.
 
+## Phase 5 as built (2026-10-11)
+
+1. **Migration 067** drops `legacy_pipeline_stage`, `legacy_status`, `legacy_next_step`,
+   `legacy_next_step_date` and `sales.contact_id`; `sales.deal_id` becomes NOT NULL. A sale
+   with no deal (recorded while its organization had no live Consulting deal) first gets
+   the organization's latest removed Consulting deal, or a new removed one. It stays
+   consulting money, and no organization re-enters a pipeline it left.
+2. **Sales** reach their organization through the deal: the Sales card, deleting a sale,
+   and the statistics sale list.
+3. **Removed endpoints**, which nothing calls any more: web `POST /organizations/{id}/stage`,
+   `POST`/`PUT /people/{id}/stage`, `POST /people/{id}/next-step`; phone
+   `PATCH /api/contacts/{id}/state`, `PATCH /api/people/{id}/stage`. The web edit forms no
+   longer take a stage or status, and neither does `update_person`. The phone app loses
+   `updateOrganizationState` and `updatePersonStage`.
+4. **Kept on purpose:** `pipeline_stage`/`status` in list, search and recon responses (the
+   stage for the chosen offer, Consulting when none is given; the app still shows it), and
+   `PUT /api/people/{id}/next-step` (the meeting log uses it when a note is about no deal,
+   for the person's Consulting deal).
+5. **No rollback past this point.** `scripts/rollback_064_offers_and_deals.sql`,
+   `scripts/check_deals_backfill.py` and the rollback round-trip test read the dropped
+   columns; they are deleted (in git history if ever needed).
+
 ## Build order
 
 Each phase goes live on its own and leaves the app working.

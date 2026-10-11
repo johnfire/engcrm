@@ -16,8 +16,6 @@ from gcrm.geo import distance_km_sql
 from gcrm.organization_state import (
     PIPELINE_STAGES,
     SUPPRESSION_FLAGS,
-    coerce_stage,
-    coerce_status,
 )
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
@@ -26,7 +24,6 @@ from gcrm.tools.db_deals import (
     deal_sort_sql,
     deals_json_sql,
     organization_deal_join,
-    set_organization_deal,
     stage_and_status_counts,
 )
 from gcrm.tools.db_linkedin import (
@@ -498,12 +495,11 @@ def analyse_selected_organization(
     return local_redirect(f"/organizations/{contact_id}")
 
 
-def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None, stage=None, status=None):
+def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None):
     """Normalize blank strings to NULL, parse the numeric fit_score, and write the
     contact row. text_fields maps column name -> submitted string; flags maps
     suppression column -> bool, written as-is since a false flag is meaningful.
-    The stage and status go to the organization's Consulting deal, in the same
-    transaction."""
+    The stage and status are edited on the Deals panel."""
     def empty_none(value):
         return value if value and value.strip() else None
 
@@ -527,8 +523,6 @@ def _persist_organization_edit(contact_id, text_fields, fit_score, flags=None, s
             f"WHERE id = %s AND deleted_at IS NULL",
             values,
         )
-        if cur.rowcount and (stage is not None or status is not None):
-            set_organization_deal(cur, contact_id, stage=stage, status=status)
 
 
 @router.post("/{contact_id}/edit")
@@ -539,8 +533,6 @@ def organization_edit(
     city: str = Form(""),
     country: str = Form(""),
     type: str = Form(""),
-    pipeline_stage: Optional[str] = Form(None),
-    status: Optional[str] = Form(None),
     do_not_organization: bool = Form(False),
     email_bounced: bool = Form(False),
     research_exhausted: bool = Form(False),
@@ -578,40 +570,9 @@ def organization_edit(
         "email_bounced": email_bounced,
         "research_exhausted": research_exhausted,
     }
-    # The stage and status are edited on the Deals panel now; a form that still
-    # sends them (an old cached page) moves the Consulting deal, as it always did.
-    _persist_organization_edit(
-        contact_id, text_fields, fit_score, flags,
-        stage=None if pipeline_stage is None else coerce_stage(pipeline_stage),
-        status=None if status is None else coerce_status(status),
-    )
+    _persist_organization_edit(contact_id, text_fields, fit_score, flags)
     log_audit(None, None, "contact.edited", f"contact:{contact_id}", "updated")
     return local_redirect(f"/organizations/{contact_id}", saved="1")
-
-
-@router.post("/{contact_id}/stage")
-def organization_set_stage(
-    contact_id: int,
-    stage: str = Form(""),
-    next: str = Form("/organizations/"),
-    _admin: str = Depends(require_admin),
-):
-    """Change an organization's stage from the list and come back to the same
-    filtered list. Only the stage changes; the status is left as it was, as the
-    edit form would if just the stage were touched."""
-    if stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "UPDATE contacts SET updated_at = NOW() WHERE id = %s AND deleted_at IS NULL",
-            (contact_id,),
-        )
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Organization not found")
-        set_organization_deal(cur, contact_id, stage=stage)
-    log_audit(None, None, "contact.stage_changed", f"contact:{contact_id}", stage)
-    return local_redirect(next, fallback="/organizations/")
 
 
 @router.post("/{contact_id}/delete")

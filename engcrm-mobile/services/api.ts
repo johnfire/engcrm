@@ -187,17 +187,6 @@ export async function updatePersonalPriority(
 // Run a fresh opportunity assessment for one organization (admin only, 403
 // otherwise). Synchronous server-side — it fetches the company website and
 // runs the LLM — so allow a generous timeout. Returns the stored analysis.
-// Moves an organization along the pipeline and/or changes what is going on with it.
-// Send only what changed; the server keeps the other. Admin only. `typical` is false
-// for an unusual stage/status pair — allowed, but worth a heads-up.
-export async function updateOrganizationState(
-  id: number,
-  change: { pipeline_stage?: PipelineStage; status?: OrganizationStatus },
-): Promise<{ pipeline_stage: PipelineStage; status: OrganizationStatus; typical: boolean }> {
-  const resp = await client.patch(`/api/contacts/${id}/state`, change);
-  return resp.data;
-}
-
 export async function runOpportunityAnalysis(
   id: number,
 ): Promise<OpportunityAnalysis | null> {
@@ -869,14 +858,6 @@ export async function setPersonNextStep(
     next_step: nextStep,
     next_step_date: nextStepDate,
   });
-  return resp.data;
-}
-
-export async function updatePersonStage(
-  personId: number,
-  stage: PipelineStage | null,
-): Promise<{ pipeline_stage: PipelineStage | null }> {
-  const resp = await client.patch(`/api/people/${personId}/stage`, { stage });
   return resp.data;
 }
 

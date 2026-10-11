@@ -12,6 +12,7 @@ import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.tools import company_places, db_linkedin
 from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
+from gcrm.tools.deal_records import DealNotFound
 
 
 def place(name, city="Augsburg", country="DE", pid="p1"):
@@ -581,34 +582,36 @@ class TestPersonStage:
         assert '<option value="suspect" selected>' in response.text
 
     def test_changing_the_stage_from_the_list(self, admin_session):
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, "prospect")) as update, \
-             patch("gcrm.api.routers.people.log_audit"):
-            response = admin_session.post("/people/5/stage", data={
+        """The row's select posts to the person's deal and comes back to the list."""
+        with patch("gcrm.api.routers.deals.update_deal") as update:
+            response = admin_session.post("/deals/41", data={
                 "stage": "prospect", "next": "/people/?linkedin=1"}, follow_redirects=False)
         assert response.status_code == 303 and response.headers["location"] == "/people/?linkedin=1"
-        update.assert_called_once_with(5, "prospect")
+        update.assert_called_once_with(41, None, stage="prospect", status=None)
 
-    def test_clearing_the_stage(self, admin_session):
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, None)) as update, \
-             patch("gcrm.api.routers.people.log_audit"):
-            admin_session.post("/people/5/stage", data={"stage": ""}, follow_redirects=False)
-        update.assert_called_once_with(5, "")
+    def test_a_blank_stage_leaves_the_deal_alone(self, admin_session):
+        """The list no longer clears a stage: the select has no blank choice, and
+        stopping an offer happens on the person's page ("Stop pitching")."""
+        with patch("gcrm.api.routers.deals.update_deal") as update:
+            admin_session.post("/deals/41", data={"stage": ""}, follow_redirects=False)
+        update.assert_called_once_with(41, None, stage=None, status=None)
 
     def test_an_unknown_stage_is_refused_and_an_offsite_next_is_ignored(self, admin_session):
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage") as update:
-            bad = admin_session.post("/people/5/stage", data={"stage": "bogus"}, follow_redirects=False)
+        with patch("gcrm.api.routers.deals.update_deal") as update:
+            bad = admin_session.post("/deals/41", data={"stage": "bogus"}, follow_redirects=False)
         assert bad.status_code == 400
         update.assert_not_called()
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(True, "suspect")), \
-             patch("gcrm.api.routers.people.log_audit"):
-            sneaky = admin_session.post("/people/5/stage", data={
+        with patch("gcrm.api.routers.deals.update_deal", return_value={"id": 41, "person_id": 5}):
+            sneaky = admin_session.post("/deals/41", data={
                 "stage": "suspect", "next": "https://evil.test/x"}, follow_redirects=False)
         assert sneaky.headers["location"] == "/people/"
 
-    def test_a_missing_person_is_a_404(self, admin_session):
-        with patch("gcrm.api.routers.people.set_person_pipeline_stage", return_value=(False, None)):
-            response = admin_session.post("/people/99/stage", data={"stage": "suspect"}, follow_redirects=False)
+    def test_a_missing_deal_is_a_404_and_the_old_route_is_gone(self, admin_session):
+        with patch("gcrm.api.routers.deals.update_deal", side_effect=DealNotFound()):
+            response = admin_session.post("/deals/99", data={"stage": "suspect"}, follow_redirects=False)
         assert response.status_code == 404
+        old = admin_session.post("/people/5/stage", data={"stage": "suspect"}, follow_redirects=False)
+        assert old.status_code in (404, 405)
 
     def test_the_person_page_has_a_stage_select_and_saving_it_is_optional(self, admin_session):
         person = self.listed(title="CTO", distance_km=None)
@@ -629,16 +632,12 @@ class TestPersonStage:
             assert f'<option value="{stage}" ' in page
         assert 'name="pipeline_stage"' not in page
         assert 'onchange="this.form.submit()"' in page
-        # an old cached form that never sent the field must not wipe the stage
-        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
-             patch("gcrm.api.routers.people.log_audit"):
-            admin_session.post("/people/1/edit", data={"name": "Ann"}, follow_redirects=False)
-        assert "pipeline_stage" not in update.call_args.args[1]
-        with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
-             patch("gcrm.api.routers.people.log_audit"):
-            admin_session.post("/people/1/edit", data={"name": "Ann", "pipeline_stage": "customer"},
-                               follow_redirects=False)
-        assert update.call_args.args[1]["pipeline_stage"] == "customer"
+        # the edit form never changes the stage, even an old cached form that still sends one
+        for data in ({"name": "Ann"}, {"name": "Ann", "pipeline_stage": "customer"}):
+            with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
+                 patch("gcrm.api.routers.people.log_audit"):
+                admin_session.post("/people/1/edit", data=data, follow_redirects=False)
+            assert "pipeline_stage" not in update.call_args.args[1]
 
 
 # --- the "Look up cities" button -----------------------------------------------

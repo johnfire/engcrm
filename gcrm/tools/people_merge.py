@@ -17,13 +17,9 @@ from datetime import date
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
 
-# Columns that describe the row rather than the person, and the columns
-# migration 064 retired (the stage and next step now live on deals, which are
-# moved below).
-_ROW_COLUMNS = {
-    "id", "created_at", "updated_at", "deleted_at", "workspace_id",
-    "legacy_pipeline_stage", "legacy_next_step", "legacy_next_step_date",
-}
+# Columns that describe the row rather than the person. (The stage and next
+# step live on deals, which are moved below.)
+_ROW_COLUMNS = {"id", "created_at", "updated_at", "deleted_at", "workspace_id"}
 
 # Every table with a foreign key to people(id), and how a clash on the kept
 # person is resolved. An unlisted table stops the merge: moving rows blindly

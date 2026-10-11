@@ -132,6 +132,30 @@ def scratch_offers(clean_database):
         connection.cursor().execute("DELETE FROM offers WHERE id = ANY(%s)", (created,))
 
 
+def test_nothing_changes_the_deals_of_a_deleted_organization_or_person(school):
+    """A soft-deleted organization or person keeps its deals (restoring needs no
+    second step), but until then no stage, next step or removal may touch them."""
+    org_deal = add_deal("organization", school["contact_id"], school["offers"]["learnwohl"])
+    person_deal = add_deal("person", school["jamie"], school["offers"]["learnwohl"])
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE contacts SET deleted_at = NOW() WHERE id = %s", (school["contact_id"],))
+        cursor.execute("UPDATE people SET deleted_at = NOW() WHERE id = %s", (school["jamie"],))
+
+    for deal_id in (org_deal, person_deal):
+        with pytest.raises(DealNotFound):
+            update_deal(deal_id, stage="customer")
+        with pytest.raises(DealNotFound):
+            set_deal_next_step(deal_id, "Call", None)
+        with pytest.raises(DealNotFound):
+            remove_deal(deal_id)
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE contacts SET deleted_at = NULL WHERE id = %s", (school["contact_id"],))
+    assert update_deal(org_deal, stage="customer")["pipeline_stage"] == "customer"  # restored: usable again
+
+
 def test_offers_are_added_renamed_reordered_and_archived(scratch_offers):
     first = create_offer(None, "Workshops", "https://example.test", "one_off")
     second = create_offer(None, "Workshops", "", "subscription")  # same name, its own slug

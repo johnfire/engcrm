@@ -48,7 +48,6 @@ from gcrm.tools.db_people import (
     save_person,
     search_organizations,
     set_person_organization,
-    set_person_pipeline_stage,
     set_person_value_rating,
     update_person,
 )
@@ -59,7 +58,6 @@ from gcrm.tools.db_people_interactions import (
 )
 from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.email_extract import extract_person_from_email
-from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
 from gcrm.tools.transcribe import transcribe
 
@@ -77,10 +75,6 @@ MATCH_PAGE_SIZE = 100
 
 class PersonValueRatingBody(BaseModel):
     priority: int | None = None
-
-
-class PersonStageBody(BaseModel):
-    stage: str | None = None  # null or blank clears the stage
 
 
 def remember_people_stage(request: Request, stage: str | None) -> str:
@@ -604,26 +598,6 @@ def person_detail(
     })
 
 
-@router.post("/people/{person_id}/next-step")
-def person_set_next_step(
-    person_id: int,
-    next_step: str = Form(""),
-    next_step_date: str = Form(""),
-    done: str = Form(""),
-    _admin: str = Depends(require_admin),
-):
-    """Set what happens next with this person, or mark it done (clears it). Each
-    change is also written to the note log by set_person_next_step."""
-    try:
-        due = date.fromisoformat(next_step_date) if next_step_date.strip() and not done else None
-        result = set_person_next_step(person_id, "" if done else next_step, due)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error))
-    if result is None:
-        raise HTTPException(status_code=404, detail="Person not found")
-    return local_redirect(f"/people/{person_id}", saved="1")
-
-
 @router.get("/people/{person_id}/link", response_class=HTMLResponse)
 def person_link_form(request: Request, person_id: int, q: str | None = Query(default=None)):
     """Find an organization to link this person to. The search starts from the
@@ -690,42 +664,6 @@ def update_person_value_rating(
     return {"value_rating": stored_rating}
 
 
-@router.post("/people/{person_id}/stage")
-def person_set_stage(
-    person_id: int,
-    stage: str = Form(""),
-    next: str = Form("/people/"),
-    _admin: str = Depends(require_admin),
-):
-    """Change a person's stage from the list (blank clears it) and come back to
-    the same filtered list."""
-    if stage and stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    found, stored = set_person_pipeline_stage(person_id, stage)
-    if not found:
-        raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
-    return local_redirect(next, fallback="/people/")
-
-
-@router.put("/people/{person_id}/stage")
-def person_put_stage(
-    person_id: int,
-    body: PersonStageBody,
-    _admin: str = Depends(require_admin),
-):
-    """Change a person's stage from their detail page the moment it is picked, without
-    leaving the page — so edits not yet saved in the other fields are kept."""
-    stage = (body.stage or "").strip()
-    if stage and stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
-    found, stored = set_person_pipeline_stage(person_id, stage)
-    if not found:
-        raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.stage_changed", f"person:{person_id}", stored or "cleared")
-    return {"pipeline_stage": stored}
-
-
 @router.post("/people/{person_id}/edit")
 def person_edit(
     person_id: int,
@@ -742,14 +680,12 @@ def person_edit(
     linkedin_url: str = Form(""),
     is_linkedin_contact: bool = Form(False),
     retention_hold: bool = Form(False),
-    pipeline_stage: str | None = Form(None),
     _admin: str = Depends(require_admin),
 ):
-    """Save the edited person. Name is the one field the row cannot lose."""
+    """Save the edited person. Name is the one field the row cannot lose. The
+    stage is edited on the Deals panel."""
     if not name.strip():
         raise HTTPException(status_code=400, detail="Name is required")
-    if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
-        raise HTTPException(status_code=400, detail="Unknown pipeline stage")
     try:
         updated = update_person(person_id, {
             "name": name, "title": title, "email": email, "phone": phone,
@@ -757,8 +693,6 @@ def person_edit(
             "relationship": relationship, "met_at": met_at, "notes": notes,
             "linkedin_url": linkedin_url, "is_linkedin_contact": is_linkedin_contact,
             "retention_hold": retention_hold,
-            # absent from an old cached form -> leave the stored stage alone
-            **({} if pipeline_stage is None else {"pipeline_stage": pipeline_stage}),
         })
     except ValueError:
         raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")

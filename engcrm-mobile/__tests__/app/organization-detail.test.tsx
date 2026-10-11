@@ -3,13 +3,11 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
-const mockUpdateState = jest.fn();
 const mockDeleteNote = jest.fn();
 const mockAddNote = jest.fn();
 jest.mock("../../services/api", () => ({
   addOrganizationNote: (...args: any[]) => mockAddNote(...args),
   deleteOrganizationNote: (...args: any[]) => mockDeleteNote(...args),
-  updateOrganizationState: (...args: any[]) => mockUpdateState(...args),
   fetchOrganization: (...args: any[]) => mockFetchContact(...args),
   runOpportunityAnalysis: (...args: any[]) => mockRunAnalysis(...args),
   updatePersonalPriority: (...args: any[]) => mockUpdatePersonalPriority(...args),
@@ -371,7 +369,6 @@ describe("organization detail — stage and status", () => {
   beforeEach(() => {
     mockFetchContact.mockReset();
     mockGetRole.mockReset();
-    mockUpdateState.mockReset();
     mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, pipeline_stage: "candidate", status: "none" });
     mockFetchDeals.mockResolvedValue([consultingDeal("candidate", "none")]);
   });
@@ -383,7 +380,6 @@ describe("organization detail — stage and status", () => {
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect")); // saves at once — no Save button
     await waitFor(() => expect(mockChangeDeal).toHaveBeenCalledWith(7, { stage: "suspect", status: "ready" }));
-    expect(mockUpdateState).not.toHaveBeenCalled(); // the organization-wide endpoint is the old app's
   });
 
   it("shows the picker to the admin only; everyone else just sees the badges", async () => {
