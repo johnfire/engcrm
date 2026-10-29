@@ -1,4 +1,9 @@
 {
+  "listControls.applyFilters": "Apply filters",
+  "listControls.applySort": "Apply sort",
+  "listControls.resetFilters": "Reset filters",
+  "listControls.resetSort": "Reset sort",
+  "listControls.direction": "Sort direction",
   "contactFeed.counts": "Contact counts",
   "contactFeed.countMonth": "This month",
   "contactFeed.countSince": "All time (since {{date}})",
@@ -796,7 +801,7 @@
   "statistics.pipelineOverTime": "Pipeline over time (daily log, each stage on its own scale)",
   "statistics.pipelineLogHint": "The daily pipeline log started on {{date}}; each period shows its last logged day.",
   "contactFeed.title": "Contacts",
-  "contactFeed.hint": "Businesses and their contacted people, most recent contact first.",
+  "contactFeed.hint": "Businesses and their contacted people.",
   "contactFeed.search": "Search people and organizations",
   "contactFeed.kind": "Contact type",
   "contactFeed.all": "All contacts",

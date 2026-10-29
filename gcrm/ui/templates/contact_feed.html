@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}">{% endblock %}
 {% block title %}{{ t('contactFeed.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 {% block content %}
@@ -17,7 +18,17 @@
     <dd>{{ t('contactFeed.countPeople', count=counts.since_start.people) }} · {{ t('contactFeed.countOrganizations', count=counts.since_start.organizations) }}</dd></div>
 </dl>
 {% endif %}
-<form class="filter-bar" method="get" action="/contact-feed/">
+{% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
+{% set active_sort = filters.sort %}
+{% set active_dir = filters.dir or ('desc' if filters.sort == 'last_contact' else 'asc') %}
+{% set filter_values = dict(q=filters.search, kind=filters.kind, stage=filters.stage, offer=active_offer or 'all') %}
+{% set sort_values = dict(sort=active_sort, dir=active_dir) %}
+{% set reset_filter_values = dict(q='', kind='', stage='', offer='all', sort=active_sort, dir=active_dir) %}
+<div class="list-controls">
+<form id="list-filter-form" class="filter-bar list-control-group" method="get" action="/contact-feed/" aria-label="{{ t('common.filter') }}">
+  <h2 class="list-control-title">{{ t('common.filter') }}</h2>
+  {{ preserve_fields(sort_values) }}
+
   <input type="search" name="q" value="{{ filters.search }}" placeholder="{{ t('contactFeed.search') }}" aria-label="{{ t('contactFeed.search') }}">
   <select name="kind" aria-label="{{ t('contactFeed.kind') }}">
     {% for kind in ['', 'person', 'organization'] %}
@@ -32,6 +43,12 @@
     <option value="{{ stage }}" {% if filters.stage == stage %}selected{% endif %}>{{ t('stage.' ~ stage) }}</option>
     {% endfor %}
   </select>
+  <button type="submit" class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+  {{ reset_link('/contact-feed/', reset_filter_values, t('listControls.resetFilters'), 'reset-filters') }}
+</form>
+<form id="list-sort-form" class="filter-bar list-control-group" method="get" action="/contact-feed/" aria-label="{{ t('common.sortBy') }}">
+  <h2 class="list-control-title">{{ t('common.sortBy') }}</h2>
+  {{ preserve_fields(filter_values) }}
   <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
     {% for key, label in [('last_contact', 'contactFeed.last_contact'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage')] %}
     <option value="{{ key }}" {% if filters.sort == key %}selected{% endif %}>{{ t(label) }}</option>
@@ -42,9 +59,10 @@
     <option value="asc" {% if direction == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
     <option value="desc" {% if direction == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
   </select>
-  <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  <a href="/contact-feed/?q=&kind=&stage=&sort=last_contact&dir=desc" class="btn-secondary">{{ t('common.clear') }}</a>
+  <button type="submit" class="btn-primary">{{ t('listControls.applySort') }}</button>
+  {{ reset_link('/contact-feed/', dict(filter_values, sort='last_contact', dir='desc'), t('listControls.resetSort'), 'reset-sort') }}
 </form>
+</div>
 </div>
 {% macro sort_th(key, label, first_dir='asc') %}
 {% set direction = filters.dir or ('desc' if filters.sort == 'last_contact' else 'asc') %}

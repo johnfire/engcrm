@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}">{% endblock %}
 {% block title %}{{ t('people.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 
@@ -18,7 +19,17 @@
 <div class="flash-success">{{ t('people.deleted') }}</div>
 {% endif %}
 
-<form class="filter-bar" method="get" action="/people/">
+{% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
+{% set active_sort = sort %}
+{% set active_dir = dir %}
+{% set filter_values = dict(q=query, company_priority=company_priority, value_rating=value_rating, linkedin=linkedin, stage=stage, city=city, offer=active_offer or 'all') %}
+{% set sort_values = dict(sort=active_sort, dir=active_dir) %}
+{% set reset_filter_values = dict(q='', company_priority='', value_rating='', linkedin='', stage='', city='', offer='all', sort=active_sort, dir=active_dir) %}
+<div class="list-controls">
+<form id="list-filter-form" class="filter-bar list-control-group" method="get" action="/people/" aria-label="{{ t('common.filter') }}">
+  <h2 class="list-control-title">{{ t('common.filter') }}</h2>
+  {{ preserve_fields(sort_values) }}
+
   <input type="text" name="q" value="{{ query }}" placeholder="{{ t('people.searchPlaceholder') }}">
   <select name="company_priority" aria-label="{{ t('people.companyPriority') }}">
     <option value="">{{ t('people.allCompanyPrioritiesShort') }}</option>
@@ -67,8 +78,13 @@
     <option value="{{ c.city }}" {% if city|lower|trim == c.city|lower %}selected{% endif %}>{{ c.city }} ({{ c.people }})</option>
     {% endfor %}
   </select>
-  <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
-  <select name="sort" title="{{ t('common.sortBy') }}">
+  <button type="submit" class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+  {{ reset_link('/people/', reset_filter_values, t('listControls.resetFilters'), 'reset-filters') }}
+</form>
+<form id="list-sort-form" class="filter-bar list-control-group" method="get" action="/people/" aria-label="{{ t('common.sortBy') }}">
+  <h2 class="list-control-title">{{ t('common.sortBy') }}</h2>
+  {{ preserve_fields(filter_values) }}
+  <select name="sort" aria-label="{{ t('common.sortBy') }}" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
     <option value="last_name" {% if sort == "last_name" %}selected{% endif %}>{{ t('common.lastName') }}</option>
@@ -83,15 +99,14 @@
     <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
     <option value="connected_on" {% if sort == "connected_on" %}selected{% endif %}>{{ t('linkedin.connectedOn') }}</option>
   </select>
-  <select name="dir">
+  <select name="dir" aria-label="{{ t('listControls.direction') }}">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
-  <button type="submit" class="btn-primary">{{ t('common.search') }}</button>
-  {% if query or company_priority or value_rating or linkedin or stage or city %}
-  <a href="/people/?stage=" class="muted" style="align-self:center">{{ t('common.clear') }}</a>
-  {% endif %}
+  <button type="submit" class="btn-primary">{{ t('listControls.applySort') }}</button>
+  {{ reset_link('/people/', dict(filter_values, sort='created_at', dir='desc'), t('listControls.resetSort'), 'reset-sort') }}
 </form>
+</div>
 
 {% if people %}
 {% macro sort_th(key, label, first_dir="asc", cls="") %}

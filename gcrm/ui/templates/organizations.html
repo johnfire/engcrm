@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block title %}{{ t('organizations.title') }} — {{ t('nav.brand') }}{%
+{% extends "base.html" %}
+{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}">{% endblock %} {% block title %}{{ t('organizations.title') }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
   <h1>{{ t('organizations.title') }}</h1>
@@ -11,7 +12,17 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   <a href="/organizations/reachable" class="btn-secondary">{{ t('reachable.link') }}</a>
 </div>
 
-<form class="filter-bar" method="get" action="/organizations/">
+{% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
+{% set active_sort = sort %}
+{% set active_dir = dir %}
+{% set filter_values = dict(q=query, status=active_status, stage=active_stage, suppressed=active_suppressed, type=active_type, has_contact=has_contact, personal_priority=personal_priority, linkedin=linkedin, offer=active_offer or 'all') %}
+{% set sort_values = dict(sort=active_sort, dir=active_dir) %}
+{% set reset_filter_values = dict(q='', status='', stage='', suppressed='', type='', has_contact='', personal_priority='', linkedin='', offer='all', sort=active_sort, dir=active_dir) %}
+<div class="list-controls">
+<form id="list-filter-form" class="filter-bar list-control-group" method="get" action="/organizations/" aria-label="{{ t('common.filter') }}">
+  <h2 class="list-control-title">{{ t('common.filter') }}</h2>
+  {{ preserve_fields(sort_values) }}
+
   <input
     type="text"
     name="q"
@@ -77,8 +88,13 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="" {% if linkedin == "" %}selected{% endif %}>{{ t('organizations.anyLinkedin') }}</option>
     <option value="1" {% if linkedin == "1" %}selected{% endif %}>{{ t('organizations.hasLinkedin') }}</option>
   </select>
-  <span class="muted" style="align-self: center">{{ t('common.sortBy') }}:</span>
-  <select name="sort" title="{{ t('common.sortBy') }}">
+  <button type="submit" class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+  {{ reset_link('/organizations/', reset_filter_values, t('listControls.resetFilters'), 'reset-filters') }}
+</form>
+<form id="list-sort-form" class="filter-bar list-control-group" method="get" action="/organizations/" aria-label="{{ t('common.sortBy') }}">
+  <h2 class="list-control-title">{{ t('common.sortBy') }}</h2>
+  {{ preserve_fields(filter_values) }}
+  <select name="sort" aria-label="{{ t('common.sortBy') }}" title="{{ t('common.sortBy') }}">
     <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>{{ t('common.added') }}</option>
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
@@ -92,14 +108,14 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
     <option value="id" {% if sort == "id" %}selected{% endif %}>{{ t('organizations.colId') }}</option>
   </select>
-  <select name="dir">
+  <select name="dir" aria-label="{{ t('listControls.direction') }}">
     <option value="desc" {% if dir == "desc" %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
     <option value="asc" {% if dir == "asc" %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
   </select>
-  <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  {% if query or active_status or active_stage or active_suppressed or active_type or has_contact or personal_priority or linkedin %}
-  <a href="/organizations/" class="muted" style="align-self: center">{{ t('common.clear') }}</a>
-  {% endif %}
+  <button type="submit" class="btn-primary">{{ t('listControls.applySort') }}</button>
+  {{ reset_link('/organizations/', dict(filter_values, sort='created_at', dir='desc'), t('listControls.resetSort'), 'reset-sort') }}
+</form>
+</div>
   <a
     href="/organizations/print?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&personal_priority={{ personal_priority }}&sort={{ sort }}&dir={{ dir }}"
     target="_blank"
@@ -107,7 +123,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     style="padding: 0.35rem 0.8rem; text-decoration: none"
     >{{ t('organizations.printPdf') }}</a
   >
-</form>
+
 
 {% macro sort_link(col, label, default_dir='asc') %} {% set next_dir = ('asc'
 if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow

@@ -103,3 +103,37 @@ def test_sort_controls_order_real_records_in_both_directions(linked_contacts, pa
             first_position = response.text.index(f'>{first_name}</a>')
             last_position = response.text.index(f'>{last_name}</a>')
             assert (first_position < last_position) == (direction == 'asc'), (path, sort, direction)
+
+
+@pytest.mark.parametrize('path,query', [('/contact-feed/', 'Academy'),
+                                       ('/organizations/', 'Academy'), ('/people/', 'Ann')])
+def test_filter_and_sort_forms_work_independently_with_real_records(linked_contacts, path, query):
+    from tests.test_list_control_forms import ListForms
+
+    browser, headers, organization_id, person_id, password = linked_contacts
+    browser.patch(f'/api/contact-feed/person/{person_id}/date', headers=headers,
+                  json={'contact_date': '2026-10-29'})
+    browser.post('/login', data={'email': 'contacts@example.test', 'password': password})
+    page = browser.get(path, params={'stage': 'candidate', 'offer': 'consulting', 'sort': 'name', 'dir': 'asc'})
+    assert page.status_code == 200
+    forms = ListForms(page.text).forms
+    sorting = forms['list-sort-form']['fields']
+    sorting.update(sort='city', dir='desc')
+    sorted_page = browser.get(path, params=sorting)
+    assert sorted_page.status_code == 200
+    filtering = ListForms(sorted_page.text).forms['list-filter-form']['fields']
+    filtering['q'] = query
+    filtered_page = browser.get(path, params=filtering)
+    assert filtered_page.status_code == 200 and query in filtered_page.text
+    controls = ListForms(filtered_page.text)
+    assert controls.forms['list-sort-form']['fields']['sort'] == 'city'
+    reset_sort = browser.get(controls.links['reset-sort'])
+    assert reset_sort.status_code == 200
+    reset_controls = ListForms(reset_sort.text)
+    assert reset_controls.forms['list-filter-form']['fields']['q'] == query
+    assert reset_controls.forms['list-filter-form']['fields']['stage'] == 'candidate'
+    reset_filter = browser.get(reset_controls.links['reset-filters'])
+    assert reset_filter.status_code == 200
+    final_sorting = ListForms(reset_filter.text).forms['list-sort-form']['fields']
+    assert final_sorting['q'] == '' and final_sorting['stage'] == ''
+    assert final_sorting['dir'] == 'desc'

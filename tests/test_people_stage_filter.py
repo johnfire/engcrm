@@ -1,4 +1,6 @@
 """People stage preferences survive list/detail navigation and explicit resets."""
+import re
+from html import unescape
 from unittest.mock import patch
 
 import pytest
@@ -62,7 +64,8 @@ def test_selected_stage_survives_opening_person_and_returning(people_browser):
     returned_page = browser.get("/people/")
     assert fetch_people.call_args.kwargs["stage"] == "suspect"
     assert '<option value="suspect" selected>' in returned_page.text
-    assert 'href="/people/?stage="' in returned_page.text
+    reset_link = re.search(r'id="reset-filters" href="([^"]+)"', returned_page.text)
+    assert reset_link and 'stage=' in unescape(reset_link.group(1))
     assert browser.get("/people/?sort=name&dir=asc").status_code == 200
     assert fetch_people.call_args.kwargs["stage"] == "suspect"
 

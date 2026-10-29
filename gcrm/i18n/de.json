@@ -1,4 +1,9 @@
 {
+  "listControls.applyFilters": "Filter anwenden",
+  "listControls.applySort": "Sortierung anwenden",
+  "listControls.resetFilters": "Filter zurücksetzen",
+  "listControls.resetSort": "Sortierung zurücksetzen",
+  "listControls.direction": "Sortierrichtung",
   "contactFeed.counts": "Kontaktzahlen",
   "contactFeed.countMonth": "Diesen Monat",
   "contactFeed.countSince": "Insgesamt (seit {{date}})",
@@ -796,7 +801,7 @@
   "statistics.pipelineOverTime": "Pipeline im Verlauf (Tageslog, jede Stufe mit eigener Skala)",
   "statistics.pipelineLogHint": "Das tägliche Pipeline-Log läuft seit {{date}}; jeder Zeitraum zeigt seinen letzten erfassten Tag.",
   "contactFeed.title": "Kontakte",
-  "contactFeed.hint": "Organisationen mit ihren kontaktierten Personen, nach dem letzten Kontakt sortiert.",
+  "contactFeed.hint": "Organisationen mit ihren kontaktierten Personen.",
   "contactFeed.search": "Personen und Organisationen suchen",
   "contactFeed.kind": "Kontaktart",
   "contactFeed.all": "Alle Kontakte",

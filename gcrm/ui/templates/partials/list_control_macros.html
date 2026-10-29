@@ -1,0 +1,9 @@
+{% macro preserve_fields(fields) %}
+{% for name, value in fields.items() %}
+<input type="hidden" name="{{ name }}" value="{{ value }}">
+{% endfor %}
+{% endmacro %}
+
+{% macro reset_link(path, fields, label, id) %}
+<a id="{{ id }}" href="{{ path }}?{{ fields | urlencode }}" class="btn-secondary">{{ label }}</a>
+{% endmacro %}

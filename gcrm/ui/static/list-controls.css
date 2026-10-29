@@ -1,0 +1,25 @@
+/* Independent list controls: each group submits only its editable choices. */
+.list-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+.list-controls .list-control-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+}
+.list-control-title {
+  flex-basis: 100%;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+.list-control-group input[type="text"],
+.list-control-group input[type="search"],
+.list-control-group select {
+  min-width: 0;
+  max-width: 100%;
+}
