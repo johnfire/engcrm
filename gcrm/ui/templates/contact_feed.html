@@ -33,21 +33,33 @@
     {% endfor %}
   </select>
   <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
-    {% for sort in ['last_contact', 'name'] %}
-    <option value="{{ sort }}" {% if filters.sort == sort %}selected{% endif %}>{{ t('contactFeed.' ~ sort) }}</option>
+    {% for key, label in [('last_contact', 'contactFeed.last_contact'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage')] %}
+    <option value="{{ key }}" {% if filters.sort == key %}selected{% endif %}>{{ t(label) }}</option>
     {% endfor %}
   </select>
+  <select name="dir" aria-label="{{ t('common.sortBy') }}: {{ t('common.sortAsc') }} / {{ t('common.sortDesc') }}">
+    {% set direction = filters.dir or ('desc' if filters.sort == 'last_contact' else 'asc') %}
+    <option value="asc" {% if direction == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
+    <option value="desc" {% if direction == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
+  </select>
   <button type="submit" class="btn-primary">{{ t('common.filter') }}</button>
-  <a href="/contact-feed/?q=&kind=&stage=&sort=last_contact" class="btn-secondary">{{ t('common.clear') }}</a>
+  <a href="/contact-feed/?q=&kind=&stage=&sort=last_contact&dir=desc" class="btn-secondary">{{ t('common.clear') }}</a>
 </form>
 </div>
+{% macro sort_th(key, label, first_dir='asc') %}
+{% set direction = filters.dir or ('desc' if filters.sort == 'last_contact' else 'asc') %}
+{% set active = filters.sort == key %}
+{% set next_dir = ('asc' if direction == 'desc' else 'desc') if active else first_dir %}
+{% set link = request.url.include_query_params(sort=key, dir=next_dir, page=1) %}
+<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}><a href="{{ link.path }}?{{ link.query }}">{{ label }}{% if active %} {{ '↑' if direction == 'asc' else '↓' }}{% endif %}</a></th>
+{% endmacro %}
 <div class="table-scroll">
   <table>
     <thead><tr>
-      <th scope="col">{{ t('contactFeed.kind') }}</th><th scope="col">{{ t('contactFeed.name') }}</th>
-      <th scope="col">{{ t('contactFeed.details') }}</th><th scope="col">{{ t('contactFeed.city') }}</th>
-      <th scope="col">{{ t('contactFeed.email') }}</th><th scope="col">{{ t('common.pipelineStage') }}</th>
-      <th scope="col">{{ t('contactFeed.last_contact') }}</th>
+      {{ sort_th('kind', t('contactFeed.kind')) }}{{ sort_th('name', t('contactFeed.name')) }}
+      <th scope="col">{{ t('contactFeed.details') }}</th>{{ sort_th('city', t('contactFeed.city')) }}
+      <th scope="col">{{ t('contactFeed.email') }}</th>{{ sort_th('pipeline_stage', t('common.pipelineStage')) }}
+      {{ sort_th('last_contact', t('contactFeed.last_contact'), 'desc') }}
     </tr></thead>
     <tbody>
       {% for contact in contacts %}

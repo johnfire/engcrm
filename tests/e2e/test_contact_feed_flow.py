@@ -63,3 +63,43 @@ def test_new_person_and_company_appear_together_and_open_their_own_details(linke
     assert corrected['last_contact'] == '2026-10-03' and corrected['last_contact_kind'] == 'organization'
     assert corrected['people'][0]['last_contact'] == '2026-10-02'
     assert browser.get(f'/api/contact-feed/organization/{organization_id}/date', headers=headers).json()['contact_date'] == '2026-10-03'
+
+
+@pytest.mark.parametrize('path,first_name,last_name', [
+    ('/contact-feed/', 'Academy', 'Zulu'),
+    ('/organizations/', 'Academy', 'Zulu'),
+    ('/people/', 'Ann Example', 'Zara Example'),
+])
+def test_sort_controls_order_real_records_in_both_directions(linked_contacts, path, first_name, last_name):
+    from gcrm.db.connection import db
+    from gcrm.tools.db_deals import set_organization_deal
+
+    browser, headers, organization_id, person_id, password = linked_contacts
+    organization = browser.post('/api/contacts', headers=headers, json={'name': 'Zulu', 'city': 'Berlin'})
+    other_id = organization.json()['id']
+    person = browser.post('/api/people', headers=headers, json={
+        'name': 'Zara Example', 'city': 'Berlin', 'pipeline_stage': 'suspect',
+        'contact_id': other_id,
+    })
+    other_person_id = person.json()['id']
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE people SET city='Augsburg' WHERE id=%s", (person_id,))
+        set_organization_deal(cursor, organization_id, stage='candidate')
+        set_organization_deal(cursor, other_id, stage='suspect')
+    for kind, contact_id, day in [('organization', organization_id, '2026-10-03'),
+                                 ('organization', other_id, '2026-10-05'),
+                                 ('person', person_id, '2026-10-03'),
+                                 ('person', other_person_id, '2026-10-05')]:
+        response = browser.patch(f'/api/contact-feed/{kind}/{contact_id}/date', headers=headers,
+                                 json={'contact_date': day})
+        assert response.status_code == 200
+    browser.post('/login', data={'email': 'contacts@example.test', 'password': password})
+    for sort in ('name', 'city', 'pipeline_stage', 'last_contact'):
+        for direction in ('asc', 'desc'):
+            response = browser.get(path, params={'sort': sort, 'dir': direction, 'offer': 'all'})
+            assert response.status_code == 200
+            assert f'value="{sort}" selected' in response.text
+            first_position = response.text.index(f'>{first_name}</a>')
+            last_position = response.text.index(f'>{last_name}</a>')
+            assert (first_position < last_position) == (direction == 'asc'), (path, sort, direction)

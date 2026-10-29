@@ -13,8 +13,8 @@ def _stages_sql(alias: str, column: str, offer: str | None) -> str:
     """The stages of the owner's live deals — that offer's, or every offer's —
     as an array, for the stage filter."""
     only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
-    return (f"ARRAY(SELECT x.pipeline_stage FROM deals x WHERE x.{column} = {alias}.id "
-            f"AND x.deleted_at IS NULL {only})")
+    return (f"ARRAY(SELECT x.pipeline_stage FROM deals x JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id "
+            f"AND x.deleted_at IS NULL {only} ORDER BY o.sort_order, o.id)")
 
 
 def contact_feed_sql(offer: str | None = CONSULTING) -> str:

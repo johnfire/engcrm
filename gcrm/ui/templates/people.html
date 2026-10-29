@@ -74,6 +74,8 @@
     <option value="last_name" {% if sort == "last_name" %}selected{% endif %}>{{ t('common.lastName') }}</option>
     <option value="company" {% if sort == "company" %}selected{% endif %}>{{ t('personDetail.company') }}</option>
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
+    <option value="pipeline_stage" {% if sort == "pipeline_stage" %}selected{% endif %}>{{ t('common.pipelineStage') }}</option>
+    <option value="last_contact" {% if sort == "last_contact" %}selected{% endif %}>{{ t('people.lastContact') }}</option>
     <option value="met_at" {% if sort == "met_at" %}selected{% endif %}>{{ t('people.metAt') }}</option>
     <option value="opportunity_score" {% if sort == "opportunity_score" %}selected{% endif %}>{{ t('organizationDetail.opportunityScore') }}</option>
     <option value="company_priority" title="{{ t('people.companyPriority') }}" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriorityShort') }}</option>
@@ -105,14 +107,14 @@
       <th class="nowrap">{{ t('organizations.colId') }}</th>
       {{ sort_th('name', t('common.name')) }}
       {{ sort_th('company', t('personDetail.company')) }}
-      <th>{{ t('common.pipelineStage') }}</th>
+      {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}
       {{ sort_th('next_step_date', t('people.nextStep')) }}
       {{ sort_th('opportunity_score', t('organizationDetail.opportunityScore'), 'desc') }}
       {{ sort_th('company_priority', t('people.companyPriorityShort'), 'desc') }}
       {{ sort_th('city', t('common.city')) }}
       <th>{{ t('people.relationship') }}</th>
       {{ sort_th('value_rating', t('contactValue.short'), 'desc') }}
-      <th class="nowrap">{{ t('people.lastContact') }}</th>
+      {{ sort_th('last_contact', t('people.lastContact'), 'desc', 'nowrap') }}
       {{ sort_th('distance', t('common.distanceKm'), 'asc', 'nowrap') }}
       {{ sort_th('created_at', t('common.added'), 'desc', 'nowrap') }}
     </tr>

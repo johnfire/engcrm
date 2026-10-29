@@ -68,9 +68,12 @@ def remember_feed_filters(request: Request, **selections) -> dict:
                for key, selected, default in (
                    ("search", selections["q"], ""), ("kind", selections["kind"], ""),
                    ("stage", selections["stage"], ""), ("sort", selections["sort"], "last_contact"),
+                   ("dir", selections.get("dir"), ""),
                )}
     if filters["sort"] == "newest":
         filters["sort"] = "last_contact"
+    if filters["dir"] not in ("", "asc", "desc"):
+        filters["dir"] = ""
     check_feed_filters(filters["kind"], filters["stage"], filters["sort"])
     request.session["contact_feed_filters"] = filters
     return filters
@@ -78,14 +81,14 @@ def remember_feed_filters(request: Request, **selections) -> dict:
 
 def feed_page_link(page: int, filters: dict) -> str:
     return "/contact-feed/?" + urlencode({"q": filters["search"], "kind": filters["kind"],
-                                        "stage": filters["stage"], "sort": filters["sort"], "page": page})
+                                        "stage": filters["stage"], "sort": filters["sort"], "dir": filters["dir"], "page": page})
 
 
 @router.get("/contact-feed/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
                  kind: str | None = None, stage: str | None = None, sort: str | None = None,
-                 offer: str | None = None, page: int = Query(1, ge=1)):
-    filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort)
+                 offer: str | None = None, page: int = Query(1, ge=1), dir: str | None = None):
+    filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort, dir=dir)
     active_offer, offers = web_offer_filter(request, offer)
     contacts = get_contact_feed(**filters, page=page, workspace_id=request.session.get("workspace_id"),
                                 extra_row=True, offer=active_offer, only_pitched=active_offer is not None)

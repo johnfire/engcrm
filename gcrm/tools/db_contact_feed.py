@@ -6,10 +6,13 @@ from gcrm.tools.db_deals import CONSULTING
 
 PAGE_SIZE = 50
 KINDS = ("", "person", "organization")
-SORT_ORDERS = {
-    "last_contact": "last_contact DESC NULLS LAST, kind, id DESC",
-    "newest": "last_contact DESC NULLS LAST, kind, id DESC",  # Older mobile clients use this sort key.
-    "name": "lower(name), kind, id",
+SORT_COLUMNS = {
+    "last_contact": "last_contact",
+    "newest": "last_contact",  # Older mobile clients use this sort key.
+    "name": "lower(name)",
+    "city": "lower(city)",
+    "kind": "kind",
+    "pipeline_stage": "deal_stages",
 }
 
 
@@ -18,7 +21,7 @@ def validate_feed_filters(kind: str, stage: str, sort: str) -> None:
         raise ValueError("Unknown contact type")
     if stage not in ("", "none", *PIPELINE_STAGES):
         raise ValueError("Unknown pipeline stage")
-    if sort not in SORT_ORDERS:
+    if sort not in SORT_COLUMNS:
         raise ValueError("Unknown contact sort")
 
 
@@ -51,7 +54,8 @@ def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None
 
 def get_contact_feed(*, search: str = "", kind: str = "", stage: str = "", sort: str = "last_contact",
                      page: int = 1, workspace_id: int | None = None, extra_row: bool = False,
-                     offer: str | None = CONSULTING, only_pitched: bool = False) -> list[dict]:
+                     offer: str | None = CONSULTING, only_pitched: bool = False,
+                     dir: str | None = None) -> list[dict]:
     """One page of contacted people and organizations. `offer` picks whose stage
     each row shows (None: every offer's, in `deals`); `only_pitched` hides those
     not pitched it."""
@@ -59,7 +63,11 @@ def get_contact_feed(*, search: str = "", kind: str = "", stage: str = "", sort:
     if page < 1:
         raise ValueError("Page must be positive")
     predicate, parameters = feed_predicates(search, kind, stage, workspace_id, only_pitched and offer is not None)
-    query = contact_feed_sql(offer) + f" WHERE {predicate} ORDER BY {SORT_ORDERS[sort]} LIMIT %s OFFSET %s"
+    default_direction = "desc" if sort in ("last_contact", "newest") else "asc"
+    direction = "DESC" if (dir or default_direction) == "desc" else "ASC"
+    tie_breaker = "kind, id DESC" if sort in ("last_contact", "newest") else "kind, id"
+    order = f"{SORT_COLUMNS[sort]} {direction} NULLS LAST, {tie_breaker}"
+    query = contact_feed_sql(offer) + f" WHERE {predicate} ORDER BY {order} LIMIT %s OFFSET %s"
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(query, parameters + [PAGE_SIZE + int(extra_row), (page - 1) * PAGE_SIZE])

@@ -48,7 +48,7 @@ def test_web_filters_are_remembered_and_clear_resets_them():
     selected = remember_feed_filters(request, q="Ann", kind="person", stage="suspect", sort="name")
     assert remember_feed_filters(request, q=None, kind=None, stage=None, sort=None) == selected
     cleared = remember_feed_filters(request, q="", kind="", stage="", sort="newest")
-    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "last_contact"}
+    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "last_contact", "dir": ""}
     assert "q=Ann" in feed_page_link(2, selected) and "page=2" in feed_page_link(2, selected)
 
 

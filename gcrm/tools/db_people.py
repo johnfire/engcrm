@@ -13,6 +13,7 @@ from gcrm.sources import require_source
 from gcrm.tools.db_deals import (
     CONSULTING,
     deal_filters,
+    deal_sort_sql,
     deals_json_sql,
     organization_deal_join,
     person_deal_join,
@@ -259,6 +260,7 @@ SORT_COLUMNS = {
     "distance":         "distance_km",
     "connected_on":     "person.connected_on",
     "next_step_date":   "person_deal.next_step_date",
+    "last_contact":     "last_contact",
 }
 
 # `linkedin` filter values -> WHERE fragment. "unlinked" is the review queue:
@@ -331,7 +333,8 @@ def get_people(
     any deal counts), and only people pitched `offer` when `only_pitched`,
     and/or `city` (exact match ignoring case and surrounding spaces, "" = any),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
-    opportunity_score|company_priority|value_rating|distance|connected_on; default newest-added-first).
+    opportunity_score|company_priority|value_rating|distance|connected_on|
+    pipeline_stage|last_contact|next_step_date; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
     opportunity score, most recent logged interaction date, and (when user_id
     is given) that user's private company-priority and person-value ratings.
@@ -341,6 +344,8 @@ def get_people(
     them together), and without a unique last key two pages could repeat or skip
     a person."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
+    if sort == "pipeline_stage":
+        sort_col = deal_sort_sql("person", "person_id", offer, "pipeline_stage")
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
     select = _select_with_company(offer) + rating_joins

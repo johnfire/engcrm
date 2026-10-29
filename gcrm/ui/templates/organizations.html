@@ -83,6 +83,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="name" {% if sort == "name" %}selected{% endif %}>{{ t('common.name') }}</option>
     <option value="city" {% if sort == "city" %}selected{% endif %}>{{ t('common.city') }}</option>
     <option value="type" {% if sort == "type" %}selected{% endif %}>{{ t('common.type') }}</option>
+    <option value="pipeline_stage" {% if sort == "pipeline_stage" %}selected{% endif %}>{{ t('common.pipelineStage') }}</option>
     <option value="status" {% if sort == "status" %}selected{% endif %}>{{ t('common.status') }}</option>
     <option value="fit" {% if sort == "fit" %}selected{% endif %}>{{ t('organizations.colFit') }}</option>
     <option value="personal_priority" {% if sort == "personal_priority" %}selected{% endif %}>{{ t('personalPriority.title') }}</option>
@@ -147,7 +148,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th>{{ t('organizations.colPeople') }}</th>
       <th>{{ sort_link('city', t('common.city')) }}</th>
       <th>{{ sort_link('type', t('common.type')) }}</th>
-      <th>{{ t('common.pipelineStage') }}</th>
+      <th>{{ sort_link('pipeline_stage', t('common.pipelineStage')) }}</th>
       <th>{{ sort_link('status', t('common.status')) }}</th>
       <th>{{ sort_link('fit', t('organizations.colFit')) }}</th>
       <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>

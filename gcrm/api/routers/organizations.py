@@ -80,8 +80,8 @@ def _priority_join(user_id: int | None) -> tuple[str, list]:
 def _sort_column(sort: str, offer: str | None) -> str:
     """The ORDER BY expression; status sorts by the shown offer's deal (or every
     offer's, in offer order)."""
-    if sort == "status":
-        return deal_sort_sql("c", "contact_id", offer, "status")
+    if sort in ("status", "pipeline_stage"):
+        return deal_sort_sql("c", "contact_id", offer, sort)
     return SORT_COLUMNS.get(sort, "c.created_at")
 
 
