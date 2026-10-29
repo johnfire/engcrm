@@ -17,6 +17,7 @@ import re
 from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
+    PIPELINE_SORT_ORDER,
     PIPELINE_STAGES,
     coerce_stage,
     coerce_status,
@@ -242,11 +243,18 @@ def deal_filters(alias: str, column: str, offer: str | None, stage: str = "",
 
 def deal_sort_sql(alias: str, column: str, offer: str | None, field: str) -> str:
     """Sort key for a deal field (pipeline_stage, status, next_step_date): that
-    offer's value, or across every offer the values in offer order."""
+    offer's value, or across every offer the values in offer order. Stages use
+    best-first business ranks; missing or unknown stages remain NULL."""
     alias, column = _owner(alias, column)
     if field not in ("pipeline_stage", "status", "next_step_date"):
         raise ValueError(f"not a sortable deal field: {field!r}")
     only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
+    if field == "pipeline_stage":
+        ranks = " ".join(f"WHEN '{stage}' THEN {rank}" for rank, stage in enumerate(PIPELINE_SORT_ORDER, 1))
+        known = ", ".join(f"'{stage}'" for stage in PIPELINE_SORT_ORDER)
+        return (f"(SELECT array_agg(CASE x.pipeline_stage {ranks} END ORDER BY o.sort_order, o.id) "
+                f"FROM deals x JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id "
+                f"AND x.deleted_at IS NULL {only} AND x.pipeline_stage IN ({known}))")
     if field == "next_step_date":  # the soonest one
         return (f"(SELECT MIN(x.next_step_date) FROM deals x WHERE x.{column} = {alias}.id "
                 f"AND x.deleted_at IS NULL {only})")

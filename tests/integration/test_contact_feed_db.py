@@ -180,7 +180,7 @@ def test_business_stage_filter_keeps_people_with_different_stages(mixed_contacts
     ("city", [("organization", 1), ("organization", 2), ("person", 2)]),
     ("kind", [("organization", 1), ("organization", 2), ("person", 2)]),
     ("last_contact", [("person", 2), ("organization", 1), ("organization", 2)]),
-    ("pipeline_stage", [("person", 2), ("organization", 1), ("organization", 2)]),
+    ("pipeline_stage", [("organization", 2), ("organization", 1), ("person", 2)]),
 ])
 def test_requested_sorts_use_actual_values(mixed_contacts, sort, expected):
     workspace_id, _ = mixed_contacts
@@ -188,8 +188,10 @@ def test_requested_sorts_use_actual_values(mixed_contacts, sort, expected):
     assert [(row["kind"], row["id"]) for row in ascending] == expected
     descending = get_contact_feed(workspace_id=workspace_id, sort=sort, dir="desc")
     # Ties retain the stable kind/id order and missing cities stay last.
-    if sort in ("name", "last_contact", "pipeline_stage"):
+    if sort in ("name", "last_contact"):
         assert [(row["kind"], row["id"]) for row in descending] == expected[::-1]
+    elif sort == "pipeline_stage":
+        assert [(row["kind"], row["id"]) for row in descending] == [("organization", 1), ("organization", 2), ("person", 2)]
     elif sort == "city":
         assert [row["id"] for row in descending] == [2, 1, 2]
     else:

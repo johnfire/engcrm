@@ -27,6 +27,11 @@ PIPELINE_STAGES = (
     "not_in_pipeline",  # no fit, declined, or never going anywhere
 )
 
+# List sorting is best-first ascending, independent of progression and picker order.
+PIPELINE_SORT_ORDER = (
+    "customer", "opportunity", "prospect", "suspect", "candidate", "not_in_pipeline",
+)
+
 STATUSES = (
     "none",       # nothing is going on right now
     "ready",      # scored a fit, first outreach not yet sent

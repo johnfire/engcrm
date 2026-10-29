@@ -102,7 +102,10 @@ def test_sort_controls_order_real_records_in_both_directions(linked_contacts, pa
             assert f'value="{sort}" selected' in response.text
             first_position = response.text.index(f'>{first_name}</a>')
             last_position = response.text.index(f'>{last_name}</a>')
-            assert (first_position < last_position) == (direction == 'asc'), (path, sort, direction)
+            first_before_last = direction == 'asc'
+            if sort == 'pipeline_stage':
+                first_before_last = not first_before_last  # Suspect ranks before Candidate ascending.
+            assert (first_position < last_position) == first_before_last, (path, sort, direction)
 
 
 @pytest.mark.parametrize('path,query', [('/contact-feed/', 'Academy'),

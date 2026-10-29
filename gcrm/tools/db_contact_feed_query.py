@@ -2,6 +2,7 @@
 from gcrm.tools.db_contact_dates import CONTACT_HISTORY_FILTER, contact_day_sql
 from gcrm.tools.db_deals import (
     CONSULTING,
+    deal_sort_sql,
     deals_json_sql,
     offer_id_sql,
     organization_deal_join,
@@ -33,6 +34,7 @@ WITH active_people AS (
     SELECT person.*, {person_stage} AS pipeline_stage, organization.id AS business_id,
            {deals_json_sql("person", "person_id", offer)} AS deals,
            {_stages_sql("person", "person_id", offer)} AS deal_stages,
+           {deal_sort_sql("person", "person_id", offer, "pipeline_stage")} AS stage_sort_key,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
              WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
       FROM people person
@@ -54,6 +56,7 @@ WITH active_people AS (
     SELECT organization.*, {organization_stage} AS pipeline_stage,
            {deals_json_sql("organization", "contact_id", offer)} AS deals,
            {_stages_sql("organization", "contact_id", offer)} AS deal_stages,
+           {deal_sort_sql("organization", "contact_id", offer, "pipeline_stage")} AS stage_sort_key,
            linked.people, linked.searchable_people,
            direct.last_contact AS direct_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
@@ -67,7 +70,7 @@ WITH active_people AS (
      WHERE organization.deleted_at IS NULL
 ), contact_feed AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
-           city, email, phone, pipeline_stage, deals, deal_stages, created_at, workspace_id,
+           city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, created_at, workspace_id,
            GREATEST(direct_contact, person_contact) AS last_contact,
            COALESCE(people, '[]'::jsonb) AS people, searchable_people,
            CASE WHEN direct_contact IS NOT NULL AND (person_contact IS NULL OR direct_contact >= person_contact)
@@ -79,7 +82,7 @@ WITH active_people AS (
       FROM business_contacts
     UNION ALL
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
-           person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages,
+           person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
            person.created_at, person.workspace_id, person.last_contact,
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL

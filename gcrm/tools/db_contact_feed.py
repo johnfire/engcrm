@@ -12,7 +12,7 @@ SORT_COLUMNS = {
     "name": "lower(name)",
     "city": "lower(city)",
     "kind": "kind",
-    "pipeline_stage": "deal_stages",
+    "pipeline_stage": "stage_sort_key",
 }
 
 

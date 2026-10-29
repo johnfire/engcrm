@@ -9,7 +9,7 @@ from gcrm.tools.db_people import get_people
 
 
 @pytest.mark.parametrize("sort,column", [("city", "lower(city)"), ("kind", "kind"),
-                                         ("pipeline_stage", "deal_stages"), ("name", "lower(name)"),
+                                         ("pipeline_stage", "stage_sort_key"), ("name", "lower(name)"),
                                          ("last_contact", "last_contact")])
 @pytest.mark.parametrize("direction", ["asc", "desc"])
 def test_feed_sorts_before_pagination(sort, column, direction):
