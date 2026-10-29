@@ -22,6 +22,7 @@ export const STATUSES = [
   "contacted",
   "meeting",
   "proposal",
+  "customer",
   "dormant",
   "on_hold",
   "dropped",
@@ -59,7 +60,7 @@ export const TYPICAL_STATUSES_BY_STAGE: Record<PipelineStage, readonly Organizat
   suspect: ["ready", "contacted", "dormant", "on_hold"],
   prospect: ["contacted", "dormant", "on_hold"],
   opportunity: ["meeting", "proposal", "dormant", "on_hold"],
-  customer: ["none", "dormant", "on_hold"],
+  customer: ["none", "customer", "dormant", "on_hold"],
   not_in_pipeline: ["not_interested", "dropped", "none"],
 };
 

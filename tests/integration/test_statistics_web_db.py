@@ -9,6 +9,7 @@ import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.db.connection import db
 from gcrm.tools.db_deals import set_organization_deal
+from gcrm.tools.statistics import get_statistics
 
 pytestmark = pytest.mark.integration
 
@@ -92,3 +93,81 @@ def test_default_minutes_can_be_changed_and_a_custom_period_is_shown(web):
     assert 'Vorbeischauen <span class="muted small">(20 Min.)</span>' in page.text  # the effort table's default
     assert "2026-01-01 – 2026-03-31" in page.text and "Statistik" in page.text
     assert web.get("/statistics?period=custom&start=2026-03-31&end=2026-01-01").status_code == 400
+
+
+def test_training_and_post_mail_can_be_logged_and_read_back(web):
+    acme = _organization()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, workspace_id FROM offers WHERE slug='training' AND workspace_id="
+                       "(SELECT id FROM workspaces WHERE slug='default')")
+        training = cursor.fetchone()
+        training_id, workspace_id = training['id'], training['workspace_id']
+        cursor.execute("INSERT INTO people (name,workspace_id) SELECT 'Postal Person', id FROM workspaces "
+                       "WHERE slug='default' RETURNING id")
+        person_id = cursor.fetchone()['id']
+    for path in [f'/organizations/{acme}?lang=en', f'/people/{person_id}?lang=en']:
+        page = web.get(path)
+        assert page.status_code == 200
+        assert 'value="letter">Post mail</option>' in page.text
+        assert f'value="{training_id}"' in page.text and '>Training</option>' in page.text
+    organization = web.post(f'/organizations/{acme}/activity', data={
+        'method': 'letter', 'note': 'Posted training brochure', 'offer': str(training_id),
+        'duration_minutes': '12',
+    }, follow_redirects=False)
+    assert organization.status_code == 303
+    person = web.post(f'/people/{person_id}/notes', data={
+        'method': 'letter', 'note': 'Posted training invitation', 'offer': str(training_id),
+        'duration_minutes': '8',
+    }, follow_redirects=False)
+    assert person.status_code == 303
+    assert 'Post mail' in web.get(f'/organizations/{acme}?lang=en').text
+    assert 'Post mail' in web.get(f'/people/{person_id}?lang=en').text
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT method,offer_id FROM interactions WHERE contact_id=%s", (acme,))
+        assert dict(cursor.fetchone()) == {'method': 'letter', 'offer_id': training_id}
+        cursor.execute("SELECT method,offer_id FROM people_interactions WHERE person_id=%s", (person_id,))
+        assert dict(cursor.fetchone()) == {'method': 'letter', 'offer_id': training_id}
+    statistics = web.get('/statistics?period=month&lang=en')
+    assert statistics.status_code == 200 and 'Post mail' in statistics.text
+    summary = get_statistics(workspace_id, date.today(), date.today())
+    assert summary['current']['effort']['post_mail']['count'] == 2
+    assert summary['current']['effort']['post_mail']['minutes'] == 20
+
+
+def test_training_seed_is_idempotent_and_keeps_existing_settings(web):
+    from pathlib import Path
+
+    migration = Path('gcrm/db/migrations/068_training_offer.sql').read_text()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE offers SET name='Training courses' WHERE slug='training' "
+                       "AND workspace_id=(SELECT id FROM workspaces WHERE slug='default')")
+        cursor.execute(migration)
+        cursor.execute(migration)
+        cursor.execute("SELECT name FROM offers WHERE slug='training' "
+                       "AND workspace_id=(SELECT id FROM workspaces WHERE slug='default')")
+        assert [row['name'] for row in cursor.fetchall()] == ['Training courses']
+        cursor.execute("UPDATE offers SET name='Training' WHERE slug='training' "
+                       "AND workspace_id=(SELECT id FROM workspaces WHERE slug='default')")
+
+
+@pytest.mark.e2e
+def test_customer_status_saves_and_remains_selected_after_reloading(web):
+    acme = _organization()
+    deal_id = _deal(acme)
+    response = web.post(f'/deals/{deal_id}', data={'status': 'customer'}, follow_redirects=False)
+    assert response.status_code == 303
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute('SELECT pipeline_stage,status FROM deals WHERE id=%s', (deal_id,))
+        assert dict(cursor.fetchone()) == {'pipeline_stage': 'suspect', 'status': 'customer'}
+    for language, label in [('en', 'Customer'), ('de', 'Kunde')]:
+        detail = web.get(f'/organizations/{acme}?lang={language}')
+        assert detail.status_code == 200
+        assert 'value="customer" selected' in detail.text
+        assert label in detail.text
+    listing = web.get('/organizations/?status=customer&lang=en')
+    assert listing.status_code == 200
+    assert 'Acme GmbH' in listing.text

@@ -31,6 +31,7 @@ const METHODS = [
   { value: "call", labelKey: "personDetail.notes.methodCall" },
   { value: "video", labelKey: "meeting.methodVideo" },
   { value: "email", labelKey: "personDetail.notes.methodEmail" },
+  { value: "letter", labelKey: "meeting.methodPostMail" },
   { value: "other", labelKey: "personDetail.notes.methodOther" },
 ];
 

@@ -106,6 +106,22 @@ describe("log a meeting — organization", () => {
     mockChangeDeal.mockResolvedValue(deal(70, "organization", "suspect", "ready"));
   });
 
+  it.each(["organization", "person"] as const)("logs Post mail for a %s", async (kind) => {
+    mockAddPersonNote.mockResolvedValue({ id: 1 });
+    const screen = setup(kind);
+    await typeNote(screen, "Posted a training brochure");
+    fireEvent.press(screen.getByLabelText("Post mail"));
+    fireEvent.press(screen.getByText("Save note"));
+    const save = kind === "organization" ? mockAddOrgNote : mockAddPersonNote;
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    if (kind === "organization") {
+      expect(save.mock.calls[0][1]).toMatchObject({ method: "letter", note: "Posted a training brochure" });
+    } else {
+      expect(save.mock.calls[0].slice(0, 3)).toEqual([7, "Posted a training brochure", "letter"]);
+    }
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+
   it("saves a note, a follow-up and a stage change with one tap, then goes back", async () => {
     const changed = jest.fn();
     const off = onChanged(organizationKey(42), changed);

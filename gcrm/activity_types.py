@@ -6,11 +6,11 @@ Organization activities (`interactions.method`) and person activities
 in one place. See docs/plans/2026-10-05-statistics-design.md.
 """
 
-ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "note")
+ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "post_mail", "note")
 
 # Minutes an activity counts for when no duration was typed. Each workspace can
 # change these in Settings (activity_minute_defaults); these are the fallback.
-DEFAULT_MINUTES = {"drop_in": 15, "meeting": 45, "phone": 15, "video": 30, "email": 10, "note": 0}
+DEFAULT_MINUTES = {"drop_in": 15, "meeting": 45, "phone": 15, "video": 30, "email": 10, "post_mail": 10, "note": 0}
 
 # Stored method value -> activity type. Anything else (other, none) is a plain note.
 _METHOD_TYPES = {
@@ -19,6 +19,7 @@ _METHOD_TYPES = {
     "phone": "phone", "call": "phone",
     "video": "video",
     "email": "email",
+    "letter": "post_mail",
 }
 
 # Log entries that record a plan, not work done.
@@ -26,8 +27,8 @@ NOT_ACTIVITIES = ("next_step", "next_step_done")
 
 # Methods each form may store. Organizations and people keep their own words for
 # the older types; the new ones are shared.
-ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "other")
-PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "other")
+ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "letter", "other")
+PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "letter", "other")
 
 
 def activity_type(method: str | None) -> str:

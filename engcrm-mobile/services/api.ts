@@ -808,7 +808,7 @@ export async function addPersonNote(
 
 // --- Meeting notes on an organization (admin only) ---
 // in_person is a drop-in (first contact at their place); meeting is a sit-down meeting.
-export type MeetingMethod = "in_person" | "meeting" | "phone" | "video" | "email" | "other";
+export type MeetingMethod = "in_person" | "meeting" | "phone" | "video" | "email" | "letter" | "other";
 
 export async function addOrganizationNote(
   id: number,

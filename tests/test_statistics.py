@@ -57,3 +57,18 @@ def test_bad_minutes_are_refused(value):
 ])
 def test_stage_direction(before, after, direction):
     assert stage_direction(before, after) == direction
+
+
+def test_post_mail_counts_as_its_own_activity_type():
+    from gcrm.activity_types import (
+        ACTIVITY_TYPES,
+        DEFAULT_MINUTES,
+        ORGANIZATION_METHODS,
+        PERSON_METHODS,
+    )
+
+    assert 'letter' in ORGANIZATION_METHODS
+    assert 'letter' in PERSON_METHODS
+    assert 'post_mail' in ACTIVITY_TYPES
+    assert activity_type('letter') == 'post_mail'
+    assert DEFAULT_MINUTES['post_mail'] == 10

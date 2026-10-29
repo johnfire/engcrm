@@ -172,6 +172,7 @@
         <option value="call">{{ t('activity.phone') }}</option>
         <option value="video">{{ t('activity.video') }}</option>
         <option value="email">{{ t('activity.email') }}</option>
+          <option value="letter">{{ t('activity.post_mail') }}</option>
         <option value="other">{{ t('personDetail.notes.methodOther') }}</option>
       </select>
     </div>
@@ -194,7 +195,7 @@
   {% if interactions %}
   {% set method_labels = {
     'call': t('activity.phone'), 'visit': t('activity.drop_in'), 'meeting': t('activity.meeting'),
-    'video': t('activity.video'), 'email': t('activity.email'), 'other': t('personDetail.notes.methodOther'),
+    'letter': t('activity.post_mail'), 'video': t('activity.video'), 'email': t('activity.email'), 'other': t('personDetail.notes.methodOther'),
     'next_step': t('nextStep.title'), 'next_step_done': t('nextStep.doneLog'),
   } %}
   <div class="table-scroll">

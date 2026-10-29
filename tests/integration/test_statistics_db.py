@@ -89,7 +89,7 @@ def test_effort_counts_types_and_minutes(world):
 
     assert {k: (v["count"], v["minutes"]) for k, v in effort.items()} == {
         "drop_in": (1, 15), "meeting": (1, 60), "phone": (1, 15), "video": (1, 30),
-        "email": (1, 10), "note": (1, 0),
+        "email": (1, 10), "post_mail": (0, 0), "note": (1, 0),
     }
     assert stats["current"]["activities"] == 5 and stats["current"]["minutes"] == 130
     assert stats["current"]["estimated"] == 4  # all but the typed meeting used a default

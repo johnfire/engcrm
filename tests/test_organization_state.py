@@ -97,3 +97,9 @@ class TestMobileVocabularyMatches:
 
     def test_flags_match(self):
         assert read_mobile_list("SUPPRESSION_FLAGS") == SUPPRESSION_FLAGS
+
+
+def test_customer_is_a_status_as_well_as_a_pipeline_stage():
+    assert 'customer' in STATUSES
+    assert coerce_status('customer') == 'customer'
+    assert is_typical('customer', 'customer')

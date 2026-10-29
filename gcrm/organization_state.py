@@ -33,6 +33,7 @@ STATUSES = (
     "contacted",  # outreach sent, waiting for a reply
     "meeting",    # meeting or discovery call arranged
     "proposal",   # proposal or quote sent, awaiting decision
+    "customer",   # has purchased or is working with us
     "dormant",    # was active, gone quiet past the dormancy threshold
     "on_hold",    # parked on purpose — timing or budget
     "dropped",         # not being pursued — our decision
@@ -56,7 +57,7 @@ TYPICAL_STATUSES_BY_STAGE = {
     "suspect":         ("ready", "contacted", "dormant", "on_hold"),
     "prospect":        ("contacted", "dormant", "on_hold"),
     "opportunity":     ("meeting", "proposal", "dormant", "on_hold"),
-    "customer":        ("none", "dormant", "on_hold"),
+    "customer":        ("none", "customer", "dormant", "on_hold"),
     "not_in_pipeline": ("not_interested", "dropped", "none"),
 }
 

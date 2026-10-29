@@ -37,6 +37,7 @@ const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "phone", labelKey: "meeting.methodCall" },
   { value: "video", labelKey: "meeting.methodVideo" },
   { value: "email", labelKey: "meeting.methodEmail" },
+  { value: "letter", labelKey: "meeting.methodPostMail" },
   { value: "other", labelKey: "meeting.methodOther" },
 ];
 
@@ -47,6 +48,7 @@ const PERSON_METHOD: Record<MeetingMethod, string> = {
   phone: "call",
   video: "video",
   email: "email",
+  letter: "letter",
   other: "other",
 };
 

@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, fireEvent, waitFor, within } from "@testing-library/react-native";
 
 import { StageStatusPicker, orderedStatuses } from "../../components/StageStatusPicker";
 
@@ -11,7 +11,7 @@ describe("StageStatusPicker", () => {
   it("offers every stage, and lists the statuses that normally go with the stage first", () => {
     const { screen } = setup("suspect", "ready");
     for (const label of ["Candidate", "Suspect", "Prospect", "Opportunity", "Customer", "Not in pipeline"]) {
-      expect(screen.getByLabelText(label)).toBeTruthy();
+      expect(within(screen.getByLabelText("Stage")).getByLabelText(label)).toBeTruthy();
     }
     // 6 stage chips, then the statuses: suspect's usual ones lead.
     const labels = screen.getAllByRole("radio").map((chip) => chip.props.accessibilityLabel);
@@ -37,6 +37,12 @@ describe("StageStatusPicker", () => {
     const { screen, onSave } = setup("prospect", "contacted");
     fireEvent.press(screen.getByLabelText("Suspect"));
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ pipeline_stage: "suspect" }));
+  });
+
+  it("can save Customer as the status independently of the stage", async () => {
+    const { screen, onSave } = setup("customer", "none");
+    fireEvent.press(within(screen.getByLabelText("Status")).getByLabelText("Customer"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ status: "customer" }));
   });
 
   it("tapping a status alone saves just the status", async () => {
@@ -85,7 +91,7 @@ describe("StageStatusPicker", () => {
     fireEvent.press(screen.getByLabelText("Suspect"));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Saving…")).toBeTruthy();
-    expect(screen.getByLabelText("Customer").props.accessibilityState.disabled).toBe(true);
+    expect(within(screen.getByLabelText("Stage")).getByLabelText("Customer").props.accessibilityState.disabled).toBe(true);
     finish();
     await waitFor(() => expect(screen.getByText("Saved ✓")).toBeTruthy());
     expect(onSave).toHaveBeenCalledTimes(1);

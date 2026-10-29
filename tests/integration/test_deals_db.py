@@ -42,14 +42,14 @@ def _deals(**owner) -> list[tuple]:
         return [tuple(row.values()) for row in cursor.fetchall()]
 
 
-def test_the_default_workspace_sells_consulting_and_the_three_apps(clean_database):
+def test_the_default_workspace_sells_consulting_training_and_the_three_apps(clean_database):
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute("SELECT slug, revenue_kind FROM offers WHERE workspace_id = %s ORDER BY sort_order",
                        (_workspace(),))
         assert [tuple(r.values()) for r in cursor.fetchall()] == [
             ("consulting", "one_off"), ("learnwohl", "subscription"),
-            ("leguild", "subscription"), ("notes-world", "subscription")]
+            ("leguild", "subscription"), ("notes-world", "subscription"), ("training", "one_off")]
 
 
 def test_a_new_workspace_gets_consulting_by_itself(clean_database):
