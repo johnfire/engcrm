@@ -896,6 +896,27 @@ main.person-detail-page {
   outline-offset: 2px;
 }
 .personal-priority__button[aria-busy="true"] { cursor: wait; opacity: .75; }
+/* Rating colours: each level's tone (see priority_tone / value_tone in
+   gcrm/api/templates.py). Badges are filled; rating buttons show the tone as
+   their border and fill with it once selected. */
+.tone-green  { --tone: #5fae78; --tone-line: #5fae78; --on-tone: #0c0b09; }
+.tone-yellow { --tone: #e3c443; --tone-line: #e3c443; --on-tone: #0c0b09; }
+.tone-blue   { --tone: #5b8fd9; --tone-line: #5b8fd9; --on-tone: #0c0b09; }
+.tone-orange { --tone: #e0883a; --tone-line: #e0883a; --on-tone: #0c0b09; }
+.tone-gray   { --tone: #8d877a; --tone-line: #8d877a; --on-tone: #0c0b09; }
+.tone-dark   { --tone: #3a3834; --tone-line: #77736a; --on-tone: #ffffff; }
+.personal-priority-badge[class*="tone-"] {
+  background: var(--tone);
+  border-color: var(--tone-line);
+  color: var(--on-tone);
+}
+.personal-priority__button[class*="tone-"] { border-color: var(--tone-line); }
+.personal-priority__button.selected[class*="tone-"] {
+  background: var(--tone);
+  border-color: var(--tone-line);
+  color: var(--on-tone);
+  font-weight: 700;
+}
 .value-ratings { align-items: flex-start; flex-direction: column; }
 .value-ratings__row { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .8rem; }
 .value-ratings__row p { margin: 0; }

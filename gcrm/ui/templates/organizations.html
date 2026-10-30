@@ -64,7 +64,7 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   </select>
   <select name="personal_priority" aria-label="{{ t('personalPriority.title') }}">
     <option value="">{{ t('personalPriority.all') }}</option>
-    {% for priority in [1, 2, 3, 4, 5] %}
+    {% for priority in [1, 2, 3, 4, 5, 6] %}
     <option value="{{ priority }}" {% if personal_priority == priority|string %}selected{% endif %}>
       P{{ priority }}
     </option>
@@ -218,12 +218,12 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       </td>
       <td>
         {% if c.personal_priority is not none %}
-        <span class="personal-priority-badge">P{{ c.personal_priority }}</span>
+        <span class="personal-priority-badge tone-{{ priority_tone[c.personal_priority] }}">P{{ c.personal_priority }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td class="nowrap">
         {%- for field in ['short_term_value', 'long_term_value'] %}
-        {%- if c[field] is not none %}<span class="personal-priority-badge" title="{{ t('valueRating.' ~ ('shortTerm' if field == 'short_term_value' else 'longTerm')) }}: {{ t('valueRating.level' ~ c[field]) }}">{{ t('valueRating.abbr' ~ c[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}
+        {%- if c[field] is not none %}<span class="personal-priority-badge tone-{{ value_tone[c[field]] }}" title="{{ t('valueRating.' ~ ('shortTerm' if field == 'short_term_value' else 'longTerm')) }}: {{ t('valueRating.level' ~ c[field]) }}">{{ t('valueRating.abbr' ~ c[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}
         {%- if loop.first %} / {% endif %}
         {%- endfor %}
       </td>

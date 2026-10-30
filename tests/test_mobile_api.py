@@ -162,7 +162,7 @@ class TestPersonalPriority:
         ), pytest.raises(api_organizations.HTTPException) as error:
             api_organizations.update_personal_priority(
                 42,
-                api_organizations.PersonalPriorityBody(priority=6),
+                api_organizations.PersonalPriorityBody(priority=7),
                 self.PAYLOAD,
             )
 

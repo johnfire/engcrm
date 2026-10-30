@@ -138,7 +138,7 @@ def list_organizations(
         if search:
             where.append("(c.name ILIKE %s OR c.city ILIKE %s OR c.type ILIKE %s)")
             filter_params += [f"%{search}%", f"%{search}%", f"%{search}%"]
-        if personal_priority in {"1", "2", "3", "4", "5"}:
+        if personal_priority in {"1", "2", "3", "4", "5", "6"}:
             where.append("cup.priority = %s")
             filter_params.append(int(personal_priority))
         elif personal_priority == "unrated":
@@ -267,8 +267,8 @@ def update_personal_priority(
     user_id, workspace_id = _personal_identity(payload)
     if user_id is None or workspace_id is None:
         raise HTTPException(status_code=403, detail="Personal account required")
-    if body.priority is not None and body.priority not in range(1, 6):
-        raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
+    if body.priority is not None and body.priority not in range(1, 7):
+        raise HTTPException(status_code=400, detail="Priority must be between 1 and 6")
 
     organization_found, stored_priority = set_personal_priority(
         user_id,

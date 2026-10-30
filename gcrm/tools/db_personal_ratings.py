@@ -5,10 +5,11 @@ One row per (user, organization) in contact_user_priorities and per
 short- and long-term value ratings. Each rating is set or cleared on its own;
 a row whose last rating is cleared is deleted."""
 
-# Rating name -> the values it accepts. Priority runs 1 (best) to 5 (not now);
-# the two values run 0 (zero) to 3 (high).
+# Rating name -> the values it accepts. Priority runs 1 (best) to 6 (forget it)
+# on organizations; a person's contact-value rating, stored as priority, is
+# held to 1-5 by set_person_value_rating. The two values run 0 (zero) to 3 (high).
 RATING_RANGES = {
-    "priority": range(1, 6),
+    "priority": range(1, 7),
     "short_term_value": range(0, 4),
     "long_term_value": range(0, 4),
 }

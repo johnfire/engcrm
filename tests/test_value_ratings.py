@@ -1,11 +1,15 @@
 """Short- and long-term value ratings: private per user, 0 (zero) to 3 (high),
 set and cleared one at a time on organizations and people."""
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
+from gcrm.api.auth import require_login
+from gcrm.api.main import app
 from gcrm.api.routers import api_organizations, api_people, organizations, people
 from gcrm.api.templates import templates
 from gcrm.i18n import translate
@@ -205,7 +209,7 @@ def test_value_panel_marks_each_horizon_separately_and_zero_counts():
     # Zero on short-term is selected; long-term is unrated, so its clear button is disabled.
     markup = rendered.split("<script>")[0]
     assert markup.count('aria-pressed="true"') == 1
-    assert 'class="personal-priority__button selected"\n        data-rating-value="0"' in markup
+    assert 'class="personal-priority__button tone-gray selected"\n        data-rating-value="0"' in markup
     assert markup.count("disabled") == 1
 
 
@@ -219,3 +223,60 @@ def test_value_panel_asks_shared_admin_to_sign_in():
 
     assert "Sign in with a personal account" in rendered
     assert "data-value-rating" not in rendered.split("<script>")[0]
+
+
+# --- colours and priority 6 ----------------------------------------------------
+
+def test_each_rating_level_has_the_requested_colour():
+    priority_tone = templates.env.globals["priority_tone"]
+    value_tone = templates.env.globals["value_tone"]
+    assert priority_tone == {1: "green", 2: "yellow", 3: "blue", 4: "orange", 5: "gray", 6: "dark"}
+    assert value_tone == {3: "green", 2: "yellow", 1: "blue", 0: "gray"}
+    css = (Path(__file__).parents[1] / "gcrm/ui/static/style.css").read_text()
+    for tone in {*priority_tone.values(), *value_tone.values()}:
+        assert f".tone-{tone} " in css
+    assert "--on-tone: #ffffff" in css.split(".tone-dark")[1].split("}")[0]  # white lettering
+
+
+def test_priority_panel_offers_forget_it_and_colours_every_button():
+    rendered = templates.env.get_template("partials/personal_priority.html").render(
+        organization={"id": 42, "personal_priority": 6},
+        request=SimpleNamespace(session={"user_id": 7}),
+        t=lambda key: translate(key, "en"),
+    )
+    markup = rendered.split("<script>")[0]
+    assert "6 Forget it" in markup
+    for tone in ("green", "yellow", "blue", "orange", "gray"):
+        assert f"personal-priority__button tone-{tone}\"" in markup
+    assert "personal-priority__button tone-dark selected" in markup
+
+
+def test_priority_six_is_valid_for_organizations_but_not_people():
+    check_rating("priority", 6)
+    with pytest.raises(ValueError, match="between 1 and 6"):
+        db_personal_priorities.set_personal_priority(7, 3, 42, 7)
+    with pytest.raises(ValueError, match="between 1 and 5"):
+        db_people.set_person_value_rating(7, 3, 42, 6)
+
+
+def test_filters_can_pick_forget_it_exactly():
+    where, params = organizations._build_organization_filters("", "", "", "", personal_priority="6")
+    assert "cup.priority = %s" in where and params == [6]
+    conditions, params = [], []
+    db_people._rating_filter(conditions, params, "company_priority.priority", "6")
+    assert conditions == ["company_priority.priority = %s"] and params == [6]
+
+
+def test_list_badges_carry_their_level_colour():
+    contact = {"id": 7, "kind": "organization", "name": "Acme", "description": None, "company": None,
+               "city": "Ulm", "pipeline_stage": None, "deals": [], "last_contact": "2026-10-04", "people": [],
+               "priority": 6, "long_term_value": 3, "short_term_value": 1}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[contact]):
+            body = TestClient(app).get("/contact-feed/?lang=en").text.split("<tbody>")[1]
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    assert 'personal-priority-badge tone-dark">P6<' in body
+    assert 'personal-priority-badge tone-green" title="High">H<' in body
+    assert 'personal-priority-badge tone-blue" title="Low">L<' in body

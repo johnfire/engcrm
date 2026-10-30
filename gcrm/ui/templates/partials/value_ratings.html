@@ -19,7 +19,7 @@
       {% for value in [3, 2, 1, 0] %}
       <button
         type="button"
-        class="personal-priority__button{% if current == value %} selected{% endif %}"
+        class="personal-priority__button tone-{{ value_tone[value] }}{% if current == value %} selected{% endif %}"
         data-rating-value="{{ value }}"
         aria-pressed="{{ 'true' if current == value else 'false' }}"
       >

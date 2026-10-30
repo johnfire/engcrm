@@ -22,7 +22,7 @@
     ] %}
     <button
       type="button"
-      class="personal-priority__button{% if person.value_rating == value %} selected{% endif %}"
+      class="personal-priority__button tone-{{ priority_tone[value] }}{% if person.value_rating == value %} selected{% endif %}"
       data-priority-value="{{ value }}"
       aria-pressed="{{ 'true' if person.value_rating == value else 'false' }}"
     >

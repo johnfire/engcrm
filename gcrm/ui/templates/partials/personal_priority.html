@@ -18,11 +18,12 @@
       (2, 'personalPriority.high'),
       (3, 'personalPriority.medium'),
       (4, 'personalPriority.low'),
-      (5, 'personalPriority.notNow')
+      (5, 'personalPriority.notNow'),
+      (6, 'personalPriority.forgetIt')
     ] %}
     <button
       type="button"
-      class="personal-priority__button{% if organization.personal_priority == value %} selected{% endif %}"
+      class="personal-priority__button tone-{{ priority_tone[value] }}{% if organization.personal_priority == value %} selected{% endif %}"
       data-priority-value="{{ value }}"
       aria-pressed="{{ 'true' if organization.personal_priority == value else 'false' }}"
     >

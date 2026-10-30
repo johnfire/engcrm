@@ -70,3 +70,9 @@ templates.env.globals["source_label_key"] = lambda source: "source." + label_key
 # build time, which already changes on every deploy).
 _style_css = UI_DIR / "static" / "style.css"
 templates.env.globals["static_version"] = str(int(_style_css.stat().st_mtime)) if _style_css.exists() else "0"
+
+# The colour of each rating level, shared by every rating badge and button
+# (CSS classes tone-<name> in style.css). Priority: 1 best ... 6 forget it;
+# a person's contact value uses the same 1-5 scale. Values: 3 high ... 0 zero.
+templates.env.globals["priority_tone"] = {1: "green", 2: "yellow", 3: "blue", 4: "orange", 5: "gray", 6: "dark"}
+templates.env.globals["value_tone"] = {3: "green", 2: "yellow", 1: "blue", 0: "gray"}

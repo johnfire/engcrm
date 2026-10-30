@@ -33,8 +33,8 @@ def set_personal_priority(
     priority: int | None,
 ) -> tuple[bool, int | None]:
     """Set or clear a priority, returning (organization_found, stored_priority)."""
-    if priority is not None and priority not in range(1, 6):
-        raise ValueError("Personal priority must be between 1 and 5")
+    if priority is not None and priority not in range(1, 7):
+        raise ValueError("Personal priority must be between 1 and 6")
     return set_organization_rating(user_id, workspace_id, contact_id, "priority", priority)
 
 

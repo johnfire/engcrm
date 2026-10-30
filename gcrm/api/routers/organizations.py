@@ -115,7 +115,7 @@ def _build_organization_filters(
         conditions.append("c.id IN (SELECT DISTINCT contact_id FROM interactions)")
     elif has_contact == "0":
         conditions.append("c.id NOT IN (SELECT DISTINCT contact_id FROM interactions)")
-    if personal_priority in {"1", "2", "3", "4", "5"}:
+    if personal_priority in {"1", "2", "3", "4", "5", "6"}:
         conditions.append("cup.priority = %s")
         params.append(int(personal_priority))
     elif personal_priority == "unrated":
@@ -461,8 +461,8 @@ def update_personal_priority(
     workspace_id = request.session.get("workspace_id")
     if user_id is None or workspace_id is None:
         raise HTTPException(status_code=403, detail="Personal account required")
-    if body.priority is not None and body.priority not in range(1, 6):
-        raise HTTPException(status_code=400, detail="Priority must be between 1 and 5")
+    if body.priority is not None and body.priority not in range(1, 7):
+        raise HTTPException(status_code=400, detail="Priority must be between 1 and 6")
 
     organization_found, stored_priority = set_personal_priority(
         user_id,

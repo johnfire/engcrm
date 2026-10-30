@@ -296,6 +296,9 @@ def _rating_joins(user_id: int | None) -> tuple[str, list]:
 
 
 _RATING_VALUES = {"1", "2", "3", "4", "5"}
+# Company priority also has 6 ("forget it"), but only as an exact match: 6 or
+# better would be every rating.
+_EXACT_RATING_VALUES = _RATING_VALUES | {"6"}
 
 
 def _rating_filter(conditions: list, params: list, column: str, value: str) -> None:
@@ -303,7 +306,7 @@ def _rating_filter(conditions: list, params: list, column: str, value: str) -> N
     value_rating), in place: "n" is exactly n, "n+" is n or better (1 is the best,
     so rating <= n), "unrated" is no rating. A blank value is "any" and adds
     nothing."""
-    if value in _RATING_VALUES:
+    if value in _EXACT_RATING_VALUES:
         conditions.append(f"{column} = %s")
         params.append(int(value))
     elif value.endswith("+") and value[:-1] in _RATING_VALUES:

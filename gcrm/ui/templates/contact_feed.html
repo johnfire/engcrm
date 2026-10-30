@@ -99,9 +99,9 @@
           </details>{% endif %}
         </td>
         <td>{{ contact.city or '—' }}</td>
-        <td>{% if contact.priority is not none %}<span class="personal-priority-badge">P{{ contact.priority }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if contact.priority is not none %}<span class="personal-priority-badge tone-{{ priority_tone[contact.priority] }}">P{{ contact.priority }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         {%- for field in ['long_term_value', 'short_term_value'] %}
-        <td>{% if contact[field] is not none %}<span class="personal-priority-badge" title="{{ t('valueRating.level' ~ contact[field]) }}">{{ t('valueRating.abbr' ~ contact[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% if contact[field] is not none %}<span class="personal-priority-badge tone-{{ value_tone[contact[field]] }}" title="{{ t('valueRating.level' ~ contact[field]) }}">{{ t('valueRating.abbr' ~ contact[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         {%- endfor %}
         <td>{% for d in contact.deals %}<span class="badge badge-stage-{{ d.stage }}">{% if not active_offer %}{{ d.offer }}: {% endif %}{{ t('stage.' ~ d.stage) }}</span> {% else %}—{% endfor %}</td>
         <td>{{ (contact.last_contact or '')[:10] }}

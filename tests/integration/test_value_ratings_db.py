@@ -115,3 +115,22 @@ def test_person_values_show_and_sort_on_the_people_list(clean_database, monkeypa
         ("Ben", 3, None), ("Anna", 1, 2)]
     assert get_person(anna, user_id)["long_term_value"] == 1
     assert get_person(anna, None)["long_term_value"] is None
+
+
+def test_forget_it_is_stored_for_organizations_only(clean_database):
+    import psycopg2
+
+    user_id, workspace_id, contact_id = _user_and_contact()
+    assert set_personal_priority(user_id, workspace_id, contact_id, 6) == (True, 6)
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        with db() as connection:
+            connection.cursor().execute(
+                "INSERT INTO contact_user_priorities (workspace_id, user_id, contact_id, priority) "
+                "VALUES (%s, %s, %s, 7) ON CONFLICT (user_id, contact_id) DO UPDATE SET priority = 7",
+                (workspace_id, user_id, contact_id))
+    person = save_person("Pat", allow_duplicate=True, source="test_fixture")
+    with pytest.raises(psycopg2.errors.CheckViolation):
+        with db() as connection:
+            connection.cursor().execute(
+                "INSERT INTO person_user_priorities (workspace_id, user_id, person_id, priority) "
+                "VALUES (%s, %s, %s, 6)", (workspace_id, user_id, person))

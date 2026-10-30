@@ -52,8 +52,8 @@ def test_clear_personal_priority_deletes_only_the_users_row():
 
 
 def test_set_personal_priority_rejects_out_of_range_values():
-    with pytest.raises(ValueError, match="between 1 and 5"):
-        db_personal_priorities.set_personal_priority(7, 3, 42, 6)
+    with pytest.raises(ValueError, match="between 1 and 6"):
+        db_personal_priorities.set_personal_priority(7, 3, 42, 7)
 
 
 def test_set_personal_priority_hides_cross_workspace_organizations():
