@@ -51,9 +51,14 @@ def test_business_stage_order_on_each_page(ranked_contacts, path, direction, off
     links = re.findall(r'href="/(people|organizations)/(\d+)"', response.text)
     shown = [owners[owner] for owner in links if owner in owners]
     stages = EXPECTED_STAGES if direction == 'asc' else EXPECTED_STAGES[::-1]
-    repetitions = 2 if path == '/contact-feed/' else 1
-    expected = [stage for stage in stages for _ in range(repetitions)]
-    # A selected offer deliberately hides contacts without a deal for it.
-    if offer == 'all':
-        expected += [None] * repetitions
+    if path == '/contact-feed/':
+        # Nobody contacted is hidden; "not in pipeline" and no deal at all come
+        # after every pipeline stage in either direction.
+        in_pipeline = [stage for stage in stages if stage != 'not_in_pipeline']
+        expected = [stage for stage in (*in_pipeline, 'not_in_pipeline', None) for _ in range(2)]
+    else:
+        expected = list(stages)
+        # A selected offer deliberately hides contacts without a deal for it.
+        if offer == 'all':
+            expected.append(None)
     assert shown == expected

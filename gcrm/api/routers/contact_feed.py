@@ -50,7 +50,7 @@ def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", sta
     except ValueError as failure:
         raise HTTPException(400, str(failure)) from failure
     return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort, page=page,
-                            workspace_id=workspace_id, offer=chosen, only_pitched=offer not in (None, "", "all"))
+                            workspace_id=workspace_id, offer=chosen)
 
 
 def safe_contact_counts(workspace_id: int | None, offer: str | None = None) -> dict | None:
@@ -91,7 +91,7 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
     filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort, dir=dir)
     active_offer, offers = web_offer_filter(request, offer)
     contacts = get_contact_feed(**filters, page=page, workspace_id=request.session.get("workspace_id"),
-                                extra_row=True, offer=active_offer, only_pitched=active_offer is not None,
+                                extra_row=True, offer=active_offer,
                                 user_id=request.session.get("user_id"))
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,

@@ -81,7 +81,9 @@ def test_the_contacts_feed_follows_the_offer(world):
         return sorted((r["name"], tuple(d["slug"] for d in r["deals"])) for r in rows)
     assert names(offer=None) == [("Acme GmbH", ("consulting",)), ("Lone Wolf", ()),
                                  ("Simmons Language School", ("learnwohl",))]
-    assert names(offer="learnwohl", only_pitched=True) == [("Simmons Language School", ("learnwohl",))]
+    # One offer: everyone contacted stays listed; those not pitched it come last.
+    assert [r["name"] for r in get_contact_feed(offer="learnwohl")] == [
+        "Simmons Language School", "Acme GmbH", "Lone Wolf"]
     assert names(offer=None, stage="prospect") == [("Simmons Language School", ("learnwohl",))]
 
 
@@ -99,4 +101,4 @@ def test_the_phone_lists_keep_their_old_meaning_unless_asked(world):
     people = phone.get("/api/people", headers=PHONE).json()
     assert len(people) == 3
     feed = phone.get("/api/contact-feed?offer=learnwohl", headers=PHONE).json()
-    assert [row["name"] for row in feed] == ["Simmons Language School"]
+    assert [row["name"] for row in feed] == ["Simmons Language School", "Acme GmbH", "Lone Wolf"]

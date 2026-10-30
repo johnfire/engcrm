@@ -38,9 +38,8 @@ def test_search_parameters_are_literal_and_workspace_and_type_are_bound():
     assert parameters[3:10] == ["%100!%%"] * 7
     assert parameters[10:] == ["%a!_b!!%"] * 7
     assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND cardinality(deal_stages) = 0", [])
+    # Without a stage filter nobody contacted is hidden, in the pipeline or not.
     assert feed_predicates("", "", "", None) == ("last_contact IS NOT NULL", [])
-    assert feed_predicates("", "", "", None, only_pitched=True) == (
-        "last_contact IS NOT NULL AND cardinality(deal_stages) > 0", [])
 
 
 def test_web_filters_are_remembered_and_clear_resets_them():
@@ -59,7 +58,19 @@ def test_mobile_contacts_pass_filters_and_signed_in_workspace_to_query():
     assert response.status_code == 200 and response.json() == [CONTACT]
     # no offer asked for: the Consulting view, nobody hidden — what the installed app expects
     fetch.assert_called_once_with(search="Ann", kind="person", stage="candidate", sort="name", page=2, workspace_id=3,
-                                  offer="consulting", only_pitched=False)
+                                  offer="consulting")
+
+
+def test_contacts_outside_the_pipeline_are_sorted_last_never_hidden():
+    from gcrm.tools import db_contact_feed
+
+    with patch.object(db_contact_feed, "db") as database:
+        cursor = database.return_value.__enter__.return_value.cursor.return_value
+        cursor.fetchall.return_value = []
+        db_contact_feed.get_contact_feed(workspace_id=3, offer="training", sort="name")
+    sql = cursor.execute.call_args.args[0]
+    assert "cardinality(deal_stages) > 0" not in sql
+    assert "ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, lower(name) ASC" in sql
 
 
 @pytest.mark.parametrize("parameters", ["kind=alien", "stage=bogus", "sort=bogus", "page=0", "search=" + "x" * 101])
@@ -169,5 +180,6 @@ def test_feed_sorts_by_my_ratings_best_first(sort, column, direction):
         database.return_value.__enter__.return_value = connection
         get_contact_feed(sort=sort, user_id=9)
     query, parameters = connection.cursor.return_value.execute.call_args.args
-    assert f"ORDER BY {column} {direction} NULLS LAST" in query
+    # Out-of-pipeline contacts first go last; within each group, best rating first.
+    assert f"ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, {column} {direction} NULLS LAST" in query
     assert parameters[:2] == [9, 9]  # the two rating tables, read for this user only

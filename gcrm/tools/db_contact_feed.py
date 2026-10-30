@@ -18,6 +18,10 @@ SORT_COLUMNS = {
     "long_term_value": "rating.long_term_value",
 }
 
+# Contacted people and organizations with no live deal, or only deals at
+# "not in pipeline", go below everyone in the pipeline, whatever the sort.
+OUT_OF_PIPELINE_LAST = "cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0"
+
 # Sorts that start high-to-low: newest contact first, highest value first.
 # (Priority starts ascending: 1 is the best.)
 DESCENDING_SORTS = ("last_contact", "newest", "short_term_value", "long_term_value")
@@ -32,10 +36,9 @@ def validate_feed_filters(kind: str, stage: str, sort: str) -> None:
         raise ValueError("Unknown contact sort")
 
 
-def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None,
-                    only_pitched: bool = False) -> tuple[str, list]:
-    """`stage` is one of the shown deals' stages ("none": no such deal); with
-    `only_pitched`, only contacts with a shown deal are listed."""
+def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None) -> tuple[str, list]:
+    """`stage` is one of the shown deals' stages ("none": no such deal). Contacts
+    outside the pipeline stay listed; the feed sorts them last."""
     clauses, parameters = ["last_contact IS NOT NULL"], []
     if workspace_id is not None:
         clauses.append("workspace_id=%s")
@@ -48,8 +51,6 @@ def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None
     elif stage:
         clauses.append("%s = ANY(deal_stages)")
         parameters.append(stage)
-    elif only_pitched:
-        clauses.append("cardinality(deal_stages) > 0")
     for word in search.split()[:4]:
         pattern = "%" + word.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
         clauses.append("(" + " OR ".join(
@@ -61,19 +62,19 @@ def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None
 
 def get_contact_feed(*, search: str = "", kind: str = "", stage: str = "", sort: str = "last_contact",
                      page: int = 1, workspace_id: int | None = None, extra_row: bool = False,
-                     offer: str | None = CONSULTING, only_pitched: bool = False,
+                     offer: str | None = CONSULTING,
                      dir: str | None = None, user_id: int | None = None) -> list[dict]:
     """One page of contacted people and organizations. `offer` picks whose stage
-    each row shows (None: every offer's, in `deals`); `only_pitched` hides those
-    not pitched it. With `user_id`, each row carries that user's private ratings."""
+    each row shows (None: every offer's, in `deals`); those not in its pipeline
+    come last. With `user_id`, each row carries that user's private ratings."""
     validate_feed_filters(kind, stage, sort)
     if page < 1:
         raise ValueError("Page must be positive")
-    predicate, parameters = feed_predicates(search, kind, stage, workspace_id, only_pitched and offer is not None)
+    predicate, parameters = feed_predicates(search, kind, stage, workspace_id)
     default_direction = "desc" if sort in DESCENDING_SORTS else "asc"
     direction = "DESC" if (dir or default_direction) == "desc" else "ASC"
     tie_breaker = "kind, id DESC" if sort in ("last_contact", "newest") else "kind, id"
-    order = f"{SORT_COLUMNS[sort]} {direction} NULLS LAST, {tie_breaker}"
+    order = f"{OUT_OF_PIPELINE_LAST}, {SORT_COLUMNS[sort]} {direction} NULLS LAST, {tie_breaker}"
     query = contact_feed_sql(offer) + f" WHERE {predicate} ORDER BY {order} LIMIT %s OFFSET %s"
     with db() as connection:
         cursor = connection.cursor()

@@ -101,10 +101,14 @@ def test_business_with_only_person_history_appears_and_corrections_reorder_it(mi
     assert academy['last_contact'] == '2026-10-04'
     assert academy['last_contact_kind'] == 'person' and academy['last_contact_id'] == 1
     version = get_contact_date('person', 1, workspace_id)
-    set_contact_date('person', 1, parse_contact_day('2026-10-01'), version['interaction_id'], version['contact_date'], workspace_id)
+    assert [contact['name'] for contact in get_contact_feed(workspace_id=workspace_id)] == [
+        'Other company', 'Academy', 'No stage']
+    # Correcting Ann's date to after Other company's contact moves Academy up;
+    # No stage is out of the pipeline and stays last.
+    set_contact_date('person', 1, parse_contact_day('2026-10-06'), version['interaction_id'], version['contact_date'], workspace_id)
     contacts = get_contact_feed(workspace_id=workspace_id)
-    assert [contact['name'] for contact in contacts] == ['Other company', 'No stage', 'Academy']
-    assert contacts[-1]['last_contact'] == '2026-10-01'
+    assert [contact['name'] for contact in contacts] == ['Academy', 'Other company', 'No stage']
+    assert contacts[0]['last_contact'] == '2026-10-06'
 
 
 def test_direct_business_history_wins_ties_and_later_contact(mixed_contacts):
@@ -175,27 +179,46 @@ def test_business_stage_filter_keeps_people_with_different_stages(mixed_contacts
     assert get_contact_feed(workspace_id=workspace_id, stage='customer') == []
 
 
-@pytest.mark.parametrize("sort,expected", [
-    ("name", [("organization", 1), ("person", 2), ("organization", 2)]),
-    ("city", [("organization", 1), ("organization", 2), ("person", 2)]),
-    ("kind", [("organization", 1), ("organization", 2), ("person", 2)]),
-    ("last_contact", [("person", 2), ("organization", 1), ("organization", 2)]),
-    ("pipeline_stage", [("organization", 2), ("organization", 1), ("person", 2)]),
+# Person 2 has no deal: not in the pipeline, so it comes after both
+# organizations under every sort, in either direction.
+@pytest.mark.parametrize("sort,ascending,descending", [
+    ("name", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
+    ("city", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
+    ("kind", [("organization", 1), ("organization", 2)], [("organization", 1), ("organization", 2)]),
+    ("last_contact", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
+    ("pipeline_stage", [("organization", 2), ("organization", 1)], [("organization", 1), ("organization", 2)]),
 ])
-def test_requested_sorts_use_actual_values(mixed_contacts, sort, expected):
+def test_requested_sorts_use_actual_values(mixed_contacts, sort, ascending, descending):
     workspace_id, _ = mixed_contacts
-    ascending = get_contact_feed(workspace_id=workspace_id, sort=sort, dir="asc")
-    assert [(row["kind"], row["id"]) for row in ascending] == expected
-    descending = get_contact_feed(workspace_id=workspace_id, sort=sort, dir="desc")
-    # Ties retain the stable kind/id order and missing cities stay last.
-    if sort in ("name", "last_contact"):
-        assert [(row["kind"], row["id"]) for row in descending] == expected[::-1]
-    elif sort == "pipeline_stage":
-        assert [(row["kind"], row["id"]) for row in descending] == [("organization", 1), ("organization", 2), ("person", 2)]
-    elif sort == "city":
-        assert [row["id"] for row in descending] == [2, 1, 2]
-    else:
-        assert [row["kind"] for row in descending] == ["person", "organization", "organization"]
+    for direction, expected in (("asc", ascending), ("desc", descending)):
+        rows = get_contact_feed(workspace_id=workspace_id, sort=sort, dir=direction)
+        assert [(row["kind"], row["id"]) for row in rows] == expected + [("person", 2)], direction
+
+
+def test_contacts_outside_the_offers_pipeline_stay_listed_at_the_bottom(mixed_contacts):
+    workspace_id, _ = mixed_contacts
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO contacts (id,name,workspace_id) VALUES (5,'Aardvark dropped',%s), "
+                       "(6,'Aaron unpitched',%s)", (workspace_id, workspace_id))
+        set_organization_deal(cursor, 5, stage="not_in_pipeline", status="dropped")
+        cursor.execute("INSERT INTO interactions (contact_id,interaction_date,method) VALUES "
+                       "(5,'2026-10-09','phone'),(6,'2026-10-10','phone')")
+        set_organization_deal(cursor, 2, stage="prospect", offer="training")
+
+    def order(**filters):
+        return [row["name"] for row in get_contact_feed(workspace_id=workspace_id, **filters)]
+
+    # Consulting: the dropped deal and the never-pitched contacts are listed, last.
+    assert order(sort="name") == ["Academy", "Other company", "Aardvark dropped", "Aaron unpitched", "No stage"]
+    assert order(sort="last_contact")[:2] == ["Other company", "Academy"]
+    # Training: only Other company is in that pipeline; everyone else follows it.
+    assert order(offer="training", sort="name") == [
+        "Other company", "Aardvark dropped", "Aaron unpitched", "Academy", "No stage"]
+    # Every offer: no deal at all, or only a dropped one, is out of the pipeline.
+    assert order(offer=None, sort="name") == [
+        "Academy", "Other company", "Aardvark dropped", "Aaron unpitched", "No stage"]
+    assert order(stage="none", sort="name") == ["Aaron unpitched", "No stage"]
 
 
 def test_rows_carry_only_my_ratings_and_sort_by_them(mixed_contacts):

@@ -19,7 +19,9 @@ def test_feed_sorts_before_pagination(sort, column, direction):
         database.return_value.__enter__.return_value = connection
         get_contact_feed(sort=sort, dir=direction, page=2)
     query, parameters = connection.cursor.return_value.execute.call_args.args
-    assert f"ORDER BY {column} {direction.upper()} NULLS LAST" in query
+    # Out-of-pipeline contacts always go last; the requested sort applies within each group.
+    assert (f"ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, "
+            f"{column} {direction.upper()} NULLS LAST") in query
     assert parameters[-2:] == [50, 50]
 
 
