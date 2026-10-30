@@ -30,18 +30,18 @@ CONSULTING = "consulting"
 # Offer slugs are interpolated into SQL (the join fragments are plain strings,
 # shared by queries with their own parameter lists), so a slug is checked
 # against this pattern before it gets anywhere near a statement.
-_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
-_ALIAS = re.compile(r"^[a-z_][a-z0-9_]{0,30}$")
+_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
+_ALIAS = re.compile(r"[a-z_][a-z0-9_]{0,30}")
 
 
 def _checked(slug: str) -> str:
-    if not _SLUG.match(slug):
+    if not isinstance(slug, str) or not _SLUG.fullmatch(slug):  # `$` would let a trailing newline through
         raise ValueError(f"not an offer slug: {slug!r}")
     return slug
 
 
 def _alias(name: str) -> str:
-    if not _ALIAS.match(name):
+    if not isinstance(name, str) or not _ALIAS.fullmatch(name):
         raise ValueError(f"not a SQL alias: {name!r}")
     return name
 

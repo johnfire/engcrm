@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from gcrm.api import auth
+from gcrm.api.redirects import local_path
 from gcrm.api.routers import (
     account,
     activity,
@@ -174,7 +175,7 @@ def contacts_moved_to_organizations(rest: str, request: Request):
     Only the web UI moved. The mobile API stays on /api/contacts, because
     installed apps cannot be asked to update on our schedule."""
     query = f"?{request.url.query}" if request.url.query else ""
-    return RedirectResponse(url=f"/organizations/{rest}{query}", status_code=301)
+    return RedirectResponse(url=local_path(f"/organizations/{rest}{query}", "/organizations/"), status_code=301)
 
 
 @app.get("/", response_class=HTMLResponse)

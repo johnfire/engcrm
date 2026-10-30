@@ -54,10 +54,9 @@ def main():
         levels = [int(level) for level in (args.levels or "1").split(",") if level.strip()]
         city, country = area.get("city") or "", area.get("country") or "DE"
         level_label = ",".join(str(level) for level in levels)
-        logger.info(
-            "Researching area #%d (%.4f,%.4f r=%dm) — levels %s using %s",
-            args.area_id, area["latitude"], area["longitude"], area["radius_m"], level_label, CHEAP_LLM,
-        )
+        # The area id is enough to find it again; its coordinates stay out of the log.
+        logger.info("Researching area #%d (r=%dm) — levels %s using %s",
+                    args.area_id, area["radius_m"], level_label, CHEAP_LLM)
         agent = create_research_agent(
             llm=get_llm(CHEAP_LLM),
             web_search=web_search,
