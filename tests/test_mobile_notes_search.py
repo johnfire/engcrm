@@ -114,14 +114,14 @@ class TestOrganizationNotes:
         assert response.status_code == 200 and response.json() == {"id": 11, "follow_up_date": None}
         # no offer sent (an older build): picked from the open deals — none in this test, so general
         log.assert_called_once_with(7, "in_person", "Met the owner, wants a demo", None, None, duration_minutes=None,
-                                    offer_id=None)
+                                    offer_id=None, occurred_on=None, impression=None, materials_left=None)
 
     def test_with_a_follow_up_date(self):
         when = (date.today() + timedelta(days=7)).isoformat()
         response, log = self.add({"note": "Call back", "follow_up_date": when, "follow_up_text": " send quote "})
         assert response.json()["follow_up_date"] == when
         log.assert_called_once_with(7, None, "Call back", date.fromisoformat(when), "send quote", duration_minutes=None,
-                                    offer_id=None)
+                                    offer_id=None, occurred_on=None, impression=None, materials_left=None)
 
     @pytest.mark.parametrize("body", [
         {"note": ""}, {"note": "   "},
@@ -203,7 +203,9 @@ class TestMeetingNoteStorage:
         assert note_id == 5
         sql, params = cursor.execute.call_args_list[0].args
         assert "CURRENT_DATE" in sql and "'note'" in sql and "direction" not in sql
-        assert params == (7, "in_person", "Met", "send quote", date(2026, 11, 1), None, None)  # no duration, general
+        # no date given (today), no duration, general, no impression or materials
+        assert "COALESCE(%s::date, CURRENT_DATE)" in sql
+        assert params == (7, None, "in_person", "Met", "send quote", date(2026, 11, 1), None, None, None, None)
         touched = cursor.execute.call_args_list[1].args[0]
         assert "UPDATE contacts SET updated_at" in touched and "status" not in touched.replace("updated", "")
 

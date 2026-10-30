@@ -7,7 +7,13 @@ from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
-from gcrm.activity_types import ACTIVITY_TYPES, ORGANIZATION_METHODS, parse_minutes
+from gcrm.activity_types import (
+    ACTIVITY_TYPES,
+    ORGANIZATION_METHODS,
+    parse_impression,
+    parse_minutes,
+    parse_occurred_on,
+)
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
@@ -173,11 +179,17 @@ def log_activity(
     duration_minutes: str = Form(""),
     note: str = Form(""),
     offer: str | None = Form(None),
+    occurred_on: str = Form(""),
+    impression: str = Form(""),
+    materials_left: str = Form(""),
+    followup_promised: str = Form(""),
+    followup_date: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     """Log a drop-in, meeting, call, video call, email or plain note on an
-    organization, and which offer it was about (0: general; absent: picked from
-    the open deals)."""
+    organization: when it happened, how long it took, how it felt, what was left
+    behind, any follow-up promised, and which offer it was about (0: general;
+    absent: picked from the open deals)."""
     method = method.strip() or None
     if method is not None and method not in ORGANIZATION_METHODS:
         raise HTTPException(status_code=400, detail="Unknown activity type")
@@ -185,6 +197,18 @@ def log_activity(
         minutes = parse_minutes(duration_minutes)
     except ValueError:
         raise HTTPException(status_code=400, detail="Minutes must be a whole number from 0 to 1440")
+    try:
+        day = parse_occurred_on(occurred_on)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="The date must be today or earlier")
+    try:
+        feeling = parse_impression(impression)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown impression")
+    try:
+        follow_up_day = date.fromisoformat(followup_date) if followup_date.strip() else None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Follow-up date must be YYYY-MM-DD")
     if not note.strip():
         raise HTTPException(status_code=400, detail="Say what happened")
     with db() as conn:
@@ -197,5 +221,8 @@ def log_activity(
         offer_id = resolve_log_offer("organization", contact_id, offer, _workspace_id(request))
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown offer")
-    log_meeting_note(contact_id, method, note.strip(), duration_minutes=minutes, offer_id=offer_id)
+    log_meeting_note(contact_id, method, note.strip(), follow_up_date=follow_up_day,
+                     follow_up_text=followup_promised.strip() or None, duration_minutes=minutes,
+                     offer_id=offer_id, occurred_on=day, impression=feeling,
+                     materials_left=materials_left.strip() or None)
     return local_redirect(f"/organizations/{contact_id}", saved="1")

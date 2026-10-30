@@ -164,10 +164,10 @@
         <span class="brief-label">{{ t('organizationBrief.bestTime') }}</span>
         <span class="brief-val">{{ organization.best_visit_time }}</span>
       </div>
-      {% endif %} {% if organization.visit_duration %}
+      {% endif %} {% set vs = visit_summary or {} %} {% if vs.last_visit_minutes is number %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.duration') }}</span>
-        <span class="brief-val">{{ organization.visit_duration }}</span>
+        <span class="brief-val">{{ t('activity.minutes', minutes=vs.last_visit_minutes) }}</span>
       </div>
       {% endif %} {% if organization.phone %}
       <div class="brief-row">
@@ -220,30 +220,30 @@
 
     <div class="brief-section">
       <h2>{{ t('organizationBrief.yourHistory') }}</h2>
-      {% if organization.last_visited_at %}
+      {% if vs.last_visited %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.lastVisited') }}</span>
-        <span class="brief-val">{{ organization.last_visited_at }}</span>
+        <span class="brief-val">{{ vs.last_visited }}</span>
       </div>
-      {% endif %} {% if organization.first_impression %}
+      {% endif %} {% if vs.first_impression %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.firstImpression') }}</span>
-        <span class="brief-val">{{ organization.first_impression }}</span>
+        <span class="brief-val">{{ t('impression.' ~ vs.first_impression) }}</span>
       </div>
-      {% endif %} {% if organization.last_impression %}
+      {% endif %} {% if vs.last_impression %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.lastImpression') }}</span>
-        <span class="brief-val">{{ organization.last_impression }}</span>
+        <span class="brief-val">{{ t('impression.' ~ vs.last_impression) }}</span>
       </div>
-      {% endif %} {% if organization.materials_left %}
+      {% endif %} {% if vs.materials_left %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.materialsLeft') }}</span>
-        <span class="brief-val">{{ organization.materials_left }}</span>
+        <span class="brief-val">{{ vs.materials_left }}</span>
       </div>
-      {% endif %} {% if organization.followup_promised %}
+      {% endif %} {% if vs.followup_promised %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.followupPromised') }}</span>
-        <span class="brief-val">{{ organization.followup_promised }}</span>
+        <span class="brief-val">{{ vs.followup_promised }}</span>
       </div>
       {% endif %} {% if interactions %}
       <ul class="interaction-list" style="margin-top: 0.75rem">

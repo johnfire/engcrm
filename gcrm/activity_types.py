@@ -5,6 +5,7 @@ Organization activities (`interactions.method`) and person activities
 "phone" vs "call"). Statistics need one: this maps both onto the activity types,
 in one place. See docs/plans/2026-10-05-statistics-design.md.
 """
+from datetime import date
 
 ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "post_mail", "note")
 
@@ -30,6 +31,11 @@ NOT_ACTIVITIES = ("next_step", "next_step_done")
 ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "letter", "other")
 PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "letter", "other")
 
+# How a logged organization activity felt, best first.
+IMPRESSIONS = ("warm", "neutral", "cold", "skeptical")
+# The organization activity types that count as being there in person.
+VISIT_METHODS = ("in_person", "meeting")
+
 
 def activity_type(method: str | None) -> str:
     return _METHOD_TYPES.get((method or "").strip(), "note")
@@ -51,3 +57,24 @@ def parse_minutes(value) -> int | None:
     if not 0 <= minutes <= 24 * 60:
         raise ValueError("duration must be between 0 and 1440 minutes")
     return minutes
+
+
+def parse_occurred_on(value, today: date | None = None) -> date | None:
+    """The day a logged activity happened: None when blank (meaning today),
+    otherwise a YYYY-MM-DD date that is not in the future. Raises ValueError."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    day = value if isinstance(value, date) else date.fromisoformat(value.strip())
+    if day > (today or date.today()):
+        raise ValueError("an activity cannot happen in the future")
+    return day
+
+
+def parse_impression(value) -> str | None:
+    """One of IMPRESSIONS, or None when blank. Raises ValueError."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    if value not in IMPRESSIONS:
+        raise ValueError("unknown impression")
+    return value

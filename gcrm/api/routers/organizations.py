@@ -26,6 +26,7 @@ from gcrm.tools.db_deals import (
     organization_deal_join,
     stage_and_status_counts,
 )
+from gcrm.tools.db_interactions import get_visit_summary
 from gcrm.tools.db_linkedin import (
     REACHABLE_PAGE_SIZE,
     get_known_people_for_org,
@@ -351,6 +352,16 @@ def organization_print(
     })
 
 
+def _safe_visit_summary(contact_id: int) -> dict:
+    """The visit summary is a bonus on a page: if it can't be read, the page
+    still renders without it."""
+    try:
+        return get_visit_summary(contact_id)
+    except Exception:
+        logger.exception("visit summary failed for contact %s", contact_id)
+        return {}
+
+
 @router.get("/{contact_id}/brief", response_class=HTMLResponse)
 def organization_brief(contact_id: int, request: Request):
     with db() as conn:
@@ -373,6 +384,7 @@ def organization_brief(contact_id: int, request: Request):
         "request": request,
         "organization": organization,
         "interactions": interactions,
+        "visit_summary": _safe_visit_summary(contact_id),
     })
 
 
@@ -404,7 +416,8 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         organization = dict(row)
         cur.execute(
             "SELECT i.interaction_date, i.method, i.direction, i.summary, i.outcome, i.next_action, "
-            "i.next_action_date, i.duration_minutes, o.name AS offer FROM interactions i "
+            "i.next_action_date, i.duration_minutes, i.impression, i.materials_left, o.name AS offer "
+            "FROM interactions i "
             "LEFT JOIN offers o ON o.id = i.offer_id WHERE i.contact_id = %s AND i.deleted_at IS NULL "
             "ORDER BY i.interaction_date DESC, i.id DESC LIMIT 20",
             (contact_id,),
@@ -436,11 +449,13 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
     except Exception:
         logger.exception("sales lookup failed for contact %s", contact_id)
         sales = []
+    visit_summary = _safe_visit_summary(contact_id)
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
         "interactions": interactions,
         "sales": sales,
+        "visit_summary": visit_summary,
         "linkedin": linkedin,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,
         "suppression_flags": SUPPRESSION_FLAGS,
@@ -582,13 +597,7 @@ def organization_edit(
     website: str = Form(""),
     preferred_contact_method: str = Form(""),
     decision_maker: str = Form(""),
-    last_visited_at: Optional[str] = Form(None),
     best_visit_time: str = Form(""),
-    visit_duration: str = Form(""),
-    first_impression: str = Form(""),
-    last_impression: str = Form(""),
-    materials_left: str = Form(""),
-    followup_promised: str = Form(""),
     access_notes: str = Form(""),
     space_notes: str = Form(""),
     price_sensitivity: str = Form(""),
@@ -599,10 +608,7 @@ def organization_edit(
         "name": name, "city": city, "country": country, "type": type,
         "email": email, "phone": phone, "website": website,
         "preferred_contact_method": preferred_contact_method, "decision_maker": decision_maker,
-        "last_visited_at": last_visited_at, "best_visit_time": best_visit_time,
-        "visit_duration": visit_duration, "first_impression": first_impression,
-        "last_impression": last_impression, "materials_left": materials_left,
-        "followup_promised": followup_promised, "access_notes": access_notes,
+        "best_visit_time": best_visit_time, "access_notes": access_notes,
         "space_notes": space_notes, "price_sensitivity": price_sensitivity, "notes": notes,
     }
     flags = {

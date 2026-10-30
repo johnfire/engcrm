@@ -5,7 +5,12 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
-from gcrm.activity_types import ORGANIZATION_METHODS, parse_minutes
+from gcrm.activity_types import (
+    ORGANIZATION_METHODS,
+    parse_impression,
+    parse_minutes,
+    parse_occurred_on,
+)
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.offer_filter import api_offer_filter
 from gcrm.api.transcribe_upload import transcribe_upload
@@ -327,6 +332,9 @@ class MeetingNoteBody(BaseModel):
     follow_up_text: str | None = None
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
     offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
+    occurred_on: str | None = None  # YYYY-MM-DD, today or earlier; absent means today
+    impression: str | None = None  # warm, neutral, cold or skeptical
+    materials_left: str | None = None
 
 
 def _require_organization(contact_id: int, payload: dict) -> None:
@@ -350,8 +358,9 @@ def add_organization_note(
     _role: str = Depends(require_jwt_admin),
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    """Log a note about a meeting, call or visit, with an optional follow-up date.
-    Changes no stage or status — that is a separate, explicit call."""
+    """Log a note about a meeting, call or visit: when it happened, how it felt,
+    what was left behind, and an optional follow-up. Changes no stage or status
+    — that is a separate, explicit call."""
     note = body.note.strip()
     if not note:
         raise HTTPException(status_code=400, detail="Note is required")
@@ -371,13 +380,22 @@ def add_organization_note(
         minutes = parse_minutes(body.duration_minutes)
     except ValueError:
         raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
+    try:
+        occurred_on = parse_occurred_on(body.occurred_on)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="occurred_on must be YYYY-MM-DD, today or earlier")
+    try:
+        impression = parse_impression(body.impression)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown impression")
     _require_organization(contact_id, payload)
     try:
         offer_id = resolve_log_offer("organization", contact_id, body.offer)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown offer")
     note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None,
-                               duration_minutes=minutes, offer_id=offer_id)
+                               duration_minutes=minutes, offer_id=offer_id, occurred_on=occurred_on,
+                               impression=impression, materials_left=(body.materials_left or "").strip() or None)
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
 
 

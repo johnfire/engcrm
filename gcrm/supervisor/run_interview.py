@@ -12,9 +12,11 @@ Voice input tip (Ubuntu):
 import sys
 from datetime import date
 
+from gcrm.activity_types import IMPRESSIONS, parse_occurred_on
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
+from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.vertical import INTERVIEW_APP_NAME, INTERVIEW_MATERIALS_OPTIONS
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -139,49 +141,18 @@ def save_updates(contact_id: int, updates: dict):
             )
 
 
-def append_notes(contact_id: int, new_text: str):
-    """Append text to existing notes without overwriting."""
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT notes FROM contacts WHERE id = %s", (contact_id,))
-        row = cur.fetchone()
-        existing = (row["notes"] or "").strip()
-        today = date.today().isoformat()
-        combined = f"{existing}\n\n[{today}] {new_text}".strip() if existing else f"[{today}] {new_text}"
-        cur.execute("UPDATE contacts SET notes = %s, updated_at = NOW() WHERE id = %s", (combined, contact_id))
-
-
 # ── interview ─────────────────────────────────────────────────────────────────
 
-def _resolve_impression(organization: dict) -> dict:
-    """Ask how the visit went. Always records last_impression; sets first_impression
-    only if the contact doesn't already have one. Returns fields to update."""
-    impression = menu(
-        "How did it go? (impression)",
-        ["warm", "neutral", "cold", "skeptical"],
-    )
-    if not impression:
-        return {}
+def _prompt_visit_outcome(organization: dict) -> tuple[dict, dict]:
+    """Ask what happened on the visit. Returns (organization field updates, the
+    visit itself): stage, status and who was seen change the organization; the
+    date, impression, materials and any promise are logged as one in-person
+    activity, the same record the Log activity form writes."""
+    updates, visit = {}, {}
 
-    fields = {"last_impression": impression}
-    with db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT first_impression FROM contacts WHERE id = %s", (organization["id"],))
-        row = cur.fetchone()
-        if not row["first_impression"]:
-            fields["first_impression"] = impression
-    return fields
-
-
-def _prompt_visit_outcome(organization: dict) -> dict:
-    """Ask what happened on the visit — date, status, who was seen, impression,
-    materials, and any promise. Returns fields to update."""
-    updates = {}
-
-    # Always mark last visited as today (can override)
     visited = ask("Date of visit", default=date.today().isoformat())
     if visited:
-        updates["last_visited_at"] = visited
+        visit["occurred_on"] = visited
 
     # Where the relationship stands, and what is going on right now.
     current_stage = organization.get("pipeline_stage", "")
@@ -205,23 +176,22 @@ def _prompt_visit_outcome(organization: dict) -> dict:
     if dm:
         updates["decision_maker"] = dm
 
-    # Impressions (first_impression only set once)
-    updates.update(_resolve_impression(organization))
+    impression = menu("How did it go? (impression)", list(IMPRESSIONS))
+    if impression:
+        visit["impression"] = impression
 
-    # Materials left
     materials = multi_menu(
         "What did you leave behind?",
         INTERVIEW_MATERIALS_OPTIONS,
     )
     if materials:
-        updates["materials_left"] = ", ".join(materials)
+        visit["materials_left"] = ", ".join(materials)
 
-    # Follow-up promised
     followup = ask("Did you promise anything? (e.g. 'send proposal', 'visit in May')")
     if followup:
-        updates["followup_promised"] = followup
+        visit["follow_up_text"] = followup
 
-    return updates
+    return updates, visit
 
 
 def _prompt_site_notes() -> dict:
@@ -255,16 +225,27 @@ def _prompt_site_notes() -> dict:
     return updates
 
 
-def _prompt_visit_updates(organization: dict) -> tuple[dict, str | None]:
-    """Run the full debrief Q&A for one contact. Returns (field updates, notes)."""
-    updates = {}
-    updates.update(_prompt_visit_outcome(organization))
+def _prompt_visit_updates(organization: dict) -> tuple[dict, dict, str | None]:
+    """Run the full debrief Q&A for one contact. Returns (field updates, the
+    visit to log, notes)."""
+    updates, visit = _prompt_visit_outcome(organization)
     updates.update(_prompt_site_notes())
 
-    # Free notes — appended, not overwritten
+    # Free notes become what the logged visit says happened.
     free_notes = ask("Anything else to note?")
 
-    return updates, free_notes
+    return updates, visit, free_notes
+
+
+def log_visit(contact_id: int, visit: dict, free_notes: str | None) -> None:
+    """Record the visit as an in-person activity on its day."""
+    log_meeting_note(
+        contact_id, "in_person", free_notes or "Visit (debrief)",
+        follow_up_text=visit.get("follow_up_text"),
+        occurred_on=parse_occurred_on(visit.get("occurred_on")),
+        impression=visit.get("impression"),
+        materials_left=visit.get("materials_left"),
+    )
 
 
 def interview_organization(organization: dict) -> None:
@@ -272,13 +253,12 @@ def interview_organization(organization: dict) -> None:
     loc = f"{organization['city']}" if organization.get("city") else ""
     print(f"\n  Business: {organization['name']}  {loc}  [{organization['status']}]")
 
-    updates, free_notes = _prompt_visit_updates(organization)
+    updates, visit, free_notes = _prompt_visit_updates(organization)
 
     save_updates(organization["id"], updates)
-    if free_notes:
-        append_notes(organization["id"], free_notes)
+    log_visit(organization["id"], visit, free_notes)
 
-    changed = list(updates.keys()) + (["notes"] if free_notes else [])
+    changed = list(updates.keys()) + ["visit logged"]
     print(f"\n  Saved: {', '.join(changed)}")
 
 

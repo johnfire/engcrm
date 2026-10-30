@@ -126,16 +126,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     </section>
 
     <section class="detail-section">
-      <h2>{{ t('organizationDetail.visitInfo') }}</h2>
-      <div class="field-row">
-        <label for="organization-last-visited">{{ t('organizationBrief.lastVisited') }}</label>
-        <input
-          id="organization-last-visited"
-          type="date"
-          name="last_visited_at"
-          value="{{ organization.last_visited_at or '' }}"
-        />
-      </div>
+      <h2>{{ t('organizationDetail.venueNotes') }}</h2>
       <div class="field-row">
         <label for="organization-best-visit-time">{{ t('organizationDetail.bestTimeToVisit') }}</label>
         <input
@@ -146,68 +137,6 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
           placeholder="{{ t('organizationDetail.bestTimePlaceholder') }}"
         />
       </div>
-      <div class="field-row">
-        <label for="organization-visit-duration">{{ t('organizationDetail.visitDuration') }}</label>
-        <input
-          id="organization-visit-duration"
-          type="text"
-          name="visit_duration"
-          value="{{ organization.visit_duration or '' }}"
-          placeholder="{{ t('organizationDetail.visitDurationPlaceholder') }}"
-        />
-      </div>
-      <div class="field-row">
-        <label for="organization-first-impression">{{ t('organizationBrief.firstImpression') }}</label>
-        <select id="organization-first-impression" name="first_impression">
-          <option value="">—</option>
-          {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
-          <option
-            value="{{ v }}"
-            {% if organization.first_impression == v %}selected{% endif %}
-          >
-            {{ v }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field-row">
-        <label for="organization-last-impression">{{ t('organizationBrief.lastImpression') }}</label>
-        <select id="organization-last-impression" name="last_impression">
-          <option value="">—</option>
-          {% for v in ['warm', 'neutral', 'cold', 'skeptical'] %}
-          <option
-            value="{{ v }}"
-            {% if organization.last_impression == v %}selected{% endif %}
-          >
-            {{ v }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="field-row field-row--wide">
-        <label for="organization-materials-left">{{ t('organizationBrief.materialsLeft') }}</label>
-        <input
-          id="organization-materials-left"
-          type="text"
-          name="materials_left"
-          value="{{ organization.materials_left or '' }}"
-          placeholder="{{ t('organizationDetail.materialsLeftPlaceholder') }}"
-        />
-      </div>
-      <div class="field-row field-row--wide">
-        <label for="organization-followup-promised">{{ t('organizationBrief.followupPromised') }}</label>
-        <input
-          id="organization-followup-promised"
-          type="text"
-          name="followup_promised"
-          value="{{ organization.followup_promised or '' }}"
-          placeholder="{{ t('organizationDetail.followupPromisedPlaceholder') }}"
-        />
-      </div>
-    </section>
-
-    <section class="detail-section">
-      <h2>{{ t('organizationDetail.venueNotes') }}</h2>
       <div class="field-row field-row--tall">
         <label for="organization-access-notes">{{ t('organizationDetail.accessLogistics') }}</label>
         <textarea
@@ -395,6 +324,14 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 <div class="record-grid">
   <section class="detail-section record-card" id="log-activity">
     <h2>{{ t('activity.logTitle') }}</h2>
+    {% set vs = visit_summary or {} %}
+    {% if vs.last_visited or vs.first_impression or vs.last_impression %}
+    <dl class="visit-summary">
+      {% if vs.last_visited %}<div><dt>{{ t('organizationBrief.lastVisited') }}</dt><dd>{{ vs.last_visited }}</dd></div>{% endif %}
+      {% if vs.first_impression %}<div><dt>{{ t('organizationBrief.firstImpression') }}</dt><dd>{{ t('impression.' ~ vs.first_impression) }}</dd></div>{% endif %}
+      {% if vs.last_impression %}<div><dt>{{ t('organizationBrief.lastImpression') }}</dt><dd>{{ t('impression.' ~ vs.last_impression) }}</dd></div>{% endif %}
+    </dl>
+    {% endif %}
     <form method="post" action="/organizations/{{ organization.id }}/activity" class="record-form">
       <label>{{ t('activity.typeLabel') }}
         <select name="method">
@@ -410,9 +347,31 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       <label>{{ t('logOffer.label') }}
         {% with select_id='activity-offer' %}{% include 'partials/log_offer_select.html' %}{% endwith %}
       </label>
+      <label>{{ t('activity.whenLabel') }}
+        <input type="date" name="occurred_on" value="{{ today }}" max="{{ today }}" required />
+      </label>
       <label>{{ t('activity.minutesLabel') }}
         <input type="number" name="duration_minutes" min="0" max="1440" step="1"
                placeholder="{{ t('activity.minutesPlaceholder') }}" />
+      </label>
+      <label>{{ t('activity.impressionLabel') }}
+        <select name="impression">
+          <option value="">—</option>
+          {% for impression in ['warm', 'neutral', 'cold', 'skeptical'] %}
+          <option value="{{ impression }}">{{ t('impression.' ~ impression) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>{{ t('organizationBrief.materialsLeft') }}
+        <input type="text" name="materials_left" maxlength="500"
+               placeholder="{{ t('organizationDetail.materialsLeftPlaceholder') }}" />
+      </label>
+      <label>{{ t('organizationBrief.followupPromised') }}
+        <input type="text" name="followup_promised" maxlength="500"
+               placeholder="{{ t('organizationDetail.followupPromisedPlaceholder') }}" />
+      </label>
+      <label>{{ t('activity.followupDateLabel') }}
+        <input type="date" name="followup_date" />
       </label>
       <label class="record-form__wide">{{ t('activity.noteLabel') }}
         <textarea name="note" rows="2" required placeholder="{{ t('activity.notePlaceholder') }}"></textarea>
@@ -484,7 +443,15 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         </td>
         <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}{% if i.offer %} · <span class="log-offer">{{ i.offer }}</span>{% endif %}</td>
         <td class="muted">{{ i.direction or '—' }}</td>
-        <td class="muted small">{{ i.summary or '—' }}</td>
+        <td class="muted small">{{ i.summary or '—' }}
+          {%- if i.impression or i.materials_left %}
+          <div class="activity-visit-details">
+            {%- if i.impression %}<span>{{ t('impression.' ~ i.impression) }}</span>{% endif %}
+            {%- if i.impression and i.materials_left %} · {% endif %}
+            {%- if i.materials_left %}<span>{{ t('organizationBrief.materialsLeft') }}: {{ i.materials_left }}</span>{% endif %}
+          </div>
+          {%- endif %}
+        </td>
         <td class="muted small">{{ i.outcome or '—' }}</td>
         <td class="muted small">
           {{ i.next_action or '—' }}{% if i.next_action_date %}

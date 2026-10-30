@@ -404,7 +404,13 @@ class TestOrganizationDetailPage:
                 assert re.search(r'value="candidate"\s+selected', response.text)
                 assert 'action="/deals/9"' in response.text and 'name="pipeline_stage"' not in response.text
                 assert re.search(r'value="email"\s+selected', response.text)
-                assert len(re.findall(r'value="warm"\s+selected', response.text)) == 2
+                # Visit Info is gone from the edit form: per-visit details are logged as activities.
+                edit_form = response.text.split('class="organization-edit-form"')[1].split("</form>")[0]
+                assert 'name="first_impression"' not in edit_form and 'name="last_visited_at"' not in edit_form
+                assert 'name="best_visit_time"' in edit_form and "Tue afternoons" in edit_form
+                log_form = response.text.split('id="log-activity"')[1].split("</form>")[0]
+                for field in ("occurred_on", "impression", "materials_left", "followup_promised", "followup_date"):
+                    assert f'name="{field}"' in log_form
                 assert 'class="organization-edit-form"' in response.text
                 assert 'class="organization-detail-page"' in response.text
                 assert 'for="organization-name"' in response.text
