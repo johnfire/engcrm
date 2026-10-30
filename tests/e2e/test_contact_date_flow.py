@@ -18,7 +18,9 @@ def test_website_and_mobile_share_backdated_contacts_and_reject_stale_changes(cl
     token = browser.post("/api/auth/token", json={"email": "dates@example.test", "password": password}).json()["token"]
     headers = {"Authorization": f"Bearer {token}"}
     company_id = browser.post("/api/contacts", headers=headers, json={"name": "Academy"}).json()["id"]
-    person_id = browser.post("/api/people", headers=headers, json={"name": "Ann"}).json()["id"]
+    # Ann is in the pipeline like Academy, so only the contact dates decide the order.
+    person_id = browser.post("/api/people", headers=headers,
+                             json={"name": "Ann", "pipeline_stage": "candidate"}).json()["id"]
     company = browser.patch(f"/api/contact-feed/organization/{company_id}/date", headers=headers,
                             json={"contact_date": "2026-10-03"}).json()
     person = browser.patch(f"/api/contact-feed/person/{person_id}/date", headers=headers,
