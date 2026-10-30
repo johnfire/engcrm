@@ -19,6 +19,7 @@ from gcrm.tools.db_deals import (
     person_deal_join,
     set_person_stage,
 )
+from gcrm.tools.db_personal_ratings import check_rating, store_rating
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -229,6 +230,7 @@ def _select_with_company(offer: str | None = CONSULTING) -> str:
         "company_priority.priority AS company_personal_priority, "
         "company_opportunity.opportunity_score AS company_opportunity_score, "
         "person_priority.priority AS value_rating, "
+        "person_priority.short_term_value, person_priority.long_term_value, "
         "(SELECT MAX(pi.occurred_at) FROM people_interactions pi "
         " WHERE pi.person_id = person.id AND pi.deleted_at IS NULL) AS last_contact, "
         f"({_DISTANCE_KM_SQL}) AS distance_km "
@@ -257,6 +259,8 @@ SORT_COLUMNS = {
     "opportunity_score": "company_opportunity.opportunity_score",
     "company_priority": "company_priority.priority",
     "value_rating":     "person_priority.priority",
+    "short_term_value": "person_priority.short_term_value",
+    "long_term_value":  "person_priority.long_term_value",
     "distance":         "distance_km",
     "connected_on":     "person.connected_on",
     "next_step_date":   "person_deal.next_step_date",
@@ -437,6 +441,16 @@ def set_person_value_rating(
     returning (person_found, stored_rating)."""
     if rating is not None and rating not in range(1, 6):
         raise ValueError("Contact value rating must be between 1 and 5")
+    return set_person_rating(user_id, workspace_id, person_id, "priority", rating)
+
+
+def set_person_rating(
+    user_id: int, workspace_id: int, person_id: int, rating: str, value: int | None,
+) -> tuple[bool, int | None]:
+    """Set or clear one private rating on a person (the value-as-a-contact
+    rating is stored as "priority"; see RATING_RANGES), returning
+    (person_found, stored_value)."""
+    check_rating(rating, value)
 
     with db() as conn:
         cur = conn.cursor()
@@ -455,29 +469,7 @@ def set_person_value_rating(
         )
         if cur.fetchone() is None:
             return False, None
-
-        if rating is None:
-            cur.execute(
-                "DELETE FROM person_user_priorities "
-                "WHERE user_id = %s AND workspace_id = %s AND person_id = %s",
-                (user_id, workspace_id, person_id),
-            )
-            return True, None
-
-        cur.execute(
-            """
-            INSERT INTO person_user_priorities (workspace_id, user_id, person_id, priority)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (user_id, person_id)
-            DO UPDATE SET
-                priority = EXCLUDED.priority,
-                workspace_id = EXCLUDED.workspace_id,
-                updated_at = NOW()
-            RETURNING priority
-            """,
-            (workspace_id, user_id, person_id, rating),
-        )
-        return True, cur.fetchone()["priority"]
+        return True, store_rating(cur, "person_user_priorities", user_id, workspace_id, person_id, rating, value)
 
 
 def search_organizations(query: str, limit: int = 20) -> list[dict]:

@@ -1,0 +1,94 @@
+{# The signed-in user's private short- and long-term value ratings for one
+   organization or person. Needs `record` (with short_term_value and
+   long_term_value) and `rating_url` (e.g. /organizations/42); each choice PUTs
+   to {rating_url}/value/short-term or /long-term. #}
+<section class="personal-priority value-ratings">
+  <div>
+    <h2>{{ t('valueRating.title') }}</h2>
+    <p class="muted small">{{ t('valueRating.privateHint') }}</p>
+  </div>
+  {% if request.session.get('user_id') %}
+  {% for horizon, field, title_key in [
+    ('short-term', 'short_term_value', 'valueRating.shortTerm'),
+    ('long-term', 'long_term_value', 'valueRating.longTerm')
+  ] %}
+  {% set current = record[field] %}
+  <div class="value-ratings__row" data-value-rating data-url="{{ rating_url }}/value/{{ horizon }}" data-field="{{ field }}">
+    <span class="value-ratings__label">{{ t(title_key) }}</span>
+    <div class="personal-priority__choices" role="group" aria-label="{{ t(title_key) }}">
+      {% for value in [3, 2, 1, 0] %}
+      <button
+        type="button"
+        class="personal-priority__button{% if current == value %} selected{% endif %}"
+        data-rating-value="{{ value }}"
+        aria-pressed="{{ 'true' if current == value else 'false' }}"
+      >
+        {{ t('valueRating.level' ~ value) }}
+      </button>
+      {% endfor %}
+      <button
+        type="button"
+        class="personal-priority__clear"
+        data-rating-value=""
+        {% if current is none %}disabled{% endif %}
+      >
+        {{ t('valueRating.clear') }}
+      </button>
+    </div>
+    <p class="muted small" role="status" aria-live="polite" data-rating-status></p>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="muted small">{{ t('valueRating.accountRequired') }}</p>
+  {% endif %}
+</section>
+
+<script>
+  (() => {
+    document.querySelectorAll("[data-value-rating]").forEach((row) => {
+      const buttons = [...row.querySelectorAll("[data-rating-value]")];
+      const status = row.querySelector("[data-rating-status]");
+      const clearButton = row.querySelector(".personal-priority__clear");
+
+      const showSelection = (value) => {
+        buttons.forEach((button) => {
+          if (button === clearButton) return;
+          const isSelected = button.dataset.ratingValue === value;
+          button.classList.toggle("selected", isSelected);
+          button.setAttribute("aria-pressed", String(isSelected));
+        });
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          const previous = row.querySelector('[aria-pressed="true"]')?.dataset.ratingValue || "";
+          const value = button.dataset.ratingValue;
+          buttons.forEach((choice) => {
+            choice.disabled = true;
+            choice.setAttribute("aria-busy", "true");
+          });
+          status.textContent = "{{ t('valueRating.saving') }}";
+          try {
+            const response = await fetch(row.dataset.url, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ value: value === "" ? null : Number(value) }),
+            });
+            if (!response.ok) throw new Error("save failed");
+            showSelection(value);
+            status.textContent = "{{ t('valueRating.saved') }}";
+          } catch {
+            showSelection(previous);
+            status.textContent = "{{ t('valueRating.saveFailed') }}";
+          } finally {
+            buttons.forEach((choice) => {
+              choice.removeAttribute("aria-busy");
+              choice.disabled = false;
+            });
+            clearButton.disabled = !row.querySelector('.personal-priority__button[aria-pressed="true"]');
+          }
+        });
+      });
+    });
+  })();
+</script>

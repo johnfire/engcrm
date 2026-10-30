@@ -31,6 +31,8 @@
 
 {% include 'partials/contact_value_rating.html' %}
 
+{% with record=person, rating_url='/people/' ~ person.id %}{% include 'partials/value_ratings.html' %}{% endwith %}
+
 {% include 'partials/deals_panel.html' %}
 
 <form method="post" action="/people/{{ person.id }}/edit" class="person-edit-form">

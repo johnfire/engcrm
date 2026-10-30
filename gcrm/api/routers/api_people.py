@@ -18,9 +18,11 @@ from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import (
     find_existing_person,
     save_person,
+    set_person_rating,
     set_person_value_rating,
     update_person,
 )
+from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.people_next_step import set_person_next_step
 from gcrm.tools.privacy_retention import erase_person
 
@@ -212,6 +214,30 @@ def set_value_rating(person_id: int, body: ValueRatingBody, payload: dict = Depe
     log_audit(None, None, "person.value_rating_changed", f"person:{person_id}",
               "cleared" if stored is None else f"set:{stored}")
     return {"value_rating": stored}
+
+
+class ValueBody(BaseModel):
+    value: int | None = None  # 3 high, 2 medium, 1 low, 0 zero; null clears it
+
+
+@router.put("/{person_id}/value/{horizon}")
+def set_value(person_id: int, horizon: str, body: ValueBody, payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Set or clear the caller's private short- or long-term value rating of this person."""
+    rating = VALUE_HORIZONS.get(horizon)
+    if rating is None:
+        raise HTTPException(status_code=404, detail="Unknown value rating")
+    user_id, workspace_id = _personal_identity(payload)
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    try:
+        found, stored = set_person_rating(user_id, workspace_id, person_id, rating, body.value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Value must be between 0 and 3")
+    if not found:
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, f"person.{rating}_changed", f"person:{person_id}",
+              "cleared" if stored is None else f"set:{stored}")
+    return {rating: stored}
 
 
 class NextStepBody(BaseModel):

@@ -96,6 +96,8 @@
     <option value="opportunity_score" {% if sort == "opportunity_score" %}selected{% endif %}>{{ t('organizationDetail.opportunityScore') }}</option>
     <option value="company_priority" title="{{ t('people.companyPriority') }}" {% if sort == "company_priority" %}selected{% endif %}>{{ t('people.companyPriorityShort') }}</option>
     <option value="value_rating" {% if sort == "value_rating" %}selected{% endif %}>{{ t('contactValue.short') }}</option>
+    <option value="short_term_value" {% if sort == "short_term_value" %}selected{% endif %}>{{ t('valueRating.shortTerm') }}</option>
+    <option value="long_term_value" {% if sort == "long_term_value" %}selected{% endif %}>{{ t('valueRating.longTerm') }}</option>
     <option value="distance" {% if sort == "distance" %}selected{% endif %}>{{ t('common.distanceKm') }}</option>
     <option value="connected_on" {% if sort == "connected_on" %}selected{% endif %}>{{ t('linkedin.connectedOn') }}</option>
   </select>
@@ -129,6 +131,8 @@
       {{ sort_th('city', t('common.city')) }}
       <th>{{ t('people.relationship') }}</th>
       {{ sort_th('value_rating', t('contactValue.short'), 'desc') }}
+      {{ sort_th('short_term_value', t('valueRating.shortTermShort'), 'desc', 'nowrap') }}
+      {{ sort_th('long_term_value', t('valueRating.longTermShort'), 'desc', 'nowrap') }}
       {{ sort_th('last_contact', t('people.lastContact'), 'desc', 'nowrap') }}
       {{ sort_th('distance', t('common.distanceKm'), 'asc', 'nowrap') }}
       {{ sort_th('created_at', t('common.added'), 'desc', 'nowrap') }}
@@ -160,6 +164,14 @@
       <td>
         {% if p.value_rating is not none %}
         <span class="personal-priority-badge">{{ p.value_rating }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        {% if p.short_term_value is not none %}<span class="personal-priority-badge" title="{{ t('valueRating.level' ~ p.short_term_value) }}">{{ t('valueRating.abbr' ~ p.short_term_value) }}</span>
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td>
+        {% if p.long_term_value is not none %}<span class="personal-priority-badge" title="{{ t('valueRating.level' ~ p.long_term_value) }}">{{ t('valueRating.abbr' ~ p.long_term_value) }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
       <td class="muted nowrap">{{ p.last_contact[:10] if p.last_contact else '—' }}</td>

@@ -22,6 +22,8 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 
 {% include 'partials/personal_priority.html' %}
 
+{% with record=organization, rating_url='/organizations/' ~ organization.id %}{% include 'partials/value_ratings.html' %}{% endwith %}
+
 {% include 'partials/deals_panel.html' %}
 
 <form method="post" action="/organizations/{{ organization.id }}/edit" class="organization-edit-form">

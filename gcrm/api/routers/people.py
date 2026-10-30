@@ -48,6 +48,7 @@ from gcrm.tools.db_people import (
     save_person,
     search_organizations,
     set_person_organization,
+    set_person_rating,
     set_person_value_rating,
     update_person,
 )
@@ -56,6 +57,7 @@ from gcrm.tools.db_people_interactions import (
     get_person_interactions,
     log_person_note,
 )
+from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.email_extract import extract_person_from_email
 from gcrm.tools.privacy_retention import erase_person
@@ -71,6 +73,10 @@ router = APIRouter(dependencies=[Depends(require_login)])
 
 # Rows per page on the LinkedIn match-review screen.
 MATCH_PAGE_SIZE = 100
+
+
+class ValueBody(BaseModel):
+    value: int | None = None  # 3 high, 2 medium, 1 low, 0 zero; null clears it
 
 
 class PersonValueRatingBody(BaseModel):
@@ -662,6 +668,34 @@ def update_person_value_rating(
     outcome = "cleared" if stored_rating is None else f"set:{stored_rating}"
     log_audit(None, None, "person.value_rating_changed", f"person:{person_id}", outcome)
     return {"value_rating": stored_rating}
+
+
+@router.put("/people/{person_id}/value/{horizon}")
+def update_person_value(
+    person_id: int,
+    horizon: str,
+    body: ValueBody,
+    request: Request,
+):
+    """Set or clear the signed-in user's private short- or long-term value
+    rating for one person."""
+    rating = VALUE_HORIZONS.get(horizon)
+    if rating is None:
+        raise HTTPException(status_code=404, detail="Unknown value rating")
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    if body.value is not None and body.value not in range(0, 4):
+        raise HTTPException(status_code=400, detail="Value must be between 0 and 3")
+
+    person_found, stored = set_person_rating(user_id, workspace_id, person_id, rating, body.value)
+    if not person_found:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    outcome = "cleared" if stored is None else f"set:{stored}"
+    log_audit(None, None, f"person.{rating}_changed", f"person:{person_id}", outcome)
+    return {rating: stored}
 
 
 @router.post("/people/{person_id}/edit")

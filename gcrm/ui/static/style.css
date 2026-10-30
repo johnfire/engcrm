@@ -896,6 +896,10 @@ main.person-detail-page {
   outline-offset: 2px;
 }
 .personal-priority__button[aria-busy="true"] { cursor: wait; opacity: .75; }
+.value-ratings { align-items: flex-start; flex-direction: column; }
+.value-ratings__row { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem .8rem; }
+.value-ratings__row p { margin: 0; }
+.value-ratings__label { font-weight: 600; min-width: 9rem; }
 .personal-priority-badge {
   background: var(--accent-wash);
   border: 1px solid var(--accent-line);

@@ -16,6 +16,7 @@ from datetime import date
 
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_personal_ratings import RATING_RANGES
 
 # Columns that describe the row rather than the person. (The stage and next
 # step live on deals, which are moved below.)
@@ -198,5 +199,9 @@ def _note_deal_clash(notes, clashes: list) -> str:
 
 
 def _note_rating_clash(notes, clashes: list) -> str:
-    detail = "; ".join(f"user {row['user_id']} rated #{row['person_id']} {row['priority']}" for row in clashes)
+    detail = "; ".join(
+        f"user {row['user_id']} rated #{row['person_id']} "
+        + ", ".join(f"{name} {row[name]}" for name in RATING_RANGES if row.get(name) is not None)
+        for row in clashes
+    )
     return f"{(notes or '').rstrip()}\nRating not carried over (kept person already rated): {detail}"

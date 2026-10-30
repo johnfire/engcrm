@@ -1,6 +1,7 @@
-"""Private per-user priority persistence for contacts."""
+"""Private per-user priority and value ratings for contacts."""
 
 from gcrm.db.connection import db
+from gcrm.tools.db_personal_ratings import check_rating, store_rating
 
 
 def get_personal_priority(
@@ -34,6 +35,19 @@ def set_personal_priority(
     """Set or clear a priority, returning (organization_found, stored_priority)."""
     if priority is not None and priority not in range(1, 6):
         raise ValueError("Personal priority must be between 1 and 5")
+    return set_organization_rating(user_id, workspace_id, contact_id, "priority", priority)
+
+
+def set_organization_rating(
+    user_id: int,
+    workspace_id: int,
+    contact_id: int,
+    rating: str,
+    value: int | None,
+) -> tuple[bool, int | None]:
+    """Set or clear one private rating (see RATING_RANGES), returning
+    (organization_found, stored_value)."""
+    check_rating(rating, value)
 
     with db() as conn:
         cursor = conn.cursor()
@@ -53,32 +67,7 @@ def set_personal_priority(
         )
         if cursor.fetchone() is None:
             return False, None
-
-        if priority is None:
-            cursor.execute(
-                """
-                DELETE FROM contact_user_priorities
-                WHERE user_id = %s
-                  AND workspace_id = %s
-                  AND contact_id = %s
-                """,
-                (user_id, workspace_id, contact_id),
-            )
-            return True, None
-
-        cursor.execute(
-            """
-            INSERT INTO contact_user_priorities (
-                workspace_id, user_id, contact_id, priority
-            )
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (user_id, contact_id)
-            DO UPDATE SET
-                priority = EXCLUDED.priority,
-                workspace_id = EXCLUDED.workspace_id,
-                updated_at = NOW()
-            RETURNING priority
-            """,
-            (workspace_id, user_id, contact_id, priority),
+        stored = store_rating(
+            cursor, "contact_user_priorities", user_id, workspace_id, contact_id, rating, value,
         )
-        return True, cursor.fetchone()["priority"]
+        return True, stored

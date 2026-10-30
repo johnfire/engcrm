@@ -31,7 +31,8 @@ from gcrm.tools.db_linkedin import (
     get_known_people_for_org,
     get_reachable_fits,
 )
-from gcrm.tools.db_personal_priorities import set_personal_priority
+from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
+from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.privacy_retention import erase_organization
 from gcrm.tools.statistics import get_sales
 
@@ -51,6 +52,8 @@ SORT_COLUMNS = {
     "type":         "lower(c.type)",
     "fit":          "c.fit_score",
     "personal_priority": "cup.priority",
+    "short_term_value": "cup.short_term_value",
+    "long_term_value": "cup.long_term_value",
     "starred":      "c.starred",
     "last_contact": "MAX(i.interaction_date)",
     "created_at":   "c.created_at",
@@ -65,6 +68,10 @@ _DEAL_JOIN = organization_deal_join("c", "d")
 
 class PersonalPriorityBody(BaseModel):
     priority: int | None = None
+
+
+class ValueRatingBody(BaseModel):
+    value: int | None = None  # 3 high, 2 medium, 1 low, 0 zero; null clears it
 
 
 def _priority_join(user_id: int | None) -> tuple[str, list]:
@@ -156,6 +163,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
+                cup.short_term_value, cup.long_term_value,
                 MAX(i.interaction_date) AS last_contact,
                 (SELECT COUNT(*) FROM people lp
                   WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
@@ -170,7 +178,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, cup.priority, cup.short_term_value, cup.long_term_value
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             LIMIT {PAGE_SIZE} OFFSET {offset}
             """,
@@ -306,13 +314,14 @@ def organization_print(
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes,
                 cup.priority AS personal_priority,
+                cup.short_term_value, cup.long_term_value,
                 MAX(i.interaction_date) AS last_contact,
                 ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {priority_join}
             LEFT JOIN interactions i ON i.contact_id = c.id
             {where}
-            GROUP BY c.id, cup.priority
+            GROUP BY c.id, cup.priority, cup.short_term_value, cup.long_term_value
             ORDER BY {sort_col} {sort_dir} NULLS LAST, c.id ASC
             """,
             priority_params + params,
@@ -378,6 +387,7 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         cur.execute(
             f"""
             SELECT c.*, d.pipeline_stage, d.status, cup.priority AS personal_priority,
+                   cup.short_term_value, cup.long_term_value,
                    ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {_DEAL_JOIN}
@@ -472,6 +482,36 @@ def update_personal_priority(
         outcome,
     )
     return {"personal_priority": stored_priority}
+
+
+@router.put("/{contact_id}/value/{horizon}")
+def update_value_rating(
+    contact_id: int,
+    horizon: str,
+    body: ValueRatingBody,
+    request: Request,
+):
+    """Set or clear the signed-in user's private short- or long-term value
+    rating for one contact."""
+    rating = VALUE_HORIZONS.get(horizon)
+    if rating is None:
+        raise HTTPException(status_code=404, detail="Unknown value rating")
+    user_id = request.session.get("user_id")
+    workspace_id = request.session.get("workspace_id")
+    if user_id is None or workspace_id is None:
+        raise HTTPException(status_code=403, detail="Personal account required")
+    if body.value is not None and body.value not in range(0, 4):
+        raise HTTPException(status_code=400, detail="Value must be between 0 and 3")
+
+    organization_found, stored = set_organization_rating(
+        user_id, workspace_id, contact_id, rating, body.value,
+    )
+    if not organization_found:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    outcome = "cleared" if stored is None else f"set:{stored}"
+    log_audit(None, None, f"contact.{rating}_changed", f"contact:{contact_id}", outcome)
+    return {rating: stored}
 
 
 @router.post("/{contact_id}/opportunity-analysis")
