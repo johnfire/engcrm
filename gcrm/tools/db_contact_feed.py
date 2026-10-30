@@ -13,7 +13,14 @@ SORT_COLUMNS = {
     "city": "lower(city)",
     "kind": "kind",
     "pipeline_stage": "stage_sort_key",
+    "priority": "rating.priority",
+    "short_term_value": "rating.short_term_value",
+    "long_term_value": "rating.long_term_value",
 }
+
+# Sorts that start high-to-low: newest contact first, highest value first.
+# (Priority starts ascending: 1 is the best.)
+DESCENDING_SORTS = ("last_contact", "newest", "short_term_value", "long_term_value")
 
 
 def validate_feed_filters(kind: str, stage: str, sort: str) -> None:
@@ -55,20 +62,20 @@ def feed_predicates(search: str, kind: str, stage: str, workspace_id: int | None
 def get_contact_feed(*, search: str = "", kind: str = "", stage: str = "", sort: str = "last_contact",
                      page: int = 1, workspace_id: int | None = None, extra_row: bool = False,
                      offer: str | None = CONSULTING, only_pitched: bool = False,
-                     dir: str | None = None) -> list[dict]:
+                     dir: str | None = None, user_id: int | None = None) -> list[dict]:
     """One page of contacted people and organizations. `offer` picks whose stage
     each row shows (None: every offer's, in `deals`); `only_pitched` hides those
-    not pitched it."""
+    not pitched it. With `user_id`, each row carries that user's private ratings."""
     validate_feed_filters(kind, stage, sort)
     if page < 1:
         raise ValueError("Page must be positive")
     predicate, parameters = feed_predicates(search, kind, stage, workspace_id, only_pitched and offer is not None)
-    default_direction = "desc" if sort in ("last_contact", "newest") else "asc"
+    default_direction = "desc" if sort in DESCENDING_SORTS else "asc"
     direction = "DESC" if (dir or default_direction) == "desc" else "ASC"
     tie_breaker = "kind, id DESC" if sort in ("last_contact", "newest") else "kind, id"
     order = f"{SORT_COLUMNS[sort]} {direction} NULLS LAST, {tie_breaker}"
     query = contact_feed_sql(offer) + f" WHERE {predicate} ORDER BY {order} LIMIT %s OFFSET %s"
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute(query, parameters + [PAGE_SIZE + int(extra_row), (page - 1) * PAGE_SIZE])
+        cursor.execute(query, [user_id, user_id] + parameters + [PAGE_SIZE + int(extra_row), (page - 1) * PAGE_SIZE])
         return [serialize_row(dict(row)) for row in cursor.fetchall()]

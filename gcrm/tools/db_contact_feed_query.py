@@ -21,7 +21,10 @@ def _stages_sql(alias: str, column: str, offer: str | None) -> str:
 def contact_feed_sql(offer: str | None = CONSULTING) -> str:
     """The feed for one offer's pipeline (`pipeline_stage` is that deal's), or
     for every offer (offer None: no single stage, `deals` lists them all).
-    Every row carries `deals` and, for filtering, `deal_stages`."""
+    Every row carries `deals` and, for filtering, `deal_stages`, plus the
+    signed-in user's private ratings (priority, short_term_value,
+    long_term_value). The query starts with two %s placeholders, both that
+    user's id; None matches nobody, so the ratings come back empty."""
     if offer:
         person_stage, person_join = "person_deal.pipeline_stage", person_deal_join("person", "person_deal", offer)
         organization_stage = "organization_deal.pipeline_stage"
@@ -30,7 +33,13 @@ def contact_feed_sql(offer: str | None = CONSULTING) -> str:
         person_stage = organization_stage = "NULL::text"
         person_join = organization_join = ""
     return f"""
-WITH active_people AS (
+WITH my_ratings AS (
+    SELECT 'organization' AS rated_kind, contact_id AS rated_id, priority, short_term_value, long_term_value
+      FROM contact_user_priorities WHERE user_id = %s
+    UNION ALL
+    SELECT 'person', person_id, priority, short_term_value, long_term_value
+      FROM person_user_priorities WHERE user_id = %s
+), active_people AS (
     SELECT person.*, {person_stage} AS pipeline_stage, organization.id AS business_id,
            {deals_json_sql("person", "person_id", offer)} AS deals,
            {_stages_sql("person", "person_id", offer)} AS deal_stages,
@@ -88,7 +97,9 @@ WITH active_people AS (
       FROM active_people person WHERE person.business_id IS NULL
 )
 SELECT id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
-       created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name
+       created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
+       rating.priority, rating.short_term_value, rating.long_term_value
 FROM contact_feed
+LEFT JOIN my_ratings rating ON rating.rated_kind = contact_feed.kind AND rating.rated_id = contact_feed.id
 """
 

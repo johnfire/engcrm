@@ -196,3 +196,32 @@ def test_requested_sorts_use_actual_values(mixed_contacts, sort, expected):
         assert [row["id"] for row in descending] == [2, 1, 2]
     else:
         assert [row["kind"] for row in descending] == ["person", "organization", "organization"]
+
+
+def test_rows_carry_only_my_ratings_and_sort_by_them(mixed_contacts):
+    from gcrm.tools.db_people import set_person_rating, set_person_value_rating
+    from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
+
+    workspace_id, _ = mixed_contacts
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO users (email, password_hash, role, workspace_id) VALUES "
+                       "('me@feed.test','h','admin',%s), ('other@feed.test','h','admin',%s) RETURNING id",
+                       (workspace_id, workspace_id))
+        me, other = (row["id"] for row in cursor.fetchall())
+    set_personal_priority(me, workspace_id, 1, 2)
+    set_organization_rating(me, workspace_id, 1, "long_term_value", 3)
+    set_organization_rating(me, workspace_id, 2, "long_term_value", 1)
+    set_person_value_rating(me, workspace_id, 2, 4)
+    set_person_rating(me, workspace_id, 2, "short_term_value", 0)
+    set_organization_rating(other, workspace_id, 2, "long_term_value", 3)  # not mine: never shown
+
+    rows = {(c["kind"], c["id"]): c for c in get_contact_feed(workspace_id=workspace_id, user_id=me)}
+    ratings = {key: (c["priority"], c["long_term_value"], c["short_term_value"]) for key, c in rows.items()}
+    assert ratings == {("organization", 1): (2, 3, None), ("organization", 2): (None, 1, None),
+                       ("person", 2): (4, None, 0)}
+
+    by_long_term = get_contact_feed(workspace_id=workspace_id, user_id=me, sort="long_term_value")
+    assert [(c["kind"], c["id"]) for c in by_long_term] == [("organization", 1), ("organization", 2), ("person", 2)]
+    assert get_contact_feed(workspace_id=workspace_id, sort="priority")[0]["priority"] is None  # no user: no ratings
+    assert get_contact_feed(workspace_id=workspace_id, user_id=me, search="Academy")[0]["id"] == 1

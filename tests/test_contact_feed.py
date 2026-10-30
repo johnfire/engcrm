@@ -133,3 +133,41 @@ def test_web_contact_list_still_loads_when_counts_fail():
         assert "This month" not in response.text
     finally:
         app.dependency_overrides.pop(require_login, None)
+
+
+def test_web_list_shows_my_ratings_instead_of_email_or_phone():
+    rated = {**CONTACT, "priority": 2, "long_term_value": 3, "short_term_value": 0}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[rated]) as fetch:
+            response = TestClient(app).get("/contact-feed/?lang=en")
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    assert response.status_code == 200
+    header = response.text.split("<thead>")[1].split("</thead>")[0]
+    assert ">Priority<" in header and ">LT<" in header and ">ST<" in header
+    assert "Email / phone" not in header
+    body = response.text.split("<tbody>")[1]
+    assert "ann@academy.test" not in body
+    assert ">P2<" in body and 'title="High">H<' in body and 'title="Zero">0<' in body
+    assert "user_id" in fetch.call_args.kwargs
+
+
+@pytest.mark.parametrize("sort,column,direction", [
+    ("priority", "rating.priority", "ASC"),
+    ("long_term_value", "rating.long_term_value", "DESC"),
+    ("short_term_value", "rating.short_term_value", "DESC"),
+])
+def test_feed_sorts_by_my_ratings_best_first(sort, column, direction):
+    from unittest.mock import MagicMock
+
+    from gcrm.tools.db_contact_feed import get_contact_feed
+
+    connection = MagicMock()
+    connection.cursor.return_value.fetchall.return_value = []
+    with patch("gcrm.tools.db_contact_feed.db") as database:
+        database.return_value.__enter__.return_value = connection
+        get_contact_feed(sort=sort, user_id=9)
+    query, parameters = connection.cursor.return_value.execute.call_args.args
+    assert f"ORDER BY {column} {direction} NULLS LAST" in query
+    assert parameters[:2] == [9, 9]  # the two rating tables, read for this user only

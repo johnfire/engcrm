@@ -91,7 +91,8 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
     filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort, dir=dir)
     active_offer, offers = web_offer_filter(request, offer)
     contacts = get_contact_feed(**filters, page=page, workspace_id=request.session.get("workspace_id"),
-                                extra_row=True, offer=active_offer, only_pitched=active_offer is not None)
+                                extra_row=True, offer=active_offer, only_pitched=active_offer is not None,
+                                user_id=request.session.get("user_id"))
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
         "stages": PIPELINE_STAGES, "page": page, "offers": offers, "active_offer": active_offer,
