@@ -159,21 +159,23 @@ export function Chip({
   usual,
   disabled,
   onPress,
+  role = "radio",
 }: {
   label: string;
   selected: boolean;
   usual?: boolean;
   disabled?: boolean;
   onPress: () => void;
+  role?: "radio" | "checkbox"; // checkbox: one of several that may all be picked
 }) {
   return (
     <TouchableOpacity
       style={[styles.choice, usual && styles.choiceUsual, selected && styles.choiceSelected]}
       onPress={onPress}
       disabled={disabled}
-      accessibilityRole="radio"
+      accessibilityRole={role}
       accessibilityLabel={label}
-      accessibilityState={{ selected, disabled: !!disabled }}
+      accessibilityState={role === "checkbox" ? { checked: selected, disabled: !!disabled } : { selected, disabled: !!disabled }}
     >
       <Text style={[styles.choiceText, selected && styles.choiceTextSelected]}>{label}</Text>
     </TouchableOpacity>

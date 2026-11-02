@@ -9,8 +9,10 @@ from fastapi.responses import HTMLResponse
 
 from gcrm.activity_types import (
     ACTIVITY_TYPES,
+    ATTITUDES,
+    MY_READS,
     ORGANIZATION_METHODS,
-    parse_impression,
+    parse_choices,
     parse_minutes,
     parse_occurred_on,
 )
@@ -180,7 +182,8 @@ def log_activity(
     note: str = Form(""),
     offer: str | None = Form(None),
     occurred_on: str = Form(""),
-    impression: str = Form(""),
+    attitude: list[str] = Form([]),
+    my_read: list[str] = Form([]),
     materials_left: str = Form(""),
     followup_promised: str = Form(""),
     followup_date: str = Form(""),
@@ -202,9 +205,9 @@ def log_activity(
     except ValueError:
         raise HTTPException(status_code=400, detail="The date must be today or earlier")
     try:
-        feeling = parse_impression(impression)
+        attitudes, reads = parse_choices(attitude, ATTITUDES), parse_choices(my_read, MY_READS)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Unknown impression")
+        raise HTTPException(status_code=400, detail="Unknown attitude or read")
     try:
         follow_up_day = date.fromisoformat(followup_date) if followup_date.strip() else None
     except ValueError:
@@ -223,6 +226,6 @@ def log_activity(
         raise HTTPException(status_code=400, detail="Unknown offer")
     log_meeting_note(contact_id, method, note.strip(), follow_up_date=follow_up_day,
                      follow_up_text=followup_promised.strip() or None, duration_minutes=minutes,
-                     offer_id=offer_id, occurred_on=day, impression=feeling,
+                     offer_id=offer_id, occurred_on=day, attitude=attitudes, my_read=reads,
                      materials_left=materials_left.strip() or None)
     return local_redirect(f"/organizations/{contact_id}", saved="1")

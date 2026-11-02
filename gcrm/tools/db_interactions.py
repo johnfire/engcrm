@@ -30,11 +30,13 @@ def log_meeting_note(
     duration_minutes: int | None = None,
     offer_id: int | None = None,
     occurred_on=None,
-    impression: str | None = None,
+    attitude: list[str] | None = None,
+    my_read: list[str] | None = None,
     materials_left: str | None = None,
 ) -> int:
     """Record a note about a meeting, call or visit on an organization: when it
-    happened (`occurred_on`, default today), how it felt, what was left behind,
+    happened (`occurred_on`, default today), how they seemed to feel about me
+    (`attitude`) and how they seemed to me (`my_read`), what was left behind,
     any follow-up promised (with an optional date) and the offer it was about
     (None: general). Direction is left empty (it is neither an outbound nor
     an inbound message) and no status changes: only an explicit stage change does that.
@@ -44,10 +46,10 @@ def log_meeting_note(
         cursor.execute(
             "INSERT INTO interactions "
             "(contact_id, interaction_date, method, summary, outcome, next_action, next_action_date, "
-            "duration_minutes, offer_id, impression, materials_left) "
-            "VALUES (%s, COALESCE(%s::date, CURRENT_DATE), %s, %s, 'note', %s, %s, %s, %s, %s, %s) RETURNING id",
+            "duration_minutes, offer_id, attitude, my_read, materials_left) "
+            "VALUES (%s, COALESCE(%s::date, CURRENT_DATE), %s, %s, 'note', %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (contact_id, occurred_on, method, note, follow_up_text or None, follow_up_date, duration_minutes,
-             offer_id, impression, materials_left or None),
+             offer_id, attitude or None, my_read or None, materials_left or None),
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))
@@ -57,8 +59,9 @@ def log_meeting_note(
 
 def get_visit_summary(contact_id: int) -> dict:
     """What the logged activities say about visiting this organization: the last
-    in-person visit (date and minutes), the first and last impression, and the
-    latest materials left and follow-up promised. Each is None until logged."""
+    in-person visit (date and minutes), the first and last attitude, my latest
+    read of them, and the latest materials left and follow-up promised. Each is
+    None until logged."""
     live = "contact_id = %(id)s AND deleted_at IS NULL"
     activities = f"{live} AND method IS DISTINCT FROM 'next_step' AND method IS DISTINCT FROM 'next_step_done'"
     visits = f"{live} AND method IN ({', '.join(repr(m) for m in VISIT_METHODS)})"
@@ -71,10 +74,12 @@ def get_visit_summary(contact_id: int) -> dict:
                 ORDER BY interaction_date DESC, id DESC LIMIT 1) AS last_visited,
               (SELECT duration_minutes FROM interactions WHERE {visits}
                 ORDER BY interaction_date DESC, id DESC LIMIT 1) AS last_visit_minutes,
-              (SELECT impression FROM interactions WHERE {activities} AND impression IS NOT NULL
-                ORDER BY interaction_date, id LIMIT 1) AS first_impression,
-              (SELECT impression FROM interactions WHERE {activities} AND impression IS NOT NULL
-                ORDER BY interaction_date DESC, id DESC LIMIT 1) AS last_impression,
+              (SELECT attitude FROM interactions WHERE {activities} AND attitude IS NOT NULL
+                ORDER BY interaction_date, id LIMIT 1) AS first_attitude,
+              (SELECT attitude FROM interactions WHERE {activities} AND attitude IS NOT NULL
+                ORDER BY interaction_date DESC, id DESC LIMIT 1) AS last_attitude,
+              (SELECT my_read FROM interactions WHERE {activities} AND my_read IS NOT NULL
+                ORDER BY interaction_date DESC, id DESC LIMIT 1) AS last_my_read,
               (SELECT materials_left FROM interactions WHERE {activities} AND materials_left IS NOT NULL
                 ORDER BY interaction_date DESC, id DESC LIMIT 1) AS materials_left,
               (SELECT next_action FROM interactions WHERE {activities} AND next_action IS NOT NULL

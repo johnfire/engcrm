@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, 
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from gcrm.activity_types import PERSON_METHODS, parse_minutes
+from gcrm.activity_types import ATTITUDES, MY_READS, PERSON_METHODS, parse_choices, parse_minutes
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.offer_filter import LAST_OFFER_KEY, creation_offer, last_used_offer, web_offer_filter
 from gcrm.api.redirects import local_redirect
@@ -767,6 +767,8 @@ def add_note(
     method: str = Form(""),
     duration_minutes: str = Form(""),
     offer: str | None = Form(None),
+    attitude: list[str] = Form([]),
+    my_read: list[str] = Form([]),
     _admin: str = Depends(require_admin),
 ):
     if get_person(person_id) is None:
@@ -780,10 +782,15 @@ def add_note(
     except ValueError:
         raise HTTPException(status_code=400, detail="Minutes must be a whole number from 0 to 1440")
     try:
+        attitudes, reads = parse_choices(attitude, ATTITUDES), parse_choices(my_read, MY_READS)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown attitude or read")
+    try:
         offer_id = resolve_log_offer("person", person_id, offer)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown offer")
-    log_person_note(person_id, method.strip() or None, note.strip(), duration_minutes=minutes, offer_id=offer_id)
+    log_person_note(person_id, method.strip() or None, note.strip(), duration_minutes=minutes, offer_id=offer_id,
+                    attitude=attitudes, my_read=reads)
     return local_redirect(f"/people/{person_id}", saved="1")
 
 

@@ -1,5 +1,6 @@
 {% extends "base.html" %} {% block title %}{{ organization.name }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}organization-detail-page{% endblock %} {% block content %}
+{% from 'partials/judgments.html' import judgment_fields, judgment_labels, judgment_text with context %}
 <div class="page-header">
   <h1>{{ organization.name }}</h1>
   <span class="muted"
@@ -325,11 +326,12 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   <section class="detail-section record-card" id="log-activity">
     <h2>{{ t('activity.logTitle') }}</h2>
     {% set vs = visit_summary or {} %}
-    {% if vs.last_visited or vs.first_impression or vs.last_impression %}
+    {% if vs.last_visited or vs.first_attitude or vs.last_attitude or vs.last_my_read %}
     <dl class="visit-summary">
       {% if vs.last_visited %}<div><dt>{{ t('organizationBrief.lastVisited') }}</dt><dd>{{ vs.last_visited }}</dd></div>{% endif %}
-      {% if vs.first_impression %}<div><dt>{{ t('organizationBrief.firstImpression') }}</dt><dd>{{ t('impression.' ~ vs.first_impression) }}</dd></div>{% endif %}
-      {% if vs.last_impression %}<div><dt>{{ t('organizationBrief.lastImpression') }}</dt><dd>{{ t('impression.' ~ vs.last_impression) }}</dd></div>{% endif %}
+      {% if vs.first_attitude %}<div><dt>{{ t('organizationBrief.firstImpression') }}</dt><dd>{{ judgment_labels(vs.first_attitude, 'impression.') }}</dd></div>{% endif %}
+      {% if vs.last_attitude %}<div><dt>{{ t('organizationBrief.lastImpression') }}</dt><dd>{{ judgment_labels(vs.last_attitude, 'impression.') }}</dd></div>{% endif %}
+      {% if vs.last_my_read %}<div><dt>{{ t('judgment.lastMyRead') }}</dt><dd>{{ judgment_labels(vs.last_my_read, 'myRead.') }}</dd></div>{% endif %}
     </dl>
     {% endif %}
     <form method="post" action="/organizations/{{ organization.id }}/activity" class="record-form">
@@ -354,14 +356,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         <input type="number" name="duration_minutes" min="0" max="1440" step="1"
                placeholder="{{ t('activity.minutesPlaceholder') }}" />
       </label>
-      <label>{{ t('activity.impressionLabel') }}
-        <select name="impression">
-          <option value="">—</option>
-          {% for impression in ['warm', 'neutral', 'cold', 'skeptical'] %}
-          <option value="{{ impression }}">{{ t('impression.' ~ impression) }}</option>
-          {% endfor %}
-        </select>
-      </label>
+      {{ judgment_fields() }}
       <label>{{ t('organizationBrief.materialsLeft') }}
         <input type="text" name="materials_left" maxlength="500"
                placeholder="{{ t('organizationDetail.materialsLeftPlaceholder') }}" />
@@ -444,10 +439,10 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}{% if i.offer %} · <span class="log-offer">{{ i.offer }}</span>{% endif %}</td>
         <td class="muted">{{ i.direction or '—' }}</td>
         <td class="muted small">{{ i.summary or '—' }}
-          {%- if i.impression or i.materials_left %}
+          {%- if i.attitude or i.my_read or i.materials_left %}
           <div class="activity-visit-details">
-            {%- if i.impression %}<span>{{ t('impression.' ~ i.impression) }}</span>{% endif %}
-            {%- if i.impression and i.materials_left %} · {% endif %}
+            {{- judgment_text(i.attitude, i.my_read) }}
+            {%- if (i.attitude or i.my_read) and i.materials_left %} · {% endif %}
             {%- if i.materials_left %}<span>{{ t('organizationBrief.materialsLeft') }}: {{ i.materials_left }}</span>{% endif %}
           </div>
           {%- endif %}

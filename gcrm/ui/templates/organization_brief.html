@@ -1,4 +1,4 @@
-<!doctype html>
+{% from 'partials/judgments.html' import judgment_labels with context %}<!doctype html>
 <html lang="{{ request.session.get('ui_language', 'en') }}">
   <head>
     <meta charset="UTF-8" />
@@ -225,15 +225,20 @@
         <span class="brief-label">{{ t('organizationBrief.lastVisited') }}</span>
         <span class="brief-val">{{ vs.last_visited }}</span>
       </div>
-      {% endif %} {% if vs.first_impression %}
+      {% endif %} {% if vs.first_attitude %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.firstImpression') }}</span>
-        <span class="brief-val">{{ t('impression.' ~ vs.first_impression) }}</span>
+        <span class="brief-val">{{ judgment_labels(vs.first_attitude, 'impression.') }}</span>
       </div>
-      {% endif %} {% if vs.last_impression %}
+      {% endif %} {% if vs.last_attitude %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.lastImpression') }}</span>
-        <span class="brief-val">{{ t('impression.' ~ vs.last_impression) }}</span>
+        <span class="brief-val">{{ judgment_labels(vs.last_attitude, 'impression.') }}</span>
+      </div>
+      {% endif %} {% if vs.last_my_read %}
+      <div class="brief-row">
+        <span class="brief-label">{{ t('judgment.lastMyRead') }}</span>
+        <span class="brief-val">{{ judgment_labels(vs.last_my_read, 'myRead.') }}</span>
       </div>
       {% endif %} {% if vs.materials_left %}
       <div class="brief-row">

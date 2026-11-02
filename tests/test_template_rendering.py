@@ -409,8 +409,12 @@ class TestOrganizationDetailPage:
                 assert 'name="first_impression"' not in edit_form and 'name="last_visited_at"' not in edit_form
                 assert 'name="best_visit_time"' in edit_form and "Tue afternoons" in edit_form
                 log_form = response.text.split('id="log-activity"')[1].split("</form>")[0]
-                for field in ("occurred_on", "impression", "materials_left", "followup_promised", "followup_date"):
+                for field in ("occurred_on", "attitude", "my_read", "materials_left", "followup_promised", "followup_date"):
                     assert f'name="{field}"' in log_form
+                # Both judgments are checkboxes: several may be picked, every value offered.
+                assert log_form.count('type="checkbox" name="attitude"') == 4
+                assert log_form.count('type="checkbox" name="my_read"') == 10
+                assert 'value="nh"> NH<' in log_form and 'value="cf"> CF<' in log_form
                 assert 'class="organization-edit-form"' in response.text
                 assert 'class="organization-detail-page"' in response.text
                 assert 'for="organization-name"' in response.text

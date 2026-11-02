@@ -416,7 +416,7 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         organization = dict(row)
         cur.execute(
             "SELECT i.interaction_date, i.method, i.direction, i.summary, i.outcome, i.next_action, "
-            "i.next_action_date, i.duration_minutes, i.impression, i.materials_left, o.name AS offer "
+            "i.next_action_date, i.duration_minutes, i.attitude, i.my_read, i.materials_left, o.name AS offer "
             "FROM interactions i "
             "LEFT JOIN offers o ON o.id = i.offer_id WHERE i.contact_id = %s AND i.deleted_at IS NULL "
             "ORDER BY i.interaction_date DESC, i.id DESC LIMIT 20",

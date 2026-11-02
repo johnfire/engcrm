@@ -1,0 +1,26 @@
+{#- Their attitude (how they seem to feel about me) and my read of them (how they
+    seem to me): several of each may be picked per activity. -#}
+{% macro judgment_fields() %}
+{%- for field, values, prefix, legend in [
+      ('attitude', attitudes, 'impression.', 'judgment.attitude'),
+      ('my_read', my_reads, 'myRead.', 'judgment.myRead')] %}
+<fieldset class="judgment-group">
+  <legend class="field-group-label">{{ t(legend) }}</legend>
+  <div class="flag-row">
+    {%- for value in values %}
+    <label class="flag-check"><input type="checkbox" name="{{ field }}" value="{{ value }}"> {{ t(prefix ~ value) }}</label>
+    {%- endfor %}
+  </div>
+</fieldset>
+{%- endfor %}
+{% endmacro %}
+
+{% macro judgment_labels(values, prefix) -%}
+{% for value in values %}{{ t(prefix ~ value) }}{{ ', ' if not loop.last }}{% endfor %}
+{%- endmacro %}
+
+{% macro judgment_text(attitude, my_read) %}
+{%- if attitude %}<span>{{ t('judgment.attitude') }}: {{ judgment_labels(attitude, 'impression.') }}</span>{% endif %}
+{%- if attitude and my_read %} · {% endif %}
+{%- if my_read %}<span>{{ t('judgment.myRead') }}: {{ judgment_labels(my_read, 'myRead.') }}</span>{% endif %}
+{%- endmacro %}

@@ -12,7 +12,7 @@ Voice input tip (Ubuntu):
 import sys
 from datetime import date
 
-from gcrm.activity_types import IMPRESSIONS, parse_occurred_on
+from gcrm.activity_types import ATTITUDES, parse_occurred_on
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
@@ -176,7 +176,7 @@ def _prompt_visit_outcome(organization: dict) -> tuple[dict, dict]:
     if dm:
         updates["decision_maker"] = dm
 
-    impression = menu("How did it go? (impression)", list(IMPRESSIONS))
+    impression = menu("How did they seem towards you?", list(ATTITUDES))
     if impression:
         visit["impression"] = impression
 
@@ -243,7 +243,7 @@ def log_visit(contact_id: int, visit: dict, free_notes: str | None) -> None:
         contact_id, "in_person", free_notes or "Visit (debrief)",
         follow_up_text=visit.get("follow_up_text"),
         occurred_on=parse_occurred_on(visit.get("occurred_on")),
-        impression=visit.get("impression"),
+        attitude=[visit["impression"]] if visit.get("impression") else None,
         materials_left=visit.get("materials_left"),
     )
 

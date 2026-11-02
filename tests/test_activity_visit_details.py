@@ -1,5 +1,6 @@
 """Log activity absorbed Visit Info: each logged activity carries its date,
-impression, materials left and follow-up, and the organization's visit summary
+their attitude, my read of them, materials left and follow-up, and the
+organization's visit summary
 is read back from those activities."""
 from datetime import date, timedelta
 from types import SimpleNamespace
@@ -9,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from gcrm.activity_types import IMPRESSIONS, parse_impression, parse_occurred_on
+from gcrm.activity_types import ATTITUDES, MY_READS, parse_choices, parse_occurred_on
 from gcrm.api.jwt_auth import create_token
 from gcrm.api.main import app
 from gcrm.api.routers import organizations, statistics
@@ -32,19 +33,27 @@ def test_activity_date_is_today_or_earlier():
         parse_occurred_on("yesterday", TODAY)
 
 
-def test_impression_is_one_of_four_or_blank():
-    assert IMPRESSIONS == ("warm", "neutral", "cold", "skeptical")
-    assert parse_impression(" warm ") == "warm"
-    assert parse_impression("") is None
+def test_attitude_and_my_read_take_several_known_values_or_none():
+    assert ATTITUDES == ("warm", "neutral", "cold", "skeptical")
+    assert MY_READS == ("trustworthy", "straightforward", "cant_tell", "holding_back", "story_doesnt_add_up",
+                        "not_truthful", "indecisive", "confused", "nh", "cf")
+    # Several at once, repeats dropped, always in the list's own order.
+    assert parse_choices(["skeptical", " warm ", "warm"], ATTITUDES) == ["warm", "skeptical"]
+    assert parse_choices(["cf", "nh", "confused"], MY_READS) == ["confused", "nh", "cf"]
+    assert parse_choices(" warm ", ATTITUDES) == ["warm"]  # one value on its own
+    for nothing in ([], [""], "", None):
+        assert parse_choices(nothing, ATTITUDES) is None
     with pytest.raises(ValueError):
-        parse_impression("lukewarm")
+        parse_choices(["warm", "lukewarm"], ATTITUDES)
+    with pytest.raises(ValueError):
+        parse_choices(["nh"], ATTITUDES)  # a read is not an attitude
 
 
 # --- web form -----------------------------------------------------------------
 
 def _web_log(**fields):
     form = {"method": "in_person", "duration_minutes": "", "note": "Met Anna", "offer": None,
-            "occurred_on": "", "impression": "", "materials_left": "", "followup_promised": "",
+            "occurred_on": "", "attitude": [], "my_read": [], "materials_left": "", "followup_promised": "",
             "followup_date": ""}
     form.update(fields)
     connection = MagicMock()
@@ -60,26 +69,27 @@ def _web_log(**fields):
 
 def test_web_form_logs_the_whole_visit_as_one_activity():
     yesterday = (date.today() - timedelta(days=1)).isoformat()
-    log = _web_log(occurred_on=yesterday, duration_minutes="25", impression="warm",
+    log = _web_log(occurred_on=yesterday, duration_minutes="25", attitude=["skeptical", "warm"], my_read=["nh"],
                    materials_left=" flyer, price list ", followup_promised=" send quote ",
                    followup_date="2026-11-15")
     log.assert_called_once_with(
         7, "in_person", "Met Anna", follow_up_date=date(2026, 11, 15), follow_up_text="send quote",
-        duration_minutes=25, offer_id=None, occurred_on=date.fromisoformat(yesterday), impression="warm",
-        materials_left="flyer, price list",
+        duration_minutes=25, offer_id=None, occurred_on=date.fromisoformat(yesterday),
+        attitude=["warm", "skeptical"], my_read=["nh"], materials_left="flyer, price list",
     )
 
 
 def test_web_form_with_only_the_basics_stores_blanks_as_none():
     log = _web_log()
     kwargs = log.call_args.kwargs
-    assert kwargs["occurred_on"] is None and kwargs["impression"] is None
+    assert kwargs["occurred_on"] is None and kwargs["attitude"] is None and kwargs["my_read"] is None
     assert kwargs["materials_left"] is None and kwargs["follow_up_text"] is None
 
 
 @pytest.mark.parametrize("fields", [
     {"occurred_on": (date.today() + timedelta(days=1)).isoformat()},
-    {"impression": "ecstatic"},
+    {"attitude": ["ecstatic"]},
+    {"my_read": ["liar"]},
     {"followup_date": "next week"},
 ])
 def test_web_form_refuses_bad_visit_details(fields):
@@ -99,16 +109,28 @@ def test_mobile_note_carries_the_visit_details():
         database.return_value.__enter__.return_value = connection
         response = TestClient(app).post("/api/contacts/7/notes", headers=ADMIN, json={
             "note": "Visit", "method": "in_person", "occurred_on": yesterday,
-            "impression": "cold", "materials_left": " card "})
+            "attitude": ["cold"], "my_read": ["cf", "confused"], "materials_left": " card "})
     assert response.status_code == 200
     kwargs = log.call_args.kwargs
     assert kwargs["occurred_on"] == date.fromisoformat(yesterday)
-    assert kwargs["impression"] == "cold" and kwargs["materials_left"] == "card"
+    assert kwargs["attitude"] == ["cold"] and kwargs["my_read"] == ["confused", "cf"]
+    assert kwargs["materials_left"] == "card"
+
+
+def test_older_app_builds_send_one_impression_and_it_becomes_the_attitude():
+    with patch("gcrm.api.routers.api_organizations._require_organization"), \
+         patch("gcrm.api.routers.api_organizations.log_meeting_note", return_value=3) as log:
+        response = TestClient(app).post("/api/contacts/7/notes", headers=ADMIN,
+                                        json={"note": "Visit", "impression": "warm"})
+    assert response.status_code == 200
+    assert log.call_args.kwargs["attitude"] == ["warm"] and log.call_args.kwargs["my_read"] is None
 
 
 @pytest.mark.parametrize("body", [
     {"occurred_on": (date.today() + timedelta(days=1)).isoformat()},
     {"impression": "great"},
+    {"attitude": ["great"]},
+    {"my_read": ["liar"]},
 ])
 def test_mobile_note_refuses_bad_visit_details(body):
     with patch("gcrm.api.routers.api_organizations.log_meeting_note") as log:
@@ -155,4 +177,4 @@ def test_interview_logs_the_visit_as_an_in_person_activity():
         run_interview.log_visit(7, {"occurred_on": "2026-10-28", "impression": "warm",
                                     "materials_left": "flyer", "follow_up_text": "call in May"}, "Saw the owner")
     log.assert_called_once_with(7, "in_person", "Saw the owner", follow_up_text="call in May",
-                                occurred_on=date(2026, 10, 28), impression="warm", materials_left="flyer")
+                                occurred_on=date(2026, 10, 28), attitude=["warm"], materials_left="flyer")

@@ -6,8 +6,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from gcrm.activity_types import (
+    ATTITUDES,
+    MY_READS,
     ORGANIZATION_METHODS,
-    parse_impression,
+    parse_choices,
     parse_minutes,
     parse_occurred_on,
 )
@@ -333,7 +335,9 @@ class MeetingNoteBody(BaseModel):
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
     offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
     occurred_on: str | None = None  # YYYY-MM-DD, today or earlier; absent means today
-    impression: str | None = None  # warm, neutral, cold or skeptical
+    attitude: list[str] | None = None  # any of ATTITUDES: how they seemed to feel about me
+    my_read: list[str] | None = None  # any of MY_READS: how they seemed to me
+    impression: str | None = None  # older app builds: one attitude
     materials_left: str | None = None
 
 
@@ -358,7 +362,8 @@ def add_organization_note(
     _role: str = Depends(require_jwt_admin),
     payload: dict = Depends(require_jwt_payload),
 ) -> dict:
-    """Log a note about a meeting, call or visit: when it happened, how it felt,
+    """Log a note about a meeting, call or visit: when it happened, how they
+    seemed to feel about me and how they seemed to me,
     what was left behind, and an optional follow-up. Changes no stage or status
     — that is a separate, explicit call."""
     note = body.note.strip()
@@ -385,9 +390,10 @@ def add_organization_note(
     except ValueError:
         raise HTTPException(status_code=400, detail="occurred_on must be YYYY-MM-DD, today or earlier")
     try:
-        impression = parse_impression(body.impression)
+        attitude = parse_choices((body.attitude or []) + [body.impression or ""], ATTITUDES)
+        my_read = parse_choices(body.my_read, MY_READS)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Unknown impression")
+        raise HTTPException(status_code=400, detail="Unknown attitude or read")
     _require_organization(contact_id, payload)
     try:
         offer_id = resolve_log_offer("organization", contact_id, body.offer)
@@ -395,7 +401,7 @@ def add_organization_note(
         raise HTTPException(status_code=400, detail="Unknown offer")
     note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None,
                                duration_minutes=minutes, offer_id=offer_id, occurred_on=occurred_on,
-                               impression=impression, materials_left=(body.materials_left or "").strip() or None)
+                               attitude=attitude, my_read=my_read, materials_left=(body.materials_left or "").strip() or None)
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
 
 

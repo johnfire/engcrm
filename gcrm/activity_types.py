@@ -31,8 +31,12 @@ NOT_ACTIVITIES = ("next_step", "next_step_done")
 ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "letter", "other")
 PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "letter", "other")
 
-# How a logged organization activity felt, best first.
-IMPRESSIONS = ("warm", "neutral", "cold", "skeptical")
+# How they appear to feel about me, best first. Several may apply at once.
+ATTITUDES = ("warm", "neutral", "cold", "skeptical")
+# How they appear to me: trust, clarity, manner. Several may apply at once.
+# "nh" and "cf" are Chris's own two-letter codes, shown as-is, never spelled out.
+MY_READS = ("trustworthy", "straightforward", "cant_tell", "holding_back", "story_doesnt_add_up",
+            "not_truthful", "indecisive", "confused", "nh", "cf")
 # The organization activity types that count as being there in person.
 VISIT_METHODS = ("in_person", "meeting")
 
@@ -70,11 +74,13 @@ def parse_occurred_on(value, today: date | None = None) -> date | None:
     return day
 
 
-def parse_impression(value) -> str | None:
-    """One of IMPRESSIONS, or None when blank. Raises ValueError."""
-    value = (value or "").strip()
-    if not value:
-        return None
-    if value not in IMPRESSIONS:
-        raise ValueError("unknown impression")
-    return value
+def parse_choices(values, allowed: tuple[str, ...]) -> list[str] | None:
+    """Values picked from `allowed` (a list, or one value), without blanks or
+    repeats, in `allowed` order; None when nothing was picked. Raises ValueError
+    for anything not in `allowed`."""
+    if values is None or isinstance(values, str):
+        values = [values]
+    picked = {(value or "").strip() for value in values} - {""}
+    if picked - set(allowed):
+        raise ValueError("unknown choice")
+    return [value for value in allowed if value in picked] or None

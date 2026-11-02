@@ -5,7 +5,7 @@ organization voice-memo flow (api_voice.py)."""
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from gcrm.activity_types import PERSON_METHODS, parse_minutes
+from gcrm.activity_types import ATTITUDES, MY_READS, PERSON_METHODS, parse_choices, parse_minutes
 from gcrm.api.jwt_auth import require_jwt, require_jwt_admin
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.tools.db_people import get_person
@@ -43,6 +43,8 @@ class NoteBody(BaseModel):
     method: str | None = None
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
     offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
+    attitude: list[str] | None = None  # any of ATTITUDES: how they seemed to feel about me
+    my_read: list[str] | None = None  # any of MY_READS: how they seemed to me
 
 
 @router.post("/{person_id}/notes")
@@ -60,10 +62,15 @@ def add_note(person_id: int, body: NoteBody, _role: str = Depends(require_jwt_ad
     except ValueError:
         raise HTTPException(status_code=400, detail="duration_minutes must be 0..1440")
     try:
+        attitude, my_read = parse_choices(body.attitude, ATTITUDES), parse_choices(body.my_read, MY_READS)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unknown attitude or read")
+    try:
         offer_id = resolve_log_offer("person", person_id, body.offer)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown offer")
-    note_id = log_person_note(person_id, method, note, duration_minutes=minutes, offer_id=offer_id)
+    note_id = log_person_note(person_id, method, note, duration_minutes=minutes, offer_id=offer_id,
+                              attitude=attitude, my_read=my_read)
     return {"id": note_id}
 
 

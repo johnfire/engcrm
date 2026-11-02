@@ -799,9 +799,10 @@ export async function addPersonNote(
   method: string | null,
   durationMinutes: number | null = null, // how long it took; blank uses the type's default
   offer?: string, // what it was about: an offer's slug or "general"; absent: the server picks
+  judgments: { attitude?: string[]; my_read?: string[] } = {}, // how they seemed to feel about me, and to me
 ): Promise<{ id: number }> {
   const resp = await client.post(`/api/people/${personId}/notes`, {
-    note, method, duration_minutes: durationMinutes, ...(offer ? { offer } : {}),
+    note, method, duration_minutes: durationMinutes, ...(offer ? { offer } : {}), ...judgments,
   });
   return resp.data;
 }
@@ -819,6 +820,8 @@ export async function addOrganizationNote(
     follow_up_text: string | null;
     duration_minutes?: number | null; // how long it took; blank uses the type's default
     offer?: string; // what it was about: an offer's slug or "general"; absent: the server picks
+    attitude?: string[]; // how they seemed to feel about me (services/judgments ATTITUDES)
+    my_read?: string[]; // how they seemed to me (services/judgments MY_READS)
   },
 ): Promise<{ id: number; follow_up_date: string | null }> {
   const resp = await client.post(`/api/contacts/${id}/notes`, note);

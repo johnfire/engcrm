@@ -8,7 +8,7 @@ from urllib.parse import quote_plus
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
-from gcrm.activity_types import activity_type
+from gcrm.activity_types import ATTITUDES, MY_READS, activity_type
 from gcrm.api.web_links import browsable_url
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.sources import label_key
@@ -62,6 +62,8 @@ templates.env.filters["browsable_url"] = browsable_url
 templates.env.filters["tojson"] = tojson_filter
 templates.env.filters["eur"] = eur
 templates.env.globals["activity_type"] = activity_type
+templates.env.globals["attitudes"] = ATTITUDES
+templates.env.globals["my_reads"] = MY_READS
 templates.env.globals["source_label_key"] = lambda source: "source." + label_key(source)
 
 # Cache-busting query param for /static assets, so a deploy that changes CSS/JS

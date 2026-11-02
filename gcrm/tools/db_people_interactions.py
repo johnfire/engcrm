@@ -9,16 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 def log_person_note(person_id: int, method: str | None, note: str, duration_minutes: int | None = None,
-                    offer_id: int | None = None) -> int:
+                    offer_id: int | None = None, attitude: list[str] | None = None,
+                    my_read: list[str] | None = None) -> int:
     """Insert a note and touch the person's updated_at. Returns the new row id.
     `duration_minutes` is how long it took, when typed (statistics use the type's
-    default otherwise); `offer_id` the offer it was about (None: general)."""
+    default otherwise); `offer_id` the offer it was about (None: general);
+    `attitude` and `my_read` how they seemed to feel about me, and to me."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO people_interactions (person_id, method, note, duration_minutes, offer_id) "
-            "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-            (person_id, method or None, note, duration_minutes, offer_id),
+            "INSERT INTO people_interactions (person_id, method, note, duration_minutes, offer_id, attitude, my_read) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (person_id, method or None, note, duration_minutes, offer_id, attitude or None, my_read or None),
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
@@ -31,7 +33,8 @@ def get_person_interactions(person_id: int) -> list[dict]:
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT pi.id, pi.occurred_at, pi.method, pi.note, pi.duration_minutes, o.name AS offer "
+            "SELECT pi.id, pi.occurred_at, pi.method, pi.note, pi.duration_minutes, pi.attitude, pi.my_read, "
+            "o.name AS offer "
             "FROM people_interactions pi LEFT JOIN offers o ON o.id = pi.offer_id "
             "WHERE pi.person_id = %s AND pi.deleted_at IS NULL ORDER BY pi.occurred_at DESC",
             (person_id,),

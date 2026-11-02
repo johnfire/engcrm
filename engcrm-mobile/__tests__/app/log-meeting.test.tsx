@@ -142,6 +142,8 @@ describe("log a meeting — organization", () => {
       follow_up_text: "send quote",
       duration_minutes: null,
       offer: "consulting", // its one open deal's offer, picked for you
+      attitude: [],
+      my_read: [],
     });
     expect(mockChangeDeal).toHaveBeenCalledWith(70, { stage: "suspect", status: "ready" });
     // the note is sent first, so a failing stage change can never lose it
@@ -149,6 +151,22 @@ describe("log a meeting — organization", () => {
     expect(changed).toHaveBeenCalledTimes(1); // the screen underneath reloads
     expect(Object.keys(store)).toEqual([]); // the draft is gone
     off();
+  });
+
+  it("sends several picks of their attitude and my read, in list order, then clears them", async () => {
+    const screen = setup();
+    await typeNote(screen, "Long talk, odd answers");
+    fireEvent.press(screen.getByLabelText("Skeptical"));
+    fireEvent.press(screen.getByLabelText("Warm"));
+    fireEvent.press(screen.getByLabelText("CF"));
+    fireEvent.press(screen.getByLabelText("NH"));
+    fireEvent.press(screen.getByLabelText("Confused"));
+    fireEvent.press(screen.getByLabelText("Confused")); // a second tap takes it back
+    expect(screen.getByLabelText("NH").props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByLabelText("Confused").props.accessibilityState).toMatchObject({ checked: false });
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ attitude: ["warm", "skeptical"], my_read: ["nh", "cf"] });
   });
 
   it("a note alone sends no follow-up and no stage change", async () => {
@@ -295,10 +313,20 @@ describe("log a meeting — person", () => {
     fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit", null, "consulting");
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Coffee with Anna", "visit", null, "consulting", { attitude: [], my_read: [] });
     expect(mockAddOrgNote).not.toHaveBeenCalled();
     expect(changed).toHaveBeenCalledTimes(1);
     off();
+  });
+
+  it("sends a person's attitude and my read with the note", async () => {
+    const screen = setup("person");
+    await typeNote(screen, "Coffee with Anna");
+    fireEvent.press(screen.getByLabelText("Cold"));
+    fireEvent.press(screen.getByLabelText("Story doesn't add up"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddPersonNote).toHaveBeenCalled());
+    expect(mockAddPersonNote.mock.calls[0][5]).toEqual({ attitude: ["cold"], my_read: ["story_doesnt_add_up"] });
   });
 
   it("sends typed minutes with a sit-down meeting or a video call", async () => {
@@ -308,7 +336,7 @@ describe("log a meeting — person", () => {
     fireEvent.changeText(screen.getByLabelText("Minutes"), "40");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Video call with Anna", "video", 40, "consulting");
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Video call with Anna", "video", 40, "consulting", { attitude: [], my_read: [] });
   });
 
   it("offers the stage of the person's deal and a next step, saved with the note", async () => {
@@ -328,7 +356,7 @@ describe("log a meeting — person", () => {
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Invite to coffee");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
-    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null, "consulting");
+    expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null, "consulting", { attitude: [], my_read: [] });
     // on the deal the note is about
     expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Invite to coffee", dateInDays(7));
   });

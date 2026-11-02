@@ -3,6 +3,7 @@
 {% block main_class %}person-detail-page{% endblock %}
 
 {% block content %}
+{% from 'partials/judgments.html' import judgment_fields, judgment_labels, judgment_text with context %}
 <div class="page-header">
   <h1>{{ person.name }}{% if person.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}</h1>
   <span class="muted">
@@ -187,6 +188,7 @@
       <input id="person-note-minutes" type="number" name="duration_minutes" min="0" max="1440" step="1"
              placeholder="{{ t('activity.minutesPlaceholder') }}" />
     </div>
+    {{ judgment_fields() }}
     <div class="detail-actions">
       <button type="button" id="person-note-record" class="btn-secondary">🎙 {{ t('personDetail.notes.record') }}</button>
       <button type="submit" class="btn-primary">{{ t('personDetail.notes.save') }}</button>
@@ -217,7 +219,8 @@
           {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
         </td>
         <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}{% if entry.duration_minutes is number %} · {{ t('activity.minutes', minutes=entry.duration_minutes) }}{% endif %}{% if entry.offer %} · <span class="log-offer">{{ entry.offer }}</span>{% endif %}</td>
-        <td>{{ entry.note }}</td>
+        <td>{{ entry.note }}
+          {%- if entry.attitude or entry.my_read %}<div class="activity-visit-details muted small">{{ judgment_text(entry.attitude, entry.my_read) }}</div>{% endif %}</td>
         <td>
           <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"
                 style="display: inline"

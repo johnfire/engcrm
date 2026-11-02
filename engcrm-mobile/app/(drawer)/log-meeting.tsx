@@ -29,6 +29,8 @@ import { useTranslation } from "../../i18n/I18nContext";
 import { Chip, StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
 import { dateInDays, FOLLOW_UPS, followUpDate } from "../../services/followUps";
 import { OfferPicker } from "../../components/OfferPicker";
+import { JudgmentChips } from "../../components/JudgmentChips";
+import { ATTITUDES, Attitude, MY_READS, MyRead } from "../../services/judgments";
 import { changeDeal, Deal, defaultLogOffer, fetchDeals, fetchOffers, Offer, setDealNextStep } from "../../services/deals";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
@@ -81,6 +83,8 @@ export default function LogMeetingScreen() {
   const [note, setNote] = useState("");
   const [method, setMethod] = useState<MeetingMethod | null>(null);
   const [minutes, setMinutes] = useState("");
+  const [attitude, setAttitude] = useState<Attitude[]>([]);
+  const [myRead, setMyRead] = useState<MyRead[]>([]);
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
   const [pendingChange, setPendingChange] = useState<StageStatusChange | null>(null);
@@ -179,13 +183,17 @@ export default function LogMeetingScreen() {
             follow_up_text: date === null ? null : followUpText.trim() || null,
             duration_minutes: typedMinutes(minutes),
             ...(about ? { offer: about } : {}),
+            attitude,
+            my_read: myRead,
           });
         } else {
           await addPersonNote(targetId, note.trim(), method ? PERSON_METHOD[method] : null, typedMinutes(minutes),
-            about ?? undefined);
+            about ?? undefined, { attitude, my_read: myRead });
         }
         setNoteSaved(true);
         setNote("");
+        setAttitude([]);
+        setMyRead([]);
         await clearDraft(draftKey);
       } catch (err: any) {
         setError(err?.response?.data?.detail || t("meeting.saveFailed"));
@@ -259,6 +267,11 @@ export default function LogMeetingScreen() {
             accessibilityLabel={t("meeting.minutes")}
           />
         )}
+
+        <JudgmentChips labelKey="judgment.attitude" valuePrefix="impression." values={ATTITUDES}
+          picked={attitude} onChange={setAttitude} disabled={saving} />
+        <JudgmentChips labelKey="judgment.myRead" valuePrefix="myRead." values={MY_READS}
+          picked={myRead} onChange={setMyRead} disabled={saving} />
 
         <TextInput
           style={styles.input}
