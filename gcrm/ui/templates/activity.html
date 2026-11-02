@@ -95,7 +95,7 @@
     {% for run in runs %}
     <tr>
       <td><code>{{ run.agent_name }}</code></td>
-      <td class="nowrap">{{ run.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td class="nowrap">{{ (run.started_at|dmy_time) }}</td>
       <td>
         {% if run.finished_at %}
           {{ ((run.finished_at - run.started_at).total_seconds() | int) }}s

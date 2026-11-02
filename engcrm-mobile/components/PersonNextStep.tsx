@@ -8,6 +8,7 @@ import { FOLLOW_UPS, dateInDays, followUpDate } from "../services/followUps";
 import { notifyChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 import { Chip } from "./StageStatusPicker";
+import { formatDay } from "../services/dates";
 
 type Saved = { next_step: string | null; next_step_date: string | null };
 
@@ -57,7 +58,7 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
           <Text style={styles.step}>{step}</Text>
           {!!date && (
             <Text style={[styles.due, overdue && styles.overdue]}>
-              {t("nextStep.due", { date })}
+              {t("nextStep.due", { date: formatDay(date) })}
               {overdue ? ` · ${t("nextStep.overdue")}` : ""}
             </Text>
           )}
@@ -93,13 +94,13 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
           />
           <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("nextStep.dateLabel")}>
             {!!date && (
-              <Chip label={t("nextStep.keepDate", { date })} selected={when === "keep"} onPress={() => setWhen("keep")} />
+              <Chip label={t("nextStep.keepDate", { date: formatDay(date) })} selected={when === "keep"} onPress={() => setWhen("keep")} />
             )}
             {FOLLOW_UPS.map(({ id, labelKey }) => (
               <Chip key={id} label={t(labelKey)} selected={when === id} disabled={saving} onPress={() => setWhen(id)} />
             ))}
           </View>
-          {!!chosenDate && <Text style={styles.due}>{t("nextStep.due", { date: chosenDate })}</Text>}
+          {!!chosenDate && <Text style={styles.due}>{t("nextStep.due", { date: formatDay(chosenDate) })}</Text>}
           <View style={styles.actions}>
             <TouchableOpacity
               accessibilityRole="button"

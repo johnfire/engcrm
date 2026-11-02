@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactCounts, fetchContactCounts } from "../services/contact-feed";
+import { formatDay } from "../services/dates";
 
 // People and organizations actually contacted: this month, and since the business began —
 // with one offer chosen, only contacts logged as being about it. A failed load just hides
@@ -25,7 +26,7 @@ export function ContactCountsStrip({ offer = null }: { offer?: string | null }) 
         <Text style={styles.value}>{line(counts.month)}</Text>
       </View>
       <View style={styles.cell}>
-        <Text style={styles.label}>{t("contactFeed.countSince", { date: counts.business_start })}</Text>
+        <Text style={styles.label}>{t("contactFeed.countSince", { date: formatDay(counts.business_start) })}</Text>
         <Text style={styles.value}>{line(counts.since_start)}</Text>
       </View>
     </View>

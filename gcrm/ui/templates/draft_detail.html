@@ -11,7 +11,7 @@
     <a href="/people/{{ draft.person_id }}">{{ draft.recipient_name }}</a>
     {% endif %}
   </h1>
-  <span class="muted">{{ draft.email or '—' }}{% if draft.city %} · {{ draft.city }}{% endif %} · {{ t('draftsList.heldSince') }} {{ draft.created_at.strftime('%Y-%m-%d') }}</span>
+  <span class="muted">{{ draft.email or '—' }}{% if draft.city %} · {{ draft.city }}{% endif %} · {{ t('draftsList.heldSince') }} {{ (draft.created_at|dmy) }}</span>
 </div>
 
 <form method="post" action="/drafts/{{ draft.id }}/approve" class="draft-edit-form">

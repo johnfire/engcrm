@@ -14,10 +14,11 @@
 {%- endmacro %}
 
 {% block content %}
+{% from 'partials/date_field.html' import date_field with context %}
 {% set cur = stats.current %}{% set prev = stats.previous %}
 <div class="page-header">
   <h1>{{ t('statistics.title') }}</h1>
-  <span class="muted">{{ stats.start }} – {{ stats.end }} · {{ t('statistics.comparedWith') }} {{ stats.previous_start }} – {{ stats.previous_end }}</span>
+  <span class="muted">{{ stats.start|dmy }} – {{ stats.end|dmy }} · {{ t('statistics.comparedWith') }} {{ stats.previous_start|dmy }} – {{ stats.previous_end|dmy }}</span>
 </div>
 {% if saved %}<div class="flash-success">{{ t('statistics.saved') }}</div>{% endif %}
 
@@ -30,9 +31,9 @@
   <button type="submit" name="period" value="{{ p }}" class="{{ 'btn-primary' if period == p else 'btn-secondary' }}">{{ t('statistics.period.' ~ p) }}</button>
   {% endfor %}
   <span class="stat-periods__custom">
-    <input type="date" name="start" value="{{ stats.start if period == 'custom' else '' }}" aria-label="{{ t('statistics.from') }}">
+    {{ date_field('start', stats.start if period == 'custom' else None, label=t('statistics.from')) }}
     –
-    <input type="date" name="end" value="{{ stats.end if period == 'custom' else '' }}" aria-label="{{ t('statistics.to') }}">
+    {{ date_field('end', stats.end if period == 'custom' else None, label=t('statistics.to')) }}
     <button type="submit" name="period" value="custom" class="{{ 'btn-primary' if period == 'custom' else 'btn-secondary' }}">{{ t('statistics.show') }}</button>
   </span>
 </form>
@@ -89,7 +90,7 @@
     {% set most = stats.weeks | map(attribute='minutes') | max %}
     <ul class="stat-bars">
       {% for w in stats.weeks %}
-      <li title="{{ t('statistics.weekOf', date=w.week) }}: {{ (w.minutes / 60) | round(1) }} h, {{ w.count }} {{ t('statistics.activities') }}">
+      <li title="{{ t('statistics.weekOf', date=w.week|dmy) }}: {{ (w.minutes / 60) | round(1) }} h, {{ w.count }} {{ t('statistics.activities') }}">
         <span class="stat-bars__label">{{ w.week }}</span>
         <span class="stat-bars__track"><span class="stat-bars__bar" style="width: {{ (100 * w.minutes / most) | round(1) if most else 0 }}%"></span></span>
         <span class="stat-bars__value">{{ (w.minutes / 60) | round(1) }} h</span>
@@ -150,7 +151,7 @@
     {% for s in stats.sales %}
       <tr><td><a href="/organizations/{{ s.contact_id }}">{{ s.organization }}</a></td>
         <td class="muted">{{ s.offer or '—' }}</td>
-        <td class="num">{{ s.amount_eur | eur }}</td><td class="nowrap">{{ s.won_on }}</td>
+        <td class="num">{{ s.amount_eur | eur }}</td><td class="nowrap">{{ s.won_on|dmy }}</td>
         <td class="num">{{ s.weeks if s.weeks is not none else '—' }}</td><td class="num">{{ s.activities }}</td>
         <td class="num">{{ s.hours }}</td><td class="num">{{ (s.eur_per_hour | eur) if s.eur_per_hour is not none else '—' }}</td>
         <td class="muted small">{{ s.description or '' }}</td></tr>
@@ -167,7 +168,7 @@
   <ul class="stat-stuck">
     {% for o in stats.stuck %}
     <li><a href="/organizations/{{ o.id }}">{{ o.name }}</a> · {% if not active_offer %}{{ o.offer }}: {% endif %}{{ t('stage.' ~ o.pipeline_stage) }} ·
-      <span class="muted">{{ t('statistics.lastActivity', date=o.last_day) if o.last_day else t('statistics.neverContacted') }}</span></li>
+      <span class="muted">{{ t('statistics.lastActivity', date=o.last_day|dmy) if o.last_day else t('statistics.neverContacted') }}</span></li>
     {% endfor %}
   </ul>
   {% else %}<p class="muted">{{ t('statistics.nothingStuck') }}</p>{% endif %}
@@ -226,7 +227,7 @@
     {% endfor %}
   </div>
   {% endif %}
-  <p class="muted small">{{ t('statistics.pipelineLogHint', date=trends.logged_since or '—') }}</p>
+  <p class="muted small">{{ t('statistics.pipelineLogHint', date=(trends.logged_since|dmy) or '—') }}</p>
 </section>
 </div>
 </div>

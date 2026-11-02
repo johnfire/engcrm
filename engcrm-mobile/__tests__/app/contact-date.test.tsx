@@ -22,6 +22,7 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace, canGoBack: () => true }),
 }));
 import ContactDateScreen from "../../app/(drawer)/contact-date";
+import { formatDay } from "../../services/dates";
 import { dateInDays } from "../../services/followUps";
 
 beforeEach(() => {
@@ -34,8 +35,9 @@ beforeEach(() => {
 
 it("edits the actual day and refreshes details after saving", async () => {
   const screen = render(<ContactDateScreen />);
-  await waitFor(() => expect(screen.getByDisplayValue("2026-10-04")).toBeTruthy());
-  fireEvent.changeText(screen.getByLabelText("Contact date"), "2026-10-03");
+  // Shown and typed as 28.10.2026; sent to the server as ISO.
+  await waitFor(() => expect(screen.getByDisplayValue("04.10.2026")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Contact date"), "03.10.2026");
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(mockSave).toHaveBeenCalledWith(record, "2026-10-03"));
   expect(mockNotify).toHaveBeenCalledWith("person:1");
@@ -46,20 +48,20 @@ it("offers local yesterday and two days ago without saving before confirmation",
   const screen = render(<ContactDateScreen />);
   await waitFor(() => expect(screen.getByText("Yesterday")).toBeTruthy());
   fireEvent.press(screen.getByText("Yesterday"));
-  expect(screen.getByDisplayValue(dateInDays(-1))).toBeTruthy();
+  expect(screen.getByDisplayValue(formatDay(dateInDays(-1)))).toBeTruthy();
   fireEvent.press(screen.getByText("Two days ago"));
-  expect(screen.getByDisplayValue(dateInDays(-2))).toBeTruthy();
+  expect(screen.getByDisplayValue(formatDay(dateInDays(-2)))).toBeTruthy();
   expect(mockSave).not.toHaveBeenCalled();
 });
 
 it("keeps the chosen date when validation or a stale-history check fails", async () => {
   mockSave.mockRejectedValue({ response: { data: { detail: "Contact history changed. Reopen the date editor and try again." } } });
   const screen = render(<ContactDateScreen />);
-  await waitFor(() => expect(screen.getByDisplayValue("2026-10-04")).toBeTruthy());
-  fireEvent.changeText(screen.getByLabelText("Contact date"), "2026-10-03");
+  await waitFor(() => expect(screen.getByDisplayValue("04.10.2026")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Contact date"), "03.10.2026");
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(screen.getByText("Contact history changed. Reopen the date editor and try again.")).toBeTruthy());
-  expect(screen.getByDisplayValue("2026-10-03")).toBeTruthy();
+  expect(screen.getByDisplayValue("03.10.2026")).toBeTruthy();
   expect(mockBack).not.toHaveBeenCalled();
   expect(mockNotify).not.toHaveBeenCalled();
 });
@@ -70,10 +72,19 @@ it("records a missing organization contact and signals the correct detail screen
   mockFetch.mockResolvedValue(missing);
   const screen = render(<ContactDateScreen />);
   await waitFor(() => expect(screen.getByText("No contact recorded yet. Enter the day you actually contacted them.")).toBeTruthy());
-  fireEvent.changeText(screen.getByLabelText("Contact date"), "2026-10-02");
+  fireEvent.changeText(screen.getByLabelText("Contact date"), "2.10.");
   fireEvent.press(screen.getByText("Save"));
-  await waitFor(() => expect(mockSave).toHaveBeenCalledWith(missing, "2026-10-02"));
+  await waitFor(() => expect(mockSave).toHaveBeenCalledWith(missing, `${new Date().getFullYear()}-10-02`));
   expect(mockNotify).toHaveBeenCalledWith("organization:1");
+});
+
+it("refuses an American or impossible day before sending anything", async () => {
+  const screen = render(<ContactDateScreen />);
+  await waitFor(() => expect(screen.getByDisplayValue("04.10.2026")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Contact date"), "10/28/2026");
+  fireEvent.press(screen.getByText("Save"));
+  await waitFor(() => expect(screen.getByText("Enter the day as day.month.year, e.g. 28.10.2026")).toBeTruthy());
+  expect(mockSave).not.toHaveBeenCalled();
 });
 
 it("refuses viewers and malformed destinations", async () => {

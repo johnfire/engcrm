@@ -129,7 +129,7 @@
         </dd>
         {% if person.is_linkedin_contact %}
         <dt>{{ t('linkedin.connectedOn') }}</dt>
-        <dd>{{ person.connected_on or '—' }}</dd>
+        <dd>{{ (person.connected_on|dmy) or '—' }}</dd>
         <dt>{{ t('linkedin.companyOnLinkedin') }}</dt>
         <dd>
           {{- person.company_raw or '—' -}}
@@ -139,7 +139,7 @@
         <dt>{{ t('personDetail.source') }}</dt>
         <dd>{{ t(source_label_key(person.source)) }}</dd>
         <dt>{{ t('common.added') }}</dt>
-        <dd>{{ person.created_at[:10] if person.created_at else '—' }}</dd>
+        <dd>{{ (person.created_at|dmy) if person.created_at else '—' }}</dd>
       </dl>
     </section>
   </div>
@@ -216,7 +216,7 @@
       {% for entry in interactions %}
       <tr>
         <td class="muted small nowrap">
-          {{ entry.occurred_at[:16].replace('T', ' ') if entry.occurred_at else '—' }}
+          {{ (entry.occurred_at|dmy_time) if entry.occurred_at else '—' }}
         </td>
         <td class="muted">{{ method_labels.get(entry.method, entry.method) or '—' }}{% if entry.duration_minutes is number %} · {{ t('activity.minutes', minutes=entry.duration_minutes) }}{% endif %}{% if entry.offer %} · <span class="log-offer">{{ entry.offer }}</span>{% endif %}</td>
         <td>{{ entry.note }}

@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { ResearchCity, ResearchLevel } from "../services/api";
 import { useTranslation } from "../i18n/I18nContext";
+import { formatDay } from "../services/dates";
 
 type TFunction = (key: string, params?: Record<string, unknown>) => string;
 
@@ -25,7 +26,7 @@ const SYMBOL = { complete: "●", partial: "◐", none: "○" } as const;
 
 function levelDetail(entry: ResearchLevel, t: TFunction): string {
   const scan = entry.scan;
-  const lastRun = scan?.last_run_at ? scan.last_run_at.slice(0, 10) : "—";
+  const lastRun = scan?.last_run_at ? formatDay(scan.last_run_at) : "—";
   const found = scan?.contacts_found ?? 0;
   const emailedLine = entry.emailed > 0 ? t("researchCity.emailedLine", { count: entry.emailed }) : "";
   if (scan && scan.complete) {

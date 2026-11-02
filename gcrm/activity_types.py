@@ -7,6 +7,8 @@ in one place. See docs/plans/2026-10-05-statistics-design.md.
 """
 from datetime import date
 
+from gcrm.dates import parse_day
+
 ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "post_mail", "note")
 
 # Minutes an activity counts for when no duration was typed. Each workspace can
@@ -65,10 +67,11 @@ def parse_minutes(value) -> int | None:
 
 def parse_occurred_on(value, today: date | None = None) -> date | None:
     """The day a logged activity happened: None when blank (meaning today),
-    otherwise a YYYY-MM-DD date that is not in the future. Raises ValueError."""
+    otherwise a typed day (28.10.2026, or ISO) that is not in the future.
+    Raises ValueError."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return None
-    day = value if isinstance(value, date) else date.fromisoformat(value.strip())
+    day = value if isinstance(value, date) else parse_day(value, today)
     if day > (today or date.today()):
         raise ValueError("an activity cannot happen in the future")
     return day

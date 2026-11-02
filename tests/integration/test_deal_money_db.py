@@ -133,6 +133,6 @@ def test_the_card_and_the_statistics_page_show_the_money(school):
     finally:
         main.app.dependency_overrides.pop(require_login, None)
         main.app.dependency_overrides.pop(require_admin, None)
-    assert "<strong>49 € / month</strong>" in page and "since 2026-09-01" in page
+    assert "<strong>49 € / month</strong>" in page and "since 01.09.2026" in page
     assert "Monthly recurring now" in stats and "1 paying" in stats
     assert response.status_code == 303

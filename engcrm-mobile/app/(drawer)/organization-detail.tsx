@@ -33,6 +33,7 @@ import { useTranslation } from "../../i18n/I18nContext";
 import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { DealsPanel } from "../../components/DealsPanel";
+import { formatDay } from "../../services/dates";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -249,7 +250,7 @@ export default function OrganizationDetailScreen() {
                   .join(" · ") || t("organizationDetail.interaction")}
               </Text>
               <Text style={styles.interactionDate}>
-                {new Date(interaction.interaction_date).toLocaleDateString()}
+                {formatDay(interaction.interaction_date)}
               </Text>
               {interaction.summary && (
                 <Text style={styles.interactionNotes}>{interaction.summary}</Text>
@@ -259,7 +260,7 @@ export default function OrganizationDetailScreen() {
               )}
               {!!interaction.next_action_date && (
                 <Text style={styles.followUp}>
-                  {t("meeting.followUpDue", { date: interaction.next_action_date })}
+                  {t("meeting.followUpDue", { date: formatDay(interaction.next_action_date) })}
                   {interaction.next_action ? ` — ${interaction.next_action}` : ""}
                 </Text>
               )}
@@ -397,7 +398,7 @@ function OpportunityAnalysisSection({
           {analysis.analysis_date && (
             <Text style={styles.analysisDate}>
               {t("organizationDetail.analyzedOn")}{" "}
-              {new Date(analysis.analysis_date).toLocaleDateString()}
+              {formatDay(analysis.analysis_date)}
             </Text>
           )}
           <View style={styles.scoreGrid}>

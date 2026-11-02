@@ -5,6 +5,7 @@ import { ContactEntry } from "../services/contact-feed";
 import { stageLabelKey } from "../services/organizationState";
 import { useTranslation } from "../i18n/I18nContext";
 import { DealChips } from "./DealChips";
+import { formatDay } from "../services/dates";
 
 export function ContactFeedRow({ contact, onPress, canEdit, showOffer = false }: {
   contact: ContactEntry; onPress: () => void; canEdit: boolean; showOffer?: boolean;
@@ -26,7 +27,7 @@ export function ContactFeedRow({ contact, onPress, canEdit, showOffer = false }:
         <View style={styles.heading}>
           {/* its deals when the server sent them; an older server sent the Consulting stage alone */}
           {!contact.deals && !!contact.pipeline_stage && <Text style={styles.stage}>{t(stageLabelKey(contact.pipeline_stage))}</Text>}
-          {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {contact.last_contact}</Text>}
+          {!!contact.last_contact && <Text style={styles.date}>{t("contactFeed.last_contact")}: {formatDay(contact.last_contact)}</Text>}
         </View>
       </TouchableOpacity>
       {contact.last_contact_kind === "person" && contact.kind === "organization" &&

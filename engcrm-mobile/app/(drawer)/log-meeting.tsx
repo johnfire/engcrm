@@ -32,6 +32,7 @@ import { OfferPicker } from "../../components/OfferPicker";
 import { JudgmentChips } from "../../components/JudgmentChips";
 import { ATTITUDES, Attitude, MY_READS, MyRead } from "../../services/judgments";
 import { changeDeal, Deal, defaultLogOffer, fetchDeals, fetchOffers, Offer, setDealNextStep } from "../../services/deals";
+import { formatDay } from "../../services/dates";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "in_person", labelKey: "meeting.methodVisit" },
@@ -320,7 +321,7 @@ export default function LogMeetingScreen() {
             {followUp !== "none" && (
               <>
                 <Text style={styles.hint}>
-                  {t("meeting.followUpOn", { date: followUpDate(followUp) })}
+                  {t("meeting.followUpOn", { date: formatDay(followUpDate(followUp)) })}
                 </Text>
                 <TextInput
                   style={styles.smallInput}

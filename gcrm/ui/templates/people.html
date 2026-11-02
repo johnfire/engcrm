@@ -150,7 +150,7 @@
       </td>
       <td class="small next-step-cell">
         {%- if p.next_step %}{% if p.next_step_offer %}<span class="deal-offer-label">{{ p.next_step_offer }}</span>{% endif %}{{ p.next_step }}
-        {%- if p.next_step_date %}<div class="next-step__due{% if p.next_step_date < today %} next-step__due--overdue{% endif %}">{{ t('nextStep.due', date=p.next_step_date) }}</div>{% endif %}
+        {%- if p.next_step_date %}<div class="next-step__due{% if p.next_step_date < today %} next-step__due--overdue{% endif %}">{{ t('nextStep.due', date=p.next_step_date|dmy) }}</div>{% endif %}
         {%- else %}<span class="muted">—</span>{% endif %}
       </td>
       <td>{{ p.company_opportunity_score if p.company_opportunity_score is not none else '—' }}</td>
@@ -174,9 +174,9 @@
         {% if p.long_term_value is not none %}<span class="personal-priority-badge tone-{{ value_tone[p.long_term_value] }}" title="{{ t('valueRating.level' ~ p.long_term_value) }}">{{ t('valueRating.abbr' ~ p.long_term_value) }}</span>
         {% else %}<span class="muted">—</span>{% endif %}
       </td>
-      <td class="muted nowrap">{{ p.last_contact[:10] if p.last_contact else '—' }}</td>
+      <td class="muted nowrap">{{ (p.last_contact|dmy) if p.last_contact else '—' }}</td>
       <td class="muted nowrap">{{ p.distance_km|round|int if p.distance_km is not none else '—' }}</td>
-      <td class="muted nowrap">{{ p.created_at[:10] if p.created_at else '—' }}</td>
+      <td class="muted nowrap">{{ (p.created_at|dmy) if p.created_at else '—' }}</td>
     </tr>
     {% endfor %}
   </tbody>

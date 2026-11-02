@@ -1405,3 +1405,9 @@ main.statistics-page { max-width: none; }
 .deal-card__money p { margin: 0 0 0.3rem; }
 .deal-card__mrr strong { color: var(--accent-bright); }
 .deal-card__subscription summary { cursor: pointer; font-size: 0.9em; color: var(--muted); }
+
+/* European date field: text plus a calendar button (partials/date_field.html). */
+.date-field { display: inline-flex; align-items: stretch; gap: 0.3rem; position: relative; max-width: 100%; }
+.date-field input[type="text"] { width: 9.5em; min-width: 0; }
+.date-field__pick { background: none; border: 1px solid var(--border); color: var(--text); cursor: pointer; padding: 0 0.45rem; }
+.date-field__calendar { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }

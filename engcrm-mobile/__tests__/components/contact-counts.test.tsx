@@ -25,7 +25,7 @@ it("shows people and organizations for this month and since the business began",
   expect(await findByText("3 people · 1 organization")).toBeTruthy();
   expect(getByText("12 people · 9 organizations")).toBeTruthy();
   expect(getByText("This month")).toBeTruthy();
-  expect(getByText("All time (since 2026-10-01)")).toBeTruthy();
+  expect(getByText("All time (since 01.10.2026)")).toBeTruthy();
 });
 
 it("renders nothing when the counts cannot be loaded", async () => {

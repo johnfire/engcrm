@@ -2,6 +2,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOp
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "../../i18n/I18nContext";
 import { ContactKind } from "../../services/contact-feed";
+import { formatDay } from "../../services/dates";
 import { dateInDays } from "../../services/followUps";
 import { useContactDate } from "../../services/use-contact-date";
 
@@ -24,11 +25,11 @@ function ContactDateForm({ kind, id }: { kind: ContactKind; id: number }) {
     <Text style={styles.hint}>{t(editor.record.interaction_id ? "contactDate.hint" : "contactDate.firstHint")}</Text>
     <Text style={styles.label}>{t("contactDate.date")}</Text>
     <TextInput style={styles.input} value={editor.selected} onChangeText={editor.setSelected}
-      accessibilityLabel={t("contactDate.date")} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation"
+      accessibilityLabel={t("contactDate.date")} placeholder={t("date.placeholder")} keyboardType="numbers-and-punctuation"
       editable={!editor.saving} maxLength={10} />
     <View style={styles.choices}>
       {[0, -1, -2].map((days) => <TouchableOpacity key={days} style={styles.choice} disabled={editor.saving}
-        onPress={() => editor.setSelected(dateInDays(days))} accessibilityRole="button">
+        onPress={() => editor.setSelected(formatDay(dateInDays(days)))} accessibilityRole="button">
         <Text style={styles.label}>{t(days === 0 ? "contactDate.today" : days === -1 ? "contactDate.yesterday" : "contactDate.twoDaysAgo")}</Text>
       </TouchableOpacity>)}
     </View>

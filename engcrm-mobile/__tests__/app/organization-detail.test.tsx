@@ -450,7 +450,7 @@ describe("organization detail — meeting log", () => {
   it("shows the follow-up date and what it is about in the history", async () => {
     mockGetRole.mockResolvedValue("viewer");
     const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByText("Follow up: 2026-10-10 — send quote")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Follow up: 10.10.2026 — send quote")).toBeTruthy());
   });
 
   it("lets the admin delete a note — but only a note, never a sent email", async () => {

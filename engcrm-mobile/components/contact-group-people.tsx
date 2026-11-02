@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { ContactPerson } from "../services/contact-feed";
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactDateLink } from "./contact-date-link";
+import { formatDay } from "../services/dates";
 
 export function ContactGroupPeople({ people, canEdit }: { people: ContactPerson[]; canEdit: boolean }) {
   const [isExpanded, setExpanded] = useState(false);
@@ -21,7 +22,7 @@ export function ContactGroupPeople({ people, canEdit }: { people: ContactPerson[
         <Text style={styles.link}>{person.name}</Text>
         {!!person.description && <Text style={styles.details}>{person.description}</Text>}
         <Text style={styles.details}>{[person.email, person.phone].filter(Boolean).join(" · ")}</Text>
-        <Text style={styles.details}>{t("contactFeed.last_contact")}: {person.last_contact}</Text>
+        <Text style={styles.details}>{t("contactFeed.last_contact")}: {formatDay(person.last_contact)}</Text>
       </TouchableOpacity>
       {canEdit && <ContactDateLink kind="person" id={person.id} />}
     </View>)}

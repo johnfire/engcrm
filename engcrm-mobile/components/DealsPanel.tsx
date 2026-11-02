@@ -24,6 +24,7 @@ import { stageLabelKey, statusLabelKey } from "../services/organizationState";
 import { onChanged, organizationKey, personKey } from "../services/refreshBus";
 import { PersonNextStep } from "./PersonNextStep";
 import { Chip, StageStatusChange, StageStatusPicker } from "./StageStatusPicker";
+import { formatDay } from "../services/dates";
 
 type Props = {
   owner: Owner;
@@ -211,7 +212,7 @@ function DealCard({
       <View style={styles.block}>
         {running && (
           <Text style={styles.money}>
-            {t("subscription.running", { amount: running.amount_eur_month, date: running.started_on })}
+            {t("subscription.running", { amount: running.amount_eur_month, date: formatDay(running.started_on) })}
           </Text>
         )}
         {!!deal.money && Number(deal.money.sales_total) > 0 && (

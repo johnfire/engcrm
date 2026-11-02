@@ -115,7 +115,7 @@ it("hides business entry from viewers", async () => {
 
 it("shows the actual last contact day and opens its editor", async () => {
   const screen = render(<ContactsScreen />);
-  await waitFor(() => expect(screen.getAllByText("Last contact: 2026-10-04")).toHaveLength(2));
+  await waitFor(() => expect(screen.getAllByText("Last contact: 04.10.2026")).toHaveLength(2));
   expect(screen.queryByText("2026-10-06")).toBeNull();
   fireEvent.press(screen.getAllByText("Last contact date")[0]);
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/contact-date", params: { kind: "person", id: "1" } });
@@ -139,7 +139,7 @@ it("groups linked people beneath one business and edits the person supplying the
   fireEvent.press(screen.getByText("Contacted people (1) ▾"));
   fireEvent.press(screen.getByLabelText("Person: Anka Mufti"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "12" } });
-  expect(screen.getAllByText("Last contact: 2026-10-04")).toHaveLength(2);
+  expect(screen.getAllByText("Last contact: 04.10.2026")).toHaveLength(2);
   fireEvent.press(screen.getByText("Contacted people (1) ▴"));
   expect(screen.queryByLabelText("Person: Anka Mufti")).toBeNull();
 });

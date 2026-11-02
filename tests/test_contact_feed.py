@@ -131,7 +131,7 @@ def test_web_page_shows_month_and_since_start_counts_in_both_languages():
             english = TestClient(app).get("/contact-feed/?lang=en").text
             german = TestClient(app).get("/contact-feed/?lang=de").text
         assert "This month" in english and "3 people" in english and "1 organization" in english
-        assert "All time (since 2026-10-01)" in english and "12 people" in english and "9 organizations" in english
+        assert "All time (since 01.10.2026)" in english and "12 people" in english and "9 organizations" in english
         assert "Diesen Monat" in german and "3 Personen" in german and "9 Organisationen" in german
     finally:
         app.dependency_overrides.pop(require_login, None)
@@ -203,9 +203,9 @@ def test_web_list_shows_next_contact_with_overdue_marked_and_step_on_hover():
     assert ">Next contact<" in english.text.split("<thead>")[1].split("</thead>")[0]
     assert ">Nächster Kontakt<" in german.text.split("<thead>")[1].split("</thead>")[0]
     rows = english.text.split("<tbody>")[1].split("</tbody>")[0].split("<tr>")[1:]
-    assert 'next-step__due next-step__due--overdue" title="Invite to coffee">2020-01-31' in rows[0]
+    assert 'next-step__due next-step__due--overdue" title="Invite to coffee">31.01.2020' in rows[0]
     assert '<span class="sr-only"> · overdue</span>' in rows[0]
-    assert 'next-step__due" title="Send portfolio">2099-12-31' in rows[1] and "overdue" not in rows[1]
+    assert 'next-step__due" title="Send portfolio">31.12.2099' in rows[1] and "overdue" not in rows[1]
     assert "next-step__due" not in rows[2]
 
 

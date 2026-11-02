@@ -10,6 +10,7 @@ from markupsafe import Markup
 
 from gcrm.activity_types import ATTITUDES, MY_READS, activity_type
 from gcrm.api.web_links import browsable_url
+from gcrm.dates import format_day, format_day_time
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.sources import label_key
 
@@ -61,6 +62,8 @@ templates.env.filters["urlenc"] = quote_plus
 templates.env.filters["browsable_url"] = browsable_url
 templates.env.filters["tojson"] = tojson_filter
 templates.env.filters["eur"] = eur
+templates.env.filters["dmy"] = format_day
+templates.env.filters["dmy_time"] = format_day_time
 templates.env.globals["activity_type"] = activity_type
 templates.env.globals["attitudes"] = ATTITUDES
 templates.env.globals["my_reads"] = MY_READS

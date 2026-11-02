@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('contactDate.title') }} — {{ contact.name }}{% endblock %}
 {% block content %}
+{% from 'partials/date_field.html' import date_field with context %}
 <div class="page-header"><h1>{{ contact.name }}</h1></div>
 <section class="detail-section">
   <h2>{{ t('contactDate.title') }}</h2>
@@ -11,7 +12,7 @@
     <input type="hidden" name="previous_date" value="{{ contact.contact_date or '' }}">
     <div class="field-row">
       <label for="contact-date">{{ t('contactDate.date') }}</label>
-      <input id="contact-date" type="date" name="contact_date" value="{{ selected }}" required>
+      {{ date_field('contact_date', selected, required=True, id='contact-date') }}
     </div>
     <div class="detail-actions">
       <button type="submit" class="btn-primary">{{ t('common.save') }}</button>

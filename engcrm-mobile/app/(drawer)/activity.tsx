@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import { fetchActivity, AgentRun } from "../../services/api";
 import { useTranslation } from "../../i18n/I18nContext";
+import { formatDayTime } from "../../services/dates";
 
 const STATUS_COLOR: Record<string, string> = {
   running: "#eab308",
@@ -61,7 +62,7 @@ export default function ActivityScreen() {
               <Text style={[styles.status, { color }]}>{item.status}</Text>
               {item.summary && <Text style={styles.summary}>{item.summary}</Text>}
               <Text style={styles.time}>
-                {new Date(item.started_at).toLocaleString()}
+                {formatDayTime(item.started_at)}
               </Text>
             </View>
           );

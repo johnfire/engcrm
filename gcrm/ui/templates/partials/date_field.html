@@ -1,0 +1,13 @@
+{#- A day typed European style (28.10.2026), with a calendar button. The server
+    reads what is typed (gcrm.dates.parse_day), so it works without script; the
+    button borrows the browser's own calendar and writes the pick back as 28.10.2026. -#}
+{% macro date_field(name, value=None, required=False, id=None, label=None) -%}
+<span class="date-field">
+  <input type="text" name="{{ name }}"{% if id %} id="{{ id }}"{% endif %} value="{{ value|dmy }}"
+         inputmode="numeric" autocomplete="off" maxlength="10" placeholder="{{ t('date.placeholder') }}"
+         pattern="\d{1,2}[./\-]\d{1,2}([./\-](\d{2}|\d{4})?)?|\d{4}-\d{2}-\d{2}" title="{{ t('date.format') }}"
+         {%- if label %} aria-label="{{ label }}"{% endif %}{% if required %} required{% endif %} />
+  <button type="button" class="date-field__pick" aria-label="{{ t('date.pick') }}" hidden>📅</button>
+  <input type="date" class="date-field__calendar" tabindex="-1" aria-hidden="true" />
+</span>
+{%- endmacro %}

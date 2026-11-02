@@ -228,13 +228,13 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         {%- endfor %}
       </td>
       <td class="muted small nowrap">
-        {{ c.last_contact.strftime('%Y-%m-%d') if c.last_contact else '—' }}
+        {{ (c.last_contact|dmy) if c.last_contact else '—' }}
       </td>
       <td class="muted small nowrap">
         {{ c.distance_km|round|int if c.distance_km is not none else '—' }}
       </td>
       <td class="muted small nowrap">
-        {{ c.created_at.strftime('%Y-%m-%d') if c.created_at else '—' }}
+        {{ (c.created_at|dmy) if c.created_at else '—' }}
       </td>
       <td class="muted small cell-clip" title="{{ c.email or '' }}">{{ c.email or '—' }}</td>
       <td class="muted small cell-clip" title="{{ c.website or '' }}">

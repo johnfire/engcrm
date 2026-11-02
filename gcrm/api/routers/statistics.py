@@ -21,6 +21,7 @@ from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import eur, templates
 from gcrm.charts import bar_chart, spark
+from gcrm.dates import parse_day
 from gcrm.db.connection import db
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.organization_state import PIPELINE_STAGES
@@ -53,9 +54,11 @@ def _workspace_id(request: Request) -> int:
 def _period(period: str, start: str, end: str, today: date) -> tuple[str, date, date]:
     if period == "custom":
         try:
-            first, last = date.fromisoformat(start), date.fromisoformat(end)
+            first, last = parse_day(start, today), parse_day(end, today)
+            if first is None or last is None:
+                raise ValueError("both days are needed")
         except ValueError:
-            raise HTTPException(status_code=400, detail="Dates must be YYYY-MM-DD")
+            raise HTTPException(status_code=400, detail="Dates must look like 28.10.2026")
         if last < first or (last - first).days > 3660:
             raise HTTPException(status_code=400, detail="The end must be after the start, within ten years")
         return period, first, last
@@ -64,7 +67,7 @@ def _period(period: str, start: str, end: str, today: date) -> tuple[str, date, 
     return period, first, last
 
 
-_BUCKET_LABEL = {"week": "%d.%m.", "month": "%m/%y", "year": "%Y"}
+_BUCKET_LABEL = {"week": "%d.%m.", "month": "%m.%Y", "year": "%Y"}
 
 
 def _trend_charts(series: dict, lang: str) -> dict:
@@ -157,7 +160,9 @@ def record_sale(
     when the form names none)."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
-        when = date.fromisoformat(won_on)
+        when = parse_day(won_on)
+        if when is None:
+            raise ValueError("a sale needs its day")
         sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id)
     except (InvalidOperation, ValueError):
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
@@ -203,15 +208,15 @@ def log_activity(
     try:
         day = parse_occurred_on(occurred_on)
     except ValueError:
-        raise HTTPException(status_code=400, detail="The date must be today or earlier")
+        raise HTTPException(status_code=400, detail="The date must look like 28.10.2026 and be today or earlier")
     try:
         attitudes, reads = parse_choices(attitude, ATTITUDES), parse_choices(my_read, MY_READS)
     except ValueError:
         raise HTTPException(status_code=400, detail="Unknown attitude or read")
     try:
-        follow_up_day = date.fromisoformat(followup_date) if followup_date.strip() else None
+        follow_up_day = parse_day(followup_date)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Follow-up date must be YYYY-MM-DD")
+        raise HTTPException(status_code=400, detail="Follow-up date must look like 28.10.2026")
     if not note.strip():
         raise HTTPException(status_code=400, detail="Say what happened")
     with db() as conn:

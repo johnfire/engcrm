@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
+from gcrm.dates import parse_day
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import (
@@ -38,6 +39,14 @@ OWNER_PAGES = {"organization": "/organizations/{}", "person": "/people/{}"}
 def _back(next_url: str, fallback: str) -> str:
     return local_redirect(next_url or fallback, fallback=fallback)
 
+
+
+def _required_day(value: str) -> date:
+    """A typed day (28.10.2026) that must be there. Raises ValueError."""
+    day = parse_day(value)
+    if day is None:
+        raise ValueError("Enter a day like 28.10.2026")
+    return day
 
 @router.post("/new")
 def deal_add(
@@ -101,7 +110,7 @@ def deal_next_step(
 ):
     """Set the deal's next step, or with `done`, clear it (logged as done)."""
     try:
-        due = date.fromisoformat(next_step_date) if next_step_date.strip() and not done else None
+        due = None if done else parse_day(next_step_date)
         set_deal_next_step(deal_id, "" if done else next_step, due, request.session.get("workspace_id"))
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
@@ -131,7 +140,7 @@ def deal_subscription_start(
     """Start the deal's subscription, or change its price from a day on."""
     try:
         amount = Decimal(amount_eur_month.replace(",", ".").strip())
-        start_subscription(deal_id, amount, date.fromisoformat(started_on), workspace_id=request.session.get("workspace_id"))
+        start_subscription(deal_id, amount, _required_day(started_on), workspace_id=request.session.get("workspace_id"))
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except (InvalidOperation, ValueError) as error:
@@ -149,7 +158,7 @@ def deal_subscription_end(
 ):
     """End the running subscription; `ended_on` is the last day paid for."""
     try:
-        if not end_subscription(deal_id, date.fromisoformat(ended_on), request.session.get("workspace_id")):
+        if not end_subscription(deal_id, _required_day(ended_on), request.session.get("workspace_id")):
             raise HTTPException(status_code=404, detail="No running subscription")
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")

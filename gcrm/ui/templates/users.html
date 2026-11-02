@@ -55,7 +55,7 @@
         {% if u.is_active %}<span class="badge badge-running">{{ t('users.active') }}</span>
         {% else %}<span class="badge badge-dropped">{{ t('users.disabled') }}</span>{% endif %}
       </td>
-      <td class="muted nowrap">{{ u.last_login_at[:16]|replace('T', ' ') if u.last_login_at else t('common.never') }}</td>
+      <td class="muted nowrap">{{ (u.last_login_at|dmy_time) if u.last_login_at else t('common.never') }}</td>
       <td style="white-space:nowrap">
         <form method="post" action="/users/passwd" style="display:inline"
               onsubmit="return confirm('{{ t('users.resetConfirm', email=u.email) }}')">

@@ -18,7 +18,7 @@
         {% if item.reviewer_note %}<span class="muted small"> · {{ item.reviewer_note }}</span>{% endif %}
       </div>
       <span class="muted small">
-        {{ t('dropped.rejected', date=(item.reviewed_at.strftime('%Y-%m-%d') if item.reviewed_at else '—')) }}
+        {{ t('dropped.rejected', date=((item.reviewed_at|dmy) if item.reviewed_at else '—')) }}
       </span>
     </div>
     <div class="subject">{{ item.draft_subject }}</div>

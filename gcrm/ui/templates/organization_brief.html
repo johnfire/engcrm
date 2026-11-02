@@ -223,7 +223,7 @@
       {% if vs.last_visited %}
       <div class="brief-row">
         <span class="brief-label">{{ t('organizationBrief.lastVisited') }}</span>
-        <span class="brief-val">{{ vs.last_visited }}</span>
+        <span class="brief-val">{{ vs.last_visited|dmy }}</span>
       </div>
       {% endif %} {% if vs.first_attitude %}
       <div class="brief-row">
@@ -255,7 +255,7 @@
         {% for i in interactions %}
         <li>
           <span class="int-date"
-            >{{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date
+            >{{ (i.interaction_date|dmy) if i.interaction_date
             else '—' }}</span
           >
           {% if i.method %}<span class="muted" style="font-size: 0.8rem"

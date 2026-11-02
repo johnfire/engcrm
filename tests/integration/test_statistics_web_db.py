@@ -91,7 +91,9 @@ def test_default_minutes_can_be_changed_and_a_custom_period_is_shown(web):
     page = web.get("/statistics?period=custom&start=2026-01-01&end=2026-03-31&lang=de")
     assert page.status_code == 200
     assert 'Vorbeischauen <span class="muted small">(20 Min.)</span>' in page.text  # the effort table's default
-    assert "2026-01-01 – 2026-03-31" in page.text and "Statistik" in page.text
+    assert "01.01.2026 – 31.03.2026" in page.text and "Statistik" in page.text
+    typed = web.get("/statistics?period=custom&start=01.01.2026&end=31.03.2026&lang=de")
+    assert typed.status_code == 200 and "01.01.2026 – 31.03.2026" in typed.text
     assert web.get("/statistics?period=custom&start=2026-03-31&end=2026-01-01").status_code == 400
 
 

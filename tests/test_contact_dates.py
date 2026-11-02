@@ -86,7 +86,7 @@ def test_web_error_keeps_the_selected_date(admin_browser, failure, status):
         response = admin_browser.post("/contact-feed/person/1/date", data={
             "contact_date": "2026-10-03", "interaction_id": "9", "previous_date": "2026-10-04",
         })
-    assert response.status_code == status and 'value="2026-10-03"' in response.text
+    assert response.status_code == status and 'value="03.10.2026"' in response.text
 
 
 def test_web_first_contact_and_save_redirect(admin_browser):

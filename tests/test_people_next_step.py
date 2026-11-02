@@ -57,8 +57,13 @@ class TestWebForm:
         _, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15", "done": "1"})
         setter.assert_called_once_with(9, "", None, None)
 
-    def test_a_bad_date_is_refused(self, admin_web):
+    def test_a_european_date_is_read(self, admin_web):
         response, setter = self.post({"next_step": "x", "next_step_date": "15.10.2026"})
+        assert response.status_code == 303
+        assert setter.call_args.args[2] == date(2026, 10, 15)
+
+    def test_a_bad_date_is_refused(self, admin_web):
+        response, setter = self.post({"next_step": "x", "next_step_date": "10/15/2026"})  # American: no month 15
         assert response.status_code == 400
         setter.assert_not_called()
 

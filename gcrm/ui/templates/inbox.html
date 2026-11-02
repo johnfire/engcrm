@@ -58,7 +58,7 @@
   <tbody>
     {% for m in messages %}
     <tr class="inbox-row inbox-row--{{ m.classification or 'other' }}">
-      <td class="muted small nowrap">{{ m.received_at.strftime('%Y-%m-%d %H:%M') if m.received_at else '—' }}</td>
+      <td class="muted small nowrap">{{ (m.received_at|dmy_time) if m.received_at else '—' }}</td>
       <td>
         {% if m.contact_id %}
         <a href="/organizations/{{ m.contact_id }}"><strong>{{ m.contact_name }}</strong></a>

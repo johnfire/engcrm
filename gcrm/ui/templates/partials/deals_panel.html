@@ -5,6 +5,7 @@
    The stage, status and contact-person selects save the moment they are picked.
    Like the rest of the page, the forms are shown to everyone and the server
    refuses changes from anyone but an admin. #}
+{% from 'partials/date_field.html' import date_field with context %}
 <section class="detail-section deals" id="deals">
   <h2>{{ t('deals.title') }}</h2>
   {% if not deals %}<p class="muted">{{ t('deals.none') }}</p>{% endif %}
@@ -49,7 +50,7 @@
           <strong>{{ deal.next_step }}</strong>
           {%- if deal.next_step_date %}
           <span class="next-step__due{% if deal.next_step_date < today %} next-step__due--overdue{% endif %}">
-            {{ t('nextStep.due', date=deal.next_step_date) }}{% if deal.next_step_date < today %} · {{ t('nextStep.overdue') }}{% endif %}
+            {{ t('nextStep.due', date=deal.next_step_date|dmy) }}{% if deal.next_step_date < today %} · {{ t('nextStep.overdue') }}{% endif %}
           </span>
           {%- endif %}
         </p>
@@ -63,7 +64,7 @@
           </div>
           <div class="field-row">
             <label for="deal-{{ deal.id }}-next-step-date">{{ t('nextStep.dateLabel') }}</label>
-            <input id="deal-{{ deal.id }}-next-step-date" type="date" name="next_step_date" value="{{ deal.next_step_date or '' }}" />
+            {{ date_field('next_step_date', deal.next_step_date, id='deal-' ~ deal.id ~ '-next-step-date') }}
           </div>
           <div class="detail-actions">
             <button type="submit" class="btn-primary">{{ t('nextStep.save') }}</button>
@@ -80,7 +81,7 @@
       <div class="deal-card__money">
         {% if money.running %}
         <p class="deal-card__mrr"><strong>{{ money.running.amount_eur_month | eur }} {{ t('subscription.perMonth') }}</strong>
-          <span class="muted small">{{ t('subscription.since', date=money.running.started_on) }}</span></p>
+          <span class="muted small">{{ t('subscription.since', date=money.running.started_on|dmy) }}</span></p>
         {% endif %}
         {% if money.sales_total %}
         <p class="small">{{ t('deals.oneOffTotal', amount=money.sales_total | eur, count=money.sales | length) }}</p>
@@ -93,7 +94,7 @@
               <input type="text" name="amount_eur_month" inputmode="decimal" required placeholder="49" />
             </label>
             <label>{{ t('subscription.startedOn') }}
-              <input type="date" name="started_on" required value="{{ today }}" />
+              {{ date_field('started_on', today, required=True) }}
             </label>
             <button type="submit" class="btn-secondary">{{ t('subscription.change') if money.running else t('subscription.start') }}</button>
           </form>
@@ -101,7 +102,7 @@
           <form method="post" action="/deals/{{ deal.id }}/subscription/end" class="record-form">
             <input type="hidden" name="next" value="{{ deal_page }}" />
             <label>{{ t('subscription.endedOn') }}
-              <input type="date" name="ended_on" required value="{{ today }}" />
+              {{ date_field('ended_on', today, required=True) }}
             </label>
             <button type="submit" class="btn-secondary">{{ t('subscription.end') }}</button>
           </form>
@@ -109,7 +110,7 @@
           {% if money.subscriptions %}
           <ul class="sales-list">
             {% for sub in money.subscriptions %}
-            <li>{{ sub.amount_eur_month | eur }} {{ t('subscription.perMonth') }} · {{ sub.started_on }} – {{ sub.ended_on or t('subscription.running') }}
+            <li>{{ sub.amount_eur_month | eur }} {{ t('subscription.perMonth') }} · {{ sub.started_on|dmy }} – {{ (sub.ended_on|dmy) or t('subscription.running') }}
               <form method="post" action="/deals/{{ deal.id }}/subscription/{{ sub.id }}/delete" style="display:inline"
                     onsubmit="return confirm({{ t('subscription.deleteConfirm') | tojson | forceescape }})">
                 <input type="hidden" name="next" value="{{ deal_page }}" />

@@ -397,6 +397,8 @@
   "search.linkedinCount": "in {{count}}",
   "search.linkedinPerson": "in",
   "meeting.title": "Log a meeting",
+  "date.placeholder": "DD.MM.YYYY",
+  "date.format": "Enter the day as day.month.year, e.g. 28.10.2026",
   "meeting.method": "What kind",
   "judgment.attitude": "Their attitude",
   "judgment.myRead": "My read of them",

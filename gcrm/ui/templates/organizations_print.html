@@ -106,7 +106,7 @@
       {{ t('organizations.title') }}{% if active_filters %} — {{ active_filters | join(' · ') }}{%
       endif %}
     </h1>
-    <p class="meta">{{ t('organizationsPrint.totalContacts', total=total, date=now) }}</p>
+    <p class="meta">{{ t('organizationsPrint.totalContacts', total=total, date=now|dmy) }}</p>
 
     <table>
       <colgroup>

@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { listPendingCards, PendingCard, CaptureResult, SignCaptureResult } from "../../services/api";
 import { setHandoff } from "../../services/handoff";
 import { useTranslation } from "../../i18n/I18nContext";
+import { formatDayTime } from "../../services/dates";
 
 export default function CardQueueScreen() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function CardQueueScreen() {
                 {!!sub && <Text style={styles.rowSub}>{sub}</Text>}
                 <Text style={styles.rowMeta}>
                   {typeof item.confidence === "number" ? `${item.confidence}%  ·  ` : ""}
-                  {new Date(item.captured_at).toLocaleString()}
+                  {formatDayTime(item.captured_at)}
                 </Text>
               </TouchableOpacity>
             );

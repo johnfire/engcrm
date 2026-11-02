@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from fastapi import HTTPException
 
 from gcrm.activity_types import NOT_ACTIVITIES
+from gcrm.dates import parse_day
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
 
@@ -30,14 +31,13 @@ def contact_day_sql(kind: str, column: str) -> str:
 
 
 def parse_contact_day(value: str) -> date:
+    """A typed contact day (28.10.2026, or ISO from the phone app), not in the future."""
     try:
-        if len(value) != 10:
-            raise ValueError()
-        selected = date.fromisoformat(value)
-        if selected.isoformat() != value:
-            raise ValueError()
+        selected = parse_day(value)
+        if selected is None:
+            raise ValueError("a contact day is needed")
     except ValueError as failure:
-        raise HTTPException(400, "Contact date must be YYYY-MM-DD") from failure
+        raise HTTPException(400, "Contact date must look like 28.10.2026") from failure
     if selected > datetime.now(ZoneInfo(CONTACT_TIMEZONE)).date():
         raise HTTPException(400, "Contact date cannot be in the future")
     return selected

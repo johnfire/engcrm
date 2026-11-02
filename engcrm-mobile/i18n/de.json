@@ -397,6 +397,8 @@
   "search.linkedinCount": "in {{count}}",
   "search.linkedinPerson": "in",
   "meeting.title": "Termin festhalten",
+  "date.placeholder": "TT.MM.JJJJ",
+  "date.format": "Tag als Tag.Monat.Jahr eingeben, z. B. 28.10.2026",
   "meeting.method": "Art",
   "judgment.attitude": "Ihre Haltung",
   "judgment.myRead": "Mein Eindruck von ihnen",

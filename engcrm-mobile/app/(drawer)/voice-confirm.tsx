@@ -13,6 +13,7 @@ import {
 import { useRouter, useFocusEffect } from "expo-router";
 import { confirmVoice, VoiceResult } from "../../services/api";
 import { takeHandoff } from "../../services/handoff";
+import { formatDay, parseDay } from "../../services/dates";
 import { useTranslation } from "../../i18n/I18nContext";
 
 export default function VoiceConfirmScreen() {
@@ -37,7 +38,7 @@ export default function VoiceConfirmScreen() {
       const nextCandidates = next.candidates || [];
       setResult(next);
       setSummary(next.summary || "");
-      setFollowDate(next.follow_up_date || "");
+      setFollowDate(formatDay(next.follow_up_date));
       setFollowText(next.follow_up_text || "");
       setSelected(nextCandidates.length > 0 && !next.is_new_lead ? nextCandidates[0].id : "new");
       setNewName(next.contact_query || "");
@@ -50,13 +51,18 @@ export default function VoiceConfirmScreen() {
       Alert.alert(t("voiceConfirm.nameNeededTitle"), t("voiceConfirm.nameNeededMessage"));
       return;
     }
+    const followUpDay = parseDay(followDate);
+    if (followUpDay === undefined) {
+      Alert.alert(t("voiceConfirm.followUpDate"), t("date.format"));
+      return;
+    }
     setSaving(true);
     try {
       await confirmVoice({
         contact_id: selected === "new" ? null : selected,
         new_contact_name: selected === "new" ? newName.trim() : null,
         summary: summary.trim(),
-        follow_up_date: followDate.trim() || null,
+        follow_up_date: followUpDay,
         follow_up_text: followText.trim() || null,
       });
       Alert.alert(

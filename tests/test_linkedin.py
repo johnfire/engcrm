@@ -754,7 +754,7 @@ class TestPersonPages:
         assert 'name="is_linkedin_contact" value="1"' in response.text
         assert "checked" in response.text.split('name="is_linkedin_contact"')[1].split(">")[0]
         assert 'href="https://www.linkedin.com/in/anna-roth" target="_blank" rel="noopener noreferrer"' in response.text
-        assert "2024-03-05" in response.text
+        assert "05.03.2024" in response.text
         assert "Acme GmbH" in response.text and "not linked to an organization" in response.text
 
     def test_detail_never_links_an_unsafe_stored_url(self, admin_web):

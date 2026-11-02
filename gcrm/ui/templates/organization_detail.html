@@ -1,5 +1,6 @@
 {% extends "base.html" %} {% block title %}{{ organization.name }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}organization-detail-page{% endblock %} {% block content %}
+{% from 'partials/date_field.html' import date_field with context %}
 {% from 'partials/judgments.html' import judgment_fields, judgment_labels, judgment_text with context %}
 <div class="page-header">
   <h1>{{ organization.name }}</h1>
@@ -211,7 +212,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   <div class="opportunity-analysis__heading">
     <h2>{{ t('organizationDetail.opportunityAnalysis') }}</h2>
     <span class="muted small">
-      {{ t('organizationDetail.analyzedOn') }} {{ opportunity_analysis.analysis_date.strftime('%Y-%m-%d') if opportunity_analysis.analysis_date else '—' }}
+      {{ t('organizationDetail.analyzedOn') }} {{ (opportunity_analysis.analysis_date|dmy) if opportunity_analysis.analysis_date else '—' }}
     </span>
   </div>
   <div class="opportunity-analysis__scores">
@@ -328,7 +329,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     {% set vs = visit_summary or {} %}
     {% if vs.last_visited or vs.first_attitude or vs.last_attitude or vs.last_my_read %}
     <dl class="visit-summary">
-      {% if vs.last_visited %}<div><dt>{{ t('organizationBrief.lastVisited') }}</dt><dd>{{ vs.last_visited }}</dd></div>{% endif %}
+      {% if vs.last_visited %}<div><dt>{{ t('organizationBrief.lastVisited') }}</dt><dd>{{ vs.last_visited|dmy }}</dd></div>{% endif %}
       {% if vs.first_attitude %}<div><dt>{{ t('organizationBrief.firstImpression') }}</dt><dd>{{ judgment_labels(vs.first_attitude, 'impression.') }}</dd></div>{% endif %}
       {% if vs.last_attitude %}<div><dt>{{ t('organizationBrief.lastImpression') }}</dt><dd>{{ judgment_labels(vs.last_attitude, 'impression.') }}</dd></div>{% endif %}
       {% if vs.last_my_read %}<div><dt>{{ t('judgment.lastMyRead') }}</dt><dd>{{ judgment_labels(vs.last_my_read, 'myRead.') }}</dd></div>{% endif %}
@@ -350,7 +351,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         {% with select_id='activity-offer' %}{% include 'partials/log_offer_select.html' %}{% endwith %}
       </label>
       <label>{{ t('activity.whenLabel') }}
-        <input type="date" name="occurred_on" value="{{ today }}" max="{{ today }}" required />
+        {{ date_field('occurred_on', today, required=True) }}
       </label>
       <label>{{ t('activity.minutesLabel') }}
         <input type="number" name="duration_minutes" min="0" max="1440" step="1"
@@ -366,7 +367,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
                placeholder="{{ t('organizationDetail.followupPromisedPlaceholder') }}" />
       </label>
       <label>{{ t('activity.followupDateLabel') }}
-        <input type="date" name="followup_date" />
+        {{ date_field('followup_date') }}
       </label>
       <label class="record-form__wide">{{ t('activity.noteLabel') }}
         <textarea name="note" rows="2" required placeholder="{{ t('activity.notePlaceholder') }}"></textarea>
@@ -381,7 +382,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     <ul class="sales-list">
       {% for sale in sales %}
       <li>
-        <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on }}{% if sale.offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}{% if sale.description %} · {{ sale.description }}{% endif %}
+        <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}{% if sale.offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}{% if sale.description %} · {{ sale.description }}{% endif %}
         <form method="post" action="/organizations/{{ organization.id }}/sales/{{ sale.id }}/delete" style="display:inline"
               onsubmit="return confirm('{{ t('sales.deleteConfirm') }}')">
           <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
@@ -397,7 +398,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         <input type="text" name="amount_eur" inputmode="decimal" required placeholder="2400" />
       </label>
       <label>{{ t('sales.wonOn') }}
-        <input type="date" name="won_on" required value="{{ today }}" />
+        {{ date_field('won_on', today, required=True) }}
       </label>
       {% if deals %}
       <label class="record-form__wide">{{ t('sales.forOffer') }}
@@ -433,7 +434,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       {% for i in interactions %}
       <tr>
         <td class="muted small">
-          {{ i.interaction_date.strftime('%Y-%m-%d') if i.interaction_date else
+          {{ (i.interaction_date|dmy) if i.interaction_date else
           '—' }}
         </td>
         <td>{% if i.method == 'next_step' %}{{ t('nextStep.title') }}{% elif i.method == 'next_step_done' %}{{ t('nextStep.doneLog') }}{% else %}{{ t('activity.' ~ activity_type(i.method)) if i.method else '—' }}{% endif %}{% if i.duration_minutes is number %} · {{ t('activity.minutes', minutes=i.duration_minutes) }}{% endif %}{% if i.offer %} · <span class="log-offer">{{ i.offer }}</span>{% endif %}</td>
@@ -451,7 +452,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         <td class="muted small">
           {{ i.next_action or '—' }}{% if i.next_action_date %}
           <span class="muted"
-            >({{ i.next_action_date.strftime('%Y-%m-%d') }})</span
+            >({{ (i.next_action_date|dmy) }})</span
           >{% endif %}
         </td>
       </tr>

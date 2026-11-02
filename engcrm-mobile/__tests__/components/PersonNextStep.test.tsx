@@ -23,7 +23,7 @@ describe("PersonNextStep", () => {
   it("shows the step and flags an overdue date", () => {
     const { screen } = setup({ step: "Invite to coffee", date: "2020-01-31" });
     expect(screen.getByText("Invite to coffee")).toBeTruthy();
-    expect(screen.getByText("by 2020-01-31 · overdue")).toBeTruthy();
+    expect(screen.getByText("by 31.01.2020 · overdue")).toBeTruthy();
   });
 
   it("says when nothing is planned, and a spectator gets no buttons", () => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactKind } from "./contact-feed";
 import { ContactDateRecord, fetchContactDate, saveContactDate } from "./contact-dates";
+import { formatDay, parseDay } from "./dates";
 import { dateInDays } from "./followUps";
 import { notifyChanged, organizationKey, personKey } from "./refreshBus";
 import { useAdminRole } from "./use-admin-role";
@@ -19,16 +20,21 @@ export function useContactDate(kind: ContactKind, id: number) {
     fetchContactDate(kind, id).then((loaded) => {
       if (!active) return;
       setRecord(loaded);
-      setSelected(loaded.contact_date ?? dateInDays(0));
+      setSelected(formatDay(loaded.contact_date ?? dateInDays(0)));
     }).catch(() => { if (active) setError(t("contactDate.loadFailed")); });
     return () => { active = false; };
   }, [kind, id, isAdmin, t]);
   async function save(): Promise<boolean> {
     if (!record || saving || !isAdmin) return false;
+    const day = parseDay(selected);
+    if (!day) {
+      setError(t("date.format"));
+      return false;
+    }
     setSaving(true);
     setError(null);
     try {
-      await saveContactDate(record, selected);
+      await saveContactDate(record, day);
       notifyChanged(kind === "person" ? personKey(id) : organizationKey(id));
       return true;
     } catch (failure: any) {

@@ -24,6 +24,7 @@ import {
 } from "../services/api";
 import { onChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
+import { formatDayTime } from "../services/dates";
 
 const METHODS = [
   { value: "visit", labelKey: "personDetail.notes.methodVisit" },
@@ -200,7 +201,7 @@ export function PersonNotesLog({ personId }: { personId: number }) {
         notes.map((note) => (
           <View key={note.id} style={styles.entry}>
             <View style={styles.entryHeader}>
-              <Text style={styles.entryDate}>{note.occurred_at.slice(0, 16).replace("T", " ")}</Text>
+              <Text style={styles.entryDate}>{formatDayTime(note.occurred_at)}</Text>
               {!!note.method && <Text style={styles.entryMethod}>{methodLabel(note.method)}</Text>}
               <TouchableOpacity onPress={() => confirmDelete(note)}>
                 <Text style={styles.entryDelete}>{t("personDetail.notes.delete")}</Text>
