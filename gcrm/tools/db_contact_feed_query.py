@@ -1,4 +1,5 @@
 """Group contacted people before filtering, sorting and paginating businesses."""
+from gcrm.organization_state import CONTACTED_STATUSES
 from gcrm.tools.db_contact_dates import CONTACT_HISTORY_FILTER, contact_day_sql
 from gcrm.tools.db_deals import (
     CONSULTING,
@@ -16,6 +17,14 @@ def _stages_sql(alias: str, column: str, offer: str | None) -> str:
     only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
     return (f"ARRAY(SELECT x.pipeline_stage FROM deals x JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id "
             f"AND x.deleted_at IS NULL {only} ORDER BY o.sort_order, o.id)")
+
+
+def _contacted_sql(alias: str, column: str) -> str:
+    """Whether any of the owner's live deals, for any offer, says they were
+    already contacted — so they are listed even with no dated activity."""
+    statuses = ", ".join(f"'{status}'" for status in CONTACTED_STATUSES)
+    return (f"EXISTS (SELECT 1 FROM deals x WHERE x.{column} = {alias}.id "
+            f"AND x.deleted_at IS NULL AND x.status IN ({statuses}))")
 
 
 def _next_step_sql(alias: str, column: str, offer: str | None, field: str) -> str:
@@ -55,6 +64,7 @@ WITH my_ratings AS (
            {deal_sort_sql("person", "person_id", offer, "pipeline_stage")} AS stage_sort_key,
            {_next_step_sql("person", "person_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("person", "person_id", offer, "next_step")} AS next_contact_step,
+           {_contacted_sql("person", "person_id")} AS contacted,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
              WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
       FROM people person
@@ -68,9 +78,9 @@ WITH my_ratings AS (
                'id', id, 'name', name, 'description', title, 'email', email,
                'phone', phone, 'city', city, 'pipeline_stage', pipeline_stage,
                'last_contact', last_contact
-           ) ORDER BY last_contact DESC, id DESC) AS people,
+           ) ORDER BY last_contact DESC NULLS LAST, id DESC) AS people,
            string_agg(concat_ws(' ', name, title, email, phone, city), ' ') AS searchable_people
-      FROM active_people WHERE business_id IS NOT NULL AND last_contact IS NOT NULL
+      FROM active_people WHERE business_id IS NOT NULL AND (last_contact IS NOT NULL OR contacted)
      GROUP BY business_id
 ), business_contacts AS (
     SELECT organization.*, {organization_stage} AS pipeline_stage,
@@ -79,6 +89,7 @@ WITH my_ratings AS (
            {deal_sort_sql("organization", "contact_id", offer, "pipeline_stage")} AS stage_sort_key,
            {_next_step_sql("organization", "contact_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("organization", "contact_id", offer, "next_step")} AS next_contact_step,
+           {_contacted_sql("organization", "contact_id")} AS contacted,
            linked.people, linked.searchable_people,
            direct.last_contact AS direct_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
@@ -94,18 +105,20 @@ WITH my_ratings AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
            city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, next_contact, next_contact_step,
            created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
+           contacted OR people IS NOT NULL AS contacted,
            COALESCE(people, '[]'::jsonb) AS people, searchable_people,
-           CASE WHEN direct_contact IS NOT NULL AND (person_contact IS NULL OR direct_contact >= person_contact)
+           CASE WHEN person_contact IS NULL OR direct_contact >= person_contact
                 THEN 'organization' ELSE 'person' END AS last_contact_kind,
-           CASE WHEN direct_contact IS NOT NULL AND (person_contact IS NULL OR direct_contact >= person_contact)
+           CASE WHEN person_contact IS NULL OR direct_contact >= person_contact
                 THEN id ELSE (people->0->>'id')::integer END AS last_contact_id,
-           CASE WHEN direct_contact IS NOT NULL AND (person_contact IS NULL OR direct_contact >= person_contact)
+           CASE WHEN person_contact IS NULL OR direct_contact >= person_contact
                 THEN name ELSE people->0->>'name' END AS last_contact_name
       FROM business_contacts
     UNION ALL
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
            person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
            person.next_contact, person.next_contact_step, person.created_at, person.workspace_id, person.last_contact,
+           person.contacted,
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL
 )

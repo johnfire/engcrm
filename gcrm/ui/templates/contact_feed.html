@@ -91,7 +91,7 @@
             <ul>{% for person in contact.people %}<li>
               <a href="/people/{{ person.id }}">{{ person.name }}</a>
               {% if person.description %}<span class="muted"> — {{ person.description }}</span>{% endif %}
-              <br><span class="muted">{{ person.email or person.phone or '' }} · {{ person.last_contact }}</span>
+              <br><span class="muted">{{ person.email or person.phone or '' }} · {{ person.last_contact or '—' }}</span>
               {% if request.session.get('role') == 'admin' %}
               <a href="/contact-feed/person/{{ person.id }}/date">{{ t('contactDate.edit') }}</a>
               {% endif %}
@@ -105,7 +105,7 @@
         {%- endfor %}
         <td>{% for d in contact.deals %}<span class="badge badge-stage-{{ d.stage }}">{% if not active_offer %}{{ d.offer }}: {% endif %}{{ t('stage.' ~ d.stage) }}</span> {% else %}—{% endfor %}</td>
         <td>{% if contact.next_contact %}<span class="next-step__due{% if contact.next_contact < today %} next-step__due--overdue{% endif %}"{% if contact.next_contact_step %} title="{{ contact.next_contact_step }}"{% endif %}>{{ contact.next_contact }}{% if contact.next_contact < today %}<span class="sr-only"> · {{ t('nextStep.overdue') }}</span>{% endif %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-        <td>{{ (contact.last_contact or '')[:10] }}
+        <td>{% if contact.last_contact %}{{ contact.last_contact[:10] }}{% else %}<span class="muted" title="{{ t('contactFeed.noDate') }}">—</span><span class="sr-only"> {{ t('contactFeed.noDate') }}</span>{% endif %}
           {% if contact.kind == 'organization' and contact.last_contact_kind == 'person' %}
           <br><span class="muted">{{ t('contactFeed.via', name=contact.last_contact_name) }}</span>
           {% endif %}

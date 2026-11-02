@@ -37,9 +37,10 @@ def test_search_parameters_are_literal_and_workspace_and_type_are_bound():
     assert parameters[:3] == [3, "person", "suspect"]
     assert parameters[3:10] == ["%100!%%"] * 7
     assert parameters[10:] == ["%a!_b!!%"] * 7
-    assert feed_predicates("", "", "none", None) == ("last_contact IS NOT NULL AND cardinality(deal_stages) = 0", [])
-    # Without a stage filter nobody contacted is hidden, in the pipeline or not.
-    assert feed_predicates("", "", "", None) == ("last_contact IS NOT NULL", [])
+    assert feed_predicates("", "", "none", None) == (
+        "(last_contact IS NOT NULL OR contacted) AND cardinality(deal_stages) = 0", [])
+    # Without a stage filter nobody contacted is hidden: dated, or contacted by status alone.
+    assert feed_predicates("", "", "", None) == ("(last_contact IS NOT NULL OR contacted)", [])
 
 
 def test_web_filters_are_remembered_and_clear_resets_them():
@@ -61,7 +62,7 @@ def test_mobile_contacts_pass_filters_and_signed_in_workspace_to_query():
                                   offer="consulting")
 
 
-def test_contacts_outside_the_pipeline_are_sorted_last_never_hidden():
+def test_contacts_outside_the_pipeline_are_neither_hidden_nor_moved():
     from gcrm.tools import db_contact_feed
 
     with patch.object(db_contact_feed, "db") as database:
@@ -70,7 +71,9 @@ def test_contacts_outside_the_pipeline_are_sorted_last_never_hidden():
         db_contact_feed.get_contact_feed(workspace_id=3, offer="training", sort="name")
     sql = cursor.execute.call_args.args[0]
     assert "cardinality(deal_stages) > 0" not in sql
-    assert "ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, lower(name) ASC" in sql
+    # The stage never moves a row: the requested sort is the whole order.
+    assert "ORDER BY lower(name) ASC NULLS LAST, kind, id LIMIT" in sql
+    assert "not_in_pipeline" not in sql.split("ORDER BY")[-1]
 
 
 @pytest.mark.parametrize("parameters", ["kind=alien", "stage=bogus", "sort=bogus", "page=0", "search=" + "x" * 101])
@@ -180,8 +183,8 @@ def test_feed_sorts_by_my_ratings_best_first(sort, column, direction):
         database.return_value.__enter__.return_value = connection
         get_contact_feed(sort=sort, user_id=9)
     query, parameters = connection.cursor.return_value.execute.call_args.args
-    # Out-of-pipeline contacts first go last; within each group, best rating first.
-    assert f"ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, {column} {direction} NULLS LAST" in query
+    # Best rating first, whatever the pipeline stage.
+    assert f"ORDER BY {column} {direction} NULLS LAST" in query
     assert parameters[:2] == [9, 9]  # the two rating tables, read for this user only
 
 
@@ -217,4 +220,18 @@ def test_feed_sorts_by_next_contact_soonest_first_blanks_last():
         database.return_value.__enter__.return_value = connection
         get_contact_feed(sort="next_contact")
     query = connection.cursor.return_value.execute.call_args.args[0]
-    assert "= 0, next_contact ASC NULLS LAST, kind, id" in query
+    assert "ORDER BY next_contact ASC NULLS LAST, kind, id" in query
+
+
+def test_contacted_without_a_date_shows_a_dash_not_none():
+    undated = {**CONTACT, "kind": "organization", "id": 929, "name": "Mischok GmbH", "last_contact": None,
+               "last_contact_kind": "organization", "last_contact_id": 929}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[undated]):
+            response = TestClient(app).get("/contact-feed/?lang=en")
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    row = response.text.split("<tbody>")[1].split("</tbody>")[0]
+    assert "None" not in row
+    assert 'title="Contacted, date not recorded">—</span><span class="sr-only"> Contacted, date not recorded</span>' in row

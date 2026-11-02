@@ -52,10 +52,9 @@ def test_business_stage_order_on_each_page(ranked_contacts, path, direction, off
     shown = [owners[owner] for owner in links if owner in owners]
     stages = EXPECTED_STAGES if direction == 'asc' else EXPECTED_STAGES[::-1]
     if path == '/contact-feed/':
-        # Nobody contacted is hidden; "not in pipeline" and no deal at all come
-        # after every pipeline stage in either direction.
-        in_pipeline = [stage for stage in stages if stage != 'not_in_pipeline']
-        expected = [stage for stage in (*in_pipeline, 'not_in_pipeline', None) for _ in range(2)]
+        # Nobody contacted is hidden, and "not in pipeline" sorts like any other
+        # stage, in either direction; no deal at all comes last.
+        expected = [stage for stage in (*stages, None) for _ in range(2)]
     else:
         expected = list(stages)
         # A selected offer deliberately hides contacts without a deal for it.

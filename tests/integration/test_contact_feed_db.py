@@ -181,21 +181,25 @@ def test_business_stage_filter_keeps_people_with_different_stages(mixed_contacts
 
 # Person 2 has no deal: not in the pipeline, so it comes after both
 # organizations under every sort, in either direction.
+ACADEMY, OTHER, NO_STAGE = ("organization", 1), ("organization", 2), ("person", 2)
+
+
 @pytest.mark.parametrize("sort,ascending,descending", [
-    ("name", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
-    ("city", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
-    ("kind", [("organization", 1), ("organization", 2)], [("organization", 1), ("organization", 2)]),
-    ("last_contact", [("organization", 1), ("organization", 2)], [("organization", 2), ("organization", 1)]),
-    ("pipeline_stage", [("organization", 2), ("organization", 1)], [("organization", 1), ("organization", 2)]),
+    ("name", [ACADEMY, NO_STAGE, OTHER], [OTHER, NO_STAGE, ACADEMY]),
+    ("city", [ACADEMY, OTHER, NO_STAGE], [OTHER, ACADEMY, NO_STAGE]),  # no city: last both ways
+    ("kind", [ACADEMY, OTHER, NO_STAGE], [NO_STAGE, ACADEMY, OTHER]),
+    ("last_contact", [NO_STAGE, ACADEMY, OTHER], [OTHER, ACADEMY, NO_STAGE]),
+    ("pipeline_stage", [OTHER, ACADEMY, NO_STAGE], [ACADEMY, OTHER, NO_STAGE]),  # no deal: last both ways
 ])
 def test_requested_sorts_use_actual_values(mixed_contacts, sort, ascending, descending):
+    """The person with no deal sorts by its own values, never pinned to the end."""
     workspace_id, _ = mixed_contacts
     for direction, expected in (("asc", ascending), ("desc", descending)):
         rows = get_contact_feed(workspace_id=workspace_id, sort=sort, dir=direction)
-        assert [(row["kind"], row["id"]) for row in rows] == expected + [("person", 2)], direction
+        assert [(row["kind"], row["id"]) for row in rows] == expected, direction
 
 
-def test_contacts_outside_the_offers_pipeline_stay_listed_at_the_bottom(mixed_contacts):
+def test_contacts_outside_the_offers_pipeline_are_listed_in_plain_sort_order(mixed_contacts):
     workspace_id, _ = mixed_contacts
     with db() as connection:
         cursor = connection.cursor()
@@ -209,16 +213,41 @@ def test_contacts_outside_the_offers_pipeline_stay_listed_at_the_bottom(mixed_co
     def order(**filters):
         return [row["name"] for row in get_contact_feed(workspace_id=workspace_id, **filters)]
 
-    # Consulting: the dropped deal and the never-pitched contacts are listed, last.
-    assert order(sort="name") == ["Academy", "Other company", "Aardvark dropped", "Aaron unpitched", "No stage"]
-    assert order(sort="last_contact")[:2] == ["Other company", "Academy"]
-    # Training: only Other company is in that pipeline; everyone else follows it.
-    assert order(offer="training", sort="name") == [
-        "Other company", "Aardvark dropped", "Aaron unpitched", "Academy", "No stage"]
-    # Every offer: no deal at all, or only a dropped one, is out of the pipeline.
-    assert order(offer=None, sort="name") == [
-        "Academy", "Other company", "Aardvark dropped", "Aaron unpitched", "No stage"]
+    # Whatever the offer, the stage neither hides nor moves anyone contacted.
+    by_name = ["Aardvark dropped", "Aaron unpitched", "Academy", "No stage", "Other company"]
+    for offer in ("consulting", "training", None):
+        assert order(offer=offer, sort="name") == by_name, offer
+    assert order(sort="last_contact") == [
+        "Aaron unpitched", "Aardvark dropped", "Other company", "Academy", "No stage"]
     assert order(stage="none", sort="name") == ["Aaron unpitched", "No stage"]
+
+
+def test_contacted_status_without_any_activity_is_listed_undated_and_last(mixed_contacts):
+    workspace_id, _ = mixed_contacts
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO contacts (id,name,workspace_id) VALUES (7,'Contacted no date',%s), "
+                       "(8,'Ready only',%s), (9,'Dropped unreached',%s), (10,'Via person',%s), "
+                       "(11,'Training contacted',%s)", (workspace_id,) * 5)
+        set_organization_deal(cursor, 7, stage="not_in_pipeline", status="contacted")
+        set_organization_deal(cursor, 8, stage="candidate", status="ready")
+        set_organization_deal(cursor, 9, stage="not_in_pipeline", status="dropped")
+        set_organization_deal(cursor, 11, stage="suspect", status="proposal", offer="training")
+        cursor.execute("INSERT INTO people (id,name,contact_id,workspace_id) VALUES (20,'Bea',10,%s)", (workspace_id,))
+        set_person_stage(cursor, 20, "suspect")
+        cursor.execute("UPDATE deals SET status='meeting' WHERE person_id=20")
+
+    rows = {row["name"]: row for row in get_contact_feed(workspace_id=workspace_id, sort="last_contact")}
+    # Reached by status alone: listed with no date. Ready or dropped with no activity: never reached.
+    assert {"Contacted no date", "Via person", "Training contacted"} <= rows.keys()
+    assert not {"Ready only", "Dropped unreached"} & rows.keys()
+    assert rows["Contacted no date"]["last_contact"] is None
+    # The organization's date link goes to the organization, not to a person with no date.
+    assert (rows["Via person"]["last_contact_kind"], rows["Via person"]["last_contact_id"]) == ("organization", 10)
+    assert [person["name"] for person in rows["Via person"]["people"]] == ["Bea"]
+    for direction in ("asc", "desc"):
+        names = [row["name"] for row in get_contact_feed(workspace_id=workspace_id, sort="last_contact", dir=direction)]
+        assert set(names[-3:]) == {"Contacted no date", "Via person", "Training contacted"}, direction
 
 
 def test_rows_carry_only_my_ratings_and_sort_by_them(mixed_contacts):

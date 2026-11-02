@@ -45,6 +45,11 @@ STATUSES = (
     "not_interested",  # they said no — their decision
 )
 
+# Statuses that mean we have already reached them, so they belong on the
+# Contacts list even when no dated activity was logged. "on_hold" and "dropped"
+# are left out: both are also set on leads nobody ever contacted.
+CONTACTED_STATUSES = ("contacted", "meeting", "proposal", "customer", "dormant", "not_interested")
+
 SUPPRESSION_FLAGS = (
     "do_not_contact",      # opted out — blocked from all outreach
     "email_bounced",       # address undeliverable, needs verifying

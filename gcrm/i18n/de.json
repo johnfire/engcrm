@@ -858,6 +858,7 @@
   "businessForm.failed": "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten — bitte erneut versuchen.",
   "contactFeed.last_contact": "Letzter Kontakt",
   "contactFeed.next_contact": "Nächster Kontakt",
+  "contactFeed.noDate": "Kontaktiert, Datum nicht erfasst",
   "contactDate.title": "Datum des letzten Kontakts",
   "contactDate.edit": "Datum ändern",
   "contactDate.date": "Kontaktdatum",
