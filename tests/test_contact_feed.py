@@ -183,3 +183,38 @@ def test_feed_sorts_by_my_ratings_best_first(sort, column, direction):
     # Out-of-pipeline contacts first go last; within each group, best rating first.
     assert f"ORDER BY cardinality(array_remove(deal_stages, 'not_in_pipeline')) = 0, {column} {direction} NULLS LAST" in query
     assert parameters[:2] == [9, 9]  # the two rating tables, read for this user only
+
+
+def test_web_list_shows_next_contact_with_overdue_marked_and_step_on_hover():
+    overdue = {**CONTACT, "id": 1, "next_contact": "2020-01-31", "next_contact_step": "Invite to coffee"}
+    upcoming = {**CONTACT, "id": 2, "next_contact": "2099-12-31", "next_contact_step": "Send portfolio"}
+    undated = {**CONTACT, "id": 3, "next_contact": None, "next_contact_step": None}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[overdue, upcoming, undated]):
+            english = TestClient(app).get("/contact-feed/?lang=en")
+            german = TestClient(app).get("/contact-feed/?lang=de")
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    assert english.status_code == 200
+    assert ">Next contact<" in english.text.split("<thead>")[1].split("</thead>")[0]
+    assert ">Nächster Kontakt<" in german.text.split("<thead>")[1].split("</thead>")[0]
+    rows = english.text.split("<tbody>")[1].split("</tbody>")[0].split("<tr>")[1:]
+    assert 'next-step__due next-step__due--overdue" title="Invite to coffee">2020-01-31' in rows[0]
+    assert '<span class="sr-only"> · overdue</span>' in rows[0]
+    assert 'next-step__due" title="Send portfolio">2099-12-31' in rows[1] and "overdue" not in rows[1]
+    assert "next-step__due" not in rows[2]
+
+
+def test_feed_sorts_by_next_contact_soonest_first_blanks_last():
+    from unittest.mock import MagicMock
+
+    from gcrm.tools.db_contact_feed import get_contact_feed
+
+    connection = MagicMock()
+    connection.cursor.return_value.fetchall.return_value = []
+    with patch("gcrm.tools.db_contact_feed.db") as database:
+        database.return_value.__enter__.return_value = connection
+        get_contact_feed(sort="next_contact")
+    query = connection.cursor.return_value.execute.call_args.args[0]
+    assert "= 0, next_contact ASC NULLS LAST, kind, id" in query

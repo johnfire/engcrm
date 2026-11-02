@@ -50,7 +50,7 @@
   <h2 class="list-control-title">{{ t('common.sortBy') }}</h2>
   {{ preserve_fields(filter_values) }}
   <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
-    {% for key, label in [('last_contact', 'contactFeed.last_contact'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage'), ('priority', 'contactFeed.priority'), ('long_term_value', 'valueRating.longTerm'), ('short_term_value', 'valueRating.shortTerm')] %}
+    {% for key, label in [('last_contact', 'contactFeed.last_contact'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage'), ('next_contact', 'contactFeed.next_contact'), ('priority', 'contactFeed.priority'), ('long_term_value', 'valueRating.longTerm'), ('short_term_value', 'valueRating.shortTerm')] %}
     <option value="{{ key }}" {% if filters.sort == key %}selected{% endif %}>{{ t(label) }}</option>
     {% endfor %}
   </select>
@@ -77,7 +77,7 @@
       {{ sort_th('kind', t('contactFeed.kind')) }}{{ sort_th('name', t('contactFeed.name')) }}
       <th scope="col">{{ t('contactFeed.details') }}</th>{{ sort_th('city', t('contactFeed.city')) }}
       {{ sort_th('priority', t('contactFeed.priority')) }}{{ sort_th('long_term_value', t('contactFeed.longTerm'), 'desc') }}{{ sort_th('short_term_value', t('contactFeed.shortTerm'), 'desc') }}
-      {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}
+      {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}{{ sort_th('next_contact', t('contactFeed.next_contact')) }}
       {{ sort_th('last_contact', t('contactFeed.last_contact'), 'desc') }}
     </tr></thead>
     <tbody>
@@ -104,6 +104,7 @@
         <td>{% if contact[field] is not none %}<span class="personal-priority-badge tone-{{ value_tone[contact[field]] }}" title="{{ t('valueRating.level' ~ contact[field]) }}">{{ t('valueRating.abbr' ~ contact[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         {%- endfor %}
         <td>{% for d in contact.deals %}<span class="badge badge-stage-{{ d.stage }}">{% if not active_offer %}{{ d.offer }}: {% endif %}{{ t('stage.' ~ d.stage) }}</span> {% else %}—{% endfor %}</td>
+        <td>{% if contact.next_contact %}<span class="next-step__due{% if contact.next_contact < today %} next-step__due--overdue{% endif %}"{% if contact.next_contact_step %} title="{{ contact.next_contact_step }}"{% endif %}>{{ contact.next_contact }}{% if contact.next_contact < today %}<span class="sr-only"> · {{ t('nextStep.overdue') }}</span>{% endif %}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         <td>{{ (contact.last_contact or '')[:10] }}
           {% if contact.kind == 'organization' and contact.last_contact_kind == 'person' %}
           <br><span class="muted">{{ t('contactFeed.via', name=contact.last_contact_name) }}</span>
@@ -113,7 +114,7 @@
           {% endif %}
         </td>
       </tr>
-      {% else %}<tr><td colspan="9" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="10" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

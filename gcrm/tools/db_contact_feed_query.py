@@ -18,6 +18,15 @@ def _stages_sql(alias: str, column: str, offer: str | None) -> str:
             f"AND x.deleted_at IS NULL {only} ORDER BY o.sort_order, o.id)")
 
 
+def _next_step_sql(alias: str, column: str, offer: str | None, field: str) -> str:
+    """`field` (next_step_date or next_step) of the owner's dated live deal that
+    is due soonest — that offer's, or across every offer's."""
+    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
+    return (f"(SELECT x.{field} FROM deals x JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id "
+            f"AND x.deleted_at IS NULL AND x.next_step_date IS NOT NULL {only} "
+            "ORDER BY x.next_step_date, o.sort_order, o.id LIMIT 1)")
+
+
 def contact_feed_sql(offer: str | None = CONSULTING) -> str:
     """The feed for one offer's pipeline (`pipeline_stage` is that deal's), or
     for every offer (offer None: no single stage, `deals` lists them all).
@@ -44,6 +53,8 @@ WITH my_ratings AS (
            {deals_json_sql("person", "person_id", offer)} AS deals,
            {_stages_sql("person", "person_id", offer)} AS deal_stages,
            {deal_sort_sql("person", "person_id", offer, "pipeline_stage")} AS stage_sort_key,
+           {_next_step_sql("person", "person_id", offer, "next_step_date")} AS next_contact,
+           {_next_step_sql("person", "person_id", offer, "next_step")} AS next_contact_step,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
              WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
       FROM people person
@@ -66,6 +77,8 @@ WITH my_ratings AS (
            {deals_json_sql("organization", "contact_id", offer)} AS deals,
            {_stages_sql("organization", "contact_id", offer)} AS deal_stages,
            {deal_sort_sql("organization", "contact_id", offer, "pipeline_stage")} AS stage_sort_key,
+           {_next_step_sql("organization", "contact_id", offer, "next_step_date")} AS next_contact,
+           {_next_step_sql("organization", "contact_id", offer, "next_step")} AS next_contact_step,
            linked.people, linked.searchable_people,
            direct.last_contact AS direct_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
@@ -79,8 +92,8 @@ WITH my_ratings AS (
      WHERE organization.deleted_at IS NULL
 ), contact_feed AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
-           city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, created_at, workspace_id,
-           GREATEST(direct_contact, person_contact) AS last_contact,
+           city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, next_contact, next_contact_step,
+           created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
            COALESCE(people, '[]'::jsonb) AS people, searchable_people,
            CASE WHEN direct_contact IS NOT NULL AND (person_contact IS NULL OR direct_contact >= person_contact)
                 THEN 'organization' ELSE 'person' END AS last_contact_kind,
@@ -92,12 +105,12 @@ WITH my_ratings AS (
     UNION ALL
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
            person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
-           person.created_at, person.workspace_id, person.last_contact,
+           person.next_contact, person.next_contact_step, person.created_at, person.workspace_id, person.last_contact,
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL
 )
 SELECT id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
-       created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
+       next_contact, next_contact_step, created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
        rating.priority, rating.short_term_value, rating.long_term_value
 FROM contact_feed
 LEFT JOIN my_ratings rating ON rating.rated_kind = contact_feed.kind AND rating.rated_id = contact_feed.id

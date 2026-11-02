@@ -1,5 +1,6 @@
 """Combined contacts for the web list and mobile feed."""
 import logging
+from datetime import date
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -95,7 +96,7 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
                                 user_id=request.session.get("user_id"))
     return templates.TemplateResponse("contact_feed.html", {
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
-        "stages": PIPELINE_STAGES, "page": page, "offers": offers, "active_offer": active_offer,
+        "stages": PIPELINE_STAGES, "page": page, "today": date.today().isoformat(), "offers": offers, "active_offer": active_offer,
         "counts": safe_contact_counts(request.session.get("workspace_id"), active_offer),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,

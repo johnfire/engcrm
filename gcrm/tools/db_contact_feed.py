@@ -13,6 +13,7 @@ SORT_COLUMNS = {
     "city": "lower(city)",
     "kind": "kind",
     "pipeline_stage": "stage_sort_key",
+    "next_contact": "next_contact",
     "priority": "rating.priority",
     "short_term_value": "rating.short_term_value",
     "long_term_value": "rating.long_term_value",

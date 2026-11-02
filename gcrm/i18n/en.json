@@ -857,6 +857,7 @@
   "businessForm.openExisting": "Open existing business",
   "businessForm.failed": "Could not save. Your entries are still here — please try again.",
   "contactFeed.last_contact": "Last contact",
+  "contactFeed.next_contact": "Next contact",
   "contactDate.title": "Last contact date",
   "contactDate.edit": "Change date",
   "contactDate.date": "Contact date",

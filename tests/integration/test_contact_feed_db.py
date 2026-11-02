@@ -248,3 +248,37 @@ def test_rows_carry_only_my_ratings_and_sort_by_them(mixed_contacts):
     assert [(c["kind"], c["id"]) for c in by_long_term] == [("organization", 1), ("organization", 2), ("person", 2)]
     assert get_contact_feed(workspace_id=workspace_id, sort="priority")[0]["priority"] is None  # no user: no ratings
     assert get_contact_feed(workspace_id=workspace_id, user_id=me, search="Academy")[0]["id"] == 1
+
+
+def test_next_contact_is_the_soonest_dated_live_deal_and_sorts_blanks_last(mixed_contacts):
+    workspace_id, _ = mixed_contacts
+    with db() as connection:
+        cursor = connection.cursor()
+        set_organization_deal(cursor, 1, stage="prospect", offer="training")
+        set_organization_deal(cursor, 2, stage="prospect", offer="training")
+        set_person_stage(cursor, 2, "candidate")  # in the pipeline, but no date
+        cursor.execute("UPDATE deals d SET next_step = s.step, next_step_date = s.due::date, deleted_at = s.gone "
+                       "FROM (VALUES (1, 'consulting', 'Send portfolio', '2026-11-20', NULL::timestamptz), "
+                       "             (1, 'training', 'Call about course', '2026-11-10', NULL), "
+                       "             (2, 'consulting', 'Visit', '2026-11-05', NULL), "
+                       "             (2, 'training', 'Deleted plan', '2026-10-01', NOW())) "
+                       "AS s(contact_id, slug, step, due, gone), offers o "
+                       "WHERE o.id = d.offer_id AND o.slug = s.slug AND d.contact_id = s.contact_id")
+        assert cursor.rowcount == 4
+
+    def next_contacts(**filters):
+        return [(row["name"], row["next_contact"], row["next_contact_step"])
+                for row in get_contact_feed(workspace_id=workspace_id, **filters)]
+
+    # One offer: that offer's deal. Soonest first by default; the undated stay last either way.
+    assert next_contacts(sort="next_contact") == [
+        ("Other company", "2026-11-05", "Visit"),
+        ("Academy", "2026-11-20", "Send portfolio"),
+        ("No stage", None, None)]
+    assert [name for name, _, _ in next_contacts(sort="next_contact", dir="desc")] == [
+        "Academy", "Other company", "No stage"]
+    # Every offer: the soonest live one; the deleted, earlier plan never counts.
+    assert next_contacts(offer=None, sort="next_contact") == [
+        ("Other company", "2026-11-05", "Visit"),
+        ("Academy", "2026-11-10", "Call about course"),
+        ("No stage", None, None)]
