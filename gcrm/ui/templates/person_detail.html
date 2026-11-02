@@ -5,7 +5,7 @@
 {% block content %}
 {% from 'partials/judgments.html' import judgment_fields, judgment_labels, judgment_text with context %}
 <div class="page-header">
-  <h1>{{ person.name }}{% if person.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}</h1>
+  <h1>{{ person.name }} <span class="record-id">#{{ person.id }}</span>{% if person.is_linkedin_contact %} <span class="badge linkedin-badge" title="{{ t('linkedin.isConnection') }}">in</span>{% endif %}</h1>
   <span class="muted">
     {%- if person.title %}{{ person.title }}{% endif -%}
     {%- if person.title and person.company %} · {% endif -%}

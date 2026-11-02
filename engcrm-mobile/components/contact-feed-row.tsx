@@ -6,6 +6,7 @@ import { stageLabelKey } from "../services/organizationState";
 import { useTranslation } from "../i18n/I18nContext";
 import { DealChips } from "./DealChips";
 import { formatDay } from "../services/dates";
+import { NameWithId } from "./NameWithId";
 
 export function ContactFeedRow({ contact, onPress, canEdit, showOffer = false }: {
   contact: ContactEntry; onPress: () => void; canEdit: boolean; showOffer?: boolean;
@@ -18,7 +19,7 @@ export function ContactFeedRow({ contact, onPress, canEdit, showOffer = false }:
       <TouchableOpacity onPress={onPress} accessibilityRole="button"
         accessibilityLabel={`${t(`contactFeed.${contact.kind}`)}: ${contact.name}`}>
         <View style={styles.heading}>
-          <Text style={styles.name}>{contact.name}</Text>
+          <NameWithId id={contact.id}><Text style={styles.name}>{contact.name}</Text></NameWithId>
           <Text style={styles.kind}>{t(`contactFeed.${contact.kind}`)}</Text>
         </View>
         {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}

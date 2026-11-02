@@ -5,6 +5,7 @@ import { ContactPerson } from "../services/contact-feed";
 import { useTranslation } from "../i18n/I18nContext";
 import { ContactDateLink } from "./contact-date-link";
 import { formatDay } from "../services/dates";
+import { NameWithId } from "./NameWithId";
 
 export function ContactGroupPeople({ people, canEdit }: { people: ContactPerson[]; canEdit: boolean }) {
   const [isExpanded, setExpanded] = useState(false);
@@ -19,7 +20,7 @@ export function ContactGroupPeople({ people, canEdit }: { people: ContactPerson[
     {isExpanded && people.map((person) => <View key={person.id} style={styles.person}>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${t("contactFeed.person")}: ${person.name}`}
         onPress={() => router.push({ pathname: "/(drawer)/person-detail", params: { id: String(person.id) } })}>
-        <Text style={styles.link}>{person.name}</Text>
+        <NameWithId id={person.id}><Text style={styles.link}>{person.name}</Text></NameWithId>
         {!!person.description && <Text style={styles.details}>{person.description}</Text>}
         <Text style={styles.details}>{[person.email, person.phone].filter(Boolean).join(" · ")}</Text>
         <Text style={styles.details}>{t("contactFeed.last_contact")}: {formatDay(person.last_contact)}</Text>

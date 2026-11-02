@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Organization } from "../services/api";
 import { DealChips } from "./DealChips";
+import { NameWithId } from "./NameWithId";
 
 interface Props {
   item: Organization;
@@ -21,7 +22,7 @@ export function OrganizationRow({ item, onPress, showOffer = false }: Props) {
   return (
     <TouchableOpacity style={styles.row} onPress={() => onPress(item.id)}>
       <View style={styles.info}>
-        <Text style={styles.name}>{item.name}</Text>
+        <NameWithId id={item.id}><Text style={styles.name}>{item.name}</Text></NameWithId>
         <Text style={styles.sub}>
           {item.city} · {item.type}
         </Text>

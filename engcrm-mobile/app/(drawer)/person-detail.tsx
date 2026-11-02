@@ -20,6 +20,7 @@ import { useTranslation } from "../../i18n/I18nContext";
 import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { DealsPanel } from "../../components/DealsPanel";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
+import { NameWithId } from "../../components/NameWithId";
 
 export default function PersonDetailScreen() {
   const { t } = useTranslation();
@@ -102,7 +103,7 @@ export default function PersonDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.name}>{person.name}</Text>
+      <NameWithId id={person.id}><Text style={styles.name}>{person.name}</Text></NameWithId>
       {!!role && <Text style={styles.sub}>{role}</Text>}
       {!!place && <Text style={styles.sub}>{place}</Text>}
       <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(person.source)) })}</Text>

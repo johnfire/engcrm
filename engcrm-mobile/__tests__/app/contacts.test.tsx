@@ -136,7 +136,11 @@ it("groups linked people beneath one business and edits the person supplying the
   fireEvent.press(screen.getByText("Last contact date"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/contact-date", params: { kind: "person", id: "12" } });
   expect(screen.queryByLabelText("Person: Anka Mufti")).toBeNull();
+  // Each name carries its id, so two "Bib" entries can be told apart.
+  expect(screen.getByText("Bib Academy")).toBeTruthy();
+  expect(screen.getByText("#7")).toBeTruthy();
   fireEvent.press(screen.getByText("Contacted people (1) ▾"));
+  expect(screen.getByText("#12")).toBeTruthy();
   fireEvent.press(screen.getByLabelText("Person: Anka Mufti"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "12" } });
   expect(screen.getAllByText("Last contact: 04.10.2026")).toHaveLength(2);

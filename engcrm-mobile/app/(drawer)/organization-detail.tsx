@@ -34,6 +34,7 @@ import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { DealsPanel } from "../../components/DealsPanel";
 import { formatDay } from "../../services/dates";
+import { NameWithId } from "../../components/NameWithId";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -125,7 +126,7 @@ export default function OrganizationDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.name}>{organization.name}</Text>
+      <NameWithId id={organization.id}><Text style={styles.name}>{organization.name}</Text></NameWithId>
       <Text style={styles.sub}>
         {organization.city}, {organization.country} · {organization.type}
       </Text>

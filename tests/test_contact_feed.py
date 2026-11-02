@@ -235,3 +235,20 @@ def test_contacted_without_a_date_shows_a_dash_not_none():
     row = response.text.split("<tbody>")[1].split("</tbody>")[0]
     assert "None" not in row
     assert 'title="Contacted, date not recorded">—</span><span class="sr-only"> Contacted, date not recorded</span>' in row
+
+
+def test_every_name_on_the_list_shows_its_id_to_tell_duplicates_apart():
+    organization = {**CONTACT, "kind": "organization", "id": 1193, "name": "BIB Augsburg GmbH Wallstraße",
+                    "people": [{"id": 750, "name": "Anke Mufti", "description": None, "email": None,
+                                "phone": None, "last_contact": "2026-10-05"}]}
+    person = {**CONTACT, "id": 7}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[organization, person]):
+            body = TestClient(app).get("/contact-feed/?lang=en").text.split("<tbody>")[1]
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    for shown in ('BIB Augsburg GmbH Wallstraße</a> <span class="record-id">#1193</span>',
+                  'Anke Mufti</a> <span class="record-id">#750</span>',
+                  'Ann</a> <span class="record-id">#7</span>'):
+        assert shown in body

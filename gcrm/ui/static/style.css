@@ -1411,3 +1411,6 @@ main.statistics-page { max-width: none; }
 .date-field input[type="text"] { width: 9.5em; min-width: 0; }
 .date-field__pick { background: none; border: 1px solid var(--border); color: var(--text); cursor: pointer; padding: 0 0.45rem; }
 .date-field__calendar { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+
+/* Database id next to an organization's or person's name, to tell duplicates apart. */
+.record-id { color: var(--muted); font-size: 0.75em; font-weight: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }

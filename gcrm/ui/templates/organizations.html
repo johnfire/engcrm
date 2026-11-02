@@ -186,7 +186,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td class="star-col">{% include 'partials/star_button.html' %}</td>
       <td class="muted small">{{ c.id }}</td>
       <td>
-        <strong><a href="/organizations/{{ c.id }}" target="_blank" rel="noopener">{{ c.name }}</a></strong>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}
+        <strong><a href="/organizations/{{ c.id }}" target="_blank" rel="noopener">{{ c.name }}</a></strong> <span class="record-id">#{{ c.id }}</span>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}
       </td>
       <td class="small known-people-cell">
         {%- set known = c.known_people or [] %}
