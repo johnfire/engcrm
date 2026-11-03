@@ -244,6 +244,31 @@ pytest              # its own tests
 
 ---
 
+## Field mode and the remote MCP connector (Claude from anywhere)
+
+Talk to Claude on the road and it saves straight into EngCRM. Plan and design:
+`docs/plans/2026-11-03-field-mode-and-remote-mcp-plan.md`.
+
+- **Phone:** Settings → **Field mode**. While on, the app records a position every 5 minutes
+  (Android shows a notification the whole time) and sends it to `POST /api/me/locations`.
+  It turns itself off after 8 hours; logging out turns it off.
+- **Endpoint:** `https://engcrm.christopherrehm.de/mcp/` (mounted in the web app,
+  `gcrm/mcp/remote.py`). Nine field tools only; no email, agents or accounts.
+- **Token** (on the VPS, once per device/connector; shown once):
+
+  ```bash
+  sudo docker compose run --rm app uv run python scripts/mcp_token.py create --email you@example.com --label "Claude"
+  sudo docker compose run --rm app uv run python scripts/mcp_token.py list
+  sudo docker compose run --rm app uv run python scripts/mcp_token.py revoke --id 1
+  ```
+
+- **Connect Claude:** claude.ai → Customize → Connectors → add a custom connector with the
+  URL above (trailing slash) and the request header `Authorization: Bearer <token>`. It then
+  appears in the Claude phone app under the same account; enable it in a chat with "+".
+- **If it misbehaves:** revoke the token (the connector stops at once); the web app and phone
+  API are unaffected. Every save is in `audit_log` as `mcp:user:<id>` and can be undone by
+  asking Claude to undo, newest first.
+
 ## Testing
 
 ### Run everything

@@ -106,7 +106,7 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 4. **Server: the field tools** *Done 03.11.2026.* in a new `gcrm/mcp/field.py`, reusing the existing write
    helpers (the same code the phone and web use, so rules and audit stay one place).
    Unit tests + real Postgres, including undo.
-5. **Server: remote MCP endpoint.** Streamable-HTTP `/mcp` on the live server, token check,
+5. **Server: remote MCP endpoint.** *Done 03.11.2026:* mounted in the web app at `/mcp/` (no proxy change; plain request/response), own token check in front, fresh session manager per app start, tools on worker threads; tested with a real MCP client against the running app. Streamable-HTTP `/mcp` on the live server, token check,
    rate limit, only the field tools exposed; Caddy/nginx route; token created on the server.
    Check from outside with an MCP client before handing it to Claude.
 6. **Connect it:** add the connector on claude.ai (URL + header), check it appears in the

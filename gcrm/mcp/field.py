@@ -165,6 +165,8 @@ def _journal(user: FieldUser, kind: str, target_id: int, summary: str,
             "VALUES (%s, %s, %s, %s, %s, %s)",
             (user.user_id, kind, target_id, owner_id, Json(before) if before is not None else None, summary),
         )
+    # Every save through the connector, uniformly; the actor is the remote MCP's audit scope.
+    log_audit(None, None, f"mcp.{kind}", f"{kind.split('_')[0]}:{target_id}", summary[:200])
 
 
 def add_organization(user: FieldUser, name: str, city: str = "", address: str = "", type: str = "",

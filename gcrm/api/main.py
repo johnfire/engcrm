@@ -62,14 +62,27 @@ from gcrm.i18n import SUPPORTED_LANGUAGES
 from gcrm.tools.statistics_history import start_snapshot_loop
 from gcrm.workspace_context import set_workspace_id
 
+# The remote MCP connector (Claude from anywhere, gcrm/mcp/remote.py). Its own failure
+# domain: if it cannot load, the web app and phone API still start, without /mcp.
+try:
+    from gcrm.mcp import remote as remote_mcp
+except Exception:  # pragma: no cover - logged and survived, never fatal
+    logging.getLogger(__name__).exception("remote MCP not loaded; /mcp is unavailable")
+    remote_mcp = None
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Keep the daily pipeline log while the app runs (PIPELINE_SNAPSHOTS=off to
-    skip, e.g. in a one-off container). A failing snapshot is logged, never fatal."""
+    skip, e.g. in a one-off container). A failing snapshot is logged, never fatal.
+    Also runs the remote MCP's session manager, which /mcp needs."""
     if os.getenv("PIPELINE_SNAPSHOTS", "on") != "off":
         start_snapshot_loop()
-    yield
+    if remote_mcp is None:
+        yield
+        return
+    async with remote_mcp.running():
+        yield
 
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None, lifespan=lifespan)
@@ -121,6 +134,8 @@ app.add_middleware(
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
+if remote_mcp is not None:
+    app.mount("/mcp", remote_mcp.asgi_app(), name="mcp")
 
 app.include_router(auth.router)
 app.include_router(legal.router)
