@@ -223,3 +223,17 @@ async def running():
 def asgi_app():
     """The /mcp endpoint for the web app to mount, behind the token check."""
     return BearerAuth(_endpoint)
+
+
+class BareMcpPath:
+    """Serve `/mcp` as well as `/mcp/`. Without this the router answers `/mcp` with a 307
+    to `/mcp/` that names http:// (it cannot see the proxy's https), and a connector
+    client does not follow that: claude.ai showed "Couldn't connect" for the bare URL."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"] == "/mcp":
+            scope = {**scope, "path": "/mcp/", "raw_path": b"/mcp/"}
+        await self.app(scope, receive, send)

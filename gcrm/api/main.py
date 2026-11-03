@@ -136,6 +136,7 @@ UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
 if remote_mcp is not None:
     app.mount("/mcp", remote_mcp.asgi_app(), name="mcp")
+    app.add_middleware(remote_mcp.BareMcpPath)
 
 app.include_router(auth.router)
 app.include_router(legal.router)

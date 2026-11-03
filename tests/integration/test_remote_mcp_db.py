@@ -87,6 +87,18 @@ def test_a_token_lists_only_the_field_tools_and_saves_as_its_user(account):
     assert audit == {"actor": f"mcp:user:{account['id']}", "actor_type": "mcp"}
 
 
+def test_the_url_works_without_the_trailing_slash(account):
+    token = create_token(account["id"], "test")
+    with TestClient(app) as client:
+        body = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                           "clientInfo": {"name": "test", "version": "1"}}}
+        response = client.post("/mcp", headers={**HEADERS, "Authorization": f"Bearer {token}"},
+                               content=json.dumps(body), follow_redirects=False)
+        assert response.status_code == 200  # not a 307 to http://
+        assert client.post("/mcp", headers=HEADERS, content="{}", follow_redirects=False).status_code == 401
+
+
 def test_too_many_requests_are_refused(account):
     token = create_token(account["id"], "test")
     with TestClient(app) as client, patch("gcrm.mcp.remote._limiter.allow", return_value=False):
