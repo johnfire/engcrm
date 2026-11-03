@@ -70,7 +70,7 @@ def test_sign_photo_gps_match_and_research_flow(clean_database, tmp_path):
         response = client.post("/api/signs", headers=AUTH, data={"gps_lat": "48.37", "gps_lng": "10.90"},
                                files={"image": ("sign.jpg", b"photo", "image/jpeg")})
     assert response.status_code == 200
-    resolution.assert_called_once_with("Bakery", (48.37, 10.90))
+    resolution.assert_called_once_with("Bakery", (48.37, 10.90), town="")
     capture_id = response.json()["capture_id"]
     wrong_mode = client.post(f"/api/cards/{capture_id}/confirm", headers=AUTH, json={"fields": {"company": "Bad"}})
     assert wrong_mode.status_code == 404
@@ -83,6 +83,39 @@ def test_sign_photo_gps_match_and_research_flow(clean_database, tmp_path):
         cursor = connection.cursor()
         cursor.execute("SELECT city, source FROM contacts")
         assert dict(cursor.fetchone()) == {"city": "Augsburg", "source": "sign_scan"}
+
+
+def test_library_sign_with_typed_town_and_first_contact_notes(clean_database, tmp_path):
+    """A library photo has no GPS: the typed town drives the search and becomes the
+    city, and the first-contact notes land as today's drop-in on the organization."""
+    client = TestClient(app)
+    with patch("gcrm.tools.cards.CARD_IMAGE_DIR", str(tmp_path)), \
+         patch("gcrm.tools.signs.extract_sign_fields", return_value={
+             "fields": {"is_sign": True, "business_name": "Bakery"}, "model": "test", "cost_usd": 0,
+         }), patch("gcrm.tools.signs.resolve_business", return_value=None) as resolution:
+        response = client.post("/api/signs", headers=AUTH, data={"town": "Landsberg"},
+                               files={"image": ("sign.jpg", b"photo", "image/jpeg")})
+    assert response.status_code == 200
+    assert response.json()["town"] == "Landsberg"
+    resolution.assert_called_once_with("Bakery", None, town="Landsberg")
+    capture_id = response.json()["capture_id"]
+    with patch("gcrm.tools.signs.research_business"):
+        confirmation = client.post(f"/api/signs/{capture_id}/confirm", headers=AUTH, json={
+            "business_name": "Bakery", "town": "Landsberg",
+            "notes": "Owner friendly, call in January", "met_in_person": True,
+        })
+    assert confirmation.status_code == 200
+    assert confirmation.json()["notes_recorded"] is True
+    contact_id = confirmation.json()["contact_id"]
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT city FROM contacts WHERE id=%s", (contact_id,))
+        assert cursor.fetchone()["city"] == "Landsberg"
+        cursor.execute("SELECT method, summary, interaction_date = CURRENT_DATE AS today "
+                       "FROM interactions WHERE contact_id=%s", (contact_id,))
+        assert [dict(row) for row in cursor.fetchall()] == [
+            {"method": "in_person", "summary": "Owner friendly, call in January", "today": True},
+        ]
 
 
 def test_document_person_failure_preserves_draft_for_retry(clean_database, tmp_path):
