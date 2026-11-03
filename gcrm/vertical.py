@@ -160,9 +160,6 @@ SCAN_LEVELS: dict[int, dict] = {
     4: {
         "label": "Tier 2 — Food & Beverage Producers",
         "maps_terms": [
-            "Metzgerei",
-            "Fleischerei",
-            "Bäckerei",
             "Brauerei",
             "Käserei",
             "Feinkost",

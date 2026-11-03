@@ -431,7 +431,9 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
     """
     Trigger a research scan for a specific city and level.
     Level 1 must be run before any other level.
-    Levels: 1=Galleries/Cafes/Designers, 2=Gift/Esoteric, 3=Restaurants, 4=Corporate, 5=Hotels.
+    Levels are the SCAN_LEVELS in gcrm/vertical.py: 1=Handwerk, 2=small manufacturers, 3=logistics,
+    4=food & beverage producers, 5=construction, 6=agricultural services, 7=medical practices,
+    8=professional services, 9=academia, 10=defence & strategic consulting.
     """
     try:
         project_root = Path(__file__).parent.parent.parent

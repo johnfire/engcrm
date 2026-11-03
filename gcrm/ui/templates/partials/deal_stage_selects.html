@@ -1,12 +1,13 @@
-{# A list row's stages: one select per deal, saving the moment it is picked and
-   coming back to the same filtered list. With every offer shown, each carries
+{# A list row's stages: one select per deal, saving the moment it is picked
+   (in the background, so the list keeps its scroll position; static/keep-place.js,
+   with the plain form submit as the fallback). With every offer shown, each carries
    its offer's name. Needs deals, owner_name, active_offer, pipeline_stages. #}
 {%- for d in deals %}
 <form method="post" action="/deals/{{ d.id }}" class="stage-form">
   <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
   {%- if not active_offer %}<span class="deal-offer-label">{{ d.offer }}</span>{% endif %}
   <select name="stage" class="stage-select badge-stage-{{ d.stage }}"
-          aria-label="{{ t('common.pipelineStage') }} · {{ d.offer }}: {{ owner_name }}" onchange="this.form.submit()">
+          aria-label="{{ t('common.pipelineStage') }} · {{ d.offer }}: {{ owner_name }}" onchange="window.keepPlaceSubmit ? keepPlaceSubmit(this.form) : this.form.submit()">
     {% for s in pipeline_stages %}
     <option value="{{ s }}" {% if d.stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
     {% endfor %}

@@ -559,7 +559,9 @@ class TestPersonStage:
         assert '<option value="candidate" selected>Candidate</option>' in response.text
         for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
             assert f'<option value="{stage}" ' in response.text
-        assert 'onchange="this.form.submit()"' in response.text
+        # saves the moment it is picked: in the background (keeps the scroll position),
+        # with the plain form submit as the fallback
+        assert 'onchange="window.keepPlaceSubmit ? keepPlaceSubmit(this.form) : this.form.submit()"' in response.text
 
     def test_a_person_without_a_stage_shows_a_dash(self, admin_session):
         """Not pitched anything: nothing to change from the list; offers are added on the person's page."""
