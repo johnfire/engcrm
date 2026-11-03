@@ -101,7 +101,7 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
    `android/` manifest got the one permission prebuild adds (FOREGROUND_SERVICE_LOCATION).
    Every push to main submits a build to Play's internal track (android.yml), so this ships
    with the next push.
-3. **Server: Places Nearby Search** in `gcrm/tools/search.py`, with the field mask kept small
+3. **Server: Places Nearby Search** *Done 03.11.2026.* in `gcrm/tools/search.py`, with the field mask kept small
    (cost). Tests with a recorded response.
 4. **Server: the field tools** in a new `gcrm/mcp/field.py`, reusing the existing write
    helpers (the same code the phone and web use, so rules and audit stay one place).

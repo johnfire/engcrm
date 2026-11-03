@@ -18,6 +18,7 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OVERPASS_TIMEOUT = (10, 60)  # (connect, read)
 
 GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchText"
+GOOGLE_PLACES_NEARBY_URL = "https://places.googleapis.com/v1/places:searchNearby"
 
 # Maps industry names to OpenStreetMap tag queries.
 # Each entry is a list of (key, value) pairs tried in a single union query.
@@ -238,6 +239,82 @@ def google_maps_search(
             break
 
     logger.info("google_maps_search: %d results for '%s' in %s", len(results), query, city)
+    return results
+
+
+class PlacesUnavailable(Exception):
+    """Google Places could not be asked (no key, network, quota): not the same as
+    "nothing is here", which is an empty list."""
+
+
+def _distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance in metres (haversine)."""
+    from math import asin, cos, radians, sin, sqrt
+    dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 6371000 * 2 * asin(sqrt(a))
+
+
+def places_nearby(lat: float, lon: float, radius_m: int = 60, max_results: int = 10) -> list[dict]:
+    """The businesses at a spot, nearest first: Google Places Nearby Search (New).
+    For field mode: "which business am I standing in front of?". Asks only Pro-tier
+    fields (name, address, location, type); phone and website would make every call an
+    Enterprise one, and the enrichment agent finds those later anyway.
+    Returns dicts: name, place_id, address, city, country, type, latitude, longitude,
+    distance_m. Raises PlacesUnavailable when Google cannot be asked."""
+    from gcrm.config import GOOGLE_MAPS_API_KEY
+    if not GOOGLE_MAPS_API_KEY:
+        raise PlacesUnavailable("GOOGLE_MAPS_API_KEY is not set")
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+        "X-Goog-FieldMask": (
+            "places.id,places.displayName,places.formattedAddress,places.addressComponents,"
+            "places.location,places.primaryType,places.primaryTypeDisplayName,places.businessStatus"
+        ),
+    }
+    payload = {
+        "locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lon},
+                                           "radius": float(min(max(radius_m, 1), 50000))}},
+        "maxResultCount": min(max(max_results, 1), 20),
+        "rankPreference": "DISTANCE",
+        "languageCode": "de",
+    }
+    try:
+        response = httpx.post(GOOGLE_PLACES_NEARBY_URL, json=payload, headers=headers, timeout=15)
+        response.raise_for_status()
+        places = response.json().get("places", [])
+    except Exception as error:
+        # Never log the coordinates: they are where the user stands.
+        logger.warning("places_nearby failed: %s", type(error).__name__)
+        raise PlacesUnavailable(str(error)) from error
+
+    results = []
+    for place in places:
+        name = place.get("displayName", {}).get("text", "")
+        if not name or place.get("businessStatus") == "CLOSED_PERMANENTLY":
+            continue
+        city = country = ""
+        for component in place.get("addressComponents", []):
+            types = component.get("types", [])
+            if not city and any(kind in types for kind in ("locality", "postal_town")):
+                city = component.get("longText", "")
+            if "country" in types:
+                country = component.get("shortText", "")
+        location = place.get("location", {})
+        latitude, longitude = location.get("latitude"), location.get("longitude")
+        results.append({
+            "name": name,
+            "place_id": place.get("id", ""),
+            "address": place.get("formattedAddress", ""),
+            "city": city,
+            "country": country,
+            "type": place.get("primaryTypeDisplayName", {}).get("text") or place.get("primaryType", ""),
+            "latitude": latitude,
+            "longitude": longitude,
+            "distance_m": (round(_distance_m(lat, lon, latitude, longitude))
+                           if latitude is not None and longitude is not None else None),
+        })
     return results
 
 
