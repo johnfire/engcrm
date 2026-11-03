@@ -539,47 +539,44 @@ describe("organization detail — meeting log", () => {
 });
 
 
-describe("organization detail — add a note", () => {
-  beforeEach(() => {
-    mockAddNote.mockReset();
+// The inline note box was removed with the web parity work (03.11.2026): Log activity
+// is the phone's one log form, as on the web. Its three tests went with it.
+describe("organization detail — logging goes through Log activity", () => {
+  it("has no inline note box, only the Log activity button", async () => {
+    mockGetRole.mockReset().mockResolvedValue("admin");
     mockFetchContact.mockReset().mockResolvedValue({ ...BASE_CONTACT });
-  });
-
-  it("saves a typed note to the history and reloads the organization", async () => {
-    mockGetRole.mockResolvedValue("admin");
-    mockAddNote.mockResolvedValue({ id: 9, follow_up_date: null });
-    const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByLabelText("Add a note")).toBeTruthy());
-    const loadsBefore = mockFetchContact.mock.calls.length;
-
-    fireEvent.changeText(screen.getByLabelText("Add a note"), "  Owner wants a quote  ");
-    fireEvent.press(screen.getByText("Save note"));
-
-    await waitFor(() =>
-      expect(mockAddNote).toHaveBeenCalledWith(42, {
-        note: "Owner wants a quote", method: null, follow_up_date: null, follow_up_text: null,
-      }),
-    );
-    await waitFor(() => expect(mockFetchContact.mock.calls.length).toBeGreaterThan(loadsBefore));
-    expect(screen.getByLabelText("Add a note").props.value).toBe("");
-  });
-
-  it("keeps the text and says so when saving fails", async () => {
-    mockGetRole.mockResolvedValue("admin");
-    mockAddNote.mockRejectedValue(new Error("offline"));
-    const screen = render(<OrganizationDetailScreen />);
-    await waitFor(() => expect(screen.getByLabelText("Add a note")).toBeTruthy());
-    fireEvent.changeText(screen.getByLabelText("Add a note"), "Call back Monday");
-    fireEvent.press(screen.getByText("Save note"));
-    await waitFor(() => expect(screen.getByText(/Couldn't save the note/)).toBeTruthy());
-    expect(screen.getByLabelText("Add a note").props.value).toBe("Call back Monday");
-  });
-
-  it("is for the admin only", async () => {
-    mockGetRole.mockResolvedValue("viewer");
     const screen = render(<OrganizationDetailScreen />);
     await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
     expect(screen.queryByLabelText("Add a note")).toBeNull();
+    fireEvent.press(screen.getByText("Log a meeting"));
+    expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/(drawer)/log-meeting" }));
+  });
+
+  it("shows what the visits so far say, as the web's Log activity card does", async () => {
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+    mockFetchContact.mockReset().mockResolvedValue({
+      ...BASE_CONTACT,
+      visit_summary: {
+        last_visited: "2026-10-20", first_attitude: ["cold"], last_attitude: ["warm", "neutral"],
+        last_my_read: ["trustworthy"], materials_left: null, followup_promised: null,
+      },
+    });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Last visited")).toBeTruthy());
+    expect(screen.getByText("20.10.2026")).toBeTruthy();
+    expect(screen.getByText("Cold")).toBeTruthy();
+    expect(screen.getByText("Warm, Neutral")).toBeTruthy();
+    expect(screen.getByText("Trustworthy")).toBeTruthy();
+  });
+
+  it("shows no summary before anything is logged", async () => {
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+    mockFetchContact.mockReset().mockResolvedValue({
+      ...BASE_CONTACT, visit_summary: { last_visited: null, first_attitude: null },
+    });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    expect(screen.queryByText("Last visited")).toBeNull();
   });
 });
 

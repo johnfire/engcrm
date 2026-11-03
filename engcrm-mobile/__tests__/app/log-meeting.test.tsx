@@ -129,7 +129,7 @@ describe("log a meeting — organization", () => {
     await typeNote(screen, "  Met the owner, wants a demo  ");
     fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByLabelText("1 week"));
-    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "send quote");
+    fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "send quote");
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect"));
     fireEvent.press(screen.getByText("Save note and update stage"));
@@ -144,6 +144,8 @@ describe("log a meeting — organization", () => {
       offer: "consulting", // its one open deal's offer, picked for you
       attitude: [],
       my_read: [],
+      occurred_on: null, // today
+      materials_left: null,
     });
     expect(mockChangeDeal).toHaveBeenCalledWith(70, { stage: "suspect", status: "ready" });
     // the note is sent first, so a failing stage change can never lose it
@@ -182,15 +184,37 @@ describe("log a meeting — organization", () => {
     expect(mockChangeDeal).not.toHaveBeenCalled();
   });
 
-  it("ignores follow-up text when no follow-up date is chosen", async () => {
+  // Changed with the web parity work (03.11.2026): the web keeps a promise made
+  // without a date, so the phone does too; it used to drop the text.
+  it("keeps a follow-up promise made without a date, as the web does", async () => {
     const screen = setup();
     await typeNote(screen, "Note");
-    fireEvent.press(screen.getByLabelText("1 week"));
-    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "something");
-    fireEvent.press(screen.getByLabelText("None"));
+    fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "send the price list");
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
-    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ follow_up_date: null, follow_up_text: null });
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ follow_up_date: null, follow_up_text: "send the price list" });
+  });
+
+  it("sends a typed earlier day and what was left there", async () => {
+    const screen = setup();
+    await typeNote(screen, "Dropped by");
+    fireEvent.changeText(screen.getByLabelText("When"), "27.10.2026");
+    fireEvent.changeText(screen.getByLabelText("Materials left"), "  flyer and card ");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ occurred_on: "2026-10-27", materials_left: "flyer and card" });
+  });
+
+  it("refuses a day that is not a day, or is in the future, and sends nothing", async () => {
+    const screen = setup();
+    await typeNote(screen, "Dropped by");
+    fireEvent.changeText(screen.getByLabelText("When"), "31.02.2026");
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(screen.getByText("Type the day as 28.10.2026, today or earlier.")).toBeTruthy());
+
+    fireEvent.changeText(screen.getByLabelText("When"), dateInDays(3));
+    fireEvent.press(screen.getByText("Save note"));
+    expect(mockAddOrgNote).not.toHaveBeenCalled();
   });
 
   it("can change only the stage, with no note", async () => {

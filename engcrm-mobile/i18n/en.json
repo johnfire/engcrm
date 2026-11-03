@@ -717,5 +717,16 @@
   "activity.post_mail": "Post mail",
   "activity.note": "Note",
   "activity.minutes": "{{minutes}} min",
-  "organizationBrief.materialsLeft": "Materials left"
+  "organizationBrief.materialsLeft": "Materials left",
+  "activity.whenLabel": "When",
+  "organizationDetail.materialsLeftPlaceholder": "e.g. prints, postcards, portfolio",
+  "organizationBrief.followupPromised": "Follow-up promised",
+  "organizationDetail.followupPromisedPlaceholder": "e.g. send price list, visit in May",
+  "organizationBrief.lastVisited": "Last visited",
+  "organizationBrief.firstImpression": "Their attitude, first",
+  "organizationBrief.lastImpression": "Their attitude, latest",
+  "judgment.lastMyRead": "Latest read of them",
+  "activity.logTitle": "Log activity",
+  "meeting.whenPlaceholder": "Today — or type the day, 28.10.2026",
+  "meeting.badDay": "Type the day as 28.10.2026, today or earlier."
 }

@@ -1,57 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import {
-  useAudioRecorder,
-  RecordingPresets,
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-} from "expo-audio";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 
-import {
-  addPersonNote,
-  deletePersonNote,
-  fetchPersonNotes,
-  transcribePersonNote,
-  PersonInteraction,
-} from "../services/api";
+import { deletePersonNote, fetchPersonNotes, PersonInteraction } from "../services/api";
 import { onChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 import { formatDayTime } from "../services/dates";
 import { ActivityEntry } from "./ActivityEntry";
 
-const METHODS = [
-  { value: "visit", labelKey: "personDetail.notes.methodVisit" },
-  { value: "meeting", labelKey: "meeting.methodMeeting" },
-  { value: "call", labelKey: "personDetail.notes.methodCall" },
-  { value: "video", labelKey: "meeting.methodVideo" },
-  { value: "email", labelKey: "personDetail.notes.methodEmail" },
-  { value: "letter", labelKey: "meeting.methodPostMail" },
-  { value: "other", labelKey: "personDetail.notes.methodOther" },
-];
-
+// A person's history: every logged activity, newest first, each deletable. New
+// entries are written on the Log activity screen (one form for everything, as on
+// the web); this list reloads when that screen saves.
 export function PersonNotesLog({ personId }: { personId: number }) {
   const { t } = useTranslation();
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [notes, setNotes] = useState<PersonInteraction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [recording, setRecording] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [text, setText] = useState("");
-  const [method, setMethod] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     return fetchPersonNotes(personId)
-      .then(setNotes)
+      .then((loaded) => {
+        setNotes(loaded);
+        setError(null);
+      })
       .catch(() => setError(t("personDetail.notes.loadFailed")));
   }, [personId, t]);
 
@@ -61,58 +31,6 @@ export function PersonNotesLog({ personId }: { personId: number }) {
       reload();
     });
   }, [personId, reload]);
-
-  async function toggleRecording() {
-    if (busy) return;
-    if (recording) {
-      setRecording(false);
-      setBusy(true);
-      try {
-        await recorder.stop();
-        const uri = recorder.uri;
-        if (!uri) throw new Error("No recording captured");
-        const result = await transcribePersonNote(personId, uri);
-        setText((prev) => (prev ? `${prev}\n${result.transcript}` : result.transcript));
-        setError(null);
-      } catch (err: any) {
-        setError(err?.response?.data?.detail || err?.message || t("personDetail.notes.transcribeFailed"));
-      } finally {
-        setBusy(false);
-      }
-    } else {
-      try {
-        const perm = await requestRecordingPermissionsAsync();
-        if (!perm.granted) {
-          Alert.alert(t("voice.micNeededTitle"), t("voice.micNeededMessage"));
-          return;
-        }
-        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-        await recorder.prepareToRecordAsync();
-        recorder.record();
-        setRecording(true);
-        setError(null);
-      } catch (err: any) {
-        Alert.alert(t("voice.couldntStartTitle"), err?.message || t("common.tryAgain"));
-      }
-    }
-  }
-
-  async function save() {
-    const note = text.trim();
-    if (!note || saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await addPersonNote(personId, note, method);
-      setText("");
-      setMethod(null);
-      await reload();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || t("personDetail.notes.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  }
 
   function confirmDelete(note: PersonInteraction) {
     Alert.alert(t("personDetail.notes.deleteConfirm"), undefined, [
@@ -131,59 +49,7 @@ export function PersonNotesLog({ personId }: { personId: number }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{t("personDetail.notes.title")}</Text>
-
-      <TextInput
-        style={styles.input}
-        multiline
-        value={text}
-        onChangeText={setText}
-        placeholder={t("personDetail.notes.notePlaceholder")}
-        placeholderTextColor="#666"
-        editable={!saving}
-      />
-
-      <View style={styles.methods}>
-        {METHODS.map(({ value, labelKey }) => {
-          const isSelected = method === value;
-          return (
-            <TouchableOpacity
-              key={value}
-              style={[styles.methodChip, isSelected && styles.methodChipSelected]}
-              onPress={() => setMethod(isSelected ? null : value)}
-              disabled={saving}
-            >
-              <Text style={[styles.methodText, isSelected && styles.methodTextSelected]}>
-                {t(labelKey)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.recordButton, recording && styles.recordButtonActive]}
-          onPress={toggleRecording}
-          disabled={busy || saving}
-        >
-          {busy ? (
-            <ActivityIndicator color="#7c6fff" size="small" />
-          ) : (
-            <Text style={styles.recordIcon}>{recording ? "⏹" : "🎙"}</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.saveButton, (!text.trim() || saving) && styles.saveButtonDisabled]}
-          onPress={save}
-          disabled={!text.trim() || saving}
-        >
-          <Text style={styles.saveText}>
-            {saving ? t("personDetail.notes.saving") : t("personDetail.notes.save")}
-          </Text>
-        </TouchableOpacity>
-      </View>
       {!!error && <Text style={styles.error}>{error}</Text>}
-
       {loading ? (
         <ActivityIndicator color="#7c6fff" style={{ marginTop: 16 }} />
       ) : notes.length === 0 ? (
@@ -221,50 +87,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: "uppercase",
   },
-  input: {
-    backgroundColor: "#1a1a2e",
-    borderColor: "#ffffff25",
-    borderRadius: 10,
-    borderWidth: 1,
-    color: "#fff",
-    fontSize: 14,
-    minHeight: 70,
-    padding: 12,
-    textAlignVertical: "top",
-  },
-  methods: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  methodChip: {
-    backgroundColor: "#ffffff10",
-    borderColor: "#ffffff25",
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  methodChipSelected: { backgroundColor: "#7c6fff", borderColor: "#aaa3ff" },
-  methodText: { color: "#aaa", fontSize: 12, fontWeight: "600" },
-  methodTextSelected: { color: "#fff" },
-  actions: { alignItems: "center", flexDirection: "row", gap: 10, marginTop: 12 },
-  recordButton: {
-    alignItems: "center",
-    backgroundColor: "#1a1a2e",
-    borderColor: "#7c6fff",
-    borderRadius: 22,
-    borderWidth: 2,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  recordButtonActive: { borderColor: "#ef4444", backgroundColor: "#2a1620" },
-  recordIcon: { fontSize: 18 },
-  saveButton: {
-    backgroundColor: "#7c6fff",
-    borderRadius: 10,
-    flex: 1,
-    paddingVertical: 12,
-  },
-  saveButtonDisabled: { opacity: 0.4 },
-  saveText: { color: "#fff", fontSize: 14, fontWeight: "700", textAlign: "center" },
   error: { color: "#ef8a8a", fontSize: 12, marginTop: 8 },
   empty: { color: "#555", fontSize: 13, marginTop: 12 },
 });

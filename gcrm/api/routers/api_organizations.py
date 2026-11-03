@@ -22,7 +22,7 @@ from gcrm.organization_state import SUPPRESSION_FLAGS
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import deal_filters, deals_json_sql, organization_deal_join
-from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
+from gcrm.tools.db_interactions import delete_meeting_note, get_visit_summary, log_meeting_note
 from gcrm.tools.db_linkedin import get_known_people_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
@@ -256,6 +256,17 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
              "next_action_date": row["next_action_date"].isoformat() if row["next_action_date"] else None}
             for row in cur.fetchall()
         ]
+
+    # What the visits so far say (last visit, first and last attitude, my latest read),
+    # as the web's Log activity card shows. A bonus: a failed read leaves it empty.
+    try:
+        summary = get_visit_summary(contact_id)
+        if summary.get("last_visited"):
+            summary["last_visited"] = summary["last_visited"].isoformat()
+        organization["visit_summary"] = summary
+    except Exception:
+        logger.exception("visit summary failed for contact %s", contact_id)
+        organization["visit_summary"] = {}
 
     organization["opportunity_analysis"] = _opportunity_payload(
         get_latest_opportunity_analysis(contact_id)

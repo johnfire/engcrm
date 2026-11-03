@@ -32,7 +32,7 @@ import { OfferPicker } from "../../components/OfferPicker";
 import { JudgmentChips } from "../../components/JudgmentChips";
 import { ATTITUDES, Attitude, MY_READS, MyRead } from "../../services/judgments";
 import { changeDeal, Deal, defaultLogOffer, fetchDeals, fetchOffers, Offer, setDealNextStep } from "../../services/deals";
-import { formatDay } from "../../services/dates";
+import { formatDay, parseDay } from "../../services/dates";
 
 const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "in_person", labelKey: "meeting.methodVisit" },
@@ -54,6 +54,14 @@ const PERSON_METHOD: Record<MeetingMethod, string> = {
   letter: "letter",
   other: "other",
 };
+
+/** The typed day as ISO for the server: null for blank (today), undefined when it is
+ *  not a day, or is in the future. */
+export function typedDay(text: string, today: Date = new Date()): string | null | undefined {
+  const day = parseDay(text, today);
+  if (day && day > dateInDays(0, today)) return undefined;
+  return day;
+}
 
 /** Typed minutes as a number, null when blank or not a whole number 0–1440. */
 export function typedMinutes(text: string): number | null {
@@ -88,6 +96,9 @@ export default function LogMeetingScreen() {
   const [myRead, setMyRead] = useState<MyRead[]>([]);
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
+  // An organization's activity, as on the web: the day it happened and what was left there.
+  const [occurredOn, setOccurredOn] = useState("");
+  const [materialsLeft, setMaterialsLeft] = useState("");
   const [pendingChange, setPendingChange] = useState<StageStatusChange | null>(null);
   // What the note is about, and the deals that could be about: the subject's own,
   // and for a person their organization's (which only steer the default).
@@ -132,6 +143,8 @@ export default function LogMeetingScreen() {
         setMethod(METHODS.some((m) => m.value === draft.method) ? (draft.method as MeetingMethod) : null);
         setFollowUp(FOLLOW_UPS.some((f) => f.id === draft.followUp) ? draft.followUp : "none");
         setFollowUpText(draft.followUpText);
+        setOccurredOn(draft.occurredOn ?? "");
+        setMaterialsLeft(draft.materialsLeft ?? "");
         setRestored(draft.note.trim().length > 0);
       }
       setDraftReady(true);
@@ -141,8 +154,8 @@ export default function LogMeetingScreen() {
   // Keep what is typed on the phone until the server has it.
   useEffect(() => {
     if (!draftReady || finished.current) return;
-    void saveDraft(draftKey, { note, method, followUp, followUpText });
-  }, [draftReady, draftKey, note, method, followUp, followUpText]);
+    void saveDraft(draftKey, { note, method, followUp, followUpText, occurredOn, materialsLeft });
+  }, [draftReady, draftKey, note, method, followUp, followUpText, occurredOn, materialsLeft]);
 
   const dictation = useVoiceDictation({
     transcribe: (uri) =>
@@ -170,6 +183,11 @@ export default function LogMeetingScreen() {
 
   async function save() {
     if (!canSave) return;
+    const day = kind === "organization" ? typedDay(occurredOn) : null;
+    if (day === undefined) {
+      setError(t("meeting.badDay"));
+      return;
+    }
     setSaving(true);
     setError(null);
     // 1. the note — and only once: a retry after a later failure must not post it again
@@ -177,11 +195,14 @@ export default function LogMeetingScreen() {
       try {
         if (kind === "organization") {
           const date = followUpDate(followUp);
+          // A promise is kept with or without a date, as on the web.
           await addOrganizationNote(targetId, {
             note: note.trim(),
             method,
             follow_up_date: date,
-            follow_up_text: date === null ? null : followUpText.trim() || null,
+            follow_up_text: followUpText.trim() || null,
+            occurred_on: day,
+            materials_left: materialsLeft.trim() || null,
             duration_minutes: typedMinutes(minutes),
             ...(about ? { offer: about } : {}),
             attitude,
@@ -193,6 +214,8 @@ export default function LogMeetingScreen() {
         }
         setNoteSaved(true);
         setNote("");
+        setMaterialsLeft("");
+        setOccurredOn("");
         setAttitude([]);
         setMyRead([]);
         await clearDraft(draftKey);
@@ -269,10 +292,43 @@ export default function LogMeetingScreen() {
           />
         )}
 
+        {kind === "organization" && (
+          <View style={styles.block}>
+            <Text style={styles.label}>{t("activity.whenLabel")}</Text>
+            <TextInput
+              style={styles.smallInput}
+              value={occurredOn}
+              onChangeText={setOccurredOn}
+              placeholder={t("meeting.whenPlaceholder")}
+              placeholderTextColor="#666"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+              editable={!saving}
+              accessibilityLabel={t("activity.whenLabel")}
+            />
+          </View>
+        )}
+
         <JudgmentChips labelKey="judgment.attitude" valuePrefix="impression." values={ATTITUDES}
           picked={attitude} onChange={setAttitude} disabled={saving} />
         <JudgmentChips labelKey="judgment.myRead" valuePrefix="myRead." values={MY_READS}
           picked={myRead} onChange={setMyRead} disabled={saving} />
+
+        {kind === "organization" && (
+          <View style={styles.block}>
+            <Text style={styles.label}>{t("organizationBrief.materialsLeft")}</Text>
+            <TextInput
+              style={styles.smallInput}
+              value={materialsLeft}
+              onChangeText={setMaterialsLeft}
+              placeholder={t("organizationDetail.materialsLeftPlaceholder")}
+              placeholderTextColor="#666"
+              maxLength={500}
+              editable={!saving}
+              accessibilityLabel={t("organizationBrief.materialsLeft")}
+            />
+          </View>
+        )}
 
         <TextInput
           style={styles.input}
@@ -307,6 +363,18 @@ export default function LogMeetingScreen() {
         {(kind === "organization" || kind === "person") && (
           <View style={styles.block}>
             <Text style={styles.label}>{kind === "person" ? t("meeting.nextStep") : t("meeting.followUp")}</Text>
+            {kind === "organization" && (
+              <TextInput
+                style={[styles.smallInput, styles.promise]}
+                value={followUpText}
+                onChangeText={setFollowUpText}
+                placeholder={t("organizationDetail.followupPromisedPlaceholder")}
+                placeholderTextColor="#666"
+                maxLength={500}
+                editable={!saving}
+                accessibilityLabel={t("organizationBrief.followupPromised")}
+              />
+            )}
             <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("meeting.followUp")}>
               {FOLLOW_UPS.map(({ id, labelKey }) => (
                 <Chip
@@ -323,14 +391,16 @@ export default function LogMeetingScreen() {
                 <Text style={styles.hint}>
                   {t("meeting.followUpOn", { date: formatDay(followUpDate(followUp)) })}
                 </Text>
-                <TextInput
-                  style={styles.smallInput}
-                  value={followUpText}
-                  onChangeText={setFollowUpText}
-                  placeholder={t("meeting.followUpAbout")}
-                  placeholderTextColor="#666"
-                  editable={!saving}
-                />
+                {kind === "person" && (
+                  <TextInput
+                    style={styles.smallInput}
+                    value={followUpText}
+                    onChangeText={setFollowUpText}
+                    placeholder={t("meeting.followUpAbout")}
+                    placeholderTextColor="#666"
+                    editable={!saving}
+                  />
+                )}
               </>
             )}
           </View>
@@ -421,6 +491,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   hint: { color: "#888", fontSize: 12, marginTop: 8 },
+  promise: { marginBottom: 10, marginTop: 0 },
   error: { color: "#ef8a8a", fontSize: 13, marginTop: 10 },
   mic: {
     alignItems: "center",

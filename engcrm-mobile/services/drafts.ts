@@ -12,6 +12,8 @@ export interface MeetingDraft {
   method: string | null;
   followUp: string; // an option id such as "1w"; "none" for no follow-up
   followUpText: string;
+  occurredOn?: string; // as typed; blank is today
+  materialsLeft?: string;
 }
 
 export async function loadDraft(key: string): Promise<MeetingDraft | null> {
@@ -25,6 +27,8 @@ export async function loadDraft(key: string): Promise<MeetingDraft | null> {
       method: typeof parsed.method === "string" ? parsed.method : null,
       followUp: typeof parsed.followUp === "string" ? parsed.followUp : "none",
       followUpText: typeof parsed.followUpText === "string" ? parsed.followUpText : "",
+      occurredOn: typeof parsed.occurredOn === "string" ? parsed.occurredOn : "",
+      materialsLeft: typeof parsed.materialsLeft === "string" ? parsed.materialsLeft : "",
     };
   } catch {
     return null;
@@ -34,7 +38,7 @@ export async function loadDraft(key: string): Promise<MeetingDraft | null> {
 /** Store the draft; an empty one is removed instead of kept. */
 export async function saveDraft(key: string, draft: MeetingDraft): Promise<void> {
   try {
-    if (!draft.note.trim() && !draft.followUpText.trim()) {
+    if (!draft.note.trim() && !draft.followUpText.trim() && !(draft.materialsLeft ?? "").trim()) {
       await AsyncStorage.removeItem(PREFIX + key);
       return;
     }

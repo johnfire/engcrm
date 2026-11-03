@@ -13,7 +13,9 @@ const mockStorage = AsyncStorage as unknown as { getItem: jest.Mock; setItem: je
 import { clearDraft, loadDraft, saveDraft } from "../../services/drafts";
 import { notifyChanged, onChanged, organizationKey, personKey } from "../../services/refreshBus";
 
-const draft = { note: "hello", method: "phone", followUp: "1w", followUpText: "quote" };
+const draft = {
+  note: "hello", method: "phone", followUp: "1w", followUpText: "quote", occurredOn: "27.10.2026", materialsLeft: "flyer",
+};
 
 describe("drafts", () => {
   beforeEach(() => {
@@ -34,7 +36,10 @@ describe("drafts", () => {
 
   it("removes the draft once it is empty, and clearDraft removes it", async () => {
     await saveDraft("organization:1", draft);
+    // Typed materials alone are worth keeping; with those blank too, the draft is empty.
     await saveDraft("organization:1", { ...draft, note: "  ", followUpText: "" });
+    expect(await loadDraft("organization:1")).not.toBeNull();
+    await saveDraft("organization:1", { ...draft, note: "  ", followUpText: "", materialsLeft: " " });
     expect(await loadDraft("organization:1")).toBeNull();
     await saveDraft("organization:1", draft);
     await clearDraft("organization:1");
@@ -47,7 +52,9 @@ describe("drafts", () => {
     store["meeting_draft_v1:b"] = JSON.stringify({ method: "phone" });
     expect(await loadDraft("b")).toBeNull();
     store["meeting_draft_v1:c"] = JSON.stringify({ note: "x" });
-    expect(await loadDraft("c")).toEqual({ note: "x", method: null, followUp: "none", followUpText: "" });
+    expect(await loadDraft("c")).toEqual({
+      note: "x", method: null, followUp: "none", followUpText: "", occurredOn: "", materialsLeft: "",
+    });
   });
 
   it("never throws when storage fails", async () => {

@@ -555,6 +555,18 @@ export interface OrganizationDetail extends Organization {
   // Everyone we know at the organization (the key keeps its LinkedIn-era name).
   // Absent on servers that predate the LinkedIn import.
   linkedin_connections?: LinkedInConnections;
+  // What the visits so far say, as the web's Log activity card shows; absent on older servers.
+  visit_summary?: VisitSummary;
+}
+
+export interface VisitSummary {
+  last_visited?: string | null; // YYYY-MM-DD
+  last_visit_minutes?: number | null;
+  first_attitude?: string[] | null;
+  last_attitude?: string[] | null;
+  last_my_read?: string[] | null;
+  materials_left?: string | null;
+  followup_promised?: string | null;
 }
 
 export interface RecommendedService {
@@ -889,6 +901,8 @@ export async function addOrganizationNote(
     offer?: string; // what it was about: an offer's slug or "general"; absent: the server picks
     attitude?: string[]; // how they seemed to feel about me (services/judgments ATTITUDES)
     my_read?: string[]; // how they seemed to me (services/judgments MY_READS)
+    occurred_on?: string | null; // YYYY-MM-DD, today or earlier; absent or null: today
+    materials_left?: string | null;
   },
 ): Promise<{ id: number; follow_up_date: string | null }> {
   const resp = await client.post(`/api/contacts/${id}/notes`, note);

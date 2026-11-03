@@ -48,7 +48,7 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
 3. **History rows (O5, P1).** *Done 03.11.2026.* Server: add the missing columns to the organization GET.
    Phone: one `ActivityEntry` row component showing type · minutes · offer, note, judgments,
    materials left — used by both screens.
-4. **One way to log (P2, O4).** Server: accept `followup_promised`, return the visit summary.
+4. **One way to log (P2, O4).** *Done 03.11.2026* — the organization screen's inline note box went too (same decision). No `followup_promised` server field was needed: the web stores the promise as the follow-up text, which the phone API already took. Server: accept `followup_promised`, return the visit summary.
    Phone: add date, materials left, follow-up promised to Log activity; show the summary.
    *Decision for you below.*
 5. **Edit forms (O2, O3, P5).** Server: widen both PATCH bodies. Phone: add the fields to

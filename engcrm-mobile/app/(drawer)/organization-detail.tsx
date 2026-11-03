@@ -19,6 +19,7 @@ import {
   updateValueRating,
   OrganizationDetail,
   ValueHorizon,
+  VisitSummary,
   OpportunityAnalysis,
   LinkedInConnections,
   LinkedInPerson,
@@ -32,7 +33,6 @@ import {
 import { openWebsite, browsableUrl } from "../../services/webLinks";
 import { sourceLabelKey } from "../../services/sourceLabel";
 import { useTranslation } from "../../i18n/I18nContext";
-import { OrganizationNoteBox } from "../../components/OrganizationNoteBox";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { DealsPanel } from "../../components/DealsPanel";
 import { formatDay } from "../../services/dates";
@@ -268,7 +268,6 @@ export default function OrganizationDetailScreen() {
           ))}
         </View>
       )}
-      {isAdmin && <OrganizationNoteBox organizationId={organization.id} />}
 
       <OpportunityAnalysisSection
         analysis={analysis}
@@ -277,6 +276,8 @@ export default function OrganizationDetailScreen() {
         analysisError={analysisError}
         onRun={handleRunAnalysis}
       />
+
+      <VisitSummaryCard summary={organization.visit_summary} />
 
       {organization.interactions.length > 0 && (
         <View style={styles.section}>
@@ -310,6 +311,30 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+// What the visits so far say, as the web's Log activity card shows: the last visit,
+// their first and latest attitude, and my latest read of them. Nothing until logged.
+function VisitSummaryCard({ summary }: { summary?: VisitSummary }) {
+  const { t } = useTranslation();
+  if (!summary) return null;
+  const words = (values: string[] | null | undefined, prefix: string) =>
+    values?.length ? values.map((v) => t(prefix + v)).join(", ") : null;
+  const lines = [
+    { labelKey: "organizationBrief.lastVisited", value: summary.last_visited ? formatDay(summary.last_visited) : null },
+    { labelKey: "organizationBrief.firstImpression", value: words(summary.first_attitude, "impression.") },
+    { labelKey: "organizationBrief.lastImpression", value: words(summary.last_attitude, "impression.") },
+    { labelKey: "judgment.lastMyRead", value: words(summary.last_my_read, "myRead.") },
+  ].filter((line) => !!line.value);
+  if (lines.length === 0) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{t("activity.logTitle")}</Text>
+      {lines.map((line) => (
+        <LabelledText key={line.labelKey} label={t(line.labelKey)} value={line.value as string} />
+      ))}
+    </View>
   );
 }
 

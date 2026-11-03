@@ -717,5 +717,16 @@
   "activity.post_mail": "Briefpost",
   "activity.note": "Notiz",
   "activity.minutes": "{{minutes}} Min.",
-  "organizationBrief.materialsLeft": "Hinterlassenes Material"
+  "organizationBrief.materialsLeft": "Hinterlassenes Material",
+  "activity.whenLabel": "Wann",
+  "organizationDetail.materialsLeftPlaceholder": "z. B. Drucke, Postkarten, Portfolio",
+  "organizationBrief.followupPromised": "Zugesagte Nachfassung",
+  "organizationDetail.followupPromisedPlaceholder": "z. B. Preisliste senden, im Mai vorbeikommen",
+  "organizationBrief.lastVisited": "Zuletzt besucht",
+  "organizationBrief.firstImpression": "Ihre Haltung, zuerst",
+  "organizationBrief.lastImpression": "Ihre Haltung, zuletzt",
+  "judgment.lastMyRead": "Letzter Eindruck von ihnen",
+  "activity.logTitle": "Aktivität erfassen",
+  "meeting.whenPlaceholder": "Heute — oder Tag eingeben, 28.10.2026",
+  "meeting.badDay": "Tag bitte als 28.10.2026 eingeben, heute oder früher."
 }
