@@ -5,7 +5,9 @@ const mockRunAnalysis = jest.fn();
 const mockUpdatePersonalPriority = jest.fn();
 const mockDeleteNote = jest.fn();
 const mockAddNote = jest.fn();
+const mockUpdateValue = jest.fn();
 jest.mock("../../services/api", () => ({
+  updateValueRating: (...args: any[]) => mockUpdateValue(...args),
   addOrganizationNote: (...args: any[]) => mockAddNote(...args),
   deleteOrganizationNote: (...args: any[]) => mockDeleteNote(...args),
   fetchOrganization: (...args: any[]) => mockFetchContact(...args),
@@ -53,7 +55,7 @@ jest.mock("expo-router", () => ({
 
 import { Linking } from "react-native";
 
-import { Alert } from "react-native";
+import { Alert, StyleSheet } from "react-native";
 import OrganizationDetailScreen from "../../app/(drawer)/organization-detail";
 import { notifyChanged, organizationKey } from "../../services/refreshBus";
 
@@ -120,10 +122,69 @@ describe("organization detail — opportunity analysis", () => {
       expect(mockUpdatePersonalPriority).toHaveBeenCalledWith(42, 1),
     );
 
-    fireEvent.press(screen.getByText("Clear rating"));
+    // The priority's Clear comes first; the two value rows have their own.
+    fireEvent.press(screen.getAllByText("Clear rating")[0]);
     await waitFor(() =>
       expect(mockUpdatePersonalPriority).toHaveBeenCalledWith(42, null),
     );
+  });
+
+  it("shows priority 6, Forget it, as picked — the web's sixth level", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, personal_priority: 6 });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("6 Forget it")).toBeTruthy());
+    expect(
+      screen.getByRole("radio", { name: "6 Forget it" }).props.accessibilityState.selected,
+    ).toBe(true);
+  });
+
+  it("colours a picked priority in its tone", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, personal_priority: 1 });
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
+    const picked = screen.getByRole("radio", { name: "1 Best" });
+    expect(StyleSheet.flatten(picked.props.style).backgroundColor).toBe("#5fae78");
+  });
+
+  it("shows and saves the short- and long-term value", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, short_term_value: 2, long_term_value: null });
+    mockUpdateValue.mockReset().mockResolvedValue(3);
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Short-term value")).toBeTruthy());
+    expect(
+      screen.getByRole("radio", { name: "Short-term value: Medium" }).props.accessibilityState.selected,
+    ).toBe(true);
+
+    fireEvent.press(screen.getByRole("radio", { name: "Long-term value: High" }));
+    await waitFor(() =>
+      expect(mockUpdateValue).toHaveBeenCalledWith("organization", 42, "long-term", 3),
+    );
+    expect(
+      screen.getByRole("radio", { name: "Long-term value: High" }).props.accessibilityState.selected,
+    ).toBe(true);
+  });
+
+  it("puts the old value back and says so when saving fails", async () => {
+    mockGetRole.mockResolvedValue("spectator");
+    mockFetchContact.mockResolvedValue({ ...BASE_CONTACT, short_term_value: 2 });
+    mockUpdateValue.mockReset().mockRejectedValue(new Error("403"));
+
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Short-term value")).toBeTruthy());
+    fireEvent.press(screen.getByRole("radio", { name: "Short-term value: Zero" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Could not save. Please try again.")).toBeTruthy(),
+    );
+    expect(
+      screen.getByRole("radio", { name: "Short-term value: Medium" }).props.accessibilityState.selected,
+    ).toBe(true);
   });
 
   it("rolls back and reports a failed priority save", async () => {

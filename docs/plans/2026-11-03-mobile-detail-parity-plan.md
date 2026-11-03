@@ -58,8 +58,7 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
 
 Each step: jest + pytest green, CI green, new EAS build installed, checked on the phone.
 
-## Decisions needed
-- **P2:** drop the phone's half-complete inline note box on the person screen and use Log
-  activity for everything (recommended — one form, nothing missing), or bring the inline box up
-  to the full field set?
-- **Step 8:** curiosity email on the phone — yes or skip?
+## Decisions
+- **P2 (decided 03.11.2026):** one form. The person screen's inline note box goes; Log activity
+  is the only way to log on the phone, and the person screen keeps the history list.
+- **Step 8:** curiosity email on the phone — still open.

@@ -184,6 +184,26 @@ export async function updatePersonalPriority(
   return response.data.personal_priority ?? null;
 }
 
+export type ValueHorizon = "short-term" | "long-term";
+
+const VALUE_FIELD: Record<ValueHorizon, "short_term_value" | "long_term_value"> = {
+  "short-term": "short_term_value",
+  "long-term": "long_term_value",
+};
+
+// Set (or, with null, clear) my private short- or long-term value of an organization or
+// person (needs a personal account). Returns what the server stored.
+export async function updateValueRating(
+  owner: "organization" | "person",
+  id: number,
+  horizon: ValueHorizon,
+  value: number | null,
+): Promise<number | null> {
+  const base = owner === "organization" ? "/api/contacts" : "/api/people";
+  const resp = await client.put(`${base}/${id}/value/${horizon}`, { value });
+  return resp.data[VALUE_FIELD[horizon]] ?? null;
+}
+
 // Run a fresh opportunity assessment for one organization (admin only, 403
 // otherwise). Synchronous server-side — it fetches the company website and
 // runs the LLM — so allow a generous timeout. Returns the stored analysis.
@@ -484,6 +504,9 @@ export interface Organization {
   flagged: boolean;
   starred: boolean;
   personal_priority: number | null;
+  // My private short- and long-term value: 3 high .. 0 zero; null if unrated (absent on older servers).
+  short_term_value?: number | null;
+  long_term_value?: number | null;
   last_contact: string | null;
   created_at: string;
   // Confirmed LinkedIn connections at this organization; absent on older servers.
@@ -784,6 +807,9 @@ export interface Person {
   linkedin_url?: string | null;
   // My private rating of them as a contact: 1 (exceptional) .. 5 (minimal); null if unrated.
   value_rating?: number | null;
+  // My private short- and long-term value of them: 3 high .. 0 zero; null if unrated.
+  short_term_value?: number | null;
+  long_term_value?: number | null;
   // The person's own stage tag; null when none is set (and on servers that predate it).
   pipeline_stage?: PipelineStage | null;
   // The stage of the organization they work at, when linked.

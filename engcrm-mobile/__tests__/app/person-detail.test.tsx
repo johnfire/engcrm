@@ -4,7 +4,9 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 const mockFetchPerson = jest.fn();
 const mockDeletePerson = jest.fn();
 const mockUpdateRating = jest.fn();
+const mockUpdateValue = jest.fn();
 jest.mock("../../services/api", () => ({
+  updateValueRating: (...args: any[]) => mockUpdateValue(...args),
   updatePersonValueRating: (...args: any[]) => mockUpdateRating(...args),
   fetchPerson: (...args: any[]) => mockFetchPerson(...args),
   deletePerson: (...args: any[]) => mockDeletePerson(...args),
@@ -272,5 +274,17 @@ describe("person detail — my rating", () => {
     fireEvent.press(screen.getByLabelText("1 Exceptional"));
 
     await waitFor(() => expect(screen.getByLabelText("3 Medium").props.accessibilityState.selected).toBe(true));
+  });
+
+  it("shows and saves the short-term value", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, short_term_value: null, long_term_value: 1 });
+    mockUpdateValue.mockReset().mockResolvedValue(0);
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Long-term value")).toBeTruthy());
+    expect(screen.getByLabelText("Long-term value: Low").props.accessibilityState.selected).toBe(true);
+
+    fireEvent.press(screen.getByLabelText("Short-term value: Zero"));
+
+    await waitFor(() => expect(mockUpdateValue).toHaveBeenCalledWith("person", 7, "short-term", 0));
   });
 });

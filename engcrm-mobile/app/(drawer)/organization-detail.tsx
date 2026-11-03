@@ -16,7 +16,9 @@ import {
   fetchOrganization,
   runOpportunityAnalysis,
   updatePersonalPriority,
+  updateValueRating,
   OrganizationDetail,
+  ValueHorizon,
   OpportunityAnalysis,
   LinkedInConnections,
   LinkedInPerson,
@@ -35,6 +37,7 @@ import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelec
 import { DealsPanel } from "../../components/DealsPanel";
 import { formatDay } from "../../services/dates";
 import { NameWithId } from "../../components/NameWithId";
+import { ValueRatings } from "../../components/ValueRatings";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -107,6 +110,12 @@ export default function OrganizationDetailScreen() {
     setContact((current) =>
       current ? { ...current, personal_priority: storedPriority } : current,
     );
+  }
+
+  async function handleValueSave(horizon: ValueHorizon, value: number | null) {
+    const stored = await updateValueRating("organization", Number(id), horizon, value);
+    const field = horizon === "short-term" ? "short_term_value" : "long_term_value";
+    setContact((current) => (current ? { ...current, [field]: stored } : current));
   }
 
   if (loading)
@@ -202,6 +211,12 @@ export default function OrganizationDetailScreen() {
         key={organization.id}
         priority={organization.personal_priority}
         onSave={handlePrioritySave}
+      />
+      <ValueRatings
+        key={`value-${organization.id}`}
+        shortTerm={organization.short_term_value ?? null}
+        longTerm={organization.long_term_value ?? null}
+        onSave={handleValueSave}
       />
 
       {organization.email && (

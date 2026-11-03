@@ -11,7 +11,14 @@ import {
 } from "react-native";
 import { ContactDateLink } from "../../components/contact-date-link";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { deletePerson, fetchPerson, Person, updatePersonValueRating } from "../../services/api";
+import {
+  deletePerson,
+  fetchPerson,
+  Person,
+  updatePersonValueRating,
+  updateValueRating,
+  ValueHorizon,
+} from "../../services/api";
 import { getRole } from "../../services/auth";
 import { onChanged, personKey } from "../../services/refreshBus";
 import { openWebsite, browsableUrl, linkedinLabel } from "../../services/webLinks";
@@ -21,6 +28,7 @@ import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { DealsPanel } from "../../components/DealsPanel";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { NameWithId } from "../../components/NameWithId";
+import { ValueRatings } from "../../components/ValueRatings";
 
 export default function PersonDetailScreen() {
   const { t } = useTranslation();
@@ -83,6 +91,12 @@ export default function PersonDetailScreen() {
     setPerson((current) => (current ? { ...current, value_rating: stored } : current));
   }
 
+  async function saveValue(horizon: ValueHorizon, value: number | null) {
+    const stored = await updateValueRating("person", Number(id), horizon, value);
+    const field = horizon === "short-term" ? "short_term_value" : "long_term_value";
+    setPerson((current) => (current ? { ...current, [field]: stored } : current));
+  }
+
   if (loading)
     return (
       <View style={styles.center}>
@@ -137,6 +151,12 @@ export default function PersonDetailScreen() {
         kind="person"
         priority={person.value_rating ?? null}
         onSave={saveRating}
+      />
+      <ValueRatings
+        key={`value-${person.id}`}
+        shortTerm={person.short_term_value ?? null}
+        longTerm={person.long_term_value ?? null}
+        onSave={saveValue}
       />
 
       {/* Stage, status, next step and money per offer pitched to this person. */}
