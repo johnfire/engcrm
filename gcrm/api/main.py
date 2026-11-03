@@ -23,6 +23,7 @@ from gcrm.api.routers import (
     api_cards,
     api_deals,
     api_documents,
+    api_field,
     api_help,
     api_inbox,
     api_organizations,
@@ -165,6 +166,7 @@ app.include_router(api_areas.router)
 app.include_router(api_recon.router)
 app.include_router(api_help.router)
 app.include_router(api_saved_messages.router)
+app.include_router(api_field.router)
 
 
 @app.get("/contacts/{rest:path}", include_in_schema=False)

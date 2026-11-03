@@ -89,7 +89,7 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 
 ## Steps (one commit each, pushed and checked live)
 
-1. **Server: location history.** Table `field_locations` (user, lat, lng, accuracy, recorded_at; one row per point),
+1. **Server: location history.** *Done 03.11.2026.* Table `field_locations` (user, lat, lng, accuracy, recorded_at; one row per point),
    `POST /api/me/locations` (JWT; accepts a batch, so points taken offline arrive later), a delete-history call. Tests +
    real Postgres.
 2. **Phone: Field mode switch.** Settings toggle; `expo-location` background updates +
