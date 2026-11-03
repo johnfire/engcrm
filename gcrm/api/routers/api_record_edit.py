@@ -39,7 +39,11 @@ router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
 TEXT_LIMITS = {
     "name": 200, "type": 60, "city": 100, "country": 2, "website": 300, "email": 200,
     "phone": 60, "decision_maker": 200, "preferred_contact_method": 60, "notes": 20000,
+    "best_visit_time": 200, "access_notes": 20000, "space_notes": 20000, "price_sensitivity": 20000,
 }
+
+# The suppression flags the phone may set, as the web edit form can.
+EDITABLE_FLAGS = ("do_not_contact", "email_bounced", "research_exhausted")
 
 
 class OrganizationFields(BaseModel):
@@ -54,7 +58,14 @@ class OrganizationFields(BaseModel):
     decision_maker: str | None = None
     preferred_contact_method: str | None = None
     notes: str | None = None
+    best_visit_time: str | None = None
+    access_notes: str | None = None
+    space_notes: str | None = None
+    price_sensitivity: str | None = None
+    fit_score: int | None = None  # 0..100; null clears it
     do_not_contact: bool | None = None
+    email_bounced: bool | None = None
+    research_exhausted: bool | None = None
     pipeline_stage: str | None = None  # Creation only; existing stages are changed on the deals.
     offer: str | None = None  # Creation only: whose pipeline the stage is (slug); default Consulting.
 
@@ -162,7 +173,9 @@ def save_manual_organization(body: OrganizationFields, source: str) -> dict:
             "message": "This name is on the ignored-chains list, so it was not added",
             "existing_id": None,
         })
-    extras = {key: fields[key] for key in ("decision_maker", "preferred_contact_method") if fields.get(key)}
+    extras = {key: fields[key] for key in (
+        "decision_maker", "preferred_contact_method", "best_visit_time", "access_notes", "space_notes",
+        "price_sensitivity") if fields.get(key)}
     if extras:
         _write_columns(contact_id, extras, get_workspace_id())
     if body.do_not_contact:
@@ -196,7 +209,11 @@ def edit_organization(
     if "pipeline_stage" in body.model_fields_set:
         raise HTTPException(status_code=400, detail="Change an existing stage on the deal (PATCH /api/deals/{id})")
     fields = clean_fields(body, TEXT_LIMITS, require_name=False)
-    if not fields and body.do_not_contact is None:
+    flags = {flag: bool(getattr(body, flag)) for flag in EDITABLE_FLAGS if getattr(body, flag) is not None}
+    score_sent = "fit_score" in body.model_fields_set
+    if score_sent and body.fit_score is not None and not 0 <= body.fit_score <= 100:
+        raise HTTPException(status_code=400, detail="fit_score must be between 0 and 100")
+    if not fields and not flags and not score_sent:
         raise HTTPException(status_code=400, detail="Nothing to change")
     _, workspace_id = _personal_identity(payload)
     scope = "AND workspace_id = %s" if workspace_id is not None else ""
@@ -211,6 +228,8 @@ def edit_organization(
         raise HTTPException(status_code=404, detail="Contact not found")
 
     writes = dict(fields)
+    if score_sent:
+        writes["fit_score"] = body.fit_score
     moved = ("city" in fields and (fields["city"] or "") != (current["city"] or "")) or (
         "country" in fields and (fields["country"] or "") != (current["country"] or "")
     )
@@ -222,7 +241,8 @@ def edit_organization(
         writes["latitude"], writes["longitude"] = coords if coords else (None, None)
     if writes:
         _write_columns(contact_id, writes, workspace_id)
-    if body.do_not_contact is not None:
-        set_suppression_flag(contact_id, "do_not_contact", bool(body.do_not_contact))
-    log_audit(None, None, "contact.edited", f"contact:{contact_id}", ",".join(sorted(fields)) or "flags")
-    return {"id": contact_id, "changed": sorted(fields)}
+    for flag, value in flags.items():
+        set_suppression_flag(contact_id, flag, value)
+    changed = sorted(list(fields) + list(flags) + (["fit_score"] if score_sent else []))
+    log_audit(None, None, "contact.edited", f"contact:{contact_id}", ",".join(changed))
+    return {"id": contact_id, "changed": changed}

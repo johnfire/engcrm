@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import {
@@ -21,6 +21,28 @@ import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 
 const VALUE_KEYS = ORGANIZATION_FIELDS.map((field) => field.key);
+
+// The suppression flags, as on the web edit form. Do not contact asks before it is lifted.
+const FLAGS = ["do_not_contact", "email_bounced", "research_exhausted"] as const;
+type Flag = (typeof FLAGS)[number];
+type Flags = Record<Flag, boolean>;
+
+function flagsOf(organization: OrganizationDetail): Flags {
+  return {
+    do_not_contact: !!organization.do_not_contact,
+    email_bounced: !!organization.email_bounced,
+    research_exhausted: !!organization.research_exhausted,
+  };
+}
+
+/** The typed fit score: null for blank, undefined when it is not a whole number 0–100. */
+export function typedScore(text: string): number | null | undefined {
+  const typed = text.trim();
+  if (!typed) return null;
+  if (!/^\d{1,3}$/.test(typed)) return undefined;
+  const score = Number(typed);
+  return score <= 100 ? score : undefined;
+}
 
 function valuesOf(organization: OrganizationDetail): Values {
   const record = organization as unknown as Record<string, unknown>;
@@ -45,7 +67,8 @@ export default function EditOrganizationScreen() {
   const [stage, setStage] = useState<PipelineStage>("candidate");
   const creationOffer = useCreationOffer();
   const [error, setError] = useState<string | null>(null);
-  const [doNotContact, setDoNotContact] = useState<boolean | null>(null);
+  const [flags, setFlags] = useState<Flags | null>(null);
+  const [score, setScore] = useState("");
 
   useEffect(() => {
     getRole().then((role) => setIsAdmin(role === "admin"));
@@ -58,7 +81,8 @@ export default function EditOrganizationScreen() {
       .then((loaded) => {
         if (cancelled) return;
         setOrganization(loaded);
-        setDoNotContact(!!loaded.do_not_contact);
+        setFlags(flagsOf(loaded));
+        setScore(loaded.fit_score === null || loaded.fit_score === undefined ? "" : String(loaded.fit_score));
       })
       .catch(() => {
         if (!cancelled) setLoadFailed(true);
@@ -95,8 +119,16 @@ export default function EditOrganizationScreen() {
     setSaving(true);
     setError(null);
     const body: OrganizationFields = { ...changed };
-    if (id !== null && doNotContact !== null && doNotContact !== !!organization?.do_not_contact) {
-      body.do_not_contact = doNotContact;
+    if (id !== null && organization && flags) {
+      const before = flagsOf(organization);
+      for (const flag of FLAGS) if (flags[flag] !== before[flag]) body[flag] = flags[flag];
+      const typed = typedScore(score);
+      if (typed === undefined) {
+        setError(t("recordForm.scoreInvalid"));
+        setSaving(false);
+        return;
+      }
+      if (typed !== (organization.fit_score ?? null)) body.fit_score = typed;
     }
     try {
       if (id === null) {
@@ -116,16 +148,22 @@ export default function EditOrganizationScreen() {
     }
   }
 
-  function toggleDoNotContact(next: boolean) {
-    if (next) {
-      setDoNotContact(true);
+  function toggleFlag(flag: Flag, next: boolean) {
+    const set = () => setFlags((current) => (current ? { ...current, [flag]: next } : current));
+    if (flag !== "do_not_contact" || next) {
+      set();
       return;
     }
     Alert.alert(t("recordForm.allowContactTitle"), t("recordForm.allowContactBody"), [
       { text: t("common.cancel"), style: "cancel" },
-      { text: t("recordForm.allowContact"), style: "destructive", onPress: () => setDoNotContact(false) },
+      { text: t("recordForm.allowContact"), style: "destructive", onPress: set },
     ]);
   }
+
+  const before = organization ? flagsOf(organization) : null;
+  const flagsChanged = !!flags && !!before && FLAGS.some((flag) => flags[flag] !== before[flag]);
+  const scoreChanged =
+    !!organization && score.trim() !== (organization.fit_score == null ? "" : String(organization.fit_score));
 
   if (isAdmin === null || (id !== null && !organization && !loadFailed)) {
     return (
@@ -157,7 +195,7 @@ export default function EditOrganizationScreen() {
       saving={saving}
       error={error}
       submitLabel={id === null ? t("businessForm.add") : t("recordForm.save")}
-      extraChange={id !== null && doNotContact !== !!organization?.do_not_contact}
+      extraChange={id !== null && (flagsChanged || scoreChanged)}
       onSubmit={save}
     >
       {id === null && (
@@ -166,18 +204,41 @@ export default function EditOrganizationScreen() {
       )}
       {id === null && <BusinessStagePicker stage={stage} disabled={saving} onChange={setStage} />}
       {id !== null && (
-        <View style={styles.switchRow}>
-          <View style={styles.switchText}>
-            <Text style={styles.switchLabel}>{t("recordForm.doNotContact")}</Text>
-            <Text style={styles.switchHint}>{t("recordForm.doNotContactHint")}</Text>
-          </View>
-          <Switch
-            value={!!doNotContact}
-            onValueChange={toggleDoNotContact}
-            disabled={saving}
-            accessibilityLabel={t("recordForm.doNotContact")}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>{t("organizationDetail.fitScore")}</Text>
+          <TextInput
+            style={styles.input}
+            value={score}
+            onChangeText={setScore}
+            keyboardType="number-pad"
+            maxLength={3}
+            editable={!saving}
+            placeholder="0–100"
+            placeholderTextColor="#555"
+            accessibilityLabel={t("organizationDetail.fitScore")}
           />
         </View>
+      )}
+      {id !== null && flags && (
+        <>
+          <Text style={styles.fieldLabel}>{t("organizations.suppression")}</Text>
+          {FLAGS.map((flag) => (
+            <View key={flag} style={styles.switchRow}>
+              <View style={styles.switchText}>
+                <Text style={styles.switchLabel}>{t(`flag.${flag}`)}</Text>
+                {flag === "do_not_contact" && (
+                  <Text style={styles.switchHint}>{t("recordForm.doNotContactHint")}</Text>
+                )}
+              </View>
+              <Switch
+                value={flags[flag]}
+                onValueChange={(next) => toggleFlag(flag, next)}
+                disabled={saving}
+                accessibilityLabel={t(`flag.${flag}`)}
+              />
+            </View>
+          ))}
+        </>
       )}
     </RecordForm>
   );
@@ -186,7 +247,19 @@ export default function EditOrganizationScreen() {
 const styles = StyleSheet.create({
   center: { alignItems: "center", flex: 1, justifyContent: "center", padding: 24 },
   muted: { color: "#888", fontSize: 15, textAlign: "center" },
-  switchRow: { alignItems: "center", flexDirection: "row", gap: 12, marginTop: 6 },
+  switchRow: { alignItems: "center", flexDirection: "row", gap: 12, marginBottom: 6, marginTop: 6 },
+  field: { marginBottom: 14 },
+  fieldLabel: { color: "#888", fontSize: 12, marginBottom: 4, marginLeft: 2 },
+  input: {
+    backgroundColor: "#1a1a2e",
+    borderColor: "#ffffff20",
+    borderRadius: 10,
+    borderWidth: 1,
+    color: "#fff",
+    fontSize: 16,
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
   switchText: { flex: 1 },
   switchLabel: { color: "#fff", fontSize: 15, fontWeight: "600" },
   switchHint: { color: "#888", fontSize: 12, marginTop: 2 },

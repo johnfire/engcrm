@@ -57,6 +57,19 @@ describe("edit person", () => {
     off();
   });
 
+  it("edits the LinkedIn connection and keep switches, as the web's edit form does", async () => {
+    mockParams = { id: "7" };
+    mockEdit.mockResolvedValue(undefined);
+    mockFetch.mockResolvedValue({ ...PERSON, is_linkedin_contact: false, retention_hold: false, retention_days: 730 });
+    const screen = render(<EditPersonScreen />);
+    await waitFor(() => expect(screen.getByDisplayValue("Anna Roth")).toBeTruthy());
+    expect(screen.getByText(/after 730 days/)).toBeTruthy();
+    fireEvent(screen.getByLabelText("LinkedIn connection"), "valueChange", true);
+    fireEvent(screen.getByLabelText("Keep: never delete automatically"), "valueChange", true);
+    fireEvent.press(screen.getByText("Save changes"));
+    await waitFor(() => expect(mockEdit).toHaveBeenCalledWith(7, { is_linkedin_contact: true, retention_hold: true }));
+  });
+
   it("adds a person at an organization, starting from the name typed in Search", async () => {
     mockParams = { name: "Ben Weiss", companyId: "42", companyName: "Acme Salon" };
     mockCreate.mockResolvedValue({ id: 55 });

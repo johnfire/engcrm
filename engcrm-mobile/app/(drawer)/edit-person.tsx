@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Switch, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { createPerson, duplicateOf, editPerson, fetchPerson, Person } from "../../services/api";
@@ -41,6 +41,9 @@ export default function EditPersonScreen() {
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<PipelineStage | null>(null);
   const creationOffer = useCreationOffer();
+  // The two switches of the web's edit form (editing only).
+  const [linkedin, setLinkedin] = useState(false);
+  const [keep, setKeep] = useState(false);
 
   useEffect(() => {
     getRole().then((role) => setIsAdmin(role === "admin"));
@@ -51,7 +54,10 @@ export default function EditPersonScreen() {
     let cancelled = false;
     fetchPerson(id)
       .then((loaded) => {
-        if (!cancelled) setPerson(loaded);
+        if (cancelled) return;
+        setPerson(loaded);
+        setLinkedin(!!loaded.is_linkedin_contact);
+        setKeep(!!loaded.retention_hold);
       })
       .catch(() => {
         if (!cancelled) setLoadFailed(true);
@@ -93,7 +99,11 @@ export default function EditPersonScreen() {
         if (stage !== null) void creationOffer.remember();
         goToDetail(created.id);
       } else {
-        await editPerson(id, changed);
+        await editPerson(id, {
+          ...changed,
+          ...(linkedin !== !!person?.is_linkedin_contact ? { is_linkedin_contact: linkedin } : {}),
+          ...(keep !== !!person?.retention_hold ? { retention_hold: keep } : {}),
+        });
         notifyChanged(personKey(id));
         if (router.canGoBack()) router.back();
         else goToDetail(id);
@@ -136,8 +146,25 @@ export default function EditPersonScreen() {
       saving={saving}
       error={error}
       submitLabel={id === null ? t("recordForm.addPerson") : t("recordForm.save")}
+      extraChange={id !== null && (linkedin !== !!person?.is_linkedin_contact || keep !== !!person?.retention_hold)}
       onSubmit={save}
     >
+      {id !== null && (
+        <>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>{t("linkedin.isConnection")}</Text>
+            <Switch value={linkedin} onValueChange={setLinkedin} disabled={saving}
+              accessibilityLabel={t("linkedin.isConnection")} />
+          </View>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>
+              {t("personDetail.retentionHold", { days: person?.retention_days ?? "—" })}
+            </Text>
+            <Switch value={keep} onValueChange={setKeep} disabled={saving}
+              accessibilityLabel={t("personDetail.retentionHoldShort")} />
+          </View>
+        </>
+      )}
       {!!at && <Text style={styles.at}>{t("recordForm.worksAt", { company: at })}</Text>}
       {id === null && (
         <OfferPicker offers={creationOffer.offers} value={creationOffer.offer} onChange={creationOffer.choose}
@@ -152,4 +179,6 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", flex: 1, justifyContent: "center", padding: 24 },
   muted: { color: "#888", fontSize: 15, textAlign: "center" },
   at: { color: "#999", fontSize: 13, marginTop: 4 },
+  switchRow: { alignItems: "center", flexDirection: "row", gap: 12, marginBottom: 8 },
+  switchLabel: { color: "#fff", flex: 1, fontSize: 15 },
 });

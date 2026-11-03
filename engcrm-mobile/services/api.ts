@@ -833,6 +833,9 @@ export interface Person {
   pending_company_raw?: string | null;
   // How far from home, in km; null without coordinates.
   distance_km?: number | null;
+  // "Keep: never delete automatically"; otherwise deleted after retention_days without activity.
+  retention_hold?: boolean;
+  retention_days?: number;
   // Their LinkedIn profile; absent on servers that predate the LinkedIn import.
   linkedin_url?: string | null;
   // My private rating of them as a contact: 1 (exceptional) .. 5 (minimal); null if unrated.
@@ -951,10 +954,18 @@ export async function setPersonNextStep(
 export type OrganizationFields = Partial<
   Record<
     | "name" | "type" | "city" | "country" | "website" | "email" | "phone"
-    | "decision_maker" | "preferred_contact_method" | "notes",
+    | "decision_maker" | "preferred_contact_method" | "notes"
+    | "best_visit_time" | "access_notes" | "space_notes" | "price_sensitivity",
     string
   >
-> & { do_not_contact?: boolean; pipeline_stage?: PipelineStage; offer?: string };
+> & {
+  do_not_contact?: boolean;
+  email_bounced?: boolean;
+  research_exhausted?: boolean;
+  fit_score?: number | null; // 0..100; null clears it
+  pipeline_stage?: PipelineStage;
+  offer?: string;
+};
 
 export type PersonFields = Partial<
   Record<
@@ -962,7 +973,7 @@ export type PersonFields = Partial<
     | "relationship" | "met_at" | "notes" | "linkedin_url",
     string
   >
->;
+> & { is_linkedin_contact?: boolean; retention_hold?: boolean };
 
 export async function createOrganization(fields: OrganizationFields): Promise<{ id: number }> {
   const resp = await client.post("/api/contacts", fields);

@@ -51,7 +51,7 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
 4. **One way to log (P2, O4).** *Done 03.11.2026* — the organization screen's inline note box went too (same decision). No `followup_promised` server field was needed: the web stores the promise as the follow-up text, which the phone API already took. Server: accept `followup_promised`, return the visit summary.
    Phone: add date, materials left, follow-up promised to Log activity; show the summary.
    *Decision for you below.*
-5. **Edit forms (O2, O3, P5).** Server: widen both PATCH bodies. Phone: add the fields to
+5. **Edit forms (O2, O3, P5).** *Done 03.11.2026.* Server: widen both PATCH bodies. Phone: add the fields to
    `recordFields.ts` (venue notes, fit score, flags; LinkedIn + retention checkboxes).
    `tests/test_mobile_record_fields.py` keeps the limits honest.
 6. **Sales (O6).** Server: list + delete endpoints. Phone: Sales block on the organization screen.

@@ -72,6 +72,45 @@ describe("edit organization", () => {
       off();
     });
 
+    it("edits the venue notes, as the web's edit form does", async () => {
+      const screen = render(<EditOrganizationScreen />);
+      await waitFor(() => expect(screen.getByDisplayValue("Acme Salon")).toBeTruthy());
+      fireEvent.changeText(screen.getByLabelText("Best time to visit"), "Tue mornings");
+      fireEvent.changeText(screen.getByLabelText("Price sensitivity"), "Tight budget");
+      fireEvent.press(screen.getByText("Save changes"));
+      await waitFor(() =>
+        expect(mockEdit).toHaveBeenCalledWith(42, { best_visit_time: "Tue mornings", price_sensitivity: "Tight budget" }),
+      );
+    });
+
+    it("sets the other suppression flags and the fit score, sending only what changed", async () => {
+      mockFetch.mockResolvedValue({ ...ORG, fit_score: 40, email_bounced: false, research_exhausted: true });
+      const screen = render(<EditOrganizationScreen />);
+      await waitFor(() => expect(screen.getByDisplayValue("40")).toBeTruthy());
+      fireEvent(screen.getByLabelText("Email bounced"), "valueChange", true);
+      fireEvent(screen.getByLabelText("No more data findable"), "valueChange", false);
+      fireEvent.changeText(screen.getByLabelText("Fit score"), "75");
+      fireEvent.press(screen.getByText("Save changes"));
+      await waitFor(() =>
+        expect(mockEdit).toHaveBeenCalledWith(42, { email_bounced: true, research_exhausted: false, fit_score: 75 }),
+      );
+      expect(alert).not.toHaveBeenCalled(); // only lifting Do not contact asks first
+    });
+
+    it("clears the fit score, and refuses one that is not 0–100", async () => {
+      mockFetch.mockResolvedValue({ ...ORG, fit_score: 40 });
+      const screen = render(<EditOrganizationScreen />);
+      await waitFor(() => expect(screen.getByDisplayValue("40")).toBeTruthy());
+      fireEvent.changeText(screen.getByLabelText("Fit score"), "140");
+      fireEvent.press(screen.getByText("Save changes"));
+      await waitFor(() => expect(screen.getByText("The score is a whole number from 0 to 100.")).toBeTruthy());
+      expect(mockEdit).not.toHaveBeenCalled();
+
+      fireEvent.changeText(screen.getByLabelText("Fit score"), "");
+      fireEvent.press(screen.getByText("Save changes"));
+      await waitFor(() => expect(mockEdit).toHaveBeenCalledWith(42, { fit_score: null }));
+    });
+
     it("can clear a field", async () => {
       const screen = render(<EditOrganizationScreen />);
       await waitFor(() => expect(screen.getByDisplayValue("https://acme.de")).toBeTruthy());

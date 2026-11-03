@@ -10,6 +10,7 @@ from gcrm.api.jwt_auth import require_jwt, require_jwt_admin, require_jwt_payloa
 from gcrm.api.offer_filter import api_offer_filter, creation_offer
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.routers.api_record_edit import clean_fields
+from gcrm.config import PEOPLE_RETENTION_DAYS
 from gcrm.db.connection import db
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.sources import MANUAL_MOBILE
@@ -96,6 +97,9 @@ class PersonFields(BaseModel):
     met_at: str | None = None
     notes: str | None = None
     linkedin_url: str | None = None
+    # edit: a LinkedIn connection, and "keep: never delete automatically"
+    is_linkedin_contact: bool | None = None
+    retention_hold: bool | None = None
     # create only: the organization this person works at
     contact_id: int | None = None
     # create only: their starting stage (blank/null = none), on a deal for `offer`
@@ -174,16 +178,19 @@ def edit_person(
     fields = clean_fields(body, PERSON_LIMITS, require_name=False)
     if body.contact_id is not None:
         raise HTTPException(status_code=400, detail="The organization is not changed here")
-    if not fields:
+    switches = {key: getattr(body, key) for key in ("is_linkedin_contact", "retention_hold")
+                if getattr(body, key) is not None}
+    if not fields and not switches:
         raise HTTPException(status_code=400, detail="Nothing to change")
     try:
-        updated = update_person(person_id, {k: v or "" for k, v in fields.items()})
+        updated = update_person(person_id, {**{k: v or "" for k, v in fields.items()}, **switches})
     except ValueError:
         raise HTTPException(status_code=400, detail="LinkedIn URL must be a linkedin.com link")
     if not updated:
         raise HTTPException(status_code=404, detail="Person not found")
-    log_audit(None, None, "person.edited", f"person:{person_id}", ",".join(sorted(fields)))
-    return {"id": person_id, "changed": sorted(fields)}
+    changed = sorted(list(fields) + list(switches))
+    log_audit(None, None, "person.edited", f"person:{person_id}", ",".join(changed))
+    return {"id": person_id, "changed": changed}
 
 
 @router.get("/{person_id}")
@@ -191,7 +198,8 @@ def person_detail(person_id: int, payload: dict = Depends(require_jwt_payload)) 
     person = get_person(person_id, _personal_identity(payload)[0])
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
-    return person
+    # How long an unkept person lasts without activity, for the "keep" switch's words.
+    return {**person, "retention_days": PEOPLE_RETENTION_DAYS}
 
 
 class ValueRatingBody(BaseModel):

@@ -15,6 +15,10 @@ export const ORGANIZATION_FIELDS: FieldDef[] = [
   { key: "website", labelKey: "recordForm.website", maxLength: 300, keyboard: "url" },
   { key: "decision_maker", labelKey: "recordForm.decisionMaker", maxLength: 200 },
   { key: "preferred_contact_method", labelKey: "recordForm.preferredContact", maxLength: 60 },
+  { key: "best_visit_time", labelKey: "organizationDetail.bestTimeToVisit", maxLength: 200 },
+  { key: "access_notes", labelKey: "organizationDetail.accessLogistics", maxLength: 20000, multiline: true },
+  { key: "space_notes", labelKey: "organizationDetail.spaceNotes", maxLength: 20000, multiline: true },
+  { key: "price_sensitivity", labelKey: "organizationBrief.priceSensitivity", maxLength: 20000, multiline: true },
   { key: "notes", labelKey: "recordForm.notes", maxLength: 20000, multiline: true },
 ];
 

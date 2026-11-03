@@ -179,6 +179,30 @@ class TestEditOrganization:
         flag.assert_called_once_with(9, "do_not_contact", True)
         write.assert_not_called()
 
+    def test_the_other_suppression_flags_go_through_the_helper_too(self):
+        response, write, flag, _ = self.patch_org({"email_bounced": True, "research_exhausted": False})
+        assert response.status_code == 200
+        assert sorted(c.args for c in flag.call_args_list) == [(9, "email_bounced", True), (9, "research_exhausted", False)]
+        assert response.json()["changed"] == ["email_bounced", "research_exhausted"]
+        write.assert_not_called()
+
+    def test_venue_notes_are_written_like_the_web_form_writes_them(self):
+        response, write, _, _ = self.patch_org({"best_visit_time": " Tue am ", "space_notes": "two walls",
+                                                "access_notes": "", "price_sensitivity": "tight"})
+        assert response.status_code == 200
+        assert write.call_args.args[1] == {"best_visit_time": "Tue am", "space_notes": "two walls",
+                                           "access_notes": None, "price_sensitivity": "tight"}
+
+    def test_the_fit_score_is_set_cleared_and_kept_to_0_100(self):
+        response, write, _, _ = self.patch_org({"fit_score": 75})
+        assert response.status_code == 200 and write.call_args.args[1] == {"fit_score": 75}
+        response, write, _, _ = self.patch_org({"fit_score": None})
+        assert response.status_code == 200 and write.call_args.args[1] == {"fit_score": None}
+        for bad in (101, -1):
+            response, write, _, _ = self.patch_org({"fit_score": bad})
+            assert response.status_code == 400
+            write.assert_not_called()
+
     def test_unknown_organization_is_404(self):
         response, _, _, _ = self.patch_org({"phone": "1"}, current={})
         assert response.status_code == 404
@@ -261,6 +285,12 @@ class TestPeople:
         response, update = self.edit({"phone": " 123 ", "notes": ""})
         assert response.status_code == 200
         update.assert_called_once_with(6, {"phone": "123", "notes": ""})
+
+    def test_edit_sets_the_linkedin_and_keep_switches(self):
+        response, update = self.edit({"is_linkedin_contact": True, "retention_hold": False})
+        assert response.status_code == 200
+        update.assert_called_once_with(6, {"is_linkedin_contact": True, "retention_hold": False})
+        assert response.json()["changed"] == ["is_linkedin_contact", "retention_hold"]
 
     def test_edit_refusals(self):
         assert self.edit({})[0].status_code == 400

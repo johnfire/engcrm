@@ -728,5 +728,8 @@
   "judgment.lastMyRead": "Letzter Eindruck von ihnen",
   "activity.logTitle": "Aktivität erfassen",
   "meeting.whenPlaceholder": "Heute — oder Tag eingeben, 28.10.2026",
-  "meeting.badDay": "Tag bitte als 28.10.2026 eingeben, heute oder früher."
+  "meeting.badDay": "Tag bitte als 28.10.2026 eingeben, heute oder früher.",
+  "personDetail.retentionHold": "Behalten: nie automatisch löschen (sonst Löschung nach {{days}} Tagen ohne Aktivität)",
+  "recordForm.scoreInvalid": "Der Score ist eine ganze Zahl von 0 bis 100.",
+  "personDetail.retentionHoldShort": "Behalten: nie automatisch löschen"
 }
