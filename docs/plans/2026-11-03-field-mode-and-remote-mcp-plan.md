@@ -103,7 +103,7 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
    with the next push.
 3. **Server: Places Nearby Search** *Done 03.11.2026.* in `gcrm/tools/search.py`, with the field mask kept small
    (cost). Tests with a recorded response.
-4. **Server: the field tools** in a new `gcrm/mcp/field.py`, reusing the existing write
+4. **Server: the field tools** *Done 03.11.2026.* in a new `gcrm/mcp/field.py`, reusing the existing write
    helpers (the same code the phone and web use, so rules and audit stay one place).
    Unit tests + real Postgres, including undo.
 5. **Server: remote MCP endpoint.** Streamable-HTTP `/mcp` on the live server, token check,

@@ -939,5 +939,6 @@
   "statistics.subscribersNow": "{{count}} zahlend",
   "statistics.subscriptionRevenue": "Abos",
   "statistics.calculatedHint": "Berechnet aus den eingetragenen Abos (€/Monat × Laufzeittage), nicht mit Zahlungen abgeglichen.",
-  "statistics.mrrMoves": "MRR neu / verloren"
+  "statistics.mrrMoves": "MRR neu / verloren",
+  "source.claude_field": "Claude (Außendienst-Modus)"
 }

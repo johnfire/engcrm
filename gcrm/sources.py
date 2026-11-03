@@ -9,6 +9,8 @@ path cannot leave the origin unrecorded. Labels for each value are the i18n keys
 MANUAL_MOBILE = "manual_mobile"
 MANUAL_WEB = "manual_web"
 VOICE = "voice"
+# Saved by Claude through the remote MCP connector (field mode).
+CLAUDE_FIELD = "claude_field"
 # Created from a photo.
 CARD_CAPTURE = "card_capture"
 DOCUMENT_CAPTURE = "document_capture"
@@ -26,7 +28,7 @@ MANUAL = "manual"
 # Values with a display label. Directory imports carry a dated name
 # (bavaria_directory_2026-08-19) and are labelled by their prefix.
 KNOWN_SOURCES = (
-    MANUAL_MOBILE, MANUAL_WEB, VOICE, CARD_CAPTURE, DOCUMENT_CAPTURE, SIGN_SCAN,
+    MANUAL_MOBILE, MANUAL_WEB, VOICE, CLAUDE_FIELD, CARD_CAPTURE, DOCUMENT_CAPTURE, SIGN_SCAN,
     RESEARCH_AGENT, MAPS_IMPORT, SIGN_RESEARCH, STUDIES_IMPORT, LINKEDIN, LINKEDIN_IMPORT, MANUAL,
 )
 DIRECTORY_IMPORT_PREFIX = "bavaria_directory"

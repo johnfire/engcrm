@@ -763,5 +763,6 @@
   "fieldMode.notificationBody": "Recording your location every 5 minutes",
   "fieldMode.explainTitle": "Field mode",
   "fieldMode.explainBody": "EngCRM will record where you are every 5 minutes, and Android shows a notification the whole time. If Android asks, allow location while using the app. Switch field mode on here, then you can talk to Claude in any app.",
-  "fieldMode.locationDenied": "Location is off for EngCRM. Allow it in Android's settings to use field mode."
+  "fieldMode.locationDenied": "Location is off for EngCRM. Allow it in Android's settings to use field mode.",
+  "source.claude_field": "Claude (field mode)"
 }

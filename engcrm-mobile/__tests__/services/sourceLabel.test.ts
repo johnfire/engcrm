@@ -10,7 +10,7 @@ describe("sourceLabelKey", () => {
   });
 
   it("has a readable English and German label for every key it can return", () => {
-    for (const value of ["manual_mobile", "manual_web", "voice", "card_capture", "research_agent", "bavaria_directory_x", null]) {
+    for (const value of ["manual_mobile", "manual_web", "voice", "claude_field", "card_capture", "research_agent", "bavaria_directory_x", null]) {
       for (const language of ["en", "de"] as const) {
         expect(translate(sourceLabelKey(value), language)).not.toMatch(/^\[/);
       }

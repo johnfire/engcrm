@@ -939,5 +939,6 @@
   "statistics.subscribersNow": "{{count}} paying",
   "statistics.subscriptionRevenue": "Subscriptions",
   "statistics.calculatedHint": "Calculated from the subscriptions entered (€/month × days running), not checked against payments.",
-  "statistics.mrrMoves": "MRR new / lost"
+  "statistics.mrrMoves": "MRR new / lost",
+  "source.claude_field": "Claude (field mode)"
 }

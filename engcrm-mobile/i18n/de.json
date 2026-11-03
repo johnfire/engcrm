@@ -763,5 +763,6 @@
   "fieldMode.notificationBody": "Speichert alle 5 Minuten Ihren Standort",
   "fieldMode.explainTitle": "Außendienst-Modus",
   "fieldMode.explainBody": "EngCRM speichert alle 5 Minuten, wo Sie sind, und Android zeigt die ganze Zeit eine Benachrichtigung. Falls Android fragt: Standort während der Nutzung der App erlauben. Schalten Sie den Modus hier ein, dann können Sie in jeder App mit Claude sprechen.",
-  "fieldMode.locationDenied": "Der Standort ist für EngCRM aus. Erlauben Sie ihn in den Android-Einstellungen, um den Außendienst-Modus zu nutzen."
+  "fieldMode.locationDenied": "Der Standort ist für EngCRM aus. Erlauben Sie ihn in den Android-Einstellungen, um den Außendienst-Modus zu nutzen.",
+  "source.claude_field": "Claude (Außendienst-Modus)"
 }
