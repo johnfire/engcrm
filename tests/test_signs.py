@@ -76,6 +76,11 @@ class TestResolveBusiness:
         assert place["place_id"] == "near"
         assert place["city"] == "Augsburg"
 
+    def test_town_is_sent_to_the_search(self):
+        with patch("gcrm.tools.search.google_maps_search", return_value=[]) as msearch:
+            signs.resolve_business("Bäckerei Roth", town=" Landsberg ")
+        assert msearch.call_args.kwargs["city"] == "Landsberg"
+
     def test_no_gps_takes_first_result(self):
         results = [
             {"name": "A", "place_id": "1", "address": "", "city": "", "website": "", "phone": "", "google_data": {}},
@@ -106,7 +111,17 @@ class TestBuildOrganizationFields:
         )
         assert fields["company"] == "Bäckerei Roth"
         assert fields["phone"] == "+49 821 1"
-        assert "city" not in fields
+        assert fields["city"] == ""
+
+    def test_typed_town_fills_the_city_when_no_place(self):
+        fields = signs.build_organization_fields("Bäckerei Roth", {}, None, town="  Landsberg ")
+        assert fields["city"] == "Landsberg"
+
+    def test_typed_town_wins_over_the_place_city(self):
+        fields = signs.build_organization_fields(
+            "Bäckerei Roth", {}, {"name": "Bäckerei Roth", "city": "Augsburg"}, town="Königsbrunn",
+        )
+        assert fields["city"] == "Königsbrunn"
 
 
 class TestPromotePeople:
@@ -208,7 +223,7 @@ class TestConfirmEndpoint:
                 json={"business_name": "Bäckerei Roth", "accept_place": False},
             )
         assert r.status_code == 200
-        assert r.json() == {"contact_id": 42, "capture_id": 5}
+        assert r.json() == {"contact_id": 42, "capture_id": 5, "notes_recorded": None}
         assert mpromote.call_args.kwargs["source"] == "sign_scan"
         mdelete.assert_called_once_with("5.jpg")  # CARD_IMAGE_RETENTION_DAYS defaults to 0 in tests
         mresearch.assert_called_once_with(42)
@@ -221,3 +236,51 @@ class TestConfirmEndpoint:
             mock_db.return_value.__enter__.return_value = conn
             r = client.post("/api/signs/5/confirm", headers=AUTH, json={"business_name": "   "})
         assert r.status_code == 400
+
+
+class TestConfirmTownAndNotes:
+    CAP = {"id": 5, "status": "pending_review", "image_path": None,
+           "extracted": {"business_name": "Bäckerei Roth"}, "place_json": None}
+
+    def _confirm(self, body, note_side_effect=None):
+        conn, cur = make_mock_conn(rows=[dict(self.CAP)])
+        with patch("gcrm.api.routers.api_signs.db") as mock_db, \
+             patch("gcrm.tools.cards.promote_to_organization", return_value=42) as mpromote, \
+             patch("gcrm.tools.signs.research_business") as mresearch, \
+             patch("gcrm.api.routers.api_signs.log_meeting_note", side_effect=note_side_effect) as mnote:
+            mock_db.return_value.__enter__.return_value = conn
+            r = client.post("/api/signs/5/confirm", headers=AUTH, json={"business_name": "Bäckerei Roth", **body})
+        return r, mpromote, mnote, mresearch
+
+    def test_town_is_saved_as_the_city(self):
+        r, mpromote, _, _ = self._confirm({"town": "Landsberg"})
+        assert r.status_code == 200
+        assert mpromote.call_args.args[0]["city"] == "Landsberg"
+
+    def test_notes_are_logged_as_a_plain_note(self):
+        r, _, mnote, _ = self._confirm({"notes": "Owner friendly, call back in Jan"})
+        mnote.assert_called_once_with(42, "other", "Owner friendly, call back in Jan")
+        assert r.json()["notes_recorded"] is True
+
+    def test_met_in_person_logs_a_drop_in(self):
+        r, _, mnote, _ = self._confirm({"notes": "Spoke to the owner", "met_in_person": True})
+        mnote.assert_called_once_with(42, "in_person", "Spoke to the owner")
+
+    def test_met_in_person_without_notes_uses_the_default_text(self):
+        self._confirm({"met_in_person": True})[2].assert_called_once_with(42, "in_person", "Met in person (sign scan)")
+
+    def test_no_notes_logs_nothing(self):
+        r, _, mnote, _ = self._confirm({"notes": "   "})
+        mnote.assert_not_called()
+        assert r.json()["notes_recorded"] is None
+
+    def test_note_failure_keeps_the_organization_and_still_researches(self):
+        r, _, _, mresearch = self._confirm({"notes": "x"}, note_side_effect=RuntimeError("db down"))
+        assert r.status_code == 200
+        assert r.json()["contact_id"] == 42 and r.json()["notes_recorded"] is False
+        mresearch.assert_called_once_with(42)
+
+    def test_older_clients_without_the_new_fields_still_work(self):
+        r, mpromote, mnote, _ = self._confirm({})
+        assert r.status_code == 200
+        mnote.assert_not_called()

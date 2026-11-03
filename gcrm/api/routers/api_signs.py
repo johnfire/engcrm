@@ -22,7 +22,7 @@ from fastapi import (
     UploadFile,
 )
 from psycopg2.extras import Json
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from gcrm.api.jwt_auth import require_jwt_admin
 from gcrm.config import CARD_IMAGE_RETENTION_DAYS, MAX_UPLOAD_BYTES
@@ -30,6 +30,7 @@ from gcrm.db.connection import db
 from gcrm.sources import SIGN_SCAN
 from gcrm.tools import cards, signs
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_interactions import log_meeting_note
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/signs", tags=["mobile-signs"])
@@ -44,10 +45,15 @@ def capture_sign(
     image: UploadFile = File(...),
     gps_lat: float | None = Form(None, ge=-90, le=90),
     gps_lng: float | None = Form(None, ge=-180, le=180),
+    town: str = Form("", max_length=120),
     role: str = Depends(require_jwt_admin),
 ) -> dict:
     """Store the photo, extract the business name with Claude vision, try to
-    resolve it to a Google Place, and return everything for the confirm screen."""
+    resolve it to a Google Place, and return everything for the confirm screen.
+    `town` is the town the user says they are in (optional). It narrows the
+    Places search; for a library photo, which sends no GPS, it is the only
+    location hint there is."""
+    town = town.strip()
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="Expected an image upload")
     image_bytes = image.file.read(MAX_UPLOAD_BYTES + 1)
@@ -71,7 +77,7 @@ def capture_sign(
     is_sign = bool(fields.get("is_sign"))
 
     gps = (gps_lat, gps_lng) if gps_lat is not None and gps_lng is not None else None
-    place = signs.resolve_business(fields.get("business_name", ""), gps) if is_sign else None
+    place = signs.resolve_business(fields.get("business_name", ""), gps, town=town) if is_sign else None
     dup = (
         cards.find_possible_duplicate({
             "company": (place or {}).get("name") or fields.get("business_name"),
@@ -112,6 +118,7 @@ def capture_sign(
         "place": place,
         "dup_suggestion": dup,
         "cost_usd": result["cost_usd"],
+        "town": town,
     }
 
 
@@ -119,6 +126,33 @@ class ConfirmSignBody(BaseModel):
     business_name: str
     accept_place: bool = False
     link_to_contact_id: int | None = None
+    # The town the user says the sign is in. Wins over the Places match's city
+    # for a new organization; never overwrites an existing organization's city.
+    town: str = Field("", max_length=120)
+    # First-contact notes, logged as an activity on the organization.
+    notes: str = Field("", max_length=4000)
+    # True when the user spoke with someone there; the activity then counts as a
+    # drop-in visit today, like a scanned card's "met in person".
+    met_in_person: bool = False
+
+
+MET_NOTE = "Met in person (sign scan)"
+
+
+def record_first_contact(contact_id: int, notes: str, met_in_person: bool) -> bool | None:
+    """Log the first-contact notes as today's activity on the organization.
+    None when there is nothing to log. A failure is reported (False) instead of
+    undoing the already-saved organization: the notes can be re-entered by hand,
+    a lost organization cannot."""
+    notes = notes.strip()
+    if not notes and not met_in_person:
+        return None
+    try:
+        log_meeting_note(contact_id, "in_person" if met_in_person else "other", notes or MET_NOTE)
+        return True
+    except Exception:
+        logger.exception("first-contact note failed for contact %s", contact_id)
+        return False
 
 
 @router.post("/{capture_id}/confirm")
@@ -150,7 +184,7 @@ def confirm_sign(
         contact_id = body.link_to_contact_id
     else:
         place = cap["place_json"] if body.accept_place else None
-        organization_fields = signs.build_organization_fields(name, cap["extracted"] or {}, place)
+        organization_fields = signs.build_organization_fields(name, cap["extracted"] or {}, place, town=body.town)
         contact_id = cards.promote_to_organization(organization_fields, source=SIGN_SCAN)
         if contact_id == 0:  # save_organization deduped — link to the existing match
             dup = cards.find_possible_duplicate(organization_fields)
@@ -168,9 +202,10 @@ def confirm_sign(
     if CARD_IMAGE_RETENTION_DAYS <= 0 and cap["image_path"]:
         cards.delete_card_image(cap["image_path"])
 
+    notes_recorded = record_first_contact(contact_id, body.notes, body.met_in_person)
     background.add_task(signs.research_business, contact_id)
     log_audit(None, None, "sign.confirmed", f"card_capture:{capture_id}", f"contact:{contact_id}")
-    return {"contact_id": contact_id, "capture_id": capture_id}
+    return {"contact_id": contact_id, "capture_id": capture_id, "notes_recorded": notes_recorded}
 
 
 @router.post("/{capture_id}/discard")

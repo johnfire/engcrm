@@ -391,9 +391,12 @@ export async function listPendingCards(): Promise<PendingCard[]> {
 
 // --- Sign capture (storefront sign -> business name -> Places match -> research) ---
 // Same multipart shape as captureCard — don't set Content-Type, RN sets the boundary.
+// `town` is the town the user says they are in: it narrows the Places search,
+// and is the only location hint a library photo has.
 export async function captureSign(
   imageUri: string,
   gps?: { lat: number; lng: number },
+  town?: string,
 ): Promise<SignCaptureResult> {
   const form = new FormData();
   form.append("image", { uri: imageUri, name: "sign.jpg", type: "image/jpeg" } as any);
@@ -401,8 +404,18 @@ export async function captureSign(
     form.append("gps_lat", String(gps.lat));
     form.append("gps_lng", String(gps.lng));
   }
+  if (town?.trim()) form.append("town", town.trim());
   const resp = await client.post("/api/signs", form, { timeout: 60000 });
   return resp.data;
+}
+
+// What the user adds on the confirm screen. notes_recorded in the reply is
+// null when there was nothing to log, false when logging the notes failed
+// (the organization is saved either way).
+export interface SignFirstContact {
+  town?: string;
+  notes?: string;
+  metInPerson?: boolean;
 }
 
 export async function confirmSign(
@@ -410,11 +423,15 @@ export async function confirmSign(
   businessName: string,
   acceptPlace: boolean,
   linkToContactId?: number | null,
-): Promise<{ contact_id: number; capture_id: number }> {
+  firstContact: SignFirstContact = {},
+): Promise<{ contact_id: number; capture_id: number; notes_recorded?: boolean | null }> {
   const resp = await client.post(`/api/signs/${captureId}/confirm`, {
     business_name: businessName,
     accept_place: acceptPlace,
     link_to_contact_id: linkToContactId ?? null,
+    town: firstContact.town?.trim() ?? "",
+    notes: firstContact.notes?.trim() ?? "",
+    met_in_person: !!firstContact.metInPerson,
   });
   return resp.data;
 }
@@ -640,6 +657,8 @@ export interface SignCaptureResult {
   place: SignPlace | null;
   dup_suggestion: DupSuggestion | null;
   cost_usd: number;
+  // The town sent with the photo, echoed back to pre-fill the confirm screen.
+  town?: string;
 }
 
 // --- Voice capture ---

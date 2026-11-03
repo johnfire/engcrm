@@ -85,9 +85,13 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def resolve_business(name: str, gps: tuple[float, float] | None = None, country: str = "DE") -> dict | None:
+def resolve_business(
+    name: str, gps: tuple[float, float] | None = None, country: str = "DE", town: str = "",
+) -> dict | None:
     """
-    Resolve a bare business name (+ optional GPS) to a canonical Google Place.
+    Resolve a bare business name (+ optional GPS, + optional town the user typed)
+    to a canonical Google Place. The town matters for library photos, which carry
+    no GPS: without it the search runs country-wide and can pick a namesake elsewhere.
 
     Returns {name, place_id, address, city, website, phone, google_data} or None
     when unresolved — no API key set, no results, or the search failed. Callers
@@ -98,8 +102,9 @@ def resolve_business(name: str, gps: tuple[float, float] | None = None, country:
         return None
     from gcrm.tools.search import google_maps_search
 
-    results = (google_maps_search(name, city="", country=country, pages=1, location_bias=gps)
-               if gps else google_maps_search(name, city="", country=country, pages=1))
+    town = (town or "").strip()
+    results = (google_maps_search(name, city=town, country=country, pages=1, location_bias=gps)
+               if gps else google_maps_search(name, city=town, country=country, pages=1))
     if not results:
         return None
     if gps:
@@ -125,19 +130,22 @@ def resolve_business(name: str, gps: tuple[float, float] | None = None, country:
     }
 
 
-def build_organization_fields(business_name: str, extracted: dict, place: dict | None) -> dict:
+def build_organization_fields(business_name: str, extracted: dict, place: dict | None, town: str = "") -> dict:
     """
     Shape confirmed sign data into the fields dict cards.promote_to_organization()
     expects (company/city/website/phone/note/address/industry). `place` is the
     resolved Google Place iff the user accepted it on the confirm screen —
     otherwise fall back to whatever the vision extraction found on the sign.
+    `town` is what the user typed on the confirm screen; when given it wins over
+    the Place's city, because the user was standing there and Places can be wrong.
     """
     industry = (extracted.get("business_type") or "").strip()
     note = (extracted.get("tagline") or extracted.get("note") or "").strip()
+    town = (town or "").strip()
     if place:
         return {
             "company": business_name or place.get("name", ""),
-            "city": place.get("city", "") or "",
+            "city": town or place.get("city", "") or "",
             "country": place.get("country") or "DE",
             "industry": industry,
             "website": place.get("website") or extracted.get("website") or "",
@@ -147,6 +155,7 @@ def build_organization_fields(business_name: str, extracted: dict, place: dict |
         }
     return {
         "company": business_name,
+        "city": town,
         "industry": industry,
         "website": (extracted.get("website") or "").strip(),
         "phone": (extracted.get("phone") or "").strip(),

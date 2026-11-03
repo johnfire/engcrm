@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { confirmSign, discardSign, SignCaptureResult } from "../../services/api";
@@ -23,6 +24,9 @@ export default function SignConfirmScreen() {
   const [businessName, setBusinessName] = useState("");
   const [acceptPlace, setAcceptPlace] = useState(false);
   const [linkDup, setLinkDup] = useState(false);
+  const [town, setTown] = useState("");
+  const [notes, setNotes] = useState("");
+  const [metInPerson, setMetInPerson] = useState(false);
   const [saving, setSaving] = useState(false);
   const place = capture.place;
   const dup = capture.dup_suggestion;
@@ -38,26 +42,44 @@ export default function SignConfirmScreen() {
       setBusinessName(next.fields?.business_name || next.place?.name || "");
       setAcceptPlace(!!next.place);
       setLinkDup(false);
+      // The town typed on the scan screen first: the user knows where they are.
+      setTown(next.town || next.place?.city || "");
+      setNotes("");
+      setMetInPerson(false);
       setSaving(false);
     }, []),
   );
 
-  async function save() {
+  function save() {
     if (!businessName.trim()) {
       Alert.alert(t("signConfirm.businessNameRequiredTitle"), t("signConfirm.enterOrConfirmMessage"));
       return;
     }
+    // Linking to an existing organization keeps its town, so only a new one needs it.
+    if (!town.trim() && !linkDup) {
+      Alert.alert(t("signConfirm.noTownTitle"), t("signConfirm.noTownMessage"), [
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("signConfirm.saveAnyway"), onPress: () => { void submit(); } },
+      ]);
+      return;
+    }
+    void submit();
+  }
+
+  async function submit() {
     setSaving(true);
     try {
-      await confirmSign(
+      const saved = await confirmSign(
         capture.capture_id,
         businessName.trim(),
         acceptPlace,
         linkDup && dup ? dup.id : null,
+        { town, notes, metInPerson },
       );
+      const notesLost = saved?.notes_recorded === false;
       Alert.alert(
         linkDup ? t("cardConfirm.linkedTitle") : t("signConfirm.savedTitle"),
-        t("signConfirm.savedMessage"),
+        t("signConfirm.savedMessage") + (notesLost ? `\n\n${t("signConfirm.notesNotRecorded")}` : ""),
         [{ text: "OK", onPress: () => router.replace(capture.return_to_queue ? "/(drawer)/card-queue" : "/(drawer)/scan-sign") }],
       );
     } catch (error: any) {
@@ -144,6 +166,19 @@ export default function SignConfirmScreen() {
         )}
 
         <CardField label={t("signConfirm.businessName")} value={businessName} onChange={setBusinessName} />
+        <CardField label={t("signConfirm.town")} value={town} onChange={setTown} />
+        <CardField label={t("signConfirm.notes")} value={notes} onChange={setNotes} multiline />
+
+        <View style={styles.metRow}>
+          <View style={styles.metText}>
+            <Text style={styles.metLabel}>{t("signConfirm.metInPerson")}</Text>
+            <Text style={styles.metHint}>
+              {t(metInPerson ? "signConfirm.metInPersonOn" : "signConfirm.metInPersonOff")}
+            </Text>
+          </View>
+          <Switch value={metInPerson} onValueChange={setMetInPerson} disabled={saving}
+            accessibilityLabel={t("signConfirm.metInPerson")} trackColor={{ true: "#7c6fff" }} />
+        </View>
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? (
@@ -213,6 +248,13 @@ const styles = StyleSheet.create({
   dupBtnText: { color: "#aaa", fontSize: 13, fontWeight: "600" },
   dupBtnTextActive: { color: "#fff" },
   confidence: { color: "#666", fontSize: 12, marginBottom: 12, textAlign: "right" },
+  metRow: {
+    flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12, padding: 14,
+    borderRadius: 10, borderWidth: 1, borderColor: "#ffffff20", backgroundColor: "#1a1a2e",
+  },
+  metText: { flex: 1 },
+  metLabel: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  metHint: { color: "#888", fontSize: 12, marginTop: 2 },
   save: {
     backgroundColor: "#7c6fff",
     borderRadius: 12,

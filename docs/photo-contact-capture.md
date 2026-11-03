@@ -8,6 +8,13 @@ Implemented on main; backend and mobile release are required before this is avai
 - **Scan Sign**: photograph a storefront sign. Request current foreground GPS, search Places with a 5 km location bias, and sort matches by distance. Review the matched business/address, accept or reject it, then save and start the existing enrichment/key-people research flow. Location bias is a preference, not a guarantee of the correct business.
 - Library sign images use name-only search: the phone's current position may be unrelated to an old photo. Missing GPS is explicitly disclosed. Cards continue to use their existing flow.
 
+### Town and first-contact notes (03.11.2026)
+
+- **Town** field on Scan Sign: typed once, kept on the device for the next photo (a run of signs is usually one town). Sent with each photo as `town`; the Places search runs for "name + town". For library photos, which send no GPS, it is the only location hint.
+- The confirm screen pre-fills **Town** from that field, otherwise from the Places match, and the typed town wins over the Places city. Saving a new business with no town asks first. Linking to an existing organization never changes its town.
+- **First-contact notes** and an **"I talked to someone there"** switch. The notes are logged as today's activity on the organization: a drop-in (`in_person`) when the switch is on, otherwise a plain note (`other`). If logging fails, the organization stays saved and the app says the notes were lost (`notes_recorded: false`).
+- The camera GPS fix now gives up after 10 s and falls back to the last known position (≤ 5 min old), or none. Before, an upload could wait indefinitely for a fix.
+
 ## Implementation
 
 `POST /api/documents` accepts multipart `image` and `capture_batch_id`. Vision reads printed contact rows; structured output is checked before writing drafts. Unreadable, malformed, or token-truncated responses never partially import a page. Pages containing more than 50 contacts should be photographed in smaller sections.
