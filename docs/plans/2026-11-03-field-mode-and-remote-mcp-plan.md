@@ -45,16 +45,30 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 1. **One switch, in engcrm's Settings: "Field mode".** Off by default. While on, Android
    shows its usual "EngCRM is using your location" notification, so it can never run
    unnoticed. It turns itself off after 8 hours (a forgotten switch stops by evening).
-2. **Only the latest position is stored, never a history.** One row per user, overwritten.
-   A position older than **10 minutes** counts as unknown: Claude then asks for the address
-   instead of filing a company at the café you left an hour ago.
+2. **Every position is kept, as a travel history** (changed 03.11.2026 at Chris's request).
+   While field mode is on, the phone records a point **every 5 minutes** (and when it has
+   moved 50 m); each point is a row, so the history doubles as a map of where he travelled.
+   Nothing is recorded while field mode is off. "Where am I now" is the newest point; one
+   older than **10 minutes** counts as unknown, so Claude asks for the address instead of
+   filing a company at the café he left an hour ago. Points are kept until Chris deletes
+   them (a "delete my location history" tool and command; a retention period can be added
+   later).
 3. **Security: a long secret token in a request header** to start with (simplest thing that
    is safe), plus Caddy/nginx only passing `/mcp` over HTTPS. The token is stored hashed on
    the server, can be revoked and replaced in one command, and is logged on every call.
    OAuth can replace it later without changing the tools.
-4. **Writing tools are narrow.** The remote MCP gets only the field tools below. It does
-   *not* get the existing pipeline tools that send email or run agents. Every write is
-   audit-logged as "claude-mcp" and can be undone.
+4. **All of engcrm through the MCP, in three tiers** (changed 03.11.2026: Chris wants every
+   part of engcrm operable from the MCP). Every write is audit-logged as "claude-mcp".
+   - **Read** (lists, records, statistics, history, location): run at once.
+   - **Everyday writes** (add/edit organizations and people, log activities, deals, next
+     steps, ratings, sales, links): run at once, read back, `undo_last` takes them back.
+   - **Outward or irreversible** (send an email or approve a draft, erase a person under
+     GDPR, delete records, start paid research/agent runs, change settings): two steps.
+     The first call returns exactly what would happen and a short code; nothing happens
+     until Claude repeats it with that code after Chris says yes. A misheard sentence in
+     the cold can then never send a mail or erase someone.
+   - **Accounts and passwords** (users, sign-up, password reset, 2FA, tokens) stay off the
+     MCP: a leaked token must not be able to lock Chris out or create logins.
 5. **Claude reads back before it is done.** The tools return what was saved in one line
    ("Saved Bäckerei Maier, Hauptstraße 12, Landsberg; Maria; follow-up 17.11."), so a
    wrong match is caught in the same breath. Two businesses at one spot: Claude asks
@@ -75,12 +89,12 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 
 ## Steps (one commit each, pushed and checked live)
 
-1. **Server: latest position.** Table `field_location` (user, lat, lng, accuracy, recorded_at),
-   `PUT /api/me/location` (JWT, field mode only), `DELETE` when the switch goes off. Tests +
+1. **Server: location history.** Table `field_locations` (user, lat, lng, accuracy, recorded_at; one row per point),
+   `POST /api/me/locations` (JWT; accepts a batch, so points taken offline arrive later), a delete-history call. Tests +
    real Postgres.
 2. **Phone: Field mode switch.** Settings toggle; `expo-location` background updates +
    `expo-task-manager`; background-location permission and Android's foreground-service
-   notification; auto-off after 8 h; sends at most every 2 minutes or 50 m moved. Needs a
+   notification; auto-off after 8 h; a point every 5 minutes or 50 m moved, queued on the phone while offline. Needs a
    new app build (background location cannot be tested in jest).
 3. **Server: Places Nearby Search** in `gcrm/tools/search.py`, with the field mask kept small
    (cost). Tests with a recorded response.
@@ -93,9 +107,25 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 6. **Connect it:** add the connector on claude.ai (URL + header), check it appears in the
    Claude phone app, then a real walk test: field mode on, stand outside a business, talk.
 
+## After the field steps: the rest of engcrm (phases B and C)
+
+Today the web has roughly 150 routes, the phone API 78, the MCP 12 tools. Covering all of
+it is several sessions of work, so it comes in phases, each built on the same functions the
+web and phone already use (one rule in one place; the MCP never gets its own copy):
+
+- **Phase A — field** (steps 1–6 above): what Chris needs on the road first.
+- **Phase B — the daily CRM:** search and lists (contacts, organizations, people, offers),
+  edit every field, deals and subscriptions, sales, saved messages, contact dates,
+  statistics, the travel history ("where was I last Tuesday").
+- **Phase C — pipeline and admin:** approvals and drafts (two-step), research and area
+  scans (two-step: they cost money), agent runs, LinkedIn imports and matches, settings.
+
 ## Open questions for Chris
 
+- Secret token to start: **decided** (03.11.2026).
 - **8 hours** auto-off and **10 minutes** "too old": right numbers?
+- May the **remote** MCP read the whole travel history, or only "where am I now"? (A leaked
+  token would then show where Chris has been.)
 - Should Claude also be allowed to **move a deal's stage** ("they're a prospect now"), or
   only log and set next steps?
 - Is the engcrm phone app installed from an APK (no Play Store)? Background location is
