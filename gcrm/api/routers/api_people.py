@@ -19,8 +19,8 @@ from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_people import (
     find_existing_person,
     save_person,
-    set_person_rating,
     set_person_organization,
+    set_person_rating,
     set_person_value_rating,
     update_person,
 )

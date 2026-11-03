@@ -28,8 +28,8 @@ from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
 from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.db_users import get_user_by_id
-from gcrm.tools.statistics import delete_sale, get_sales
 from gcrm.tools.deal_records import resolve_log_offer
+from gcrm.tools.statistics import delete_sale, get_sales
 
 logger = logging.getLogger(__name__)
 
