@@ -1,0 +1,6 @@
+interface:
+  display_name: "Marketing Leads to Google Maps"
+  short_description: "Save sales prospects for phone maps and walking visits"
+  default_prompt: "Use $marketing-leads-to-google-maps to research these prospects and save their verified locations to my Cold call candidates list."
+policy:
+  allow_implicit_invocation: true
