@@ -708,5 +708,14 @@
   "organizationBrief.decisionMaker": "Entscheidungsträger",
   "organizationDetail.fitScore": "Fit-Score",
   "organizations.suppression": "Sperren",
-  "personDetail.source": "Quelle"
+  "personDetail.source": "Quelle",
+  "activity.drop_in": "Vorbeischauen",
+  "activity.meeting": "Termin vor Ort",
+  "activity.phone": "Anruf",
+  "activity.video": "Videocall",
+  "activity.email": "E-Mail",
+  "activity.post_mail": "Briefpost",
+  "activity.note": "Notiz",
+  "activity.minutes": "{{minutes}} Min.",
+  "organizationBrief.materialsLeft": "Hinterlassenes Material"
 }

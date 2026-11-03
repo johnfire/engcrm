@@ -45,7 +45,7 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
    distance, LinkedIn details, added date, tappable company link. *Done 03.11.2026.* The
    brief link was left out: the web brief needs a browser login, and once steps 4–5 are done
    the phone screen itself shows everything the brief does.
-3. **History rows (O5, P1).** Server: add the missing columns to the organization GET.
+3. **History rows (O5, P1).** *Done 03.11.2026.* Server: add the missing columns to the organization GET.
    Phone: one `ActivityEntry` row component showing type · minutes · offer, note, judgments,
    materials left — used by both screens.
 4. **One way to log (P2, O4).** Server: accept `followup_promised`, return the visit summary.

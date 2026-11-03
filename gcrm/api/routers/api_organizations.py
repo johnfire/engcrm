@@ -239,11 +239,13 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
 
         cur.execute(
             """
-            SELECT id, interaction_date, method, direction, summary, outcome,
-                   next_action, next_action_date
-            FROM interactions
-            WHERE contact_id = %s AND deleted_at IS NULL
-            ORDER BY interaction_date DESC, id DESC
+            SELECT i.id, i.interaction_date, i.method, i.direction, i.summary, i.outcome,
+                   i.next_action, i.next_action_date, i.duration_minutes, i.attitude, i.my_read,
+                   i.materials_left, o.name AS offer
+            FROM interactions i
+            LEFT JOIN offers o ON o.id = i.offer_id
+            WHERE i.contact_id = %s AND i.deleted_at IS NULL
+            ORDER BY i.interaction_date DESC, i.id DESC
             LIMIT 20
             """,
             [contact_id],

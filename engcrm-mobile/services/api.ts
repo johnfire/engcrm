@@ -588,6 +588,12 @@ export interface Interaction {
   outcome: string | null;
   next_action?: string | null;
   next_action_date?: string | null;
+  // Absent on servers from before the history carried them.
+  duration_minutes?: number | null;
+  attitude?: string[] | null;
+  my_read?: string[] | null;
+  materials_left?: string | null;
+  offer?: string | null; // the offer's name
 }
 
 export interface AgentRun {
@@ -836,6 +842,10 @@ export interface PersonInteraction {
   occurred_at: string;
   method: string | null;
   note: string;
+  duration_minutes?: number | null;
+  attitude?: string[] | null;
+  my_read?: string[] | null;
+  offer?: string | null; // the offer's name
 }
 
 export async function fetchPersonNotes(personId: number): Promise<PersonInteraction[]> {

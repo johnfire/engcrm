@@ -619,3 +619,23 @@ describe("organization detail — laid out like the web page", () => {
     openURL.mockRestore();
   });
 });
+
+describe("organization detail — history like the web's", () => {
+  it("shows each entry's kind, minutes, offer and judgments in words", async () => {
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+    mockFetchContact.mockReset().mockResolvedValue({
+      ...BASE_CONTACT,
+      interactions: [{
+        id: 5, interaction_date: "2026-10-28", method: "phone", direction: null, summary: "Called back.",
+        outcome: "note", duration_minutes: 10, offer: "Consulting", attitude: ["neutral"], my_read: [],
+        materials_left: null, next_action: null, next_action_date: null,
+      }],
+    });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Phone call · 10 min · Consulting")).toBeTruthy());
+    expect(screen.getByText("Their attitude: Neutral")).toBeTruthy();
+    // "note" is how the server marks a typed note, not an outcome worth showing.
+    expect(screen.queryByText("note")).toBeNull();
+  });
+});
+

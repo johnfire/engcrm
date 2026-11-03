@@ -38,6 +38,7 @@ import { DealsPanel } from "../../components/DealsPanel";
 import { formatDay } from "../../services/dates";
 import { NameWithId } from "../../components/NameWithId";
 import { ValueRatings } from "../../components/ValueRatings";
+import { ActivityEntry } from "../../components/ActivityEntry";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -281,36 +282,30 @@ export default function OrganizationDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t("organizationDetail.history")}</Text>
           {organization.interactions.map((interaction, index) => (
-            <View key={index} style={styles.interaction}>
-              <Text style={styles.interactionType}>
-                {[interaction.method, interaction.direction]
-                  .filter(Boolean)
-                  .join(" · ") || t("organizationDetail.interaction")}
-              </Text>
-              <Text style={styles.interactionDate}>
-                {formatDay(interaction.interaction_date)}
-              </Text>
-              {interaction.summary && (
-                <Text style={styles.interactionNotes}>{interaction.summary}</Text>
-              )}
-              {interaction.outcome && (
-                <Text style={styles.interactionOutcome}>{interaction.outcome}</Text>
-              )}
-              {!!interaction.next_action_date && (
-                <Text style={styles.followUp}>
-                  {t("meeting.followUpDue", { date: formatDay(interaction.next_action_date) })}
-                  {interaction.next_action ? ` — ${interaction.next_action}` : ""}
-                </Text>
-              )}
-              {isAdmin && interaction.id !== undefined && interaction.outcome === "note" && (
-                <TouchableOpacity
-                  onPress={() => confirmDeleteNote(interaction.id as number)}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.deleteNote}>{t("meeting.deleteNote")}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <ActivityEntry
+              key={interaction.id ?? index}
+              owner="organization"
+              entry={{
+                when: formatDay(interaction.interaction_date),
+                method: interaction.method,
+                durationMinutes: interaction.duration_minutes,
+                offer: interaction.offer,
+                direction: interaction.direction,
+                text: interaction.summary,
+                attitude: interaction.attitude,
+                myRead: interaction.my_read,
+                materialsLeft: interaction.materials_left,
+                outcome: interaction.outcome === "note" ? null : interaction.outcome,
+                nextAction: interaction.next_action,
+                nextActionDate: interaction.next_action_date,
+              }}
+              onDelete={
+                isAdmin && interaction.id !== undefined && interaction.outcome === "note"
+                  ? () => confirmDeleteNote(interaction.id as number)
+                  : undefined
+              }
+              deleteLabel={t("meeting.deleteNote")}
+            />
           ))}
         </View>
       )}
@@ -592,8 +587,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   secondaryButtonText: { color: "#b9b2ff", fontSize: 14, fontWeight: "600", textAlign: "center" },
-  followUp: { color: "#e0b050", fontSize: 12, marginTop: 4 },
-  deleteNote: { color: "#ef8a8a", fontSize: 12, marginTop: 6 },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -647,26 +640,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   fieldText: { color: "#ccc", fontSize: 14, lineHeight: 22 },
-  interaction: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  interactionType: {
-    color: "#7c6fff",
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  interactionDate: { color: "#666", fontSize: 11, marginBottom: 4 },
-  interactionNotes: { color: "#aaa", fontSize: 13 },
-  interactionOutcome: {
-    color: "#7c6fff",
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 4,
-  },
   empty: { color: "#555" },
 
   // --- LinkedIn notice --- (#0a66c2 is LinkedIn's blue, deliberately unlike the app's purple)

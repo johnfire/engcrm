@@ -25,6 +25,7 @@ import {
 import { onChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 import { formatDayTime } from "../services/dates";
+import { ActivityEntry } from "./ActivityEntry";
 
 const METHODS = [
   { value: "visit", labelKey: "personDetail.notes.methodVisit" },
@@ -36,18 +37,8 @@ const METHODS = [
   { value: "other", labelKey: "personDetail.notes.methodOther" },
 ];
 
-// Entries written by a next-step change carry their own methods.
-const LOG_ONLY_LABELS: Record<string, string> = {
-  next_step: "nextStep.title",
-  next_step_done: "nextStep.doneLog",
-};
-
 export function PersonNotesLog({ personId }: { personId: number }) {
   const { t } = useTranslation();
-  const methodLabel = (method: string) => {
-    const key = METHODS.find((m) => m.value === method)?.labelKey ?? LOG_ONLY_LABELS[method];
-    return key ? t(key) : method;
-  };
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [notes, setNotes] = useState<PersonInteraction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,16 +190,21 @@ export function PersonNotesLog({ personId }: { personId: number }) {
         <Text style={styles.empty}>{t("personDetail.notes.empty")}</Text>
       ) : (
         notes.map((note) => (
-          <View key={note.id} style={styles.entry}>
-            <View style={styles.entryHeader}>
-              <Text style={styles.entryDate}>{formatDayTime(note.occurred_at)}</Text>
-              {!!note.method && <Text style={styles.entryMethod}>{methodLabel(note.method)}</Text>}
-              <TouchableOpacity onPress={() => confirmDelete(note)}>
-                <Text style={styles.entryDelete}>{t("personDetail.notes.delete")}</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.entryNote}>{note.note}</Text>
-          </View>
+          <ActivityEntry
+            key={note.id}
+            owner="person"
+            entry={{
+              when: formatDayTime(note.occurred_at),
+              method: note.method,
+              durationMinutes: note.duration_minutes,
+              offer: note.offer,
+              text: note.note,
+              attitude: note.attitude,
+              myRead: note.my_read,
+            }}
+            onDelete={() => confirmDelete(note)}
+            deleteLabel={t("personDetail.notes.delete")}
+          />
         ))
       )}
     </View>
@@ -271,24 +267,4 @@ const styles = StyleSheet.create({
   saveText: { color: "#fff", fontSize: 14, fontWeight: "700", textAlign: "center" },
   error: { color: "#ef8a8a", fontSize: 12, marginTop: 8 },
   empty: { color: "#555", fontSize: 13, marginTop: 12 },
-  entry: {
-    backgroundColor: "#1a1a2e",
-    borderRadius: 10,
-    marginTop: 10,
-    padding: 12,
-  },
-  entryHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
-  entryDate: { color: "#888", fontSize: 11 },
-  entryMethod: {
-    backgroundColor: "#ffffff10",
-    borderRadius: 8,
-    color: "#aaa",
-    fontSize: 10,
-    fontWeight: "700",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    textTransform: "uppercase",
-  },
-  entryDelete: { color: "#ef8a8a", fontSize: 11, marginLeft: "auto" },
-  entryNote: { color: "#ccc", fontSize: 13, lineHeight: 19, marginTop: 6 },
 });

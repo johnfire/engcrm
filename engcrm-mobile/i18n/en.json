@@ -708,5 +708,14 @@
   "organizationBrief.decisionMaker": "Decision maker",
   "organizationDetail.fitScore": "Fit score",
   "organizations.suppression": "Suppression",
-  "personDetail.source": "Source"
+  "personDetail.source": "Source",
+  "activity.drop_in": "Drop-in",
+  "activity.meeting": "Sit-down meeting",
+  "activity.phone": "Phone call",
+  "activity.video": "Video call",
+  "activity.email": "Email",
+  "activity.post_mail": "Post mail",
+  "activity.note": "Note",
+  "activity.minutes": "{{minutes}} min",
+  "organizationBrief.materialsLeft": "Materials left"
 }
