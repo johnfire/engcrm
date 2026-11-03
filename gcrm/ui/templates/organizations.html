@@ -15,9 +15,9 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 {% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 {% set active_sort = sort %}
 {% set active_dir = dir %}
-{% set filter_values = dict(q=query, status=active_status, stage=active_stage, suppressed=active_suppressed, type=active_type, has_contact=has_contact, personal_priority=personal_priority, linkedin=linkedin, offer=active_offer or 'all') %}
+{% set filter_values = dict(q=query, status=active_status, stage=active_stage, suppressed=active_suppressed, type=active_type, has_contact=has_contact, personal_priority=personal_priority, linkedin=linkedin, on_map=on_map, offer=active_offer or 'all') %}
 {% set sort_values = dict(sort=active_sort, dir=active_dir) %}
-{% set reset_filter_values = dict(q='', status='', stage='', suppressed='', type='', has_contact='', personal_priority='', linkedin='', offer='all', sort=active_sort, dir=active_dir) %}
+{% set reset_filter_values = dict(q='', status='', stage='', suppressed='', type='', has_contact='', personal_priority='', linkedin='', on_map='', offer='all', sort=active_sort, dir=active_dir) %}
 <div class="list-controls">
 <form id="list-filter-form" class="filter-bar list-control-group" method="get" action="/organizations/" aria-label="{{ t('common.filter') }}">
   <h2 class="list-control-title">{{ t('common.filter') }}</h2>
@@ -88,6 +88,11 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
     <option value="" {% if linkedin == "" %}selected{% endif %}>{{ t('organizations.anyLinkedin') }}</option>
     <option value="1" {% if linkedin == "1" %}selected{% endif %}>{{ t('organizations.hasLinkedin') }}</option>
   </select>
+  <select name="on_map" aria-label="{{ t('organizations.mapFilter') }}">
+    <option value="" {% if on_map == "" %}selected{% endif %}>{{ t('organizations.anyMap') }}</option>
+    <option value="1" {% if on_map == "1" %}selected{% endif %}>{{ t('organizations.onMap') }}</option>
+    <option value="0" {% if on_map == "0" %}selected{% endif %}>{{ t('organizations.notOnMap') }}</option>
+  </select>
   <button type="submit" class="btn-primary">{{ t('listControls.applyFilters') }}</button>
   {{ reset_link('/organizations/', reset_filter_values, t('listControls.resetFilters'), 'reset-filters') }}
 </form>
@@ -132,7 +137,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 = ' ↑' if (sort == col and dir == 'asc') else (' ↓' if (sort == col and dir ==
 'desc') else '') %}
 <a
-  href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ col }}&dir={{ next_dir }}&page=1"
+  href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&on_map={{ on_map }}&sort={{ col }}&dir={{ next_dir }}&page=1"
   class="sort-link"
   >{{ label }}{{ arrow }}</a
 >
@@ -186,7 +191,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td class="star-col">{% include 'partials/star_button.html' %}</td>
       <td class="muted small">{{ c.id }}</td>
       <td>
-        <strong><a href="/organizations/{{ c.id }}" target="_blank" rel="noopener">{{ c.name }}</a></strong> <span class="record-id">#{{ c.id }}</span>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}
+        <strong><a href="/organizations/{{ c.id }}" target="_blank" rel="noopener">{{ c.name }}</a></strong> <span class="record-id">#{{ c.id }}</span>{% if c.linkedin_connection_count %} <span class="badge linkedin-badge" title="{{ t('linkedin.notice.title') }}">in {{ c.linkedin_connection_count }}</span>{% endif %}{% if c.map_pin_count %} <span class="badge map-badge" title="{{ t('organizations.onMapTitle') }}">{{ t('organizations.mapBadge') }}</span>{% endif %}
       </td>
       <td class="small known-people-cell">
         {%- set known = c.known_people or [] %}
@@ -277,7 +282,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
 <div class="pagination">
   {% if page > 1 %}
   <a
-    href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
+    href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&on_map={{ on_map }}&sort={{ sort }}&dir={{ dir }}&page={{ page - 1 }}"
     class="btn-secondary"
     >{{ t('common.prev') }}</a
   >
@@ -285,7 +290,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
   <span class="muted">{{ t('common.pageOf', page=page, totalPages=total_pages) }}</span>
   {% if page < total_pages %}
   <a
-    href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
+    href="?offer={{ active_offer or 'all' }}&status={{ active_status }}&stage={{ active_stage }}&suppressed={{ active_suppressed }}&type={{ active_type | urlenc }}&q={{ query | urlenc }}&has_contact={{ has_contact }}&personal_priority={{ personal_priority }}&linkedin={{ linkedin }}&on_map={{ on_map }}&sort={{ sort }}&dir={{ dir }}&page={{ page + 1 }}"
     class="btn-secondary"
     >{{ t('common.next') }}</a
   >

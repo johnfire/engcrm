@@ -34,6 +34,7 @@ from gcrm.tools.db_linkedin import (
 )
 from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
 from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
+from gcrm.tools.map_pins import pins_for_contact
 from gcrm.tools.privacy_retention import erase_organization
 from gcrm.tools.statistics import get_sales
 
@@ -95,7 +96,7 @@ def _sort_column(sort: str, offer: str | None) -> str:
 
 def _build_organization_filters(
     status, type, q, has_contact, personal_priority="", workspace_id=None, stage="", suppressed="",
-    linkedin="", offer=None,
+    linkedin="", offer=None, on_map="",
 ):
     """Build the WHERE clause + bound params for the contact list from the query
     filters. The name/city search is a parenthesized OR so it can't leak past an
@@ -125,6 +126,12 @@ def _build_organization_filters(
         conditions.append(
             "EXISTS (SELECT 1 FROM people lp WHERE lp.contact_id = c.id "
             "AND lp.is_linkedin_contact AND lp.deleted_at IS NULL)"
+        )
+    if on_map == "1":
+        conditions.append("EXISTS (SELECT 1 FROM map_pins mp WHERE mp.contact_id = c.id AND mp.removed_at IS NULL)")
+    elif on_map == "0":
+        conditions.append(
+            "NOT EXISTS (SELECT 1 FROM map_pins mp WHERE mp.contact_id = c.id AND mp.removed_at IS NULL)"
         )
     if workspace_id is not None:
         conditions.append("c.workspace_id = %s")
@@ -169,6 +176,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 (SELECT COUNT(*) FROM people lp
                   WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                 ) AS linkedin_connection_count,
+                (SELECT COUNT(*) FROM map_pins mp WHERE mp.contact_id = c.id AND mp.removed_at IS NULL) AS map_pin_count,
                 (SELECT COALESCE(json_agg(json_build_object('id', kp.id, 'name', kp.name)
                           ORDER BY CASE kp.source WHEN 'card_capture' THEN 0 WHEN 'manual' THEN 1 ELSE 2 END,
                                    kp.name), '[]'::json)
@@ -211,6 +219,7 @@ def organization_list(
     has_contact: str = Query(default=""),
     personal_priority: str = Query(default=""),
     linkedin: str = Query(default=""),
+    on_map: str = Query(default=""),
     offer: Optional[str] = Query(default=None),
     page: int = Query(default=1, ge=1),
     sort: str = Query(default="created_at"),
@@ -225,7 +234,7 @@ def organization_list(
     workspace_id = request.session.get("workspace_id")
     where, params = _build_organization_filters(
         status, type, q, has_contact, personal_priority, workspace_id, stage, suppressed, linkedin,
-        active_offer,
+        active_offer, on_map,
     )
     organizations, status_counts, stage_counts, types, total = _fetch_organizations_page(
         where, params, sort_col, sort_dir, offset, user_id, workspace_id, active_offer,
@@ -249,6 +258,7 @@ def organization_list(
         "has_contact": has_contact,
         "personal_priority": personal_priority,
         "linkedin": linkedin,
+        "on_map": on_map,
         "offers": offers,
         "active_offer": active_offer,
         "page": page,
@@ -449,12 +459,19 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
     except Exception:
         logger.exception("sales lookup failed for contact %s", contact_id)
         sales = []
+    # Map pins are a bonus here too: if they can't be read, the page still renders.
+    try:
+        map_pins = pins_for_contact(contact_id)
+    except Exception:
+        logger.exception("map pins lookup failed for contact %s", contact_id)
+        map_pins = []
     visit_summary = _safe_visit_summary(contact_id)
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
         "interactions": interactions,
         "sales": sales,
+        "map_pins": map_pins,
         "visit_summary": visit_summary,
         "linkedin": linkedin,
         "opportunity_analysis": dict(opportunity_analysis) if opportunity_analysis else None,

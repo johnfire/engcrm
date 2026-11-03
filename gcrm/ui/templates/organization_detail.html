@@ -415,6 +415,20 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   </section>
 </div>
 
+<section class="detail-section" id="map-pins" style="margin-top: 2rem">
+  <h2>{{ t('organizationDetail.mapPins') }}</h2>
+  {% for pin in map_pins %}
+  <p class="map-pin">
+    <strong>{{ pin.list_name }}</strong> · {{ pin.maps_name }}{% if pin.maps_address %} · {{ pin.maps_address }}{% endif %}
+    · <span class="muted">{{ t('organizationDetail.mapPinSaved', date=(pin.saved_at|dmy)) }}</span>
+    {% if pin.maps_url | browsable_url %}· <a href="{{ pin.maps_url | browsable_url }}" target="_blank" rel="noopener">{{ t('organizationDetail.mapPinOpen') }}</a>{% endif %}
+    {% if pin.note %}<br><span class="muted small">{{ pin.note }}</span>{% endif %}
+  </p>
+  {% else %}
+  <p class="muted">{{ t('organizationDetail.mapPinsNone') }}</p>
+  {% endfor %}
+</section>
+
 {% if interactions %}
 <section class="detail-section" style="margin-top: 2rem">
   <h2>{{ t('organizationDetail.interactionHistory') }}</h2>

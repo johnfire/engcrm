@@ -942,6 +942,13 @@ main.person-detail-page {
   text-transform: lowercase;
 }
 
+/* A pin on one of the user's Google Maps lists (map_pins). Maps' own green. */
+.map-badge {
+  background: #1e8e3e;
+  color: #fff;
+  font-weight: 700;
+}
+
 .linkedin-notice {
   background: var(--surface);
   border: 1px solid #0a66c2;
