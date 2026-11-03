@@ -42,7 +42,9 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
    `ValueRatings` component (ST + LT rows) used on both screens. Phone-only; the API is there.
    Fixes the real bug first.
 2. **Screen order (B3, O7, P4).** Reorder both screens to match the web top-to-bottom; add
-   distance, LinkedIn details, added date, tappable company link, brief link.
+   distance, LinkedIn details, added date, tappable company link. *Done 03.11.2026.* The
+   brief link was left out: the web brief needs a browser login, and once steps 4–5 are done
+   the phone screen itself shows everything the brief does.
 3. **History rows (O5, P1).** Server: add the missing columns to the organization GET.
    Phone: one `ActivityEntry` row component showing type · minutes · offer, note, judgments,
    materials left — used by both screens.

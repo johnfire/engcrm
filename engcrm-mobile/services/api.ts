@@ -543,6 +543,13 @@ export interface OrganizationDetail extends Organization {
   notes: string | null;
   decision_maker?: string | null;
   preferred_contact_method?: string | null;
+  // Venue notes, as on the web page.
+  best_visit_time?: string | null;
+  access_notes?: string | null;
+  space_notes?: string | null;
+  price_sensitivity?: string | null;
+  // How far from home, in km; null without coordinates (absent on older servers).
+  distance_km?: number | null;
   interactions: Interaction[];
   opportunity_analysis: OpportunityAnalysis | null;
   // Everyone we know at the organization (the key keeps its LinkedIn-era name).
@@ -803,6 +810,11 @@ export interface Person {
   created_at: string;
   is_linkedin_contact?: boolean;
   connected_on?: string | null;
+  // Their company as LinkedIn names it, and a different one LinkedIn shows now (a job change to review).
+  company_raw?: string | null;
+  pending_company_raw?: string | null;
+  // How far from home, in km; null without coordinates.
+  distance_km?: number | null;
   // Their LinkedIn profile; absent on servers that predate the LinkedIn import.
   linkedin_url?: string | null;
   // My private rating of them as a contact: 1 (exceptional) .. 5 (minimal); null if unrated.

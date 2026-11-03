@@ -17,6 +17,7 @@ from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.offer_filter import api_offer_filter
 from gcrm.api.transcribe_upload import transcribe_upload
 from gcrm.db.connection import db
+from gcrm.geo import distance_km_sql
 from gcrm.organization_state import SUPPRESSION_FLAGS
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
@@ -35,6 +36,9 @@ logger = logging.getLogger(__name__)
 _DEAL_JOIN = organization_deal_join("c", "d")
 
 router = APIRouter(prefix="/api/contacts", tags=["mobile-contacts"])
+
+# How far it is from home, as on the web's organization page.
+_DISTANCE_KM_SQL = distance_km_sql("c.latitude", "c.longitude")
 
 # Whitelisted so `sort` can be trusted straight into an f-string ORDER BY below.
 SORT_COLUMNS = {
@@ -213,7 +217,8 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
             f"""
             SELECT c.*, d.pipeline_stage, d.status, cup.priority AS personal_priority,
                    cup.short_term_value, cup.long_term_value,
-                   MAX(i.interaction_date) AS last_contact
+                   MAX(i.interaction_date) AS last_contact,
+                   ({_DISTANCE_KM_SQL}) AS distance_km
             FROM contacts c
             {_DEAL_JOIN}
             {priority_join}

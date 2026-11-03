@@ -28,6 +28,7 @@ import { PersonNotesLog } from "../../components/PersonNotesLog";
 import { DealsPanel } from "../../components/DealsPanel";
 import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelector";
 import { NameWithId } from "../../components/NameWithId";
+import { formatDay } from "../../services/dates";
 import { ValueRatings } from "../../components/ValueRatings";
 
 export default function PersonDetailScreen() {
@@ -63,6 +64,10 @@ export default function PersonDetailScreen() {
       load();
     });
   }, [id, load]);
+
+  function openOrganization(organizationId: number) {
+    router.push({ pathname: "/(drawer)/organization-detail", params: { id: String(organizationId) } });
+  }
 
   function confirmDelete() {
     Alert.alert(t("personDetail.deleteConfirm"), undefined, [
@@ -112,87 +117,41 @@ export default function PersonDetailScreen() {
       </View>
     );
 
-  const role = [person.title, person.company].filter(Boolean).join(" · ");
   const place = [person.city, person.country].filter(Boolean).join(", ");
+  const distance = person.distance_km == null ? null : `${Math.round(person.distance_km)} km`;
 
+  // The same order as the web's person page: who and where, the ratings and deals,
+  // how to reach them, what we know, then the history.
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <NameWithId id={person.id}><Text style={styles.name}>{person.name}</Text></NameWithId>
-      {!!role && <Text style={styles.sub}>{role}</Text>}
+      <View style={styles.nameRow}>
+        <NameWithId id={person.id}><Text style={styles.name}>{person.name}</Text></NameWithId>
+        {!!person.is_linkedin_contact && (
+          <Text style={styles.linkedinIn} accessibilityLabel={t("linkedin.isConnection")}>in</Text>
+        )}
+      </View>
+      {(!!person.title || !!person.company || !!distance) && (
+        <Text style={styles.sub}>
+          {person.title}
+          {!!person.title && !!person.company && " · "}
+          {!!person.company && (person.contact_id ? (
+            <Text
+              style={styles.inlineLink}
+              accessibilityRole="link"
+              onPress={() => openOrganization(person.contact_id as number)}
+            >
+              {person.company}
+            </Text>
+          ) : person.company)}
+          {(!!person.title || !!person.company) && !!distance && " · "}
+          {distance}
+        </Text>
+      )}
       {!!place && <Text style={styles.sub}>{place}</Text>}
-      <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(person.source)) })}</Text>
-
-      {person.email && (
-        <TouchableOpacity
-          onPress={() => Linking.openURL(`mailto:${person.email}`)}
-        >
-          <Text style={styles.link}>{person.email}</Text>
-        </TouchableOpacity>
-      )}
-      {person.phone && (
-        <TouchableOpacity onPress={() => Linking.openURL(`tel:${person.phone}`)}>
-          <Text style={styles.link}>{person.phone}</Text>
-        </TouchableOpacity>
-      )}
-      {person.website &&
-        (browsableUrl(person.website) ? (
-          <TouchableOpacity
-            accessibilityRole="link"
-            onPress={() => openWebsite(person.website)}
-          >
-            <Text style={styles.link}>{person.website}</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.fieldText}>{person.website}</Text>
-        ))}
-
-      <PersonalPrioritySelector
-        key={`rating-${person.id}`}
-        kind="person"
-        priority={person.value_rating ?? null}
-        onSave={saveRating}
-      />
-      <ValueRatings
-        key={`value-${person.id}`}
-        shortTerm={person.short_term_value ?? null}
-        longTerm={person.long_term_value ?? null}
-        onSave={saveValue}
-      />
-
-      {/* Stage, status, next step and money per offer pitched to this person. */}
-      <DealsPanel owner="person" ownerId={person.id} canEdit={isAdmin} />
-
-      {!!linkedinLabel(person.linkedin_url) && (
-        <TouchableOpacity
-          style={styles.linkedinButton}
-          accessibilityRole="link"
-          accessibilityLabel={t("people.openLinkedin", { name: person.name })}
-          onPress={() => openWebsite(person.linkedin_url)}
-        >
-          <Text style={styles.linkedinIn}>in</Text>
-          <Text style={styles.linkedinText} numberOfLines={1}>
-            {linkedinLabel(person.linkedin_url)} ↗
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton}
-        onPress={() => router.push({ pathname: "/(drawer)/saved-messages", params: { id: String(person.id) } })}>
-        <Text style={styles.link}>{t("savedMessages.button")}</Text>
-      </TouchableOpacity>
-
-      {person.met_at && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("personDetail.metAt")}</Text>
-          <Text style={styles.fieldText}>{person.met_at}</Text>
-        </View>
-      )}
-
-      {person.notes && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
-          <Text style={styles.fieldText}>{person.notes}</Text>
-        </View>
+      {!!person.pending_company_raw && (
+        <Text style={styles.notice}>
+          {t("linkedin.jobChanges.notice", { company: person.pending_company_raw })}
+        </Text>
       )}
 
       {isAdmin && <ContactDateLink kind="person" id={person.id} />}
@@ -210,7 +169,6 @@ export default function PersonDetailScreen() {
           <Text style={styles.logButtonText}>{t("meeting.logButton")}</Text>
         </TouchableOpacity>
       )}
-
       {isAdmin && (
         <TouchableOpacity
           style={styles.secondaryButton}
@@ -220,6 +178,97 @@ export default function PersonDetailScreen() {
           <Text style={styles.secondaryButtonText}>{t("recordForm.edit")}</Text>
         </TouchableOpacity>
       )}
+
+      <PersonalPrioritySelector
+        key={`rating-${person.id}`}
+        kind="person"
+        priority={person.value_rating ?? null}
+        onSave={saveRating}
+      />
+      <ValueRatings
+        key={`value-${person.id}`}
+        shortTerm={person.short_term_value ?? null}
+        longTerm={person.long_term_value ?? null}
+        onSave={saveValue}
+      />
+
+      {/* Stage, status, next step and money per offer pitched to this person. */}
+      <DealsPanel owner="person" ownerId={person.id} canEdit={isAdmin} />
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("personDetail.details")}</Text>
+        {person.email && (
+          <TouchableOpacity onPress={() => Linking.openURL(`mailto:${person.email}`)}>
+            <Text style={styles.link}>{person.email}</Text>
+          </TouchableOpacity>
+        )}
+        {person.phone && (
+          <TouchableOpacity onPress={() => Linking.openURL(`tel:${person.phone}`)}>
+            <Text style={styles.link}>{person.phone}</Text>
+          </TouchableOpacity>
+        )}
+        {person.website &&
+          (browsableUrl(person.website) ? (
+            <TouchableOpacity accessibilityRole="link" onPress={() => openWebsite(person.website)}>
+              <Text style={styles.link}>{person.website}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.fieldText}>{person.website}</Text>
+          ))}
+        {!!linkedinLabel(person.linkedin_url) && (
+          <TouchableOpacity
+            style={styles.linkedinButton}
+            accessibilityRole="link"
+            accessibilityLabel={t("people.openLinkedin", { name: person.name })}
+            onPress={() => openWebsite(person.linkedin_url)}
+          >
+            <Text style={styles.linkedinIn}>in</Text>
+            <Text style={styles.linkedinText} numberOfLines={1}>
+              {linkedinLabel(person.linkedin_url)} ↗
+            </Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton}
+          onPress={() => router.push({ pathname: "/(drawer)/saved-messages", params: { id: String(person.id) } })}>
+          <Text style={styles.link}>{t("savedMessages.button")}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("personDetail.context")}</Text>
+        {!!person.met_at && <Field label={t("personDetail.metAt")} value={person.met_at} />}
+        {!!person.notes && <Field label={t("common.notes")} value={person.notes} />}
+        <Field label={t("personDetail.company")}>
+          {person.company && person.contact_id ? (
+            <Text
+              style={styles.inlineLink}
+              accessibilityRole="link"
+              onPress={() => openOrganization(person.contact_id as number)}
+            >
+              {person.company}
+            </Text>
+          ) : (
+            <Text style={styles.fieldText}>{person.company || "—"}</Text>
+          )}
+        </Field>
+        {!!person.is_linkedin_contact && (
+          <>
+            <Field label={t("linkedin.connectedOn")} value={formatDay(person.connected_on) || "—"} />
+            <Field
+              label={t("linkedin.companyOnLinkedin")}
+              value={
+                person.company_raw
+                  ? person.contact_id
+                    ? person.company_raw
+                    : `${person.company_raw} (${t("linkedin.notLinked")})`
+                  : "—"
+              }
+            />
+          </>
+        )}
+        <Field label={t("personDetail.source")} value={t(sourceLabelKey(person.source))} />
+        <Field label={t("common.added")} value={formatDay(person.created_at) || "—"} />
+      </View>
 
       <PersonNotesLog personId={person.id} />
 
@@ -241,6 +290,16 @@ export default function PersonDetailScreen() {
   );
 }
 
+// One labelled line of what we know about them.
+function Field({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      {children ?? <Text style={styles.fieldText}>{value}</Text>}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 20 },
@@ -251,7 +310,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   name: { color: "#fff", fontSize: 22, fontWeight: "700", marginBottom: 4 },
+  nameRow: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sub: { color: "#888", fontSize: 14, marginBottom: 8 },
+  inlineLink: { color: "#7c6fff", textDecorationLine: "underline" },
+  notice: {
+    backgroundColor: "#2a2440",
+    borderRadius: 8,
+    color: "#d8d3ff",
+    fontSize: 13,
+    marginBottom: 8,
+    padding: 10,
+  },
+  field: { marginBottom: 10 },
+  fieldLabel: { color: "#888", fontSize: 12, marginBottom: 2 },
   link: {
     color: "#7c6fff",
     fontSize: 14,

@@ -582,3 +582,40 @@ describe("organization detail — add a note", () => {
     expect(screen.queryByLabelText("Add a note")).toBeNull();
   });
 });
+
+describe("organization detail — laid out like the web page", () => {
+  beforeEach(() => {
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+  });
+
+  it("shows the distance, venue notes and who decides", async () => {
+    mockFetchContact.mockReset().mockResolvedValue({
+      ...BASE_CONTACT, distance_km: 12.2, best_visit_time: "Tue mornings", price_sensitivity: "Tight budget",
+      notes: "Friendly owner", decision_maker: "Eva Maier",
+    });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Berlin, DE · salon · 12 km")).toBeTruthy());
+    expect(screen.getByText("Venue Notes")).toBeTruthy();
+    expect(screen.getByText("Tue mornings")).toBeTruthy();
+    expect(screen.getByText("Tight budget")).toBeTruthy();
+    expect(screen.getByText("Friendly owner")).toBeTruthy();
+    expect(screen.getByText("Eva Maier")).toBeTruthy();
+  });
+
+  it("leaves out venue notes when there are none", async () => {
+    mockFetchContact.mockReset().mockResolvedValue({ ...BASE_CONTACT });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Berlin, DE · salon")).toBeTruthy());
+    expect(screen.queryByText("Venue Notes")).toBeNull();
+  });
+
+  it("dials the phone number when tapped", async () => {
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    mockFetchContact.mockReset().mockResolvedValue({ ...BASE_CONTACT, phone: "+49 821 123" });
+    const screen = render(<OrganizationDetailScreen />);
+    await waitFor(() => expect(screen.getByText("+49 821 123")).toBeTruthy());
+    fireEvent.press(screen.getByText("+49 821 123"));
+    expect(openURL).toHaveBeenCalledWith("tel:+49 821 123");
+    openURL.mockRestore();
+  });
+});

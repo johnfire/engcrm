@@ -288,3 +288,35 @@ describe("person detail — my rating", () => {
     await waitFor(() => expect(mockUpdateValue).toHaveBeenCalledWith("person", 7, "short-term", 0));
   });
 });
+
+describe("person detail — laid out like the web page", () => {
+  beforeEach(() => {
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+    mockPush.mockClear();
+  });
+
+  it("links the company to its organization and shows the distance", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({
+      ...PERSON, company: "Acme GmbH", contact_id: 42, distance_km: 37.6,
+    });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText(/38 km/)).toBeTruthy());
+
+    // Once in the header, once under Context: both open the organization.
+    fireEvent.press(screen.getAllByText("Acme GmbH")[0]);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/organization-detail", params: { id: "42" } });
+  });
+
+  it("shows a LinkedIn connection's details and a job change to review", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({
+      ...PERSON, is_linkedin_contact: true, connected_on: "2024-03-05", company_raw: "Old Co",
+      pending_company_raw: "New Co",
+    });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("LinkedIn now shows New Co for this person.")).toBeTruthy());
+    expect(screen.getByLabelText("LinkedIn connection")).toBeTruthy();
+    expect(screen.getByText("05.03.2024")).toBeTruthy();
+    expect(screen.getByText("Old Co (not linked to an organization)")).toBeTruthy();
+    expect(screen.getByText("01.07.2026")).toBeTruthy(); // added
+  });
+});

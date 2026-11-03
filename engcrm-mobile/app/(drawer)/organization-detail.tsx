@@ -133,27 +133,27 @@ export default function OrganizationDetailScreen() {
       </View>
     );
 
+  const header = [
+    [organization.city, organization.country].filter(Boolean).join(", "),
+    organization.type,
+    organization.distance_km == null ? null : `${Math.round(organization.distance_km)} km`,
+  ].filter(Boolean).join(" · ");
+  const flags = SUPPRESSION_FLAGS.filter((flag) => organization[flag]);
+  const venueNotes = [
+    { labelKey: "organizationDetail.bestTimeToVisit", value: organization.best_visit_time },
+    { labelKey: "organizationDetail.accessLogistics", value: organization.access_notes },
+    { labelKey: "organizationDetail.spaceNotes", value: organization.space_notes },
+    { labelKey: "organizationBrief.priceSensitivity", value: organization.price_sensitivity },
+    { labelKey: "organizationDetail.generalNotes", value: organization.notes },
+  ].filter((note) => !!note.value);
+
+  // The same order as the web's organization page: who and where, who we know there,
+  // the ratings and deals, the details, the venue notes, the analysis, then the history.
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <NameWithId id={organization.id}><Text style={styles.name}>{organization.name}</Text></NameWithId>
-      <Text style={styles.sub}>
-        {organization.city}, {organization.country} · {organization.type}
-      </Text>
+      {!!header && <Text style={styles.sub}>{header}</Text>}
       <Text style={styles.sub}>{t("source.addedVia", { source: t(sourceLabelKey(organization.source)) })}</Text>
-      <View style={styles.statusRow}>
-        {organization.fit_score !== null && (
-          <Text style={styles.score}>{t("organizationDetail.score", { score: organization.fit_score })}</Text>
-        )}
-      </View>
-      {SUPPRESSION_FLAGS.some((flag) => organization[flag]) && (
-        <View style={styles.statusRow}>
-          {SUPPRESSION_FLAGS.filter((flag) => organization[flag]).map((flag) => (
-            <Text key={flag} style={styles.flagBadge}>
-              {t(flagLabelKey(flag))}
-            </Text>
-          ))}
-        </View>
-      )}
 
       {isAdmin && <ContactDateLink kind="organization" id={organization.id} />}
       {isAdmin && (
@@ -197,14 +197,6 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
 
-      {/* Stage, status, contact person, next step and money per offer pitched here. */}
-      <DealsPanel
-        owner="organization"
-        ownerId={organization.id}
-        canEdit={isAdmin}
-        contactPeople={(organization.linkedin_connections?.linked ?? []).map((p) => ({ id: p.id, name: p.name }))}
-      />
-
       <LinkedInNotice connections={organization.linkedin_connections} />
 
       <PersonalPrioritySelector
@@ -219,33 +211,63 @@ export default function OrganizationDetailScreen() {
         onSave={handleValueSave}
       />
 
-      {organization.email && (
-        <TouchableOpacity
-          onPress={() => Linking.openURL(`mailto:${organization.email}`)}
-        >
-          <Text style={styles.link}>{organization.email}</Text>
-        </TouchableOpacity>
-      )}
-      {organization.website &&
-        (browsableUrl(organization.website) ? (
-          <TouchableOpacity
-            accessibilityRole="link"
-            onPress={() => openWebsite(organization.website)}
-          >
-            <Text style={styles.link}>{organization.website}</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.field}>{organization.website}</Text>
-        ))}
-      {organization.phone && <Text style={styles.field}>{organization.phone}</Text>}
-      {isAdmin && <OrganizationNoteBox organizationId={organization.id} />}
+      {/* Stage, status, contact person, next step and money per offer pitched here. */}
+      <DealsPanel
+        owner="organization"
+        ownerId={organization.id}
+        canEdit={isAdmin}
+        contactPeople={(organization.linkedin_connections?.linked ?? []).map((p) => ({ id: p.id, name: p.name }))}
+      />
 
-      {organization.notes && (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t("organizationDetail.basicInfo")}</Text>
+        {organization.fit_score !== null && (
+          <Text style={styles.score}>{t("organizationDetail.score", { score: organization.fit_score })}</Text>
+        )}
+        {flags.length > 0 && (
+          <View style={styles.statusRow}>
+            {flags.map((flag) => (
+              <Text key={flag} style={styles.flagBadge}>
+                {t(flagLabelKey(flag))}
+              </Text>
+            ))}
+          </View>
+        )}
+        {organization.email && (
+          <TouchableOpacity onPress={() => Linking.openURL(`mailto:${organization.email}`)}>
+            <Text style={styles.link}>{organization.email}</Text>
+          </TouchableOpacity>
+        )}
+        {organization.phone && (
+          <TouchableOpacity onPress={() => Linking.openURL(`tel:${organization.phone}`)}>
+            <Text style={styles.link}>{organization.phone}</Text>
+          </TouchableOpacity>
+        )}
+        {organization.website &&
+          (browsableUrl(organization.website) ? (
+            <TouchableOpacity accessibilityRole="link" onPress={() => openWebsite(organization.website)}>
+              <Text style={styles.link}>{organization.website}</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.field}>{organization.website}</Text>
+          ))}
+        {!!organization.preferred_contact_method && (
+          <LabelledText label={t("organizationDetail.preferredContact")} value={organization.preferred_contact_method} />
+        )}
+        {!!organization.decision_maker && (
+          <LabelledText label={t("organizationBrief.decisionMaker")} value={organization.decision_maker} />
+        )}
+      </View>
+
+      {venueNotes.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t("common.notes")}</Text>
-          <Text style={styles.fieldText}>{organization.notes}</Text>
+          <Text style={styles.sectionTitle}>{t("organizationDetail.venueNotes")}</Text>
+          {venueNotes.map((note) => (
+            <LabelledText key={note.labelKey} label={t(note.labelKey)} value={note.value as string} />
+          ))}
         </View>
       )}
+      {isAdmin && <OrganizationNoteBox organizationId={organization.id} />}
 
       <OpportunityAnalysisSection
         analysis={analysis}
@@ -293,6 +315,16 @@ export default function OrganizationDetailScreen() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+// One labelled line of what we know about the organization.
+function LabelledText({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.labelled}>
+      <Text style={styles.labelledLabel}>{label}</Text>
+      <Text style={styles.fieldText}>{value}</Text>
+    </View>
   );
 }
 
@@ -527,6 +559,8 @@ function BulletBlock({ title, items }: { title: string; items: string[] }) {
 }
 
 const styles = StyleSheet.create({
+  labelled: { marginBottom: 10 },
+  labelledLabel: { color: "#888", fontSize: 12, marginBottom: 2 },
   container: { flex: 1, backgroundColor: "#0f0f23" },
   content: { padding: 20 },
   center: {
