@@ -21,6 +21,7 @@
     "expo-router": "~56.2.8",
     "expo-secure-store": "~56.0.4",
     "expo-status-bar": "~56.0.4",
+    "expo-task-manager": "~56.0.27",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-gesture-handler": "~2.31.1",

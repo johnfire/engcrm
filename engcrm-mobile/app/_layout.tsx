@@ -1,3 +1,4 @@
+import "../services/fieldModeTask"; // field mode's background task: must be defined before anything mounts
 import { useCallback, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";

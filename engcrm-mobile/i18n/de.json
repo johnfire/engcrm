@@ -752,5 +752,16 @@
   "personDetail.linkOrganization": "Verknüpfen / ändern",
   "personDetail.unlinkOrganization": "Trennen",
   "common.search": "Suchen",
-  "personDetail.unlinkConfirm": "Verknüpfung mit {{company}} lösen?"
+  "personDetail.unlinkConfirm": "Verknüpfung mit {{company}} lösen?",
+  "fieldMode.title": "Außendienst-Modus",
+  "fieldMode.hint": "Speichert alle 5 Minuten, wo Sie sind, auch bei geschlossener App, damit Claude das Geschäft findet, vor dem Sie stehen. Ergibt einen Reiseverlauf. Schaltet sich nach {{hours}} Stunden selbst aus.",
+  "fieldMode.endsAt": "An — schaltet sich um {{time}} aus",
+  "fieldMode.continue": "Weiter",
+  "fieldMode.failed": "Außendienst-Modus konnte nicht umgeschaltet werden. Bitte erneut versuchen.",
+  "fieldMode.openSettings": "Einstellungen öffnen",
+  "fieldMode.notificationTitle": "EngCRM Außendienst-Modus",
+  "fieldMode.notificationBody": "Speichert alle 5 Minuten Ihren Standort",
+  "fieldMode.explainTitle": "Außendienst-Modus",
+  "fieldMode.explainBody": "EngCRM speichert alle 5 Minuten, wo Sie sind, und Android zeigt die ganze Zeit eine Benachrichtigung. Falls Android fragt: Standort während der Nutzung der App erlauben. Schalten Sie den Modus hier ein, dann können Sie in jeder App mit Claude sprechen.",
+  "fieldMode.locationDenied": "Der Standort ist für EngCRM aus. Erlauben Sie ihn in den Android-Einstellungen, um den Außendienst-Modus zu nutzen."
 }

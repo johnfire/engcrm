@@ -30,7 +30,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "EngCRM uses your location to show nearby business leads for on-foot visits."
+          "locationWhenInUsePermission": "EngCRM uses your location to show nearby business leads for on-foot visits, and in Field mode to find the business you are standing in front of.",
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-maps"

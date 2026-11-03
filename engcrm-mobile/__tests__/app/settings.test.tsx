@@ -4,6 +4,17 @@ import { Linking } from "react-native";
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  useFocusEffect: (effect: () => void) => jest.requireActual("react").useEffect(effect, [effect]),
+}));
+
+// Field mode has its own tests; here it is off, and logging out must stop it.
+const mockStopFieldMode = jest.fn().mockResolvedValue(undefined);
+jest.mock("../../services/fieldMode", () => ({
+  FIELD_MODE_HOURS: 8,
+  isFieldModeOn: () => Promise.resolve(false),
+  fieldModeEndsAt: () => Promise.resolve(null),
+  startFieldMode: jest.fn(),
+  stopFieldMode: (...args: any[]) => mockStopFieldMode(...args),
 }));
 
 const mockClearToken = jest.fn().mockResolvedValue(undefined);
@@ -38,6 +49,9 @@ describe("settings screen", () => {
     fireEvent.press(getByText("Log out"));
     await waitFor(() => expect(mockClearToken).toHaveBeenCalled());
     expect(mockReplace).toHaveBeenCalledWith("/login");
+    // Field mode stops (and sends its queue) while the login it uploads under still works.
+    expect(mockStopFieldMode).toHaveBeenCalled();
+    expect(mockStopFieldMode.mock.invocationCallOrder[0]).toBeLessThan(mockClearToken.mock.invocationCallOrder[0]);
   });
 
   it("opens the Impressum page in the browser", async () => {

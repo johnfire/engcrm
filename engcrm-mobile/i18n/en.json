@@ -752,5 +752,16 @@
   "personDetail.linkOrganization": "Link / change",
   "personDetail.unlinkOrganization": "Unlink",
   "common.search": "Search",
-  "personDetail.unlinkConfirm": "Unlink from {{company}}?"
+  "personDetail.unlinkConfirm": "Unlink from {{company}}?",
+  "fieldMode.title": "Field mode",
+  "fieldMode.hint": "Records where you are every 5 minutes, even with the app closed, so Claude can find the business you are standing in front of. Keeps a travel history. Turns itself off after {{hours}} hours.",
+  "fieldMode.endsAt": "On — turns itself off at {{time}}",
+  "fieldMode.continue": "Continue",
+  "fieldMode.failed": "Couldn't switch field mode. Try again.",
+  "fieldMode.openSettings": "Open settings",
+  "fieldMode.notificationTitle": "EngCRM field mode",
+  "fieldMode.notificationBody": "Recording your location every 5 minutes",
+  "fieldMode.explainTitle": "Field mode",
+  "fieldMode.explainBody": "EngCRM will record where you are every 5 minutes, and Android shows a notification the whole time. If Android asks, allow location while using the app. Switch field mode on here, then you can talk to Claude in any app.",
+  "fieldMode.locationDenied": "Location is off for EngCRM. Allow it in Android's settings to use field mode."
 }

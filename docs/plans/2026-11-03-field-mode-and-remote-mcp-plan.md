@@ -92,10 +92,15 @@ Claude phone app ──▶ Anthropic cloud ──(HTTPS, secret header)──▶
 1. **Server: location history.** *Done 03.11.2026.* Table `field_locations` (user, lat, lng, accuracy, recorded_at; one row per point),
    `POST /api/me/locations` (JWT; accepts a batch, so points taken offline arrive later), a delete-history call. Tests +
    real Postgres.
-2. **Phone: Field mode switch.** Settings toggle; `expo-location` background updates +
-   `expo-task-manager`; background-location permission and Android's foreground-service
-   notification; auto-off after 8 h; a point every 5 minutes or 50 m moved, queued on the phone while offline. Needs a
-   new app build (background location cannot be tested in jest).
+2. **Phone: Field mode switch.** *Done 03.11.2026, not yet on the phone.* Settings toggle;
+   `expo-location` updates in an Android **foreground service** (notification the whole time)
+   + `expo-task-manager`; a point every 5 minutes, queued on the phone while offline; auto-off
+   after 8 h; logging out stops it. **No "location all the time" permission:** expo-location
+   allows a foreground-service location task started from the open app with "while in use"
+   only, so Google Play's background-location review does not apply. The committed
+   `android/` manifest got the one permission prebuild adds (FOREGROUND_SERVICE_LOCATION).
+   Every push to main submits a build to Play's internal track (android.yml), so this ships
+   with the next push.
 3. **Server: Places Nearby Search** in `gcrm/tools/search.py`, with the field mask kept small
    (cost). Tests with a recorded response.
 4. **Server: the field tools** in a new `gcrm/mcp/field.py`, reusing the existing write

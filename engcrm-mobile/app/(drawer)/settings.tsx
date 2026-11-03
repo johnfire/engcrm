@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { AiBackends, API_BASE, fetchAiBackends, updateAiBackends, updateLanguage } from "../../services/api";
 import { clearToken, getRole } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
+import { FieldModeCard } from "../../components/FieldModeCard";
+import { stopFieldMode } from "../../services/fieldMode";
 import { Language, SUPPORTED_LANGUAGES } from "../../i18n/translate";
 
 // Language names are shown in their own language regardless of the current
@@ -32,6 +34,8 @@ export default function SettingsScreen() {
   }
 
   async function handleLogout() {
+    // Recording stops with the login it uploads under; what is queued is sent first.
+    await stopFieldMode().catch(() => undefined);
     await clearToken();
     router.replace("/login");
   }
@@ -67,6 +71,7 @@ export default function SettingsScreen() {
           ))}
         </View>
       </View>}
+      <FieldModeCard />
       <View style={styles.card}>
         <Text style={styles.label}>{t("settings.language")}</Text>
         <View style={styles.languageRow}>
