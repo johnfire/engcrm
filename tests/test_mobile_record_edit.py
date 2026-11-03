@@ -299,3 +299,40 @@ class TestPeople:
         assert self.edit({"phone": "1"}, headers=VIEWER)[0].status_code == 403
         assert self.edit({"phone": "1"}, updated=False)[0].status_code == 404
         assert self.edit({"phone": "1"}, raises=ValueError("x"))[0].status_code == 400
+
+
+class TestLinkOrganization:
+    """PUT /api/people/{id}/organization: the web's Link / change and Unlink, for the phone."""
+
+    def put(self, body, org_found=True, linked=True, headers=ADMIN, identity=(None, None)):
+        with patch(f"{PEOPLE}._personal_identity", return_value=identity), \
+             patch(f"{PEOPLE}._organization_exists", return_value=org_found) as exists, \
+             patch(f"{PEOPLE}.set_person_organization", return_value=linked) as link, \
+             patch(f"{PEOPLE}.log_audit"):
+            response = client.put("/api/people/6/organization", json=body, headers=headers)
+        return response, link, exists
+
+    def test_links_to_an_organization_of_the_workspace(self):
+        response, link, exists = self.put({"contact_id": 42}, identity=(3, 12))
+        assert response.status_code == 200 and response.json() == {"contact_id": 42}
+        exists.assert_called_once_with(42, 12)
+        link.assert_called_once_with(6, 42)
+
+    def test_null_unlinks_without_looking_up_an_organization(self):
+        response, link, exists = self.put({"contact_id": None})
+        assert response.status_code == 200
+        link.assert_called_once_with(6, None)
+        exists.assert_not_called()
+
+    def test_an_organization_outside_the_workspace_is_refused_before_anything_changes(self):
+        response, link, _ = self.put({"contact_id": 42}, org_found=False)
+        assert response.status_code == 404
+        link.assert_not_called()
+
+    def test_an_unknown_person_is_404(self):
+        assert self.put({"contact_id": 42}, linked=False)[0].status_code == 404
+
+    def test_viewer_cannot_link(self):
+        response, link, _ = self.put({"contact_id": 42}, headers=VIEWER)
+        assert response.status_code == 403
+        link.assert_not_called()

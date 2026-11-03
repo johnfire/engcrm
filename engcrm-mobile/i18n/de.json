@@ -744,5 +744,13 @@
   "sales.deleteConfirm": "Diesen Verkauf löschen?",
   "sales.invalid": "Bitte einen Betrag über 0 und den Tag des Abschlusses eingeben, z. B. 28.10.2026.",
   "sales.needsDeal": "Zuerst ein Angebot für diese Organisation anlegen (Deals oben); ein Verkauf gehört zu einem.",
-  "sales.saveFailed": "Verkauf konnte nicht gespeichert werden. Bitte erneut versuchen."
+  "sales.saveFailed": "Verkauf konnte nicht gespeichert werden. Bitte erneut versuchen.",
+  "personLink.title": "Mit einer Organisation verknüpfen",
+  "personLink.searchPlaceholder": "Organisationen nach Name oder Stadt suchen…",
+  "personLink.link": "Verknüpfen",
+  "personLink.noResults": "Keine Organisationen gefunden.",
+  "personDetail.linkOrganization": "Verknüpfen / ändern",
+  "personDetail.unlinkOrganization": "Trennen",
+  "common.search": "Suchen",
+  "personDetail.unlinkConfirm": "Verknüpfung mit {{company}} lösen?"
 }

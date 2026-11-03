@@ -15,6 +15,7 @@ import {
   deletePerson,
   fetchPerson,
   Person,
+  setPersonOrganization,
   updatePersonValueRating,
   updateValueRating,
   ValueHorizon,
@@ -67,6 +68,35 @@ export default function PersonDetailScreen() {
 
   function openOrganization(organizationId: number) {
     router.push({ pathname: "/(drawer)/organization-detail", params: { id: String(organizationId) } });
+  }
+
+  function openLinkPicker(current: Person) {
+    router.push({
+      pathname: "/(drawer)/link-organization",
+      params: {
+        id: String(current.id),
+        name: current.name,
+        q: current.company || current.company_raw || "",
+        ...(current.contact_id ? { current: String(current.contact_id) } : {}),
+      },
+    });
+  }
+
+  function confirmUnlink(current: Person) {
+    Alert.alert(t("personDetail.unlinkConfirm", { company: current.company ?? "" }), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("personDetail.unlinkOrganization"),
+        style: "destructive",
+        onPress: () => {
+          setPersonOrganization(current.id, null)
+            .catch(() => Alert.alert(t("recordForm.saveFailed")))
+            .finally(() => {
+              load();
+            });
+        },
+      },
+    ]);
   }
 
   function confirmDelete() {
@@ -250,6 +280,18 @@ export default function PersonDetailScreen() {
           ) : (
             <Text style={styles.fieldText}>{person.company || "—"}</Text>
           )}
+          {isAdmin && (
+            <View style={styles.linkActions}>
+              <TouchableOpacity onPress={() => openLinkPicker(person)} accessibilityRole="button">
+                <Text style={styles.inlineLink}>{t("personDetail.linkOrganization")}</Text>
+              </TouchableOpacity>
+              {!!person.contact_id && (
+                <TouchableOpacity onPress={() => confirmUnlink(person)} accessibilityRole="button">
+                  <Text style={styles.unlink}>{t("personDetail.unlinkOrganization")}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </Field>
         {!!person.is_linkedin_contact && (
           <>
@@ -313,6 +355,8 @@ const styles = StyleSheet.create({
   nameRow: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 8 },
   sub: { color: "#888", fontSize: 14, marginBottom: 8 },
   inlineLink: { color: "#7c6fff", textDecorationLine: "underline" },
+  linkActions: { flexDirection: "row", gap: 18, marginTop: 6 },
+  unlink: { color: "#ff6b6b" },
   notice: {
     backgroundColor: "#2a2440",
     borderRadius: 8,

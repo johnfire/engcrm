@@ -20,6 +20,7 @@ from gcrm.tools.db_people import (
     find_existing_person,
     save_person,
     set_person_rating,
+    set_person_organization,
     set_person_value_rating,
     update_person,
 )
@@ -246,6 +247,30 @@ def set_value(person_id: int, horizon: str, body: ValueBody, payload: dict = Dep
     log_audit(None, None, f"person.{rating}_changed", f"person:{person_id}",
               "cleared" if stored is None else f"set:{stored}")
     return {rating: stored}
+
+
+class OrganizationLinkBody(BaseModel):
+    contact_id: int | None = None  # the organization they work at; null unlinks them
+
+
+@router.put("/{person_id}/organization")
+def link_organization(
+    person_id: int,
+    body: OrganizationLinkBody,
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> dict:
+    """Link a person to an organization of this workspace, or unlink them, as the
+    web's Link / change and Unlink do (the same helper, so an unlinked pairing is
+    not suggested again by the LinkedIn match review)."""
+    _, workspace_id = _personal_identity(payload)
+    if body.contact_id is not None and not _organization_exists(body.contact_id, workspace_id):
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if not set_person_organization(person_id, body.contact_id):
+        raise HTTPException(status_code=404, detail="Person not found")
+    log_audit(None, None, "person.linked" if body.contact_id else "person.unlinked", f"person:{person_id}",
+              f"contact:{body.contact_id}" if body.contact_id else "unlinked")
+    return {"contact_id": body.contact_id}
 
 
 class NextStepBody(BaseModel):

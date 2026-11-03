@@ -203,6 +203,14 @@ export default function DrawerLayout() {
         }}
       />
       <Drawer.Screen
+        name="link-organization"
+        options={{
+          drawerItemStyle: { display: "none" },
+          title: t("personLink.title"),
+          headerLeft: () => <HeaderBack to="/(drawer)/people" />,
+        }}
+      />
+      <Drawer.Screen
         name="edit-person"
         options={{
           drawerItemStyle: { display: "none" },

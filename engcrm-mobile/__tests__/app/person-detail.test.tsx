@@ -5,7 +5,9 @@ const mockFetchPerson = jest.fn();
 const mockDeletePerson = jest.fn();
 const mockUpdateRating = jest.fn();
 const mockUpdateValue = jest.fn();
+const mockSetOrganization = jest.fn();
 jest.mock("../../services/api", () => ({
+  setPersonOrganization: (...args: any[]) => mockSetOrganization(...args),
   updateValueRating: (...args: any[]) => mockUpdateValue(...args),
   updatePersonValueRating: (...args: any[]) => mockUpdateRating(...args),
   fetchPerson: (...args: any[]) => mockFetchPerson(...args),
@@ -320,3 +322,50 @@ describe("person detail — laid out like the web page", () => {
     expect(screen.getByText("01.07.2026")).toBeTruthy(); // added
   });
 });
+
+describe("person detail — link / change and unlink the organization", () => {
+  beforeEach(() => {
+    mockGetRole.mockReset().mockResolvedValue("admin");
+    mockPush.mockClear();
+    mockSetOrganization.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("opens the picker, starting the search from their company", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, company: "Acme GmbH", contact_id: 42 });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Link / change")).toBeTruthy());
+    fireEvent.press(screen.getByText("Link / change"));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: "/(drawer)/link-organization",
+      params: { id: "7", name: "Anna Roth", q: "Acme GmbH", current: "42" },
+    });
+  });
+
+  it("unlinks after asking, then reloads", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON, company: "Acme GmbH", contact_id: 42 });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Unlink")).toBeTruthy());
+    const loads = mockFetchPerson.mock.calls.length;
+    fireEvent.press(screen.getByText("Unlink"));
+    expect(alert.mock.calls[0][0]).toBe("Unlink from Acme GmbH?");
+    const confirm = alert.mock.calls[0][2]!.find((button) => button.style === "destructive")!;
+    confirm.onPress!();
+    await waitFor(() => expect(mockSetOrganization).toHaveBeenCalledWith(7, null));
+    await waitFor(() => expect(mockFetchPerson.mock.calls.length).toBeGreaterThan(loads));
+    alert.mockRestore();
+  });
+
+  it("offers no Unlink when they are not linked, and nothing to a spectator", async () => {
+    mockFetchPerson.mockReset().mockResolvedValue({ ...PERSON });
+    const screen = render(<PersonDetailScreen />);
+    await waitFor(() => expect(screen.getByText("Link / change")).toBeTruthy());
+    expect(screen.queryByText("Unlink")).toBeNull();
+
+    mockGetRole.mockReset().mockResolvedValue("spectator");
+    const spectator = render(<PersonDetailScreen />);
+    await waitFor(() => expect(spectator.getAllByText("Anna Roth").length).toBeGreaterThan(0));
+    expect(spectator.queryByText("Link / change")).toBeNull();
+  });
+});
+

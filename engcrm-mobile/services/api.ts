@@ -949,6 +949,11 @@ export async function updatePersonValueRating(personId: number, rating: number |
   return resp.data.value_rating ?? null;
 }
 
+// Link a person to an organization (its id), or unlink them (null). Admin only.
+export async function setPersonOrganization(personId: number, contactId: number | null): Promise<void> {
+  await client.put(`/api/people/${personId}/organization`, { contact_id: contactId });
+}
+
 // Set (or, with a blank step, clear — logged as done) what happens next with a
 // person. Every change also lands in their note log on the server.
 export async function setPersonNextStep(

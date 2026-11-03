@@ -744,5 +744,13 @@
   "sales.deleteConfirm": "Delete this sale?",
   "sales.invalid": "Enter an amount above 0 and the day it was won, e.g. 28.10.2026.",
   "sales.needsDeal": "Pitch an offer to this organization first (Deals above); a sale belongs to one.",
-  "sales.saveFailed": "Couldn't save the sale. Try again."
+  "sales.saveFailed": "Couldn't save the sale. Try again.",
+  "personLink.title": "Link to an organization",
+  "personLink.searchPlaceholder": "Search organizations by name or city…",
+  "personLink.link": "Link",
+  "personLink.noResults": "No organizations found.",
+  "personDetail.linkOrganization": "Link / change",
+  "personDetail.unlinkOrganization": "Unlink",
+  "common.search": "Search",
+  "personDetail.unlinkConfirm": "Unlink from {{company}}?"
 }
