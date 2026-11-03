@@ -106,6 +106,11 @@ export async function removeDeal(id: number): Promise<void> {
   await client.delete(`/api/deals/${id}`);
 }
 
+/** Record a one-off sale on an organization's deal; `wonOn` is YYYY-MM-DD. */
+export async function recordSale(dealId: number, amountEur: string, wonOn: string, description: string): Promise<void> {
+  await client.post(`/api/deals/${dealId}/sales`, { amount_eur: amountEur, won_on: wonOn, description });
+}
+
 /** Start the deal's subscription, or change its price from `startedOn`. */
 export async function startSubscription(id: number, amountEurMonth: string, startedOn: string): Promise<void> {
   await client.post(`/api/deals/${id}/subscription`, { amount_eur_month: amountEurMonth, started_on: startedOn });

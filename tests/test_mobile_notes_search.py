@@ -225,3 +225,34 @@ class TestMeetingNoteStorage:
             mock_db.return_value.__enter__.return_value = conn
             db_interactions.get_organization_interactions(7)
         assert "deleted_at IS NULL" in conn.cursor.return_value.execute.call_args.args[0]
+
+
+class TestOrganizationSales:
+    """DELETE /api/contacts/{id}/sales/{sale_id}: a sale recorded by mistake, on the phone."""
+
+    def delete(self, exists=True, deleted=True, headers=ADMIN):
+        conn = MagicMock()
+        conn.cursor.return_value.fetchone.return_value = {"?column?": 1} if exists else None
+        with patch("gcrm.api.routers.api_organizations.db") as mock_db, \
+             patch("gcrm.api.routers.api_organizations.delete_sale", return_value=deleted) as remove:
+            mock_db.return_value.__enter__.return_value = conn
+            response = client.delete("/api/contacts/7/sales/5", headers=headers)
+        return response, remove
+
+    def test_deletes_the_organizations_sale(self):
+        response, remove = self.delete()
+        assert response.status_code == 204
+        remove.assert_called_once_with(7, 5)
+
+    def test_a_sale_that_is_not_this_organizations_is_404(self):
+        assert self.delete(deleted=False)[0].status_code == 404
+
+    def test_an_unknown_organization_is_404_and_nothing_is_deleted(self):
+        response, remove = self.delete(exists=False)
+        assert response.status_code == 404
+        remove.assert_not_called()
+
+    def test_viewer_cannot_delete(self):
+        response, remove = self.delete(headers=VIEWER)
+        assert response.status_code == 403
+        remove.assert_not_called()

@@ -557,6 +557,21 @@ export interface OrganizationDetail extends Organization {
   linkedin_connections?: LinkedInConnections;
   // What the visits so far say, as the web's Log activity card shows; absent on older servers.
   visit_summary?: VisitSummary;
+  // One-off sales, newest first; absent on older servers.
+  sales?: Sale[];
+}
+
+export interface Sale {
+  id: number;
+  amount_eur: string;
+  won_on: string; // YYYY-MM-DD
+  description: string | null;
+  offer: string; // the offer's name
+}
+
+/** Delete a one-off sale recorded by mistake. Admin only. */
+export async function deleteOrganizationSale(organizationId: number, saleId: number): Promise<void> {
+  await client.delete(`/api/contacts/${organizationId}/sales/${saleId}`);
 }
 
 export interface VisitSummary {

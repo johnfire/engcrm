@@ -28,6 +28,7 @@ from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
 from gcrm.tools.db_personal_priorities import set_organization_rating, set_personal_priority
 from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.db_users import get_user_by_id
+from gcrm.tools.statistics import delete_sale, get_sales
 from gcrm.tools.deal_records import resolve_log_offer
 
 logger = logging.getLogger(__name__)
@@ -268,6 +269,13 @@ def get_organization(contact_id: int, payload: dict = Depends(require_jwt_payloa
         logger.exception("visit summary failed for contact %s", contact_id)
         organization["visit_summary"] = {}
 
+    # One-off sales, newest first, as the web's Sales card lists them. A bonus too.
+    try:
+        organization["sales"] = get_sales(contact_id)
+    except Exception:
+        logger.exception("sales lookup failed for contact %s", contact_id)
+        organization["sales"] = []
+
     organization["opportunity_analysis"] = _opportunity_payload(
         get_latest_opportunity_analysis(contact_id)
     )
@@ -421,6 +429,19 @@ def add_organization_note(
                                duration_minutes=minutes, offer_id=offer_id, occurred_on=occurred_on,
                                attitude=attitude, my_read=my_read, materials_left=(body.materials_left or "").strip() or None)
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
+
+
+@router.delete("/{contact_id}/sales/{sale_id}", status_code=204)
+def remove_sale(
+    contact_id: int,
+    sale_id: int,
+    _role: str = Depends(require_jwt_admin),
+    payload: dict = Depends(require_jwt_payload),
+) -> None:
+    """Delete a one-off sale recorded by mistake (recorded with POST /api/deals/{id}/sales)."""
+    _require_organization(contact_id, payload)
+    if not delete_sale(contact_id, sale_id):
+        raise HTTPException(status_code=404, detail="Sale not found")
 
 
 @router.post("/{contact_id}/notes/transcribe")

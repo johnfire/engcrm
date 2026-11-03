@@ -50,7 +50,7 @@ beforeEach(() => {
 
 it("shows what the deal earns, and offers only what is not pitched yet", async () => {
   const screen = setup();
-  await waitFor(() => expect(screen.getByText("49.00 € / month since 01.09.2026")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("49 € / month since 01.09.2026")).toBeTruthy());
   expect(screen.getByLabelText("+ Consulting")).toBeTruthy();
   expect(screen.queryByLabelText("+ LearnWohl")).toBeNull();
 });

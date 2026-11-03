@@ -731,5 +731,18 @@
   "meeting.badDay": "Type the day as 28.10.2026, today or earlier.",
   "personDetail.retentionHold": "Keep: never delete automatically (otherwise deleted after {{days}} days without activity)",
   "recordForm.scoreInvalid": "The score is a whole number from 0 to 100.",
-  "personDetail.retentionHoldShort": "Keep: never delete automatically"
+  "personDetail.retentionHoldShort": "Keep: never delete automatically",
+  "sales.title": "Sales",
+  "sales.none": "No sales recorded yet.",
+  "sales.amount": "Amount (€)",
+  "sales.wonOn": "Date won",
+  "sales.forOffer": "For",
+  "sales.description": "What",
+  "sales.descriptionPlaceholder": "e.g. painting, consulting job",
+  "sales.record": "Record sale",
+  "sales.delete": "Delete",
+  "sales.deleteConfirm": "Delete this sale?",
+  "sales.invalid": "Enter an amount above 0 and the day it was won, e.g. 28.10.2026.",
+  "sales.needsDeal": "Pitch an offer to this organization first (Deals above); a sale belongs to one.",
+  "sales.saveFailed": "Couldn't save the sale. Try again."
 }

@@ -1,0 +1,80 @@
+import { Alert } from "react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
+
+const mockDeleteSale = jest.fn();
+jest.mock("../../services/api", () => ({
+  deleteOrganizationSale: (...a: any[]) => mockDeleteSale(...a),
+}));
+const mockFetchDeals = jest.fn();
+const mockRecordSale = jest.fn();
+jest.mock("../../services/deals", () => ({
+  fetchDeals: (...a: any[]) => mockFetchDeals(...a),
+  recordSale: (...a: any[]) => mockRecordSale(...a),
+}));
+
+import { SalesCard } from "../../components/SalesCard";
+import { onChanged, organizationKey } from "../../services/refreshBus";
+
+const DEAL = (id: number, offer_name: string) => ({ id, offer_name, offer_slug: offer_name.toLowerCase() });
+const SALE = { id: 5, amount_eur: "2400.00", won_on: "2026-10-28", description: "Painting", offer: "Art" };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockFetchDeals.mockResolvedValue([DEAL(7, "Consulting"), DEAL(8, "Art")]);
+  mockRecordSale.mockResolvedValue(undefined);
+  mockDeleteSale.mockResolvedValue(undefined);
+});
+
+it("lists the sales as the web does", () => {
+  const screen = render(<SalesCard organizationId={42} sales={[SALE]} canEdit={false} />);
+  expect(screen.getByText("2.400 €")).toBeTruthy();
+  expect(screen.getByText(/28\.10\.2026 · Art · Painting/)).toBeTruthy();
+  expect(screen.queryByText("Record sale")).toBeNull(); // spectators only look
+  expect(screen.queryByText("Delete")).toBeNull();
+});
+
+it("says so when there are none", () => {
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit={false} />);
+  expect(screen.getByText("No sales recorded yet.")).toBeTruthy();
+});
+
+it("records a sale on the chosen deal and refreshes the organization", async () => {
+  const changed = jest.fn();
+  const off = onChanged(organizationKey(42), changed);
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit />);
+  await waitFor(() => expect(screen.getByLabelText("Art")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Art"));
+  fireEvent.changeText(screen.getByLabelText("Amount (€)"), "1200,50");
+  fireEvent.changeText(screen.getByLabelText("Date won"), "27.10.2026");
+  fireEvent.changeText(screen.getByLabelText("What"), " Print series ");
+  fireEvent.press(screen.getByText("Record sale"));
+  await waitFor(() => expect(mockRecordSale).toHaveBeenCalledWith(8, "1200.50", "2026-10-27", "Print series"));
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  off();
+});
+
+it("refuses an amount that is not above 0, and sends nothing", async () => {
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit />);
+  await waitFor(() => expect(screen.getByLabelText("Amount (€)")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Amount (€)"), "0");
+  fireEvent.press(screen.getByText("Record sale"));
+  await waitFor(() => expect(screen.getByText(/Enter an amount above 0/)).toBeTruthy());
+  expect(mockRecordSale).not.toHaveBeenCalled();
+});
+
+it("needs a deal before a sale can be recorded", async () => {
+  mockFetchDeals.mockResolvedValue([]);
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit />);
+  await waitFor(() => expect(screen.getByText(/Pitch an offer to this organization first/)).toBeTruthy());
+  expect(screen.queryByText("Record sale")).toBeNull();
+});
+
+it("deletes a sale after asking", async () => {
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  const screen = render(<SalesCard organizationId={42} sales={[SALE]} canEdit />);
+  fireEvent.press(screen.getByText("Delete"));
+  const confirm = alert.mock.calls[0][2]!.find((button) => button.style === "destructive")!;
+  confirm.onPress!();
+  await waitFor(() => expect(mockDeleteSale).toHaveBeenCalledWith(42, 5));
+  alert.mockRestore();
+});

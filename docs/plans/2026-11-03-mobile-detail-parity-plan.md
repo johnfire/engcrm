@@ -54,7 +54,7 @@ partials, against `engcrm-mobile/app/(drawer)/person-detail.tsx`, `organization-
 5. **Edit forms (O2, O3, P5).** *Done 03.11.2026.* Server: widen both PATCH bodies. Phone: add the fields to
    `recordFields.ts` (venue notes, fit score, flags; LinkedIn + retention checkboxes).
    `tests/test_mobile_record_fields.py` keeps the limits honest.
-6. **Sales (O6).** Server: list + delete endpoints. Phone: Sales block on the organization screen.
+6. **Sales (O6).** *Done 03.11.2026.* Server: list + delete endpoints. Phone: Sales block on the organization screen.
 7. **Link / unlink a person's organization (P3).** Server endpoints + a picker on the phone.
 8. *(Optional)* Curiosity email (P6) — only if you use it from the phone.
 

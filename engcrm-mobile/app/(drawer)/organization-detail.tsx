@@ -39,6 +39,7 @@ import { formatDay } from "../../services/dates";
 import { NameWithId } from "../../components/NameWithId";
 import { ValueRatings } from "../../components/ValueRatings";
 import { ActivityEntry } from "../../components/ActivityEntry";
+import { SalesCard } from "../../components/SalesCard";
 
 export default function OrganizationDetailScreen() {
   const { t } = useTranslation();
@@ -278,6 +279,7 @@ export default function OrganizationDetailScreen() {
       />
 
       <VisitSummaryCard summary={organization.visit_summary} />
+      <SalesCard organizationId={organization.id} sales={organization.sales ?? []} canEdit={isAdmin} />
 
       {organization.interactions.length > 0 && (
         <View style={styles.section}>
