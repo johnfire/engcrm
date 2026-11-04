@@ -30,14 +30,12 @@ def main():
     )
     parser.add_argument(
         "--skip-scoring",
-        "--skip-galleries",
         dest="skip_scoring",
         action="store_true",
-        help="Promote all candidates to cold without LLM scoring (bypasses SCORED_TYPES)",
+        help="Promote all candidates to ready without LLM scoring",
     )
     args = parser.parse_args()
 
-    import gcrm_scout_agent.graph as scout_graph
     from gcrm_scout_agent import create_scout_agent
 
     from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
@@ -52,11 +50,6 @@ def main():
     )
 
     if args.skip_scoring:
-        # The scout graph derives SCORED_TYPES_LC at import time; clear both so
-        # split_and_promote sees no scored types and auto-promotes everything.
-        scout_graph.SCORED_TYPES = set()
-        scout_graph.SCORED_TYPES_LC = set()
-        scout_graph.ALWAYS_SCORED_SOURCES = set()
         logger.info("scout: LLM scoring disabled — all candidates will be auto-promoted to cold")
 
     pool = functools.partial(get_candidates, source="linkedin") if args.linkedin else get_candidates
@@ -78,6 +71,7 @@ def main():
         start_run=start_run,
         finish_run=finish_run,
         mission=ACTIVE_MISSION,
+        skip_scoring=args.skip_scoring,
     )
 
     city_label = args.city or "all cities"

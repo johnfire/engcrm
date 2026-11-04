@@ -49,26 +49,31 @@ research → enrich → scout → outreach → followup
 
 **What it does:** Finds new potential contacts for a given city + level combination and saves them to the database at the `candidate` stage.
 
-**Inputs:** `city`, `country`, `level` (1–5)
+**Inputs:** `city`, `country`, `level` (1–10)
 
-**Scan levels:**
+**Scan levels** (defined in `gcrm/vertical.py`; every level aims at companies of 50–5,000 employees, sweet spot 500–2,500 — the scout enforces the size):
 
-| Level | What it finds                                          |
-| ----- | ------------------------------------------------------ |
-| 1     | Galleries, cafes, interior designers, coworking spaces |
-| 2     | Gift shops, esoteric/wellness shops, concept stores    |
-| 3     | Independent restaurants                                |
-| 4     | Corporate offices and headquarters                     |
-| 5     | Hotels                                                 |
+| Level | What it finds |
+| ----- | ------------- |
+| 1     | Larger trade contractors — Gebäudetechnik, TGA, Elektrotechnik, Anlagenbau, Industriemontage |
+| 2     | Manufacturers & suppliers with their own production — Maschinenbau, metal/plastics processing, electronics, Werkzeugbau, Automobilzulieferer |
+| 3     | Contract logistics & Spedition — firms that transport for other firms |
+| 4     | Food & drink producers — breweries, dairies, cheese makers, wineries, meat/bakery/confectionery manufacturers (no shops) |
+| 5     | Construction companies — Bauunternehmen, Generalunternehmer, Hoch-/Tief-/Straßenbau |
+| 6     | Agricultural business — Landtechnik, Agrarhandel, Raiffeisen, feed and seed producers |
+| 7     | Clinics, hospitals, MVZ, medical labs |
+| 8     | Professional services & company headquarters — tax, law, engineering, architecture, chain HQs |
+| 9     | Academia — universities, Fachhochschulen, research institutes |
+| 10    | Defence, security & strategic consulting |
 
-Level 1 must be run before any other level. Subsequent levels can be run in any order.
+The research step labels every hit with one type from `BUYER_TYPES` or `NOT_A_BUYER_TYPES`. Shops and small services (butcher, bakery, cafe, car dealer, …) are never saved.
 
 **Steps inside the agent:**
 
 1. **run_maps_search** — runs fixed German-language search terms for the level against the Google Maps Places API. Returns name, address, website, phone directly from Maps data. Deduplicates by name.
-2. **run_web_search** — two targeted DuckDuckGo queries per level to supplement Maps data and catch venues Maps might miss.
-3. **fetch_pages** — visits the top 3 URLs found, strips HTML to plain text, feeds the content to the extraction LLM. This is how emails, contact names, and gallery style signals get extracted from actual venue websites.
-4. **extract_contacts** — LLM parses all raw results into structured contact records. Writes 2–3 sentence notes per venue including fit signals. Includes ALL venues found — no filtering at this stage.
+2. **run_web_search** — two targeted DuckDuckGo queries per level to supplement Maps data and catch companies Maps might miss.
+3. **fetch_pages** — visits the top 3 URLs found, strips HTML to plain text, feeds the content to the extraction LLM. This is how emails, contact names and size signals get extracted from the companies' own websites.
+4. **extract_contacts** — LLM parses all raw results into structured contact records with a type from the fixed list, and writes 2–3 sentence notes including size signals. Hits typed as not a buyer are left out here.
 5. **save_contacts** — writes each contact to `contacts` at the `candidate` stage, raising `research_exhausted` for businesses with no web presence. Deduplication key is `(name, city)` so re-runs are safe.
 
 **LLM:** `CHEAP_LLM` env var (deepseek-chat or claude-haiku) — this is volume work.
@@ -85,7 +90,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Inputs:** `limit` (how many contacts to process per run, default 50)
 
-**Why it exists:** The Google Maps Places API returns venue names, addresses, and often a website and phone number — but email addresses are rarely in Maps data. The enrichment agent searches the web for each contact and extracts whatever it finds from search snippets.
+**Why it exists:** The Google Maps Places API returns business names, addresses, and often a website and phone number — but email addresses are rarely in Maps data. The enrichment agent searches the web for each contact and extracts whatever it finds from search snippets.
 
 **Steps inside the agent:**
 
@@ -100,7 +105,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Output:** contacts updated with website/email/phone where found. No status change — enrichment doesn't promote or drop anyone.
 
-**Note:** Enrichment doesn't fetch pages — it only reads search snippets. The research agent already fetched pages during discovery. The scout agent fetches gallery pages again during evaluation (for a fuller read).
+**Note:** Enrichment doesn't fetch pages — it only reads search snippets. The research agent already fetched pages during discovery. The scout agent fetches each company's website again during evaluation (for a fuller read).
 
 ---
 
@@ -110,39 +115,32 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **Inputs:** `limit` (how many candidates to process per run)
 
-**The key insight:** Most venue types — cafes, hotels, restaurants, coworking spaces, corporate offices — are worth contacting regardless. The only venue that needs real evaluation is galleries, because a gallery that only shows Gerhard Richter is a completely different thing from one that shows emerging regional artists.
+**The key idea:** the scout decides whether a machine-found company is an AI-consulting buyer of the right size. The LLM judges the business; code applies the size rule, because the LLM misreads thresholds (it once called 4,000 employees "over 5,000").
 
 **Steps inside the agent:**
 
-1. **fetch** — pulls all contacts at the `candidate` stage
-2. **split_and_promote** — separates candidates by type:
-   - **Non-galleries** (cafes, hotels, restaurants, coworking, interior designers, etc.) → promoted directly to `suspect` / `ready` with no LLM call. No evaluation needed.
-   - **Galleries** → sent to the research pipeline below.
-3. **fetch_gallery_websites** — for each gallery, fetches the gallery website and reads up to 4000 characters of content. Galleries with no website still proceed — the LLM falls back to research notes.
-4. **score_galleries** — for each gallery, the LLM reads the website content and notes and asks: does this gallery show emerging, regional, or mid-career artists? Or only blue-chip / internationally established names?
-5. **apply_scores** — writes the outcome to each gallery contact:
-   - `cold` — shows emerging/regional/mid-career artists, worth contacting
-   - `maybe` — website unclear, too thin, or mixed signals — flagged for manual review
-   - `dropped` — exclusively blue-chip or no fit
+1. **fetch** — pulls all contacts at the `candidate` stage (LinkedIn imports only when asked for)
+2. **split_and_promote** — routes each candidate:
+   - **Entered by hand** (business cards, field visits, manual entries, your Maps list) → `suspect` / `ready` with no LLM call. Those are your call, not the scout's.
+   - **Not a buyer** (type in `NOT_A_BUYER_TYPES`: butcher, cafe, car dealer, …) → `not_in_pipeline` / `dropped` with no LLM call.
+   - **Everything else** (scan hits, research-agent finds, LinkedIn employers) → scored below.
+3. **fetch_scored_websites** — fetches each company's website (up to 4,000 characters). No website still proceeds on the notes.
+4. **score_candidates** — the LLM returns `outcome` (fit / unsure / no_fit, judged on everything except size), `employees` (a head count the site states, or null) and `size_band` (its estimate when no number is stated).
+5. **apply_scores** — code combines them: a stated head count wins over the band; under 50 or over 5,000 is `no_fit` whatever the LLM said. Fit scores: 85 in the 500–2,500 sweet spot, 75 elsewhere in range, 65 when size is unknown; unsure 50; no fit 20.
 
-**LLM:** `CHEAP_LLM` env var for gallery evaluation (reading + reasoning)
+**LLM:** `CHEAP_LLM` env var
 
-**What the LLM looks for:**
+**What the LLM looks for:** own production, warehouse, fleet or construction crews; manual steps, spreadsheets, paper or an underused ERP; several sites, shift work, ISO 9001; research groups needing tooling; defence/security analysis work. Negative: shops and branch outlets, one-person businesses, software/IT companies, agencies, startups.
 
-- Artist names mentioned on the website (regional unknowns vs. internationally famous)
-- Language like _zeitgenössisch_, _Nachwuchs_, _regional_, _auf Kommission_, _emerging_
-- Exhibition history: rotating shows, open submissions, artist residencies
-- Negative signals: exclusively famous artists, auction-house style, permanent collection only
+**City market context:** the city's `market_character` from the `cities` table is passed to the LLM as background.
 
-**City market context:** The scout reads the city's `market_character` (tourist / mixed / upscale / unknown) from the `cities` table and passes it to the LLM. A gallery in a tourist town (Landsberg, Konstanz) gets more benefit of the doubt; galleries in upscale cities (Munich, Zurich) are held to a higher bar. Set city context with the `set_city_notes` MCP tool or via the migration seed data.
-
-**Output:** contacts moved to `cold`, `maybe`, or `dropped`. The scout's reasoning is written into the contact's notes field.
+**Output:** contacts moved to `suspect`/`ready`, left at `candidate` for review, or moved to `not_in_pipeline`/`dropped`. The size and the scout's reasoning are written into the contact's notes field.
 
 ---
 
 ### 5. Outreach Agent (gcrm-outreach-agent)
 
-**What it does:** Researches each venue, drafts a personalized first-contact email, and puts it in the approval queue. Does not send anything.
+**What it does:** Researches each company, drafts a personalized first-contact email, and puts it in the approval queue. Does not send anything.
 
 **Inputs:** `limit` (how many cold contacts to draft for per run — default is 1 for controlled rollout)
 
@@ -151,7 +149,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 1. **fetch** — pulls contacts where `status=ready`, excluding any carrying a suppression flag
 2. **draft_all** — for each contact:
    - Checks GDPR compliance first (hard block if `opt_out` or `erasure_requested` is set in `consent_log`)
-   - Fetches the venue's website and reads up to 3000 characters of content
+   - Fetches the company's website and reads up to 3000 characters of content
    - Fetches the full interaction history for this contact
    - Asks the LLM to write a first-contact email using all of this: research notes, scout reasoning, website content, and past interactions
 3. **queue_drafts** — inserts drafts into `approval_queue` with `status=pending`
@@ -160,7 +158,7 @@ Level 1 must be run before any other level. Subsequent levels can be run in any 
 
 **What the LLM is told to do:**
 
-- Reference something specific about the venue from the notes or website — no generic openers
+- Reference something specific about the company from the notes or website — no generic openers
 - Introduce Christopher briefly and naturally
 - Express genuine interest in this specific space
 - Propose one concrete next step (visit, call, or portfolio)

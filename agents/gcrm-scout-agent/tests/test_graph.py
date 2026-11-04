@@ -67,7 +67,7 @@ def make_tools(candidates=None):
 
 def test_agent_promotes_high_score():
     fetch, update, start_run, finish_run, updates, runs = make_tools()
-    llm = FakeLLM(['{"outcome": "fit", "reasoning": "Good contemporary focus"}'])
+    llm = FakeLLM(['{"outcome": "fit", "size_band": "50_499", "reasoning": "Good contemporary focus"}'])
 
     agent = create_scout_agent(
         llm=llm, fetch_candidates=fetch, set_organization_state=update,
@@ -80,7 +80,7 @@ def test_agent_promotes_high_score():
     assert result["no_fit_count"] == 0
     assert updates[0]["stage"] == "suspect"
     assert updates[0]["status"] == "ready"
-    assert updates[0]["score"] == 75  # FIT_SCORES["fit"]
+    assert updates[0]["score"] == 75  # FIT_SCORE_BY_BAND["50_499"]
 
 
 def test_agent_drops_low_score():
@@ -151,7 +151,7 @@ class RecordingLLM(FakeLLM):
 
 LINKEDIN_ORG = {"id": 7, "name": "Acme GmbH", "city": None, "country": None, "type": None,
                 "source": "linkedin", "pipeline_stage": "candidate", "status": "none"}
-UNTYPED_SCAN_ORG = {"id": 8, "name": "Cafe Roma", "city": "Munich", "type": "Cafe",
+UNTYPED_SCAN_ORG = {"id": 8, "name": "Huber Maschinenbau", "city": "Munich", "type": "manufacturer",
                     "source": "scan", "pipeline_stage": "candidate", "status": "none"}
 
 
@@ -182,11 +182,12 @@ def test_a_name_only_linkedin_organization_can_stay_unsure():
     assert updates[0]["status"] == "none" and updates[0]["stage"] == "candidate"
 
 
-def test_other_untyped_sources_keep_the_old_auto_promotion():
+def test_a_cafe_from_a_scan_is_dropped_not_auto_promoted():
+    """Until 2026-11-04 untyped scan hits went to ready unscored; a cafe is not an AI buyer."""
     llm = RecordingLLM(["{}"])
-    result, updates = run_agent([UNTYPED_SCAN_ORG], llm)
+    result, updates = run_agent([{**UNTYPED_SCAN_ORG, "name": "Cafe Roma", "type": "Cafe"}], llm)
     assert llm.prompts == []  # no LLM call
-    assert result["promoted_count"] == 1 and updates[0]["score"] == 50
+    assert result["no_fit_count"] == 1 and updates[0]["status"] == "dropped"
 
 
 def test_linkedin_organizations_are_told_location_is_no_disadvantage():

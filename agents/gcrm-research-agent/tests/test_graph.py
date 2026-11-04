@@ -67,7 +67,7 @@ def test_agent_saves_organizations():
     web_search, geo_search, save_organization, start_run, finish_run, saved, runs = make_tools()
 
     llm = FakeLLM([
-        '[{"name": "Galerie Nord", "city": "Munich", "country": "DE", "type": "gallery"}]',  # extract_organizations (only LLM call)
+        '[{"name": "Nord Maschinenbau", "city": "Munich", "country": "DE", "type": "manufacturer"}]',  # extract_organizations (only LLM call)
     ])
 
     agent = create_research_agent(
@@ -84,7 +84,7 @@ def test_agent_saves_organizations():
     result = agent.invoke({"city": "Munich", "industry": "gallery", "country": "DE"})
 
     assert len(result["saved_ids"]) == 1
-    assert saved[0]["name"] == "Galerie Nord"
+    assert saved[0]["name"] == "Nord Maschinenbau"
     assert "1 new contacts saved" in result["summary"]
     assert result["errors"] == []
 

@@ -6,7 +6,7 @@ from urllib.parse import urljoin, urlparse
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from gcrm.vertical import SCAN_LEVELS
+from gcrm.vertical import NOT_A_BUYER_TYPES, SCAN_LEVELS
 
 from ._utils import parse_json_response
 from .prompts import extract_organizations_prompt
@@ -177,7 +177,15 @@ def extract_organizations(state: ResearchState, dependencies) -> dict:
             "errors": state.get("errors", []) + [f"extract_organizations: {error}"],
             "organizations_to_save": [],
         }
-    return {"organizations_to_save": organizations}
+    buyers = [organization for organization in organizations if not is_not_a_buyer(organization)]
+    if len(buyers) < len(organizations):
+        logger.info("research: left out %d shop(s) and small service(s) in %s",
+                    len(organizations) - len(buyers), state["city"])
+    return {"organizations_to_save": buyers}
+
+
+def is_not_a_buyer(organization: dict) -> bool:
+    return (organization.get("type") or "").strip().lower() in NOT_A_BUYER_TYPES
 
 
 # Tried in order, after the homepage, before giving up on an org with a

@@ -97,7 +97,8 @@ def render_vertical(
     fit_criteria: str,
     outreach_style: str,
     language: str,
-    scored_types: list[str],
+    buyer_types: list[str],
+    not_a_buyer_types: list[str],
     fit_signals: list[str],
     anti_signals: list[str],
     scan_levels: dict,
@@ -126,8 +127,6 @@ def render_vertical(
             )
         return "{\n" + "\n".join(parts) + "\n}"
 
-    scored_set = "{" + ", ".join(f'"{t}"' for t in scored_types) + "}"
-
     return textwrap.dedent(f"""\
 # gcrm/vertical.py
 # ─────────────────────────────────────────────────────────────────────────────
@@ -153,8 +152,10 @@ OUTREACH_STYLE = {pystr(outreach_style)}
 # Default language for outreach ("de", "en", "fr", etc.)
 LANGUAGE_DEFAULT = {pystr(language)}
 
-# Scout: contact types that get LLM scoring. All other types are auto-promoted to cold.
-SCORED_TYPES: set[str] = {scored_set}
+# The research step labels every hit with exactly one of these types. Buyer types go on to
+# the scout; not-a-buyer types are never saved, and the scout drops any it still finds.
+BUYER_TYPES = tuple({pylist(buyer_types)})
+NOT_A_BUYER_TYPES = tuple({pylist(not_a_buyer_types)})
 
 # Scout: positive signals to look for in website/notes content
 FIT_SIGNALS = {pylist(fit_signals)}
@@ -205,12 +206,15 @@ def main():
     print("\n--- Language ---")
     language = ask("Default outreach language (ISO 639-1 code):", "de")
 
-    print("\n--- Scout scoring ---")
-    print("\nWhich contact type(s) need LLM scoring?")
-    print("  All other types are automatically promoted to 'cold' (ready for outreach).")
-    print("  Typically the type that requires the most judgment — e.g. gallery, distributor.")
-    scored_input = ask("Contact types to LLM-score (comma-separated):", "gallery")
-    scored_types = [t.strip() for t in scored_input.split(",") if t.strip()]
+    print("\n--- Business types ---")
+    buyer_types = ask_list(
+        "Types of business you sell to (short lowercase labels):",
+        example="manufacturer, logistics_company, other",
+    )
+    not_a_buyer_types = ask_list(
+        "Types of business you never sell to (never saved, dropped by the scout):",
+        example="cafe, restaurant, retail_shop",
+    )
 
     fit_signals = ask_list(
         "Positive fit signals (words/phrases that indicate a good fit):",
@@ -233,7 +237,8 @@ def main():
         fit_criteria=fit_criteria,
         outreach_style=outreach_style,
         language=language,
-        scored_types=scored_types,
+        buyer_types=buyer_types,
+        not_a_buyer_types=not_a_buyer_types,
         fit_signals=fit_signals,
         anti_signals=anti_signals,
         scan_levels=scan_levels,
