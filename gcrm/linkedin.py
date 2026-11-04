@@ -184,7 +184,7 @@ def decode_export(data: bytes) -> str:
 
 # --- Company matching --------------------------------------------------------
 
-_LEGAL_FORMS = frozenset({
+LEGAL_FORMS = frozenset({
     "gmbh", "mbh", "ag", "ug", "kg", "kgaa", "gbr", "ohg", "se", "co", "inc", "llc",
     "ltd", "limited", "corp", "corporation", "company", "sa", "srl", "bv", "nv", "plc",
     "haftungsbeschraenkt",
@@ -223,7 +223,7 @@ def normalize_company(name: str | None) -> str:
     text = re.sub(r"\be\.\s?[kv]\.?", " ", text)  # e.K. / e.V.
     text = re.sub(r"[^\w\s]|_", " ", text)
     tokens = [t for t in text.split() if t not in _CONNECTORS]
-    stripped = [t for t in tokens if t not in _LEGAL_FORMS]
+    stripped = [t for t in tokens if t not in LEGAL_FORMS]
     normalized = " ".join(stripped or tokens)
     return "" if normalized in _NO_COMPANY else normalized
 

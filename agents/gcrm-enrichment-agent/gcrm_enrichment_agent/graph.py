@@ -6,6 +6,9 @@ fetches the business's own candidate pages (emails live on Impressum/Kontakt
 pages, not in search snippets), and writes whatever it finds — without ever
 overwriting data the contact already has.
 
+Also keeps the company's LinkedIn and XING pages, found from search results
+(never by visiting LinkedIn or XING).
+
 Pipeline position: research → enrich → scout → outreach → followup
 """
 
@@ -30,9 +33,10 @@ logger = logging.getLogger(__name__)
 
 # Domains that are directories / maps / social — not the business's own site.
 # We skip fetching these because they won't carry the business's real email.
+# LinkedIn and XING links are kept (see find_company_pages) but never opened.
 _SKIP_FETCH_DOMAINS = re.compile(
     r"(google\.|facebook\.|instagram\.|yelp\.|tripadvisor\.|gelbeseiten\.|"
-    r"yellowpages\.|booking\.|maps\.|wikipedia\.|openstreetmap\.)",
+    r"yellowpages\.|booking\.|maps\.|wikipedia\.|openstreetmap\.|linkedin\.|xing\.)",
     re.IGNORECASE,
 )
 
@@ -81,6 +85,7 @@ def create_enrichment_agent(
     set_suppression_flag: SuppressionFlagSetter,
     start_run: RunStarter,
     finish_run: RunFinisher,
+    save_company_pages=None,
 ):
     """Build the enrichment graph from module-level dependency-injected nodes."""
     from functools import partial
@@ -97,14 +102,16 @@ def create_enrichment_agent(
         set_suppression_flag=set_suppression_flag,
         start_run=start_run,
         finish_run=finish_run,
+        save_company_pages=save_company_pages,
     )
     graph = StateGraph(EnrichmentState)
-    for name in ("init", "fetch", "enrich_all", "apply_results", "generate_report"):
+    for name in ("init", "fetch", "enrich_all", "find_company_pages", "apply_results", "generate_report"):
         graph.add_node(name, partial(getattr(nodes, name), dependencies=dependencies))
     graph.set_entry_point("init")
     graph.add_edge("init", "fetch")
     graph.add_edge("fetch", "enrich_all")
-    graph.add_edge("enrich_all", "apply_results")
+    graph.add_edge("enrich_all", "find_company_pages")
+    graph.add_edge("find_company_pages", "apply_results")
     graph.add_edge("apply_results", "generate_report")
     graph.add_edge("generate_report", END)
     return graph.compile()

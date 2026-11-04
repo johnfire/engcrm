@@ -383,13 +383,14 @@ def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None
 
 
 def get_organizations_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
-    """Return contacts missing an email, never-enriched first, skipping dead-ends."""
+    """Return contacts missing an email (skipping dead-ends) or never checked for their
+    LinkedIn/XING pages, never-enriched first."""
     with db() as conn:
         cur = conn.cursor()
         conditions = [
-            "(c.email IS NULL OR c.email = '')",
+            "(((c.email IS NULL OR c.email = '') AND c.research_exhausted = FALSE)"
+            " OR c.company_pages_checked_at IS NULL)",
             "c.deleted_at IS NULL",
-            "c.research_exhausted = FALSE",
         ]
         params: list = []
         if city:
@@ -429,6 +430,21 @@ def update_organization_details(contact_id: int, **kwargs) -> None:
             values,
         )
     log_audit(None, None, "contact.enriched", f"contact:{contact_id}", "updated")
+
+
+def save_company_pages(contact_id: int, linkedin_url: str | None = None, xing_url: str | None = None) -> None:
+    """Keep a company's LinkedIn/XING pages (never replacing one already stored) and
+    mark the contact as checked, found or not."""
+    with db() as conn:
+        conn.cursor().execute(
+            """UPDATE contacts SET linkedin_url = COALESCE(linkedin_url, %s),
+                   xing_url = COALESCE(xing_url, %s), company_pages_checked_at = NOW(),
+                   updated_at = NOW()
+               WHERE id = %s""",
+            (linkedin_url, xing_url, contact_id),
+        )
+    log_audit(None, None, "contact.company_pages", f"contact:{contact_id}",
+              "found" if linkedin_url or xing_url else "none")
 
 
 def match_organization_by_email(from_email: str) -> dict | None:

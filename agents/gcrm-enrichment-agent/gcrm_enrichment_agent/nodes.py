@@ -4,6 +4,8 @@ import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from gcrm.company_pages import pick_company_pages
+
 from ._utils import parse_json_response
 from .graph import _candidate_urls
 from .prompts import build_search_query, enrich_organization_prompt
@@ -40,6 +42,10 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
         return {"results": []}
     results = []
     for organization in state["organizations"]:
+        if organization.get("email"):
+            # Here only for its LinkedIn/XING pages; its details are not looked up again.
+            results.append({"contact_id": organization["id"], "found": False, "details_skipped": True})
+            continue
         name = organization["name"]
         city = organization["city"]
         contact_id = organization["id"]
@@ -55,6 +61,7 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
             # and read the site we already hold, if there is one.
             logger.warning("enrichment: search failed for %s — %s", name, error)
             search_results = []
+        company_pages = pick_company_pages(name, search_results)
         if not search_results and not known_website:
             results.append({"contact_id": contact_id, "found": False})
             continue
@@ -91,6 +98,7 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
                     "missing_email": missing_email,
                     "missing_phone": missing_phone,
                     "found": found,
+                    "company_pages": company_pages,
                 }
             )
             if found:
@@ -101,7 +109,7 @@ def enrich_all(state: EnrichmentState, dependencies) -> dict:
                 logger.debug("enrichment: nothing new for %s / %s", name, city)
         except Exception as error:
             logger.warning("enrichment: LLM extraction failed for %s — %s", name, error)
-            results.append({"contact_id": contact_id, "found": False})
+            results.append({"contact_id": contact_id, "found": False, "company_pages": company_pages})
     return {"results": results}
 
 
@@ -109,6 +117,8 @@ def apply_results(state: EnrichmentState, dependencies) -> dict:
     enriched = 0
     not_found = 0
     for result in state.get("results", []):
+        if result.get("details_skipped"):
+            continue
         contact_id = result.get("contact_id")
         updates = {}
         if result.get("missing_website") and result.get("website"):
@@ -121,12 +131,44 @@ def apply_results(state: EnrichmentState, dependencies) -> dict:
             if updates:
                 dependencies.update_organization(contact_id=contact_id, **updates)
                 enriched += 1
+            elif result.get("company_pages"):
+                not_found += 1  # no details, but a LinkedIn/XING page: not a dead end
             else:
                 not_found += 1
                 dependencies.set_suppression_flag(contact_id=contact_id, flag="research_exhausted")
         except Exception as error:
             logger.warning("enrichment: update failed for contact %s — %s", contact_id, error)
     return {"enriched_count": enriched, "not_found_count": not_found}
+
+
+def find_company_pages(state: EnrichmentState, dependencies) -> dict:
+    """Keep each company's LinkedIn/XING pages: from the search already done, plus one
+    search for whichever page is still missing. Every contact is stamped as checked,
+    found or not, so it is never searched again."""
+    if dependencies.save_company_pages is None:
+        return {}
+    by_id = {result["contact_id"]: result for result in state.get("results", [])}
+    for organization in state.get("organizations", []):
+        result = by_id.setdefault(organization["id"], {"contact_id": organization["id"]})
+        pages = {key: organization[key] for key in ("linkedin_url", "xing_url") if organization.get(key)}
+        new_pages = {**result.get("company_pages", {}), **pages}
+        if len(new_pages) < 2:
+            new_pages = {**_search_company_pages(organization, dependencies), **new_pages}
+        result["company_pages"] = {key: url for key, url in new_pages.items() if key not in pages}
+        try:
+            dependencies.save_company_pages(organization["id"], **result["company_pages"])
+        except Exception as error:
+            logger.warning("enrichment: saving company pages failed for %s — %s", organization["id"], error)
+    return {"results": list(by_id.values())}
+
+
+def _search_company_pages(organization: dict, dependencies) -> dict:
+    query = f'"{organization["name"]}" {organization.get("city") or ""} LinkedIn XING'
+    try:
+        return pick_company_pages(organization["name"], dependencies.web_search(query=query))
+    except Exception as error:
+        logger.warning("enrichment: company page search failed for %s — %s", organization["name"], error)
+        return {}
 
 
 def generate_report(state: EnrichmentState, dependencies) -> dict:

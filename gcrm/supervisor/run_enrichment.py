@@ -30,6 +30,7 @@ def main():
         finish_run,
         get_llm,
         get_organizations_needing_enrichment,
+        save_company_pages,
         start_run,
         update_organization_details,
         web_search,
@@ -48,6 +49,7 @@ def main():
         update_organization=update_organization_details,
         start_run=start_run,
         finish_run=finish_run,
+        save_company_pages=save_company_pages,
     )
 
     city_label = args.city or "all cities"

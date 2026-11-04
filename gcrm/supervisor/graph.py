@@ -51,6 +51,7 @@ from gcrm.tools import (
     read_inbox,
     record_scan_result,
     record_warm_outcome,
+    save_company_pages,
     save_inbox_classification,
     save_opportunity_analysis,
     save_organization,
@@ -103,6 +104,7 @@ def _build_enrichment_agent(llm):
         update_organization=update_organization_details,
         start_run=start_run,
         finish_run=finish_run,
+        save_company_pages=save_company_pages,
     )
 
 

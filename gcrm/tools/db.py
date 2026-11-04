@@ -227,6 +227,10 @@ def get_organizations_needing_enrichment(*args, **kwargs):
     return _organization_tool("get_organizations_needing_enrichment", *args, **kwargs)
 
 
+def save_company_pages(*args, **kwargs):
+    return _organization_tool("save_company_pages", *args, **kwargs)
+
+
 def update_organization_details(*args, **kwargs):
     return _organization_tool("update_organization_details", *args, **kwargs)
 
@@ -317,5 +321,6 @@ __all__ = [
     "update_city_market",
     "set_organization_state",
     "set_suppression_flag",
+    "save_company_pages",
     "update_organization_details",
 ]
