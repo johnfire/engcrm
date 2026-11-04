@@ -56,6 +56,12 @@
 </div>
 {% endif %}
 
+<div class="muted small" style="margin-top: 1rem">
+  {{ t('research.legend') }} &nbsp;|&nbsp; {% for lvl, label in
+  level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %}
+  &nbsp;|&nbsp; {% endif %}{% endfor %}
+</div>
+
 <form method="post" action="/research/run" class="pipeline-run">
   <input type="text" name="city" placeholder="{{ t('research.cityPlaceholder') }}" value="{{ ran_city }}" autocomplete="off" />
   <select name="level" aria-label="{{ t('research.level') }}">
@@ -170,9 +176,4 @@
 </table>
 </div>
 
-<div class="muted small" style="margin-top: 1rem">
-  {{ t('research.legend') }} &nbsp;|&nbsp; {% for lvl, label in
-  level_labels.items() %}L{{ lvl }}: {{ label }}{% if not loop.last %}
-  &nbsp;|&nbsp; {% endif %}{% endfor %}
-</div>
 {% endblock %}
