@@ -74,6 +74,7 @@ class SupervisorState(TypedDict):
     enrichment_summary: str
     opportunity_summary: str
     scout_summary: str
+    people_summary: str
     outreach_summary: str
     followup_summary: str
     errors: list[str]
@@ -195,6 +196,7 @@ def _init_node(state: SupervisorState) -> dict:
         "enrichment_summary": "",
         "opportunity_summary": "",
         "scout_summary": "",
+        "people_summary": "",
         "outreach_summary": "",
         "followup_summary": "",
         "errors": [],
@@ -255,6 +257,20 @@ def _run_scout_node(state: SupervisorState, scout_agent) -> dict:
         return {"scout_summary": msg, "errors": state["errors"] + [msg]}
 
 
+def _run_find_people_node(state: SupervisorState) -> dict:
+    """Decision-makers for the companies the scout just rated ready, by web search only."""
+    from gcrm.supervisor.run_find_people import run as find_people
+
+    try:
+        summary = find_people(limit=20)
+        logger.info("people: %s", summary)
+        return {"people_summary": summary}
+    except Exception as error:
+        msg = f"people finder failed: {error}"
+        logger.error(msg)
+        return {"people_summary": msg, "errors": state["errors"] + [msg]}
+
+
 def _run_opportunity_node(state: SupervisorState, opportunity_agent) -> dict:
     try:
         result = opportunity_agent.invoke({"limit": 50})
@@ -305,6 +321,7 @@ def _generate_report_node(state: SupervisorState) -> dict:
         "",
         f"Enrich:   {state.get('enrichment_summary', '—')}",
         f"Scout:    {state.get('scout_summary', '—')}",
+        f"People:   {state.get('people_summary', '—')}",
         f"Opportunity: {state.get('opportunity_summary', '—')}",
         f"Outreach: {state.get('outreach_summary', '—')}",
         f"Followup: {state.get('followup_summary', '—')}",
@@ -335,6 +352,7 @@ def create_supervisor(checkpointer=None):
     graph.add_node("run_enrich", partial(_run_enrich_node, enrichment_agent=enrichment_agent))
     graph.add_node("run_opportunity", partial(_run_opportunity_node, opportunity_agent=opportunity_agent))
     graph.add_node("run_scout", partial(_run_scout_node, scout_agent=scout_agent))
+    graph.add_node("run_find_people", _run_find_people_node)
     graph.add_node("run_outreach", partial(_run_outreach_node, outreach_agent=outreach_agent))
     graph.add_node("run_followup", partial(_run_followup_node, followup_agent=followup_agent))
     graph.add_node("generate_report", _generate_report_node)
@@ -343,7 +361,8 @@ def create_supervisor(checkpointer=None):
     graph.add_edge("init", "run_research")
     graph.add_edge("run_research", "run_enrich")
     graph.add_edge("run_enrich", "run_scout")
-    graph.add_edge("run_scout", "run_opportunity")
+    graph.add_edge("run_scout", "run_find_people")
+    graph.add_edge("run_find_people", "run_opportunity")
     graph.add_edge("run_opportunity", "run_outreach")
     graph.add_edge("run_outreach", "run_followup")
     graph.add_edge("run_followup", "generate_report")
