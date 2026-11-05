@@ -492,6 +492,7 @@
   "research.enrich": "Enrich",
   "research.opportunityAnalysis": "Analyse opportunities",
   "research.runAll": "Gather (research → enrich → people)",
+  "research.judge": "Judge (scout → opportunity)",
   "research.outreach": "Outreach",
   "research.followupAllCities": "Followup (all cities)",
   "research.cities": "cities",

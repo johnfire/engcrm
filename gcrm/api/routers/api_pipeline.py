@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt_admin
-from gcrm.supervisor.pipeline import spawn_stage
+from gcrm.supervisor.pipeline import GLOBAL_STAGES, spawn_stage
 from gcrm.tools.db import add_city
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.search import normalize_city
@@ -21,10 +21,6 @@ class StageRequest(BaseModel):
     confirmed: bool = False
 
 
-# Stages that take no city, so there is nothing to normalize or register.
-_GLOBAL_STAGES = {"followup", "opportunity"}
-
-
 @router.post("/{stage}/run", status_code=202)
 def run_stage(
     stage: str,
@@ -36,7 +32,7 @@ def run_stage(
     canonical match, answer 200 `needs_confirmation` with the candidates and let
     the phone resend the chosen name with `confirmed: true`."""
     city = body.city.strip()
-    scoped = stage not in _GLOBAL_STAGES and bool(city)
+    scoped = stage not in GLOBAL_STAGES and bool(city)
     if scoped and not body.confirmed:
         candidates = normalize_city(city, body.country)
         exact = any(candidate["name"].lower() == city.lower() for candidate in candidates)

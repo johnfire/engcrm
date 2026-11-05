@@ -5,7 +5,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import templates
 from gcrm.research import get_or_create_dossier
-from gcrm.supervisor.pipeline import spawn_stage
+from gcrm.supervisor.pipeline import GLOBAL_STAGES, spawn_stage
 from gcrm.tools.db import add_city, build_research_overview
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.search import normalize_city
@@ -42,7 +42,7 @@ def research_run(
     """Trigger a pipeline stage (admin only). For city-scoped stages, normalize
     the city via Nominatim and confirm a variant/typo before adding it."""
     city = city.strip()
-    if stage not in {"followup", "opportunity"} and city and not confirmed:
+    if stage not in GLOBAL_STAGES and city and not confirmed:
         candidates = normalize_city(city, country)
         exact = any(candidate["name"].lower() == city.lower() for candidate in candidates)
         # Confirm unless the typed name is already the single canonical match.
@@ -58,7 +58,7 @@ def research_run(
             return templates.TemplateResponse("research.html", context)
 
     try:
-        if stage not in {"followup", "opportunity"} and city:
+        if stage not in GLOBAL_STAGES and city:
             add_city(city, country)
         spawn_stage(stage, city=city, level=level, country=country)
     except ValueError as error:

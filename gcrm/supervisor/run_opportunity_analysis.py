@@ -1,4 +1,4 @@
-"""Run opportunity analysis for contacts that do not yet have one.
+"""Run opportunity analysis for ready companies that do not yet have one.
 
 Usage:
     uv run python -m gcrm.supervisor.run_opportunity_analysis
@@ -13,11 +13,8 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Analyse unmet custom AI/software opportunities")
-    parser.add_argument("--limit", type=int, default=50)
-    args = parser.parse_args()
-
+def analyse(limit: int = 50) -> str:
+    """Opportunity analysis for ready companies without one. Returns the run summary."""
     from gcrm_opportunity_agent import create_opportunity_agent
 
     from gcrm.config import ACTIVE_MISSION, CHEAP_LLM, RESEARCH_DOSSIER_ENABLED
@@ -44,9 +41,16 @@ def main():
         mission=ACTIVE_MISSION,
         model_name=CHEAP_LLM,
     )
-    logger.info("opportunity analysis: running for up to %d unanalysed contacts", args.limit)
-    result = agent.invoke({"limit": args.limit})
-    logger.info("Done: %s", result.get("summary", ""))
+    logger.info("opportunity analysis: running for up to %d ready companies", limit)
+    summary = agent.invoke({"limit": limit}).get("summary", "")
+    logger.info("Done: %s", summary)
+    return summary
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Analyse unmet custom AI/software opportunities")
+    parser.add_argument("--limit", type=int, default=50)
+    analyse(parser.parse_args().limit)
 
 
 if __name__ == "__main__":

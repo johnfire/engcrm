@@ -13,7 +13,9 @@ from gcrm.vertical import SCAN_LEVELS
 
 # Stages exposed as buttons. 'all' is Gather for a city: research, enrichment, people finder
 # (plan docs/plans/2026-11-05-gather-judge-reach-plan.md).
-STAGES = ("research", "scout", "enrichment", "opportunity", "outreach", "followup", "all")
+STAGES = ("research", "scout", "enrichment", "opportunity", "outreach", "followup", "all", "judge")
+# Stages that work on the whole CRM, not one city: no city is asked for or looked up.
+GLOBAL_STAGES = ("followup", "opportunity", "judge")
 
 _CITY_STAGES = ("research", "scout", "enrichment", "outreach", "all")
 _LEVEL_STAGES = ("research", "outreach", "all")
@@ -44,6 +46,8 @@ def _command(stage: str, city: str, level, country: str) -> list[str]:
         return run + ["gcrm.supervisor.run_outreach", "--city", city, "--level", str(level)]
     if stage == "followup":
         return run + ["gcrm.supervisor.run_followup"]
+    if stage == "judge":
+        return run + ["gcrm.supervisor.run_judge"]
     # stage == "all"
     return run + ["gcrm.supervisor.run_gather", "--city", city,
                   "--level", str(level), "--country", country]

@@ -18,6 +18,47 @@ configure_logging()
 logger = logging.getLogger(__name__)
 
 
+def scout(limit: int = 100, city: str | None = None, linkedin: bool = False, skip_scoring: bool = False) -> str:
+    """Judge candidates (all, one city's, or LinkedIn employers'). Returns the run summary."""
+    from gcrm_scout_agent import create_scout_agent
+
+    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
+    from gcrm.tools import (
+        fetch_page,
+        finish_run,
+        get_candidates,
+        get_city_market_context,
+        get_llm,
+        set_organization_state,
+        start_run,
+    )
+
+    if skip_scoring:
+        logger.info("scout: LLM scoring disabled — all candidates will be auto-promoted to cold")
+    pool = functools.partial(get_candidates, source="linkedin") if linkedin else get_candidates
+
+    def fetch_candidates(limit):
+        rows = pool(limit=limit)
+        # get_candidates has no city parameter; filter the returned batch in-process.
+        return [row for row in rows if not city or (row.get("city") or "").lower() == city.lower()]
+
+    agent = create_scout_agent(
+        llm=get_llm(CHEAP_LLM),
+        fetch_candidates=fetch_candidates,
+        set_organization_state=set_organization_state,
+        fetch_page=fetch_page,
+        fetch_city_context=get_city_market_context,
+        start_run=start_run,
+        finish_run=finish_run,
+        mission=ACTIVE_MISSION,
+        skip_scoring=skip_scoring,
+    )
+    logger.info("scout: running for %s (limit=%d)", city or "all cities", limit)
+    summary = agent.invoke({"limit": limit}).get("summary", "")
+    logger.info("Done: %s", summary)
+    return summary
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run scout agent")
     parser.add_argument("--limit", type=int, default=100)
@@ -35,49 +76,7 @@ def main():
         help="Promote all candidates to ready without LLM scoring",
     )
     args = parser.parse_args()
-
-    from gcrm_scout_agent import create_scout_agent
-
-    from gcrm.config import ACTIVE_MISSION, CHEAP_LLM
-    from gcrm.tools import (
-        fetch_page,
-        finish_run,
-        get_candidates,
-        get_city_market_context,
-        get_llm,
-        set_organization_state,
-        start_run,
-    )
-
-    if args.skip_scoring:
-        logger.info("scout: LLM scoring disabled — all candidates will be auto-promoted to cold")
-
-    pool = functools.partial(get_candidates, source="linkedin") if args.linkedin else get_candidates
-
-    # get_candidates has no city parameter; filter the returned batch in-process.
-    if args.city:
-        def fetch_candidates(limit):
-            rows = pool(limit=limit)
-            return [organization for organization in rows if (organization.get("city") or "").lower() == args.city.lower()]
-    else:
-        fetch_candidates = pool
-
-    agent = create_scout_agent(
-        llm=get_llm(CHEAP_LLM),
-        fetch_candidates=fetch_candidates,
-        set_organization_state=set_organization_state,
-        fetch_page=fetch_page,
-        fetch_city_context=get_city_market_context,
-        start_run=start_run,
-        finish_run=finish_run,
-        mission=ACTIVE_MISSION,
-        skip_scoring=args.skip_scoring,
-    )
-
-    city_label = args.city or "all cities"
-    logger.info("scout: running for %s (limit=%d)", city_label, args.limit)
-    result = agent.invoke({"limit": args.limit})
-    logger.info("Done: %s", result.get("summary", ""))
+    scout(args.limit, city=args.city, linkedin=args.linkedin, skip_scoring=args.skip_scoring)
 
 
 if __name__ == "__main__":

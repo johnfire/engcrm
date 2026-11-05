@@ -148,7 +148,7 @@ class TestEndpoint:
         add.assert_called_once_with("Landsberg am Lech", "DE")
         assert spawn.call_args.kwargs["city"] == "Landsberg am Lech"
 
-    @pytest.mark.parametrize("stage", ["followup", "opportunity"])
+    @pytest.mark.parametrize("stage", ["followup", "opportunity", "judge"])
     def test_global_stages_skip_the_city_check(self, stage):
         with patch("gcrm.api.routers.api_pipeline.spawn_stage") as spawn, \
              patch("gcrm.api.routers.api_pipeline.add_city") as add, \
@@ -165,3 +165,13 @@ class TestEndpoint:
             resp = client.post("/api/pipeline/research/run", headers=AUTH,
                                json={"city": "Augsburg", "confirmed": True})
         assert resp.status_code == 422
+
+
+class TestJudgeStage:
+    def test_judge_needs_no_city_or_level(self):
+        pipeline.validate("judge", "", None)  # no raise
+
+    def test_judge_command(self):
+        with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
+            pipeline.spawn_stage("judge")
+        assert "gcrm.supervisor.run_judge" in popen.call_args.args[0]

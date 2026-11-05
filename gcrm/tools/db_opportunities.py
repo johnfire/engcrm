@@ -6,17 +6,20 @@ from psycopg2.extras import Json
 
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_deals import organization_deal_join
 
 
 def get_organizations_needing_opportunity_analysis(limit: int = 50) -> list[dict]:
-    """Return active contacts without a current opportunity assessment."""
+    """Return companies the scout rated ready that have no current opportunity assessment.
+    Dropped and not-yet-judged companies are skipped (plan 2026-11-05)."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT c.*
-            FROM contacts c
+            FROM contacts c""" + organization_deal_join("c", "d") + """
             WHERE c.deleted_at IS NULL
+              AND d.status = 'ready'
               AND NOT EXISTS (
                   SELECT 1 FROM ai_analysis analysis
                   WHERE analysis.contact_id = c.id

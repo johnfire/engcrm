@@ -102,3 +102,23 @@ def candidates_not_on_map(workspace_id: int, list_name: str = COLD_CALL_CANDIDAT
             (workspace_id, list_name, limit),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def dropped_but_pinned(workspace_id: int, list_name: str = COLD_CALL_CANDIDATES) -> list[dict]:
+    """Organizations the scout dropped (consulting deal out of the pipeline) that are still
+    pinned on `list_name`: shown after a Judge run. The pins stay unless Chris asks."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT c.id, c.name, c.city
+              FROM contacts c
+              JOIN deals d ON d.contact_id = c.id AND d.deleted_at IS NULL
+                          AND d.offer_id = offer_id_for(c.workspace_id, 'consulting')
+              JOIN map_pins p ON p.contact_id = c.id AND p.list_name = %s AND p.removed_at IS NULL
+             WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.pipeline_stage = 'not_in_pipeline'
+             ORDER BY c.name, c.id
+            """,
+            (list_name, workspace_id),
+        )
+        return [dict(row) for row in cur.fetchall()]
