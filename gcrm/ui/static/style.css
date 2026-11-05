@@ -424,10 +424,14 @@ pre {
   border: 1px solid var(--accent);
   color: var(--accent);
 }
-.badge-stage-nibble,
-.badge-stage-prospect {
+.badge-stage-nibble {
   border: 1px solid var(--jade);
   color: var(--jade);
+}
+.badge-stage-prospect {
+  background: #ffeb3b;
+  border: 1px solid #ffeb3b;
+  color: var(--bg);
 }
 .badge-stage-opportunity {
   border: 1px solid #c8794a;
