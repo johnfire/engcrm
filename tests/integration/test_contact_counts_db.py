@@ -63,6 +63,10 @@ def test_counts_distinct_people_and_organizations_for_month_and_since_start(work
     assert counts["month"] == {"people": 3, "organizations": 2}
     assert counts["since_start"] == counts["month"]
     assert counts["business_start"] == BUSINESS_START.isoformat() == "2026-10-01"
+    assert counts["previous_months"] == [
+        {"month_start": "2026-09-01", "month_end": "2026-09-30", "people": 0, "organizations": 2},
+        {"month_start": "2026-08-01", "month_end": "2026-08-31", "people": 0, "organizations": 0},
+    ]
 
 
 def test_month_resets_but_since_start_keeps_counting(workspace):
@@ -73,6 +77,9 @@ def test_month_resets_but_since_start_keeps_counting(workspace):
     november = get_contact_counts(workspace, date(2026, 11, 3))
     assert november["month"] == {"people": 0, "organizations": 0}
     assert november["since_start"] == {"people": 1, "organizations": 1}
+    assert november["previous_months"][0] == {
+        "month_start": "2026-10-01", "month_end": "2026-10-31", "people": 1, "organizations": 1,
+    }
 
 
 def test_other_workspaces_are_not_counted(workspace):
@@ -86,9 +93,45 @@ def test_other_workspaces_are_not_counted(workspace):
             organization_contact(connection.cursor(), organization(connection.cursor(), "Theirs", other), date(2026, 10, 6))
         assert get_contact_counts(workspace, TODAY)["month"] == {"people": 0, "organizations": 0}
         assert get_contact_counts(other, TODAY)["month"] == {"people": 0, "organizations": 1}
+        assert get_contact_counts(workspace, date(2026, 11, 5))["previous_months"][0]["organizations"] == 0
+        assert get_contact_counts(other, date(2026, 11, 5))["previous_months"][0]["organizations"] == 1
     finally:
         with db() as connection:
             cursor = connection.cursor()
             cursor.execute("DELETE FROM interactions WHERE contact_id IN (SELECT id FROM contacts WHERE workspace_id=%s)", (other,))
             cursor.execute("DELETE FROM contacts WHERE workspace_id=%s", (other,))
             cursor.execute("DELETE FROM workspaces WHERE id=%s", (other,))
+
+
+def test_previous_months_count_unique_contacts_at_both_month_boundaries(workspace):
+    with db() as connection:
+        cursor = connection.cursor()
+        acme = organization(cursor, "Boundary company", workspace)
+        ann = person(cursor, "Ann", workspace, acme)
+        for day in [date(2026, 9, 1), date(2026, 9, 30), date(2026, 10, 1), date(2026, 10, 31)]:
+            person_contact(cursor, ann, day)
+            organization_contact(cursor, acme, day)
+        organization_contact(cursor, organization(cursor, "Too old", workspace), date(2026, 8, 31))
+        organization_contact(cursor, organization(cursor, "Current month", workspace), date(2026, 11, 1))
+        organization_contact(cursor, organization(cursor, "Plan only", workspace), date(2026, 10, 5), "next_step")
+        organization_contact(cursor, organization(cursor, "Deleted", workspace, deleted=True), date(2026, 9, 5))
+    counts = get_contact_counts(workspace, date(2026, 11, 5))
+    assert counts["previous_months"] == [
+        {"month_start": "2026-10-01", "month_end": "2026-10-31", "people": 1, "organizations": 1},
+        {"month_start": "2026-09-01", "month_end": "2026-09-30", "people": 1, "organizations": 1},
+    ]
+    assert counts["month"] == {"people": 0, "organizations": 1}
+
+
+def test_previous_months_respect_the_selected_offer(workspace):
+    with db() as connection:
+        cursor = connection.cursor()
+        for slug in ["consulting", "learnwohl"]:
+            company = organization(cursor, slug, workspace)
+            cursor.execute("INSERT INTO interactions (contact_id,interaction_date,method,offer_id) "
+                           "SELECT %s,'2026-10-15','phone',id FROM offers WHERE workspace_id=%s AND slug=%s",
+                           (company, workspace, slug))
+    all_offers = get_contact_counts(workspace, date(2026, 11, 5))
+    consulting = get_contact_counts(workspace, date(2026, 11, 5), offer="consulting")
+    assert all_offers["previous_months"][0]["organizations"] == 2
+    assert consulting["previous_months"][0]["organizations"] == 1

@@ -149,6 +149,29 @@ def test_web_contact_list_still_loads_when_counts_fail():
         app.dependency_overrides.pop(require_login, None)
 
 
+def test_previous_month_totals_appear_in_order_with_localized_labels_and_month_tooltips():
+    historical_counts = {**COUNTS, "previous_months": [
+        {"month_start": "2026-10-01", "month_end": "2026-10-31", "people": 14, "organizations": 8},
+        {"month_start": "2026-09-01", "month_end": "2026-09-30", "people": 7, "organizations": 5},
+    ]}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=historical_counts):
+            english = TestClient(app).get("/contact-feed/?lang=en").text
+            german = TestClient(app).get("/contact-feed/?lang=de").text
+        labels = ["This month", "Last month", "Two months ago", "All time (since"]
+        assert [english.index(label) for label in labels] == sorted(english.index(label) for label in labels)
+        assert "14 people · 8 organizations" in english and "7 people · 5 organizations" in english
+        assert "Oktober 2026" in german and "September 2026" in german
+        assert "Letzten Monat" in german and "Vor zwei Monaten" in german
+        assert 'datetime="2026-10" title="October 2026">Last month</time>' in english
+        assert 'datetime="2026-09" title="September 2026">Two months ago</time>' in english
+        assert "14 Personen · 8 Organisationen" in german and "7 Personen · 5 Organisationen" in german
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+
+
 def test_web_list_shows_my_ratings_instead_of_email_or_phone():
     rated = {**CONTACT, "priority": 2, "long_term_value": 3, "short_term_value": 0}
     app.dependency_overrides[require_login] = lambda: "admin"

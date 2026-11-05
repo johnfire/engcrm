@@ -28,7 +28,7 @@ def check_feed_filters(kind: str, stage: str, sort: str) -> None:
 
 @router.get("/api/contact-feed/counts")
 def mobile_contact_counts(offer: str | None = None, payload: dict = Depends(require_jwt_payload)) -> dict:
-    """Contacted this month and since the start; `offer=<slug>` counts only
+    """Contacted this month, in the two preceding months, and since the start; `offer=<slug>` counts only
     contacts logged as being about that offer. Without it, every contact counts."""
     _, workspace_id = _personal_identity(payload)
     try:

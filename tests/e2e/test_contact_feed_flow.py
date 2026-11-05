@@ -1,4 +1,6 @@
 """Add contacts, browse the combined list, and open both kinds on web/mobile."""
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -63,6 +65,29 @@ def test_new_person_and_company_appear_together_and_open_their_own_details(linke
     assert corrected['last_contact'] == '2026-10-03' and corrected['last_contact_kind'] == 'organization'
     assert corrected['people'][0]['last_contact'] == '2026-10-02'
     assert browser.get(f'/api/contact-feed/organization/{organization_id}/date', headers=headers).json()['contact_date'] == '2026-10-03'
+
+
+def test_contacts_page_displays_completed_month_history(linked_contacts, monkeypatch):
+    from gcrm.db.connection import db
+
+    browser, headers, organization_id, person_id, password = linked_contacts
+    monkeypatch.setattr("gcrm.tools.db_contact_counts.today", lambda: date(2026, 11, 5))
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) VALUES "
+                       "(%s,'2026-10-31T12:00:00Z','visit','October'),"
+                       "(%s,'2026-09-30T12:00:00Z','visit','September')", (person_id, person_id))
+    counts = browser.get('/api/contact-feed/counts', headers=headers).json()
+    assert counts['previous_months'] == [
+        {'month_start': '2026-10-01', 'month_end': '2026-10-31', 'people': 1, 'organizations': 1},
+        {'month_start': '2026-09-01', 'month_end': '2026-09-30', 'people': 1, 'organizations': 1},
+    ]
+    browser.post('/login', data={'email': 'contacts@example.test', 'password': password})
+    page = browser.get('/contact-feed/?offer=all&lang=en')
+    assert page.status_code == 200
+    labels = ['This month', 'Last month', 'Two months ago', 'All time (since']
+    assert [page.text.index(label) for label in labels] == sorted(page.text.index(label) for label in labels)
+    assert page.text.count('1 person · 1 organization') == 3
 
 
 @pytest.mark.parametrize('path,first_name,last_name', [

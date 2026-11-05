@@ -1,5 +1,5 @@
-"""How many people and organizations were actually contacted, this month and since the business began."""
-from datetime import date, datetime
+"""Distinct contacts this month, in the previous two calendar months, and since business began."""
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from gcrm.db.connection import db
@@ -42,9 +42,20 @@ def count_contacted(first_day: date, last_day: date, workspace_id: int | None, o
 
 def get_contact_counts(workspace_id: int | None, on: date | None = None, offer: str | None = None) -> dict:
     day = on or today()
+    month_start = day.replace(day=1)
+    previous_months = []
+    first_day = month_start
+    for _ in range(2):
+        last_day = first_day - timedelta(days=1)
+        first_day = last_day.replace(day=1)
+        previous_months.append({
+            "month_start": first_day.isoformat(), "month_end": last_day.isoformat(),
+            **count_contacted(first_day, last_day, workspace_id, offer),
+        })
     return {
-        "month": count_contacted(day.replace(day=1), day, workspace_id, offer),
+        "month": count_contacted(month_start, day, workspace_id, offer),
+        "previous_months": previous_months,
         "since_start": count_contacted(BUSINESS_START, day, workspace_id, offer),
-        "month_start": day.replace(day=1).isoformat(),
+        "month_start": month_start.isoformat(),
         "business_start": BUSINESS_START.isoformat(),
     }

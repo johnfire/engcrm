@@ -14,6 +14,10 @@
 <dl class="contact-counts" aria-label="{{ t('contactFeed.counts') }}">
   <div><dt>{{ t('contactFeed.countMonth') }}</dt>
     <dd>{{ t('contactFeed.countPeople', count=counts.month.people) }} · {{ t('contactFeed.countOrganizations', count=counts.month.organizations) }}</dd></div>
+  {% for period in counts.previous_months %}
+  <div><dt><time datetime="{{ period.month_start[:7] }}" title="{{ t('calendar.month.' ~ period.month_start[5:7]) }} {{ period.month_start[:4] }}">{{ t('contactFeed.countLastMonth' if loop.first else 'contactFeed.countTwoMonthsAgo') }}</time></dt>
+    <dd>{{ t('contactFeed.countPeople', count=period.people) }} · {{ t('contactFeed.countOrganizations', count=period.organizations) }}</dd></div>
+  {% endfor %}
   <div><dt>{{ t('contactFeed.countSince', date=counts.business_start|dmy) }}</dt>
     <dd>{{ t('contactFeed.countPeople', count=counts.since_start.people) }} · {{ t('contactFeed.countOrganizations', count=counts.since_start.organizations) }}</dd></div>
 </dl>
