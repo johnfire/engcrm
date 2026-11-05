@@ -26,6 +26,7 @@
     const x = Math.sin((c - a) * p / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin((d - b) * p / 2) ** 2;
     return 12742000 * Math.asin(Math.sqrt(x));
   };
+  const byLocation = it => it.lat != null && it.lon != null;
   const norm = s => (s || '').toLowerCase()
     .replace(/\b(gmbh|co|kg|ag|ug|mbh|gbr|inh|und|e\.k|ek|ev|e\.v)\b\.?/g, ' ')
     .replace(/[^a-z0-9äöüß]+/g, ' ').trim();
@@ -36,8 +37,15 @@
     const u = A.size + B.size - n;
     return !!u && n / u >= 0.6;
   };
+  // An imported lead (no coordinates) is also accepted when the Maps title contains every word
+  // of its core name ('FRISTO SE' in 'FRISTO SE Zentrale Buchloe'); its postcode must still match.
+  const containsAll = (core, title) => {
+    const want = toks(core), have = toks(title);
+    return want.size > 0 && [...want].some(t => t.length >= 4) && [...want].every(t => have.has(t));
+  };
   const nameOk = (it, title) => it.expect ? new RegExp(it.expect, 'i').test(title)
-    : jaccardOk(it.name, title) || (!!it.alias && jaccardOk(it.alias, title));
+    : jaccardOk(it.name, title) || (!!it.alias && jaccardOk(it.alias, title))
+      || (!byLocation(it) && containsAll(it.alias || it.name, title));
   const coords = url => {
     const la = (url.match(/!3d(-?[\d.]+)/) || [])[1], lo = (url.match(/!4d(-?[\d.]+)/) || [])[1];
     return la ? [parseFloat(la), parseFloat(lo)] : null;
@@ -48,7 +56,20 @@
     if (!box) throw new Error('no search box');
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(box, text);
     box.dispatchEvent(new Event('input', {bubbles: true}));
-    q('button[aria-label="Search"]').click();
+    // Enter, not the Search button: in the current layout a click leaves the old results.
+    box.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+  };
+  const heading = () => [...document.querySelectorAll('h1')].map(h => h.innerText).join('|');
+  // Wait (up to 15 s) until a new place card or results list shows — its heading, not just the
+  // URL, must change, or the previous company's card would be read for this one. Two companies
+  // at one Maps place keep the heading: after the wait, a changed URL is accepted.
+  const settle = async (beforeUrl, beforeHeading) => {
+    const ready = () => cardUp() || !!document.querySelector('a.hfpxzc');
+    for (let i = 0; i < 30; i++) {
+      await sleep(500);
+      if (ready() && heading() !== beforeHeading) { await sleep(800); return true; }
+    }
+    return location.href !== beforeUrl && ready();
   };
   const radio = () => [...document.querySelectorAll('[role=menuitemradio]')]
     .filter(e => e.offsetParent).find(e => LIST.test(e.innerText) && !NOT_LIST.test(e.innerText));
@@ -67,7 +88,6 @@
   };
   const results = () => JSON.parse(sessionStorage.getItem(KEY) || '{}');
   const store = r => { const res = results(); res[r.id] = r; sessionStorage.setItem(KEY, JSON.stringify(res)); };
-  const byLocation = it => it.lat != null && it.lon != null;
   const placeCheck = (it, r, c) => {
     if (byLocation(it)) return (!c || r.dist > (it.maxDist || 500)) ? 'too_far' : null;
     if (!c || hav(HOME[0], HOME[1], c[0], c[1]) > 150000) return 'too_far';
@@ -114,12 +134,15 @@
       const r = {id: it.id, crm: it.name, status: 'error'};
       try {
         const where = byLocation(it) ? (it.city ? ' ' + it.city : '') : ' ' + (it.addr || it.city || '');
+        const beforeUrl = location.href, beforeHeading = heading();
         setSearch((it.alias || it.name) + where);
-        await sleep(4200);
-        if (!cardUp()) {
+        if (!await settle(beforeUrl, beforeHeading)) { r.status = 'no_card'; store(r); continue; }
+        if (!cardUp() || heading() === 'Results') {
           const {ranked, links} = pickFromList(it);
           if (!ranked.length) { r.status = 'no_match'; r.results = links.slice(0, 3).map(x => x.t); store(r); continue; }
-          ranked[0].a.click(); await sleep(4200);
+          const listUrl = location.href, listHeading = heading();
+          ranked[0].a.click();
+          await settle(listUrl, listHeading);
         }
         if (!cardUp()) { r.status = 'no_card'; store(r); continue; }
         const c = readCard(it, r);
