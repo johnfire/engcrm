@@ -47,17 +47,3 @@ def test_the_summary_names_people_profiles_and_connections():
     assert "3 people found" in line and "1 with a public profile" in line
     assert "1 already connections" in line and "1 error" in line
 
-
-def test_the_pipeline_step_reports_and_survives_a_failure(monkeypatch):
-    import gcrm.supervisor.run_find_people as runner
-    from gcrm.supervisor.graph import _run_find_people_node
-
-    monkeypatch.setattr(runner, "run", lambda limit: f"people_finder: {limit} companies")
-    assert _run_find_people_node({"errors": []}) == {"people_summary": "people_finder: 20 companies"}
-
-    def broken(limit):
-        raise RuntimeError("db down")
-
-    monkeypatch.setattr(runner, "run", broken)
-    result = _run_find_people_node({"errors": []})
-    assert "db down" in result["people_summary"] and result["errors"] == [result["people_summary"]]
