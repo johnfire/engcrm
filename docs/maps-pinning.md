@@ -42,6 +42,22 @@ After a Gather run or a lead-list import: "pin the new ones".
 - Closed places are never saved; an already-saved place is never toggled off; every save
   is confirmed by re-opening the Save menu (`unverified` otherwise, retried next run).
 
+## Check against the list, not the loop (2026-11-05)
+
+On 5 Nov the loop reported 88 Buchloe places "already" pinned; they were recorded, and ~90
+of them were not on the list. One Save menu that stayed open (Escape sent to `document` does
+not close it) was re-read for every later place, so one genuinely ticked place made all the
+following ones look ticked. The loop now opens a fresh menu for every place, sends Escape to
+the focused element and checks the menu is gone, and counts a tick only when the Save button
+also says "Saved". A results list counts only once the URL carries the new search (the
+previous search's list could resurface), and the place title is read from the place's own
+panel, not the first `<h1>` ("Results"/"Sponsored").
+
+After a large run, **check a sample against the list itself** before recording: open the
+list (`/maps/@…/data=!4m3!11m2!2s<list id>!3e3`), scroll it to the end and compare names.
+The list's place count in the Save menu ("Private · N places") must also go up by the
+number of `saved` results.
+
 ## Pitfalls seen (2026-11-03/04)
 
 - Places already in another list show the Save button as "Saved (N)" — the loop handles it.

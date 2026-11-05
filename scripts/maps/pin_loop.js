@@ -10,7 +10,9 @@
 //     and its name must match.
 // Name match: the normalised words overlap by Jaccard >= 0.6, or the item's `expect`
 // regex matches the Maps title. Closed places are never saved, an already-saved place is
-// never toggled off, and every save is confirmed by re-opening the Save menu.
+// never toggled off, and every save is confirmed by re-opening the Save menu. The Save menu
+// is always opened fresh for the place on screen (a menu left open is never read), and a
+// tick counts only when the Save button also says "Saved".
 // Results go to sessionStorage '__pins' (statuses: saved, already, closed, too_far,
 // plz_mismatch, loc_mismatch, name_mismatch, no_match, no_card, no_menu, unverified,
 // error); window.__pinResults() returns them as JSON for scripts/maps/apply_pins.py.
@@ -59,33 +61,72 @@
     // Enter, not the Search button: in the current layout a click leaves the old results.
     box.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
   };
-  const heading = () => [...document.querySelectorAll('h1')].map(h => h.innerText).join('|');
-  // Wait (up to 15 s) until a new place card or results list shows — its heading, not just the
-  // URL, must change, or the previous company's card would be read for this one. Two companies
-  // at one Maps place keep the heading: after the wait, a changed URL is accepted.
-  const settle = async (beforeUrl, beforeHeading) => {
-    const ready = () => cardUp() || !!document.querySelector('a.hfpxzc');
+  // "Results" (a list's heading) and "Sponsored" (an ad block) are h1s too; neither is a place.
+  const NOT_TITLE = /^(Results|Sponsored)?$/;
+  // The place card's title: the h1 in the place's own panel ([role=main], labelled with the
+  // place name), never just the first h1 on the page, which can be the list's "Results".
+  const placeTitle = () => {
+    const panel = [...document.querySelectorAll('[role=main]')]
+      .find(m => m.ariaLabel && !NOT_TITLE.test(m.ariaLabel.trim()));
+    const own = panel && panel.querySelector('h1');
+    const text = own && own.innerText.trim();
+    if (text && !NOT_TITLE.test(text)) return text;
+    return [...document.querySelectorAll('h1')].map(h => h.innerText.trim()).find(t => !NOT_TITLE.test(t)) || null;
+  };
+  const listUp = () => !!document.querySelector('a.hfpxzc');
+  // What the page shows: a place card (with its title), a results list, or nothing usable yet.
+  const pageState = () => cardUp() && placeTitle() ? 'card:' + placeTitle() : (listUp() && !cardUp() ? 'list' : null);
+  // Wait (up to 15 s) until the page shows a new card or list and has held it for two polls,
+  // so a passing in-between state (list heading under a loading card) is never read. Two
+  // companies at one Maps place keep the same card: after the wait, a changed URL is accepted.
+  // A results list is this search's only once the URL carries the search: the previous
+  // search's list can resurface first (5 Nov 2026: "Ernst Höbel" was matched against the
+  // SPITZKE results still on screen).
+  const urlHasQuery = query => {
+    const path = decodeURIComponent(location.pathname).replace(/\+/g, ' ').toLowerCase();
+    const word = [...toks(query)].find(t => t.length >= 4) || [...toks(query)][0];
+    return !word || path.includes(word);
+  };
+  const settle = async (beforeUrl, beforeState, query = null) => {
+    let last = null;
+    const current = () => {
+      const s = pageState();
+      return s === 'list' && query && !urlHasQuery(query) ? null : s;
+    };
     for (let i = 0; i < 30; i++) {
       await sleep(500);
-      if (ready() && heading() !== beforeHeading) { await sleep(800); return true; }
+      const now = current();
+      if (now && now !== beforeState && now === last) return true;
+      last = now;
     }
-    return location.href !== beforeUrl && ready();
+    return location.href !== beforeUrl && !!current();
   };
-  const radio = () => [...document.querySelectorAll('[role=menuitemradio]')]
-    .filter(e => e.offsetParent).find(e => LIST.test(e.innerText) && !NOT_LIST.test(e.innerText));
+  const menuItems = () => [...document.querySelectorAll('[role=menuitemradio]')].filter(e => e.offsetParent);
+  const radio = () => menuItems().find(e => LIST.test(e.innerText) && !NOT_LIST.test(e.innerText));
+  const saveButton = () => q('button[data-value="Save"], button[data-value^="Saved"]');
+  // Escape must go to the focused element inside the menu: sent to document it is ignored and
+  // the menu stays open — and a menu left open is read for the NEXT place (5 Nov 2026: one
+  // ticked menu made ~95 places read as "already pinned"). Returns true once no menu shows.
+  const closeMenu = async () => {
+    for (let i = 0; i < 4 && menuItems().length; i++) {
+      (document.activeElement || document.body)
+        .dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true}));
+      await sleep(400);
+    }
+    return !menuItems().length;
+  };
+  // Always a freshly opened menu for the place on screen: never one that was already open.
   const openMenu = async () => {
-    const pre = radio(); if (pre) return pre;
-    const btn = q('button[data-value="Save"], button[data-value^="Saved"]');
+    if (!await closeMenu()) return null;
+    const btn = saveButton();
     if (!btn) return null;
     btn.click();
     for (let i = 0; i < 8; i++) { await sleep(400); const m = radio(); if (m) return m; }
     return null;
   };
-  const closeMenu = async () => {
-    document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
-    const a = q('button[data-item-id="address"]'); if (a) a.focus();
-    await sleep(400);
-  };
+  // A place on no list shows "Save", one on any list "Saved (…)": a ticked menu entry under a
+  // plain "Save" button cannot be true.
+  const onSomeList = () => /^Saved/.test((saveButton() || {}).getAttribute?.('data-value') || '');
   const results = () => JSON.parse(sessionStorage.getItem(KEY) || '{}');
   const store = r => { const res = results(); res[r.id] = r; sessionStorage.setItem(KEY, JSON.stringify(res)); };
   const placeCheck = (it, r, c) => {
@@ -107,7 +148,7 @@
   };
   const readCard = (it, r) => {
     const url = location.href, c = coords(url);
-    r.title = (q('h1') || {}).innerText || document.title.replace(/ - Google Maps$/, '');
+    r.title = placeTitle() || document.title.replace(/ - Google Maps$/, '');
     r.key = (url.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/) || [])[1] || null;
     r.lat = c ? c[0] : null; r.lon = c ? c[1] : null;
     r.address = ((q('button[data-item-id="address"]') || {}).ariaLabel || '').replace(/^Address:\s*/, '').trim() || null;
@@ -118,12 +159,17 @@
     return c;
   };
   const save = async (r) => {
+    const savedBefore = onSomeList();
     const m = await openMenu();
     if (!m) return 'no_menu';
-    if (m.getAttribute('aria-checked') === 'true') { await closeMenu(); return 'already'; }
+    if (m.getAttribute('aria-checked') === 'true') {
+      await closeMenu();
+      return savedBefore ? 'already' : 'unverified';
+    }
     m.click(); await sleep(3000);
+    await closeMenu();
     const m2 = await openMenu();
-    const status = (m2 && m2.getAttribute('aria-checked') === 'true') ? 'saved' : 'unverified';
+    const status = (m2 && m2.getAttribute('aria-checked') === 'true' && onSomeList()) ? 'saved' : 'unverified';
     await closeMenu();
     return status;
   };
@@ -134,17 +180,19 @@
       const r = {id: it.id, crm: it.name, status: 'error'};
       try {
         const where = byLocation(it) ? (it.city ? ' ' + it.city : '') : ' ' + (it.addr || it.city || '');
-        const beforeUrl = location.href, beforeHeading = heading();
-        setSearch((it.alias || it.name) + where);
-        if (!await settle(beforeUrl, beforeHeading)) { r.status = 'no_card'; store(r); continue; }
-        if (!cardUp() || heading() === 'Results') {
+        const beforeUrl = location.href, beforeState = pageState();
+        const query = (it.alias || it.name) + where;
+        await closeMenu();
+        setSearch(query);
+        if (!await settle(beforeUrl, beforeState, query)) { r.status = 'no_card'; store(r); continue; }
+        if (pageState() === 'list') {
           const {ranked, links} = pickFromList(it);
           if (!ranked.length) { r.status = 'no_match'; r.results = links.slice(0, 3).map(x => x.t); store(r); continue; }
-          const listUrl = location.href, listHeading = heading();
+          const listUrl = location.href;
           ranked[0].a.click();
-          await settle(listUrl, listHeading);
+          await settle(listUrl, 'list');
         }
-        if (!cardUp()) { r.status = 'no_card'; store(r); continue; }
+        if (!cardUp() || !placeTitle()) { r.status = 'no_card'; store(r); continue; }
         const c = readCard(it, r);
         r.status = placeCheck(it, r, c) || (!nameOk(it, r.title) ? 'name_mismatch' : (r.closed ? 'closed' : await save(r)));
       } catch (e) { r.status = 'error'; r.err = String(e).slice(0, 100); }
