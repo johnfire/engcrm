@@ -62,6 +62,12 @@ from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.email_extract import extract_person_from_email
 from gcrm.tools.privacy_retention import erase_person
 from gcrm.tools.transcribe import transcribe
+from gcrm.tools.web_person_capture import (
+    ExistingPerson,
+    capture_choices,
+    link_existing_person,
+    save_company_person,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,15 +151,24 @@ def extract_email(body: dict = Body(...), _admin: str = Depends(require_admin)) 
 
 def _new_person_page(
     request: Request, values: dict | None = None, error: str | None = None,
-    existing: dict | None = None, status_code: int = 200,
+    existing: dict | None = None, status_code: int = 200, q: str = "",
 ):
     """The New person form. After a refused save it comes back with everything
     typed still in place, plus the reason (`error`) or the person it matched
     (`existing`)."""
+    values = {"offer": last_used_offer(request), **(values or {})}
+    try:
+        choices = capture_choices(values.get("contact_id"), q)
+    except Exception:
+        logger.exception("manual person form choices unavailable")
+        choices = {"organizations": [], "organization": None, "person_matches": []}
+        error, status_code = "Company choices are temporarily unavailable. Your entries are kept below.", 503
+    if values.get("contact_id") and not choices["organization"] and status_code == 200:
+        error, status_code = "Organization not found", 400
     return templates.TemplateResponse(
         "person_new.html",
         {"request": request, "stages": PIPELINE_STAGES,
-         "values": {"offer": last_used_offer(request), **(values or {})},
+         "values": values, "q": q, **choices,
          "offers": list_offers(request.session.get("workspace_id")),
          "error": error, "existing": existing, "limits": PERSON_LIMITS},
         status_code=status_code,
@@ -161,8 +176,24 @@ def _new_person_page(
 
 
 @router.get("/people/new", response_class=HTMLResponse)
-def person_new(request: Request):
-    return _new_person_page(request)
+def person_new(request: Request, contact_id: int | None = None, q: str = ""):
+    return _new_person_page(request, {"contact_id": contact_id}, q=q)
+
+
+@router.post("/people/link-existing")
+def person_link_existing(request: Request, person_id: int = Form(...), contact_id: int = Form(...),
+                         spoke_today: bool = Form(False), q: str = Form(""),
+                         _admin: str = Depends(require_admin)):
+    values = {"contact_id": contact_id, "spoke_today": spoke_today, "existing_person_id": person_id}
+    try:
+        link_existing_person(person_id, contact_id, spoke_today)
+    except ValueError as refused:
+        return _new_person_page(request, values, error=str(refused), status_code=400, q=q)
+    except Exception:
+        logger.exception("manual person linking failed")
+        return _new_person_page(request, values, error="Could not link the person. Please try again.",
+                                status_code=503, q=q)
+    return local_redirect(f"/people/{person_id}", saved="1")
 
 
 @router.post("/people/new")
@@ -181,49 +212,64 @@ def person_create(
     pipeline_stage: str = Form(""),
     offer: str = Form(""),
     allow_duplicate: bool = Form(False),
+    contact_id: int | None = Form(None),
+    spoke_today: bool = Form(False),
     _admin: str = Depends(require_admin),
 ):
-    """Save a person typed in by hand. Same rules as the phone (POST /api/people):
-    lengths and email checked, country upper-cased and DE when blank. Nothing typed
-    is ever dropped: a refused save, or a match on someone already stored, brings
-    the form back filled in rather than discarding it."""
+    """Keep every typed field when validation or persistence refuses a save."""
     typed = {
         "name": name, "title": title, "email": email, "phone": phone, "website": website,
         "city": city, "country": country, "relationship": relationship, "met_at": met_at,
         "notes": notes,
     }
-    values = {**typed, "pipeline_stage": pipeline_stage, "offer": offer}
+    values = {**typed, "pipeline_stage": pipeline_stage, "offer": offer,
+              "contact_id": contact_id, "spoke_today": spoke_today}
+    return _create_person_entry(request, typed, values, allow_duplicate)
+
+
+def _create_person_entry(request, typed, values, allow_duplicate):
     try:
         fields = clean_fields(PersonFields(**typed), PERSON_LIMITS, require_name=True)
     except HTTPException as refused:
         return _new_person_page(request, values, error=refused.detail, status_code=400)
-    if pipeline_stage and pipeline_stage not in PIPELINE_STAGES:
+    if values["pipeline_stage"] and values["pipeline_stage"] not in PIPELINE_STAGES:
         return _new_person_page(request, values, error="Unknown pipeline stage", status_code=400)
     try:
-        chosen_offer = creation_offer(offer, request.session.get("workspace_id"))
+        chosen_offer = creation_offer(values["offer"], request.session.get("workspace_id"))
     except ValueError:
         return _new_person_page(request, values, error="Choose a valid offer", status_code=400)
-    text = {column: value or "" for column, value in fields.items()}
-
-    if not allow_duplicate:
-        with db() as conn:
-            existing_id = find_existing_person(conn.cursor(), text["name"], text["email"], None)
-        if existing_id:
-            existing = get_person(existing_id) or {"id": existing_id, "name": text["name"]}
-            return _new_person_page(request, values, existing=existing, status_code=409)
-
-    person_id = save_person(
-        name=text["name"], title=text["title"], email=text["email"], phone=text["phone"],
-        website=text["website"], city=text["city"], country=text["country"] or "DE",
-        relationship=text["relationship"], notes=text["notes"], met_at=text["met_at"],
-        source=MANUAL_WEB, pipeline_stage=pipeline_stage, allow_duplicate=allow_duplicate,
-        offer=chosen_offer,
-    )
-    if pipeline_stage:
+    try:
+        person_id = _save_person_entry(fields, values, chosen_offer, allow_duplicate)
+    except ExistingPerson as duplicate:
+        existing = get_person(duplicate.person_id) or {"id": duplicate.person_id, "name": fields["name"]}
+        return _new_person_page(request, values, existing=existing, status_code=409)
+    except ValueError as refused:
+        return _new_person_page(request, values, error=str(refused), status_code=400)
+    except Exception:
+        logger.exception("manual person creation failed")
+        return _new_person_page(request, values, error="Could not save the person. Your entries are kept below.",
+                                status_code=503)
+    if values["pipeline_stage"]:
         request.session[LAST_OFFER_KEY] = chosen_offer
     log_audit(None, None, "person.created", f"person:{person_id}",
               "created:confirmed-not-duplicate" if allow_duplicate else "created")
     return local_redirect(f"/people/{person_id}", saved="1")
+
+
+def _save_person_entry(fields, values, chosen_offer, allow_duplicate):
+    contact_id, spoke_today = values["contact_id"], values["spoke_today"]
+    stage = values["pipeline_stage"]
+    if contact_id is not None or spoke_today:
+        return save_company_person(fields, contact_id, stage, chosen_offer, allow_duplicate, spoke_today)
+    text = {column: value or "" for column, value in fields.items()}
+    if not allow_duplicate:
+        with db() as connection:
+            existing_id = find_existing_person(connection.cursor(), text["name"], text["email"], None)
+        if existing_id:
+            raise ExistingPerson(existing_id)
+    return save_person(**{**text, "country": text["country"] or "DE"},
+                       source=MANUAL_WEB, pipeline_stage=stage,
+                       allow_duplicate=allow_duplicate, offer=chosen_offer)
 
 
 def _import_page(request: Request, result=None, error=None, status_code: int = 200):

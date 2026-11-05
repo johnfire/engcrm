@@ -112,7 +112,7 @@ def _reset_auth_rate_limiter():
 def _no_deals_database(request):
     """Page tests mock the person or organization they render; the Deals panel on
     those pages, the offer pickers and the "which offer was this note about"
-    lookup read their own data. Outside the real-database suites they read
+    lookup and the company picker read their own data. Outside the real-database suites they read
     nothing (notes come out "general") — a test about them patches these
     functions itself."""
     if request.node.get_closest_marker("integration") or request.node.get_closest_marker("e2e"):
@@ -128,6 +128,9 @@ def _no_deals_database(request):
          patch("gcrm.api.offer_filter.list_offers", return_value=SEEDED_OFFERS), \
          patch("gcrm.api.routers.organization_create.list_offers", return_value=SEEDED_OFFERS), \
          patch("gcrm.api.routers.people.list_offers", return_value=SEEDED_OFFERS), \
+         patch("gcrm.api.routers.people.capture_choices", return_value={
+             "organizations": [], "organization": None, "person_matches": [],
+         }), \
          patch("gcrm.api.routers.statistics.resolve_log_offer", return_value=None), \
          patch("gcrm.api.routers.people.resolve_log_offer", return_value=None), \
          patch("gcrm.api.routers.api_people_interactions.resolve_log_offer", return_value=None), \

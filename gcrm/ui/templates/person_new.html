@@ -7,6 +7,32 @@
   <h1>{{ t('personNew.title') }}</h1>
 </div>
 
+{% if organization %}
+<section class="detail-section">
+  <h2>{{ t('personNew.atCompany', company=organization.name) }}</h2>
+  <form method="get" action="/people/new" class="filter-bar">
+    <input type="hidden" name="contact_id" value="{{ organization.id }}" />
+    <label for="existing-query">{{ t('personNew.findExisting') }}</label>
+    <input id="existing-query" type="search" name="q" value="{{ q }}" />
+    <button type="submit" class="btn-secondary">{{ t('common.search') }}</button>
+  </form>
+  {% if person_matches %}
+  <form method="post" action="/people/link-existing" class="record-form">
+    <input type="hidden" name="contact_id" value="{{ organization.id }}" />
+    <input type="hidden" name="q" value="{{ q }}" />
+    <label for="existing-person">{{ t('personNew.useExisting') }}</label>
+    <select id="existing-person" name="person_id" required>
+      {% for match in person_matches %}
+      <option value="{{ match.id }}" {% if values.existing_person_id == match.id %}selected{% endif %}>{{ match.name }} #{{ match.id }}{% if match.email %} · {{ match.email }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <label><input type="checkbox" name="spoke_today" value="true" {% if values.spoke_today %}checked{% endif %} /> {{ t('personNew.spokeToday') }}</label>
+    <button type="submit" class="btn-primary">{{ t('personNew.linkExisting') }}</button>
+  </form>
+  {% elif q %}<p class="muted">{{ t('personNew.noMatches') }}</p>{% endif %}
+</section>
+{% endif %}
+
 <section class="detail-section">
   <label for="email-paste">{{ t('personNew.pasteEmailLabel') }}</label>
   <textarea id="email-paste" rows="6" class="field-row--wide"></textarea>
@@ -29,6 +55,18 @@
   <div class="detail-grid">
     <section class="detail-section">
       <h2>{{ t('personDetail.details') }}</h2>
+      <div class="field-row field-row--wide">
+        <label for="person-company">{{ t('personDetail.company') }}</label>
+        <select id="person-company" name="contact_id">
+          <option value="">{{ t('personNew.noCompany') }}</option>
+          {% if values.contact_id and not organization %}
+          <option value="{{ values.contact_id }}" selected>{{ t('personNew.unavailableCompany', id=values.contact_id) }}</option>
+          {% endif %}
+          {% for company in organizations %}
+          <option value="{{ company.id }}" {% if values.contact_id == company.id %}selected{% endif %}>{{ company.name }}{% if company.city %} · {{ company.city }}{% endif %} #{{ company.id }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="field-row field-row--wide">
         <label for="person-name">{{ t('common.name') }}</label>
         <input id="person-name" type="text" name="name" value="{{ values.name or '' }}" maxlength="{{ limits.name }}" required />
@@ -82,6 +120,8 @@
 
     <section class="detail-section">
       <h2>{{ t('personDetail.context') }}</h2>
+      <label><input type="checkbox" name="spoke_today" value="true" {% if values.spoke_today %}checked{% endif %} /> {{ t('personNew.spokeToday') }}</label>
+      <p class="muted small">{{ t('personNew.spokeHint') }}</p>
       <div class="field-row field-row--wide">
         <label for="person-met-at">{{ t('people.metAt') }}</label>
         <input id="person-met-at" type="text" name="met_at" value="{{ values.met_at or '' }}" maxlength="{{ limits.met_at }}"

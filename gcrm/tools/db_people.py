@@ -5,7 +5,7 @@ contact via people.contact_id — e.g. the individual on a scanned business card
 """
 import logging
 
-from gcrm.db.connection import db, serialize_row
+from gcrm.db.connection import db, serialize_row, transaction_cursor
 from gcrm.geo import distance_km_sql
 from gcrm.linkedin import normalize_linkedin_url
 from gcrm.organization_state import PIPELINE_STAGES
@@ -80,6 +80,8 @@ def save_person(
     pipeline_stage: str = "",
     allow_duplicate: bool = False,
     offer: str = CONSULTING,
+    cursor=None,
+    geocode_city: bool = True,
 ) -> int:
     """
     Insert a person, optionally linked to their company contact. Returns the new
@@ -108,15 +110,14 @@ def save_person(
     stage = pipeline_stage.strip() or None
     if stage is not None and stage not in PIPELINE_STAGES:
         raise ValueError(f"unknown pipeline stage: {stage!r}")
-    with db() as conn:
-        cur = conn.cursor()
+    with transaction_cursor(cursor, db) as cur:
         existing_id = None if allow_duplicate else find_existing_person(cur, name, email, contact_id)
         if existing_id:
             logger.debug("save_person: duplicate — %s (%s, contact_id=%s)", name, email, contact_id)
             return _refresh_met_at(cur, existing_id, met_at)
 
         latitude = longitude = None
-        if city:
+        if city and geocode_city:
             coords = geocode(city, country)
             if coords:
                 latitude, longitude = coords

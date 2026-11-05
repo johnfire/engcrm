@@ -16,15 +16,22 @@ def log_person_note(person_id: int, method: str | None, note: str, duration_minu
     default otherwise); `offer_id` the offer it was about (None: general);
     `attitude` and `my_read` how they seemed to feel about me, and to me."""
     with db() as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO people_interactions (person_id, method, note, duration_minutes, offer_id, attitude, my_read) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (person_id, method or None, note, duration_minutes, offer_id, attitude or None, my_read or None),
-        )
-        note_id = cursor.fetchone()["id"]
-        cursor.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
+        note_id = insert_person_note(conn.cursor(), person_id, method, note, duration_minutes,
+                                     offer_id, attitude, my_read)
     log_audit(None, None, "person.note_added", f"person:{person_id}", method or "note")
+    return note_id
+
+
+def insert_person_note(cursor, person_id, method, note, duration_minutes=None,
+                       offer_id=None, attitude=None, my_read=None) -> int:
+    """Write a person note inside an existing transaction; the caller audits after commit."""
+    cursor.execute(
+        "INSERT INTO people_interactions (person_id, method, note, duration_minutes, offer_id, attitude, my_read) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (person_id, method or None, note, duration_minutes, offer_id, attitude or None, my_read or None),
+    )
+    note_id = cursor.fetchone()["id"]
+    cursor.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
     return note_id
 
 

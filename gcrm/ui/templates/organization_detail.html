@@ -13,7 +13,8 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 <p class="muted">{{ t('personDetail.source') }}: {{ t(source_label_key(organization.source)) }}</p>
 
 {% if request.session.get('role') == 'admin' %}
-<p><a class="btn-secondary" href="/contact-feed/organization/{{ organization.id }}/date">{{ t('contactDate.title') }}</a></p>
+<p><a class="btn-primary" href="/people/new?contact_id={{ organization.id }}">{{ t('personNew.addContactHere') }}</a>
+<a class="btn-secondary" href="/contact-feed/organization/{{ organization.id }}/date">{{ t('contactDate.title') }}</a></p>
 {% endif %}
 
 {% if saved %}

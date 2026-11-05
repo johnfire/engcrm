@@ -40,3 +40,13 @@ def db():
         raise
     finally:
         conn.close()
+
+
+@contextmanager
+def transaction_cursor(cursor=None, database=db):
+    """Join a caller's transaction, or own one when no cursor was supplied."""
+    if cursor is not None:
+        yield cursor
+    else:
+        with database() as connection:
+            yield connection.cursor()
