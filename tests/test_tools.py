@@ -62,7 +62,9 @@ class TestSaveOrganization:
             call for call in cur.execute.call_args_list if "INSERT INTO contacts" in call.args[0]
         )
         assert "latitude" in insert.args[0] and "longitude" in insert.args[0]
-        assert (48.1, 11.5) == insert.args[1][11:13]
+        columns = [name.strip() for name in insert.args[0].split("(", 1)[1].split(")", 1)[0].split(",")]
+        assert insert.args[1][columns.index("latitude")] == 48.1
+        assert insert.args[1][columns.index("longitude")] == 11.5
 
     def test_a_new_organization_enters_the_consulting_pipeline(self):
         """Its stage and status are its Consulting deal's, written in the same transaction."""

@@ -113,15 +113,25 @@ def pin_queue(workspace_id: int, ids: list[int] | None = None, list_name: str = 
         return [dict(row) for row in cur.fetchall()]
 
 
-def latest_gather_ids() -> list[int]:
-    """The companies the most recent finished Gather run found (empty if none)."""
+def latest_run_ids(agent_name: str, key: str) -> list[int]:
+    """The company ids stored under `key` by the most recent finished run of `agent_name`."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT output_json FROM agent_runs WHERE agent_name = 'gather' AND status = 'completed' "
-                    "ORDER BY started_at DESC, id DESC LIMIT 1")
+        cur.execute("SELECT output_json FROM agent_runs WHERE agent_name = %s AND status = 'completed' "
+                    "ORDER BY started_at DESC, id DESC LIMIT 1", (agent_name,))
         row = cur.fetchone()
     output = (row or {}).get("output_json") or {}
-    return [int(contact_id) for contact_id in output.get("saved_ids", [])]
+    return [int(contact_id) for contact_id in output.get(key, [])]
+
+
+def latest_gather_ids() -> list[int]:
+    """The companies the most recent finished Gather run found (empty if none)."""
+    return latest_run_ids("gather", "saved_ids")
+
+
+def latest_import_ids() -> list[int]:
+    """The companies the most recent lead-list import created or matched (empty if none)."""
+    return latest_run_ids("lead_import", "company_ids")
 
 
 PINNED_STATUSES = ("saved", "already")

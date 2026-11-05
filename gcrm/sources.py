@@ -22,6 +22,8 @@ SIGN_RESEARCH = "sign_research"
 STUDIES_IMPORT = "studies_import"
 LINKEDIN = "linkedin"
 LINKEDIN_IMPORT = "linkedin_import"
+# A lead list researched in a chat app and imported (gcrm/lead_list.py).
+LEAD_LIST = "lead_list"
 # Older rows from before the web/mobile split; the form used is not known.
 MANUAL = "manual"
 
@@ -29,7 +31,7 @@ MANUAL = "manual"
 # (bavaria_directory_2026-08-19) and are labelled by their prefix.
 KNOWN_SOURCES = (
     MANUAL_MOBILE, MANUAL_WEB, VOICE, CLAUDE_FIELD, CARD_CAPTURE, DOCUMENT_CAPTURE, SIGN_SCAN,
-    RESEARCH_AGENT, MAPS_IMPORT, SIGN_RESEARCH, STUDIES_IMPORT, LINKEDIN, LINKEDIN_IMPORT, MANUAL,
+    RESEARCH_AGENT, MAPS_IMPORT, SIGN_RESEARCH, STUDIES_IMPORT, LINKEDIN, LINKEDIN_IMPORT, LEAD_LIST, MANUAL,
 )
 DIRECTORY_IMPORT_PREFIX = "bavaria_directory"
 

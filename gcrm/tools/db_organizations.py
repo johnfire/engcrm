@@ -100,12 +100,18 @@ def save_organization(
     longitude: float | None = None,
     google: dict | None = None,
     offer: str = CONSULTING,
+    address: str = "",
+    geocode_city: bool = True,
 ) -> int:
     """
     Insert a new contact (a fresh `candidate` with nothing going on by default).
     `source` says how it was created (see gcrm.sources) and is required.
     `pipeline_stage` and `status` are those of its deal for `offer` — Consulting
     unless the person adding it chose another.
+
+    `geocode_city=False` skips the city-level geocoding a contact without coordinates
+    otherwise gets (an import of hundreds of rows would only hit Nominatim's rate limit;
+    pinning fills the exact Maps coordinates later).
 
     `research_exhausted=True` records that the research agent could find no web
     presence at all — a fact about the data, not a pipeline position, so the
@@ -159,7 +165,7 @@ def save_organization(
         # Scanned businesses already carry coords from Google Places; a manual
         # or voice-created contact doesn't, so fall back to geocoding by city
         # (best-effort, city-level accuracy) for distance-from-home to work.
-        if latitude is None and city:
+        if latitude is None and city and geocode_city:
             coords = geocode(city, country)
             if coords:
                 latitude, longitude = coords
@@ -167,19 +173,20 @@ def save_organization(
         cur.execute(
             """
             INSERT INTO contacts
-                (name, city, country, type, website, email, phone, notes,
+                (name, city, address, country, type, website, email, phone, notes,
                  research_exhausted,
                  scan_level, neighborhood, latitude, longitude,
                  business_status, rating, user_ratings, google_data, source, workspace_id)
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
+                %s, %s, %s, COALESCE(%s, (SELECT id FROM workspaces WHERE slug = 'default'))
             )
             RETURNING id
             """,
             (
                 name,
                 city,
+                address or None,
                 country,
                 type or None,
                 website or None,
