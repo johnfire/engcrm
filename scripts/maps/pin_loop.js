@@ -36,7 +36,8 @@
     const u = A.size + B.size - n;
     return !!u && n / u >= 0.6;
   };
-  const nameOk = (it, title) => it.expect ? new RegExp(it.expect, 'i').test(title) : jaccardOk(it.name, title);
+  const nameOk = (it, title) => it.expect ? new RegExp(it.expect, 'i').test(title)
+    : jaccardOk(it.name, title) || (!!it.alias && jaccardOk(it.alias, title));
   const coords = url => {
     const la = (url.match(/!3d(-?[\d.]+)/) || [])[1], lo = (url.match(/!4d(-?[\d.]+)/) || [])[1];
     return la ? [parseFloat(la), parseFloat(lo)] : null;

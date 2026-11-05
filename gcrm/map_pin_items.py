@@ -8,6 +8,7 @@ import re
 from urllib.parse import urlsplit
 
 _POSTCODE = re.compile(r"\b(\d{5})\b")
+_REMARK = re.compile(r"\s+(?:[—–]|\(|/)\s*")  # "Name — remark", "Name (remark)", "Name / remark"
 
 
 def postcode(address: str | None) -> str | None:
@@ -23,8 +24,16 @@ def site_host(website: str | None) -> str | None:
     return host.removeprefix("www.") or None
 
 
+def core_name(name: str) -> str | None:
+    """'FRISTO SE' from 'FRISTO SE — Zentrale / Zentrallager'; None when there is no remark."""
+    core = _REMARK.split(name, maxsplit=1)[0].strip()
+    return core if core and core != name.strip() else None
+
+
 def loop_item(row: dict) -> dict:
     item = {"id": row["id"], "name": row["name"]}
+    if core_name(row["name"]):
+        item["alias"] = core_name(row["name"])
     if row.get("city"):
         item["city"] = row["city"]
     if row.get("latitude") is not None and row.get("longitude") is not None:

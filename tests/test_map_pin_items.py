@@ -34,3 +34,18 @@ def test_empty_address_parts_are_left_out_not_sent_as_blanks():
     row = {"id": 7, "name": "Ghost GmbH", "city": "", "latitude": None, "longitude": None,
            "address": "", "website": ""}
     assert loop_item(row) == {"id": 7, "name": "Ghost GmbH", "addr": ""}
+
+
+def test_a_name_with_a_remark_also_carries_its_core_name():
+    """Lead-list names carry remarks Maps does not show: 'FRISTO SE — Zentrale / Zentrallager'."""
+    for name, core in (("FRISTO SE — Zentrale / Zentrallager", "FRISTO SE"),
+                       ("Vion Beef Süd GmbH (formerly A. Moksel AG)", "Vion Beef Süd GmbH"),
+                       ("Deutsche Post (Zentrale Kaufbeuren)", "Deutsche Post")):
+        item = loop_item({"id": 1, "name": name, "city": "Buchloe", "latitude": None, "longitude": None,
+                          "address": "", "website": ""})
+        assert item["alias"] == core
+
+
+def test_a_plain_name_has_no_alias():
+    item = loop_item({"id": 1, "name": "Meile GmbH", "city": "", "latitude": 48.1, "longitude": 10.8})
+    assert "alias" not in item
