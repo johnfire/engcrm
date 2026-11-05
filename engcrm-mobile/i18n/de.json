@@ -76,7 +76,7 @@
   "login.passwordPlaceholder": "Passwort",
   "login.signIn": "Anmelden",
   "login.failedTitle": "Anmeldung fehlgeschlagen",
-  "login.failedMessage": "Falsche E-Mail oder falsches Passwort.",
+  "login.failedMessage": "E-Mail, Passwort oder Zwei-Faktor-Code ungültig.",
   "login.forgotPassword": "Passwort vergessen?",
   "login.impressum": "Impressum",
   "login.privacy": "Datenschutz",
@@ -766,5 +766,9 @@
   "fieldMode.explainTitle": "Außendienst-Modus",
   "fieldMode.explainBody": "EngCRM speichert alle 5 Minuten, wo Sie sind, und Android zeigt die ganze Zeit eine Benachrichtigung. Falls Android fragt: Standort während der Nutzung der App erlauben. Schalten Sie den Modus hier ein, dann können Sie in jeder App mit Claude sprechen.",
   "fieldMode.locationDenied": "Der Standort ist für EngCRM aus. Erlauben Sie ihn in den Android-Einstellungen, um den Außendienst-Modus zu nutzen.",
-  "source.claude_field": "Claude (Außendienst-Modus)"
+  "source.claude_field": "Claude (Außendienst-Modus)",
+  "mfa.title": "Zwei-Faktor-Authentifizierung",
+  "mfa.manage": "Auf der Website verwalten",
+  "mfa.loginCode": "Authenticator- oder Wiederherstellungscode",
+  "mfa.loginHint": "Wenn die Zwei-Faktor-Authentifizierung aktiviert ist, einen Code eingeben. Andernfalls leer lassen."
 }

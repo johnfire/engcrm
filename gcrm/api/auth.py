@@ -21,6 +21,7 @@ from gcrm.tools.db_account_lifecycle import (
 )
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_help import has_completed_help_tour
+from gcrm.tools.db_mfa import verify_login_factor
 from gcrm.tools.db_users import set_user_password_by_id
 from gcrm.tools.db_web_sessions import create_web_session, revoke_web_session
 from gcrm.tools.email import send_email
@@ -57,8 +58,8 @@ def require_admin(request: Request) -> str:
 
 def authenticate(email: str, password: str, user: dict | None) -> dict | None:
     """
-    Core login decision — pure (no DB, no request) so it is unit-testable.
-    Returns a session payload on success, otherwise None.
+    Password-stage identity only; routes must use authenticate_login before
+    issuing credentials so an enabled second factor cannot be bypassed.
     """
     if user and user.get("is_active") and verify_password(password, user["password_hash"]):
         return {
@@ -72,6 +73,19 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
     if ADMIN_PASSWORD and hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode()):
         return {"role": "admin", "user_id": None, "email": "shared-admin", "workspace_id": None}
     return None
+
+
+def authenticate_login(email: str, password: str, user: dict | None, code: str = "") -> dict | None:
+    """Complete both authentication factors before issuing any cookie or JWT."""
+    payload = authenticate(email, password, user)
+    if payload and payload["user_id"] is not None and user.get("mfa_enabled"):
+        try:
+            if not verify_login_factor(payload["user_id"], code, payload["token_version"]):
+                return None
+        except Exception as error:
+            logger.warning("two-factor authentication store unavailable: %s", type(error).__name__)
+            raise HTTPException(503, "Authentication temporarily unavailable") from error
+    return payload
 
 
 def _lookup_user(email: str) -> dict | None:
@@ -141,8 +155,9 @@ def login_page(request: Request):
 
 
 @router.post("/login", response_class=HTMLResponse)
-def login_submit(request: Request, email: str = Form(""), password: str = Form(...), _throttle: None = Depends(rate_limit_auth)):
-    payload = authenticate(email, password, _lookup_user(email))
+def login_submit(request: Request, email: str = Form(""), password: str = Form(...),
+                 mfa_code: str = Form("", max_length=64), _throttle: None = Depends(rate_limit_auth)):
+    payload = authenticate_login(email, password, _lookup_user(email), mfa_code)
     if payload:
         set_workspace_id(payload.get("workspace_id"))
         session_id = create_web_session(payload, ADMIN_PASSWORD)

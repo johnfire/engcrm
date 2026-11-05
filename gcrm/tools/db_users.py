@@ -10,7 +10,7 @@ def get_user_by_email(email: str) -> dict | None:
         cur = conn.cursor()
         cur.execute(
             "SELECT id, email, name, password_hash, role, is_active, token_version, "
-            "workspace_id, ui_language FROM users WHERE LOWER(email) = LOWER(%s)",
+            "workspace_id, ui_language, mfa_enabled FROM users WHERE LOWER(email) = LOWER(%s)",
             (email,),
         )
         return cur.fetchone()

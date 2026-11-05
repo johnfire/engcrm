@@ -59,9 +59,11 @@ client.interceptors.response.use(
 export async function login(
   email: string,
   password: string,
+  mfaCode = "",
 ): Promise<{ token: string; role: string; server: Server }> {
   const server = serverForEmail(email);
-  const resp = await client.post("/api/auth/token", { email, password }, { baseURL: baseForServer(server) });
+  const credentials = mfaCode ? { email, password, mfa_code: mfaCode } : { email, password };
+  const resp = await client.post("/api/auth/token", credentials, { baseURL: baseForServer(server) });
   return { ...resp.data, server };
 }
 

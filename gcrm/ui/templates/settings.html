@@ -3,6 +3,8 @@
 {% block content %}<h1>{{ t('settings.title') }}</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if message %}<p>{{ message }}</p>{% endif %}
+{% if request.session.get('user_id') %}<section class="card"><h2>{{ t('mfa.title') }}</h2>
+<p><a href="/settings/two-factor">{{ t('mfa.manage') }}</a></p></section>{% endif %}
 <section class="card"><h2>{{ t('settings.changePasswordHeader') }}</h2><form method="post" action="/settings/password">
 <label>{{ t('settings.currentPasswordLabel') }} <input type="password" name="current_password" required autocomplete="current-password"></label>
 <label>{{ t('settings.newPasswordLabel') }} <input type="password" name="new_password" required minlength="12" autocomplete="new-password"></label>

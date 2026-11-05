@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="{{ request.session.get('ui_language', 'en') }}">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ t('mfa.title') }}</title><link rel="stylesheet" href="/static/style.css?v={{ static_version }}"></head>
+<body><main>
+<h1>{{ t('mfa.title') }}</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if finished %}
+<p>{{ t('mfa.disabled') if disabled else t('mfa.saved') }}</p>
+{% if recovery_codes %}
+<h2>{{ t('mfa.recoveryTitle') }}</h2>
+<p>{{ t('mfa.recoveryWarning') }}</p>
+<ul>{% for code in recovery_codes %}<li><code>{{ code }}</code></li>{% endfor %}</ul>
+{% endif %}
+<p>{{ t('mfa.signedOut') }}</p><p><a href="/login">{{ t('login.signIn') }}</a></p>
+{% elif setup_secret %}
+<section class="card">
+<p>{{ t('mfa.setupInstructions') }}</p>
+<p><a href="{{ setup_uri }}">{{ t('mfa.openAuthenticator') }}</a></p>
+<p>{{ t('mfa.manualKey') }}: <code>{{ setup_secret }}</code></p>
+<form method="post" action="/settings/two-factor/enable">
+<label>{{ t('settings.currentPasswordLabel') }} <input type="password" name="current_password" required autocomplete="current-password"></label>
+<label>{{ t('mfa.authenticatorCode') }} <input name="mfa_code" required pattern="[0-9]{6}" inputmode="numeric" autocomplete="one-time-code"></label>
+<button type="submit">{{ t('mfa.enable') }}</button>
+</form></section>
+{% elif mfa_enabled %}
+<p>{{ t('mfa.enabled') }}</p>
+{% for action in ['recovery', 'disable'] %}
+<section class="card"><h2>{{ t('mfa.regenerate') if action == 'recovery' else t('mfa.disable') }}</h2>
+<p>{{ t('mfa.replaceWarning') if action == 'recovery' else t('mfa.disableWarning') }}</p>
+<form method="post" action="/settings/two-factor/{{ action }}">
+<label>{{ t('settings.currentPasswordLabel') }} <input type="password" name="current_password" required autocomplete="current-password"></label>
+<label>{{ t('mfa.loginCode') }} <input name="mfa_code" required autocomplete="one-time-code" maxlength="64"></label>
+<button type="submit">{{ t('mfa.regenerate') if action == 'recovery' else t('mfa.disable') }}</button>
+</form></section>
+{% endfor %}
+{% else %}
+<p>{{ t('mfa.notEnabled') }}</p>
+<form method="post" action="/settings/two-factor/start">
+<label>{{ t('settings.currentPasswordLabel') }} <input type="password" name="current_password" required autocomplete="current-password"></label>
+<button type="submit">{{ t('mfa.start') }}</button>
+</form>
+{% endif %}
+{% if not finished %}<p><a href="/settings">{{ t('settings.title') }}</a></p>{% endif %}
+</main></body></html>

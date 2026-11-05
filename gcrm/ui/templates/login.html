@@ -123,6 +123,10 @@
             data-hide-label="{{ t('login.hidePassword') }}"
           ></button>
         </div>
+        <label for="mfa-code">{{ t('mfa.loginCode') }}</label>
+        <input id="mfa-code" name="mfa_code" type="text" autocomplete="one-time-code"
+          autocapitalize="none" spellcheck="false" maxlength="64" aria-describedby="mfa-hint" />
+        <p id="mfa-hint">{{ t('mfa.loginHint') }}</p>
         <button type="submit">{{ t('login.signIn') }}</button>
       </form>
       <p><a href="/forgot-password">{{ t('login.forgotPassword') }}</a></p>

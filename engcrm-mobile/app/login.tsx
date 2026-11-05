@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const { t, setLanguage } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +30,7 @@ export default function LoginScreen() {
     if (!email.trim() || !password.trim()) return;
     setLoading(true);
     try {
-      const { token, role, server } = await login(email.trim(), password.trim());
+      const { token, role, server } = await login(email.trim(), password, mfaCode.trim());
       await saveToken(token, role, server);
       // Best-effort — apply the account's language immediately rather than
       // waiting for the next foreground/cold-start sync cycle.
@@ -88,6 +89,21 @@ export default function LoginScreen() {
           <Text style={styles.eyeText}>{showPassword ? "🙈" : "👁️"}</Text>
         </TouchableOpacity>
       </View>
+      <Text style={styles.mfaHint}>{t("mfa.loginHint")}</Text>
+      <TextInput
+        style={styles.input}
+        accessibilityLabel={t("mfa.loginCode")}
+        placeholder={t("mfa.loginCode")}
+        placeholderTextColor="#aaa"
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="one-time-code"
+        maxLength={64}
+        value={mfaCode}
+        onChangeText={setMfaCode}
+        onSubmitEditing={handleLogin}
+        returnKeyType="go"
+      />
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#fff" />
@@ -117,6 +133,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 32, fontWeight: "700", color: "#fff", marginBottom: 8 },
   subtitle: { fontSize: 16, color: "#888", marginBottom: 40 },
+  mfaHint: { color: "#bbb", marginBottom: 8 },
   input: {
     backgroundColor: "#1a1a2e",
     color: "#fff",

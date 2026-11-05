@@ -159,7 +159,7 @@ class TestPreLoginLangToggle:
         assert r.status_code == 200
         with patch("gcrm.api.auth._lookup_user", return_value=None):
             r = client.post("/login", data={"email": "x@y.com", "password": "wrong"})
-        assert "E-Mail oder Passwort ungültig" in r.text
+        assert "E-Mail, Passwort oder Zwei-Faktor-Code ungültig" in r.text
         # reset session language back to English so later tests in this process aren't affected
         client.get("/login?lang=en")
 

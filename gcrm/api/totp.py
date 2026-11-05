@@ -18,10 +18,18 @@ def generate_totp_secret() -> str:
 
 def verify_totp_code(secret: str, code: str, now: int | None = None) -> bool:
     """Accept a current TOTP code, allowing one time-step of clock skew."""
-    if not code.isdigit() or len(code) != TOTP_DIGITS:
-        return False
+    return matching_totp_counter(secret, code, now) is not None
+
+
+def matching_totp_counter(secret: str, code: str, now: int | None = None) -> int | None:
+    """Return the verified time-step so storage can atomically reject replays."""
+    if not code.isascii() or not code.isdigit() or len(code) != TOTP_DIGITS:
+        return None
     timestamp = now if now is not None else int(time.time())
-    return any(hmac.compare_digest(_totp_code(secret, timestamp + offset), code) for offset in (-30, 0, 30))
+    for offset in (0, -30, 30):
+        if hmac.compare_digest(_totp_code(secret, timestamp + offset), code):
+            return (timestamp + offset) // TOTP_PERIOD_SECONDS
+    return None
 
 
 def build_totp_uri(secret: str, email: str) -> str:

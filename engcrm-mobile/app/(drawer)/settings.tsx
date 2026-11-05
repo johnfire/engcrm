@@ -73,6 +73,12 @@ export default function SettingsScreen() {
       </View>}
       <FieldModeCard />
       <View style={styles.card}>
+        <Text style={styles.label}>{t("mfa.title")}</Text>
+        <TouchableOpacity onPress={() => Linking.openURL(`${API_BASE}/settings/two-factor`)}>
+          <Text style={styles.languageText}>{t("mfa.manage")}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.card}>
         <Text style={styles.label}>{t("settings.language")}</Text>
         <View style={styles.languageRow}>
           {SUPPORTED_LANGUAGES.map((code) => (

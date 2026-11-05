@@ -3,9 +3,9 @@ bearer JWT. Reuses the same per-user authentication as the web login."""
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from gcrm.api.auth import authenticate, request_password_reset
+from gcrm.api.auth import authenticate_login, request_password_reset
 from gcrm.api.jwt_auth import create_token, require_jwt_payload
 from gcrm.api.rate_limit import rate_limit_auth
 from gcrm.i18n import DEFAULT_LANGUAGE
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/api/auth", tags=["mobile-auth"])
 class TokenRequest(BaseModel):
     email: str = ""
     password: str
+    mfa_code: str = Field(default="", max_length=64)
 
 
 class TokenResponse(BaseModel):
@@ -36,7 +37,7 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             user = get_user_by_email(body.email)
         except Exception as error:  # tolerate DB hiccup so break-glass still works
             logger.warning("mobile auth user lookup failed: %s", error)
-    payload = authenticate(body.email, body.password, user)
+    payload = authenticate_login(body.email, body.password, user, body.mfa_code)
     if payload:
         set_workspace_id(payload.get("workspace_id"))
         log_audit(
@@ -54,7 +55,7 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             ),
             role=payload["role"],
         )
-    raise HTTPException(status_code=401, detail="Invalid email or password")
+    raise HTTPException(status_code=401, detail="Invalid credentials or two-factor code")
 
 
 class ResetRequest(BaseModel):

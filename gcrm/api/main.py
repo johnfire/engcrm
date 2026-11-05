@@ -57,6 +57,7 @@ from gcrm.api.routers import (
     people,
     research,
     statistics,
+    two_factor,
     users,
 )
 from gcrm.audit_context import CorrelationIdFilter, audit_scope
@@ -161,6 +162,7 @@ if remote_mcp is not None:
 app.include_router(auth.router)
 app.include_router(legal.router)
 app.include_router(account.router)
+app.include_router(two_factor.router)
 app.include_router(approval.router)
 app.include_router(activity.router)
 app.include_router(organization_create.router)

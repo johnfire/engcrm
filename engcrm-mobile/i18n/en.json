@@ -76,7 +76,7 @@
   "login.passwordPlaceholder": "Password",
   "login.signIn": "Sign In",
   "login.failedTitle": "Login failed",
-  "login.failedMessage": "Wrong email or password.",
+  "login.failedMessage": "Invalid email, password or two-factor code.",
   "login.forgotPassword": "Forgot password?",
   "login.impressum": "Impressum",
   "login.privacy": "Privacy",
@@ -766,5 +766,9 @@
   "fieldMode.explainTitle": "Field mode",
   "fieldMode.explainBody": "EngCRM will record where you are every 5 minutes, and Android shows a notification the whole time. If Android asks, allow location while using the app. Switch field mode on here, then you can talk to Claude in any app.",
   "fieldMode.locationDenied": "Location is off for EngCRM. Allow it in Android's settings to use field mode.",
-  "source.claude_field": "Claude (field mode)"
+  "source.claude_field": "Claude (field mode)",
+  "mfa.title": "Two-factor authentication",
+  "mfa.manage": "Manage on the website",
+  "mfa.loginCode": "Authenticator or recovery code",
+  "mfa.loginHint": "If two-factor authentication is enabled, enter a code. Otherwise leave this blank."
 }

@@ -61,7 +61,7 @@ def test_token_endpoint_throttles_after_limit():
     # Patch out auth so the first attempts return 401 (no DB), then the limiter
     # kicks in with 429. The conftest fixture resets the limiter before this test.
     with patch("gcrm.api.routers.api_auth.get_user_by_email", return_value=None), \
-         patch("gcrm.api.routers.api_auth.authenticate", return_value=None):
+         patch("gcrm.api.routers.api_auth.authenticate_login", return_value=None):
         codes = [
             client.post("/api/auth/token", json={"email": "a@b.com", "password": "x"}).status_code
             for _ in range(12)

@@ -26,7 +26,7 @@ class TestJWT:
 class TestAuthTokenEndpoint:
     def test_valid_credentials_return_token(self):
         with patch("gcrm.api.routers.api_auth.get_user_by_email", return_value={"id": 1}), \
-             patch("gcrm.api.routers.api_auth.authenticate",
+             patch("gcrm.api.routers.api_auth.authenticate_login",
                    return_value={"role": "admin", "user_id": 1, "email": "a@b.com"}):
             r = client.post("/api/auth/token", json={"email": "a@b.com", "password": "pw"})
         assert r.status_code == 200
@@ -36,7 +36,7 @@ class TestAuthTokenEndpoint:
 
     def test_invalid_credentials_401(self):
         with patch("gcrm.api.routers.api_auth.get_user_by_email", return_value=None), \
-             patch("gcrm.api.routers.api_auth.authenticate", return_value=None):
+             patch("gcrm.api.routers.api_auth.authenticate_login", return_value=None):
             r = client.post("/api/auth/token", json={"email": "a@b.com", "password": "wrong"})
         assert r.status_code == 401
 
