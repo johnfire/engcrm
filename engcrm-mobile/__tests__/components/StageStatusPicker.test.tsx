@@ -1,6 +1,7 @@
 import { render, fireEvent, waitFor, within } from "@testing-library/react-native";
 
 import { StageStatusPicker, orderedStatuses } from "../../components/StageStatusPicker";
+import { PIPELINE_STAGES } from "../../services/organizationState";
 
 function setup(stage = "candidate", status = "none", onSave = jest.fn().mockResolvedValue(undefined)) {
   const screen = render(<StageStatusPicker stage={stage as any} status={status as any} onSave={onSave} />);
@@ -10,12 +11,12 @@ function setup(stage = "candidate", status = "none", onSave = jest.fn().mockReso
 describe("StageStatusPicker", () => {
   it("offers every stage, and lists the statuses that normally go with the stage first", () => {
     const { screen } = setup("suspect", "ready");
-    for (const label of ["Candidate", "Suspect", "Prospect", "Opportunity", "Customer", "Not in pipeline"]) {
+    for (const label of ["Candidate", "Suspect", "Nibble", "Prospect", "Opportunity", "Customer", "Not in pipeline"]) {
       expect(within(screen.getByLabelText("Stage")).getByLabelText(label)).toBeTruthy();
     }
-    // 6 stage chips, then the statuses: suspect's usual ones lead.
+    // Stage chips, then the statuses: suspect's usual ones lead.
     const labels = screen.getAllByRole("radio").map((chip) => chip.props.accessibilityLabel);
-    expect(labels.slice(6, 10)).toEqual(["Ready to contact", "Contacted", "Dormant", "On hold"]);
+    expect(labels.slice(PIPELINE_STAGES.length, PIPELINE_STAGES.length + 4)).toEqual(["Ready to contact", "Contacted", "Dormant", "On hold"]);
     expect(orderedStatuses("suspect").slice(0, 4)).toEqual(["ready", "contacted", "dormant", "on_hold"]);
   });
 
@@ -23,6 +24,14 @@ describe("StageStatusPicker", () => {
     const { screen, onSave } = setup();
     expect(screen.queryByText("Save")).toBeNull();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("saves Nibble only when selected, with an already-contacted status", async () => {
+    const { screen, onSave } = setup("suspect", "ready");
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Nibble"));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ pipeline_stage: "nibble", status: "contacted" }));
+    expect(screen.getByLabelText("Nibble").props.accessibilityState.selected).toBe(true);
   });
 
   it("tapping a new stage saves at once, with the status that normally goes with it", async () => {

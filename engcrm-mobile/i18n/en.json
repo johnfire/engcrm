@@ -341,6 +341,7 @@
   "organizations.allStages": "All stages",
   "stage.candidate": "Candidate",
   "stage.suspect": "Suspect",
+  "stage.nibble": "Nibble",
   "stage.prospect": "Prospect",
   "stage.opportunity": "Opportunity",
   "stage.customer": "Customer",

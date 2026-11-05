@@ -128,6 +128,7 @@ def statistics_page(
         "request": request, "stats": stats, "period": period, "periods": PERIODS,
         "activity_types": ACTIVITY_TYPES, "saved": saved, "trend": trend, "trends": trends,
         "buckets": list(BUCKETS), "offers": offers, "active_offer": active_offer,
+        "pipeline_stages": PIPELINE_STAGES,
     })
 
 

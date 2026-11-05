@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 PIPELINE_STAGES = (
     "candidate",        # found by research, not yet evaluated
     "suspect",          # looks like a fit; we have reached out or are about to
+    "nibble",           # contact made with a positive signal; not yet a prospect
     "prospect",         # they engaged — a real conversation exists
     "opportunity",      # concrete deal in motion
     "customer",         # closed; working together
@@ -29,7 +30,7 @@ PIPELINE_STAGES = (
 
 # List sorting is best-first ascending, independent of progression and picker order.
 PIPELINE_SORT_ORDER = (
-    "customer", "opportunity", "prospect", "suspect", "candidate", "not_in_pipeline",
+    "customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_in_pipeline",
 )
 
 STATUSES = (
@@ -65,6 +66,7 @@ DEFAULT_STATUS = "none"
 TYPICAL_STATUSES_BY_STAGE = {
     "candidate":       ("none", "ready"),
     "suspect":         ("ready", "contacted", "dormant", "on_hold"),
+    "nibble":          ("contacted", "dormant", "on_hold"),
     "prospect":        ("contacted", "dormant", "on_hold"),
     "opportunity":     ("meeting", "proposal", "dormant", "on_hold"),
     "customer":        ("none", "customer", "dormant", "on_hold"),

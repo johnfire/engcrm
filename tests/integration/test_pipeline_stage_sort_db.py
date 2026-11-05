@@ -10,7 +10,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db_deals import set_organization_deal, set_person_stage
 
 pytestmark = pytest.mark.integration
-EXPECTED_STAGES = ('customer', 'opportunity', 'prospect', 'suspect', 'candidate', 'not_in_pipeline')
+EXPECTED_STAGES = ('customer', 'opportunity', 'prospect', 'nibble', 'suspect', 'candidate', 'not_in_pipeline')
 
 
 @pytest.fixture
@@ -61,3 +61,35 @@ def test_business_stage_order_on_each_page(ranked_contacts, path, direction, off
         if offer == 'all':
             expected.append(None)
     assert shown == expected
+
+
+@pytest.mark.parametrize('path', ['/contact-feed/', '/organizations/', '/people/'])
+@pytest.mark.parametrize('direction', ['asc', 'desc'])
+@pytest.mark.parametrize('offer', ['all', 'consulting', 'training'])
+def test_strongest_stage_wins_across_offers(ranked_contacts, path, direction, offer):
+    browser, _ = ranked_contacts
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()['id']
+        for table, column, name, stages in [
+            ('contacts', 'contact_id', 'Best training customer', ('suspect', 'customer')),
+            ('contacts', 'contact_id', 'Best opportunity', ('opportunity', 'opportunity')),
+            ('people', 'person_id', 'Best training customer', ('suspect', 'customer')),
+            ('people', 'person_id', 'Best opportunity', ('opportunity', 'opportunity')),
+        ]:
+            cursor.execute(f'INSERT INTO {table} (name,workspace_id) VALUES (%s,%s) RETURNING id', (name, workspace))
+            owner_id = cursor.fetchone()['id']
+            for slug, stage in zip(('consulting', 'training'), stages, strict=True):
+                cursor.execute(f'INSERT INTO deals (workspace_id,offer_id,{column},pipeline_stage) '
+                               'SELECT %s,id,%s,%s FROM offers WHERE workspace_id=%s AND slug=%s',
+                               (workspace, owner_id, stage, workspace, slug))
+            if table == 'contacts':
+                cursor.execute("INSERT INTO interactions (contact_id,interaction_date,method) VALUES (%s,CURRENT_DATE,'phone')", (owner_id,))
+            else:
+                cursor.execute("INSERT INTO people_interactions (person_id,method,note) VALUES (%s,'call','Best rank')", (owner_id,))
+    response = browser.get(path, params={'q': 'Best', 'sort': 'pipeline_stage', 'dir': direction, 'offer': offer})
+    assert response.status_code == 200
+    customer_position = response.text.index('>Best training customer</a>')
+    opportunity_position = response.text.index('>Best opportunity</a>')
+    assert (customer_position < opportunity_position) == (direction == 'asc')

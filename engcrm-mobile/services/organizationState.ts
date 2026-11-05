@@ -10,6 +10,7 @@
 export const PIPELINE_STAGES = [
   "candidate",
   "suspect",
+  "nibble",
   "prospect",
   "opportunity",
   "customer",
@@ -58,6 +59,7 @@ export function flagLabelKey(flag: string): string {
 export const TYPICAL_STATUSES_BY_STAGE: Record<PipelineStage, readonly OrganizationStatus[]> = {
   candidate: ["none", "ready"],
   suspect: ["ready", "contacted", "dormant", "on_hold"],
+  nibble: ["contacted", "dormant", "on_hold"],
   prospect: ["contacted", "dormant", "on_hold"],
   opportunity: ["meeting", "proposal", "dormant", "on_hold"],
   customer: ["none", "customer", "dormant", "on_hold"],

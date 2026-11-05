@@ -2,7 +2,7 @@
    Needs: deal_owner ('organization'|'person'), deal_owner_id, deals, addable_offers,
    pipeline_stages, statuses, today, deal_page (where every form comes back to);
    on an organization also contact_people; on a person also contact_person_deals.
-   The stage, status and contact-person selects save the moment they are picked.
+   The offer, stage, status and contact-person selects save when picked.
    Like the rest of the page, the forms are shown to everyone and the server
    refuses changes from anyone but an admin. #}
 {% from 'partials/date_field.html' import date_field with context %}
@@ -15,6 +15,17 @@
       <header class="deal-card__header">
         <h3>{{ deal.offer_name }}{% if deal.offer_archived %} <span class="muted small">({{ t('offers.archived') }})</span>{% endif %}</h3>
       </header>
+      <form method="post" action="/deals/{{ deal.id }}/offer" class="deal-card__state">
+        <input type="hidden" name="next" value="{{ deal_page }}" />
+        <label for="deal-{{ deal.id }}-offer">{{ t('deals.offer') }}
+        <select id="deal-{{ deal.id }}-offer" name="offer_id" class="stage-select" onchange="this.form.submit()"
+                {% if request.session.get('role') != 'admin' %}disabled{% endif %}>
+          <option value="{{ deal.offer_id }}" selected>{{ deal.offer_name }}</option>
+          {% for offer in addable_offers %}<option value="{{ offer.id }}">{{ offer.name }}</option>{% endfor %}
+        </select>
+        </label>
+        <noscript><button type="submit" class="btn-secondary">{{ t('common.save') }}</button></noscript>
+      </form>
       <form method="post" action="/deals/{{ deal.id }}" class="deal-card__state">
         <input type="hidden" name="next" value="{{ deal_page }}" />
         <label>{{ t('common.pipelineStage') }}

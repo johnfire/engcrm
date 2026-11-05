@@ -4,13 +4,14 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import add_deal_sale, deal_money, end_subscription, start_subscription
+from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
 from gcrm.tools.deal_records import (
     DealNotFound,
     add_deal,
@@ -99,6 +100,21 @@ def change_deal(deal_id: int, body: DealChange, _role: str = Depends(require_jwt
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+class OfferChange(BaseModel):
+    offer_id: int = Field(gt=0)
+
+
+@router.patch("/deals/{deal_id}/offer")
+def change_offer(deal_id: int, body: OfferChange, _role: str = Depends(require_jwt_admin),
+                 payload: dict = Depends(require_jwt_payload)) -> dict:
+    try:
+        return change_deal_offer(deal_id, body.offer_id, _workspace(payload))
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal or offer not found")
+    except DealOfferConflict as conflict:
+        raise HTTPException(status_code=409, detail=str(conflict))
 
 
 class NextStep(BaseModel):

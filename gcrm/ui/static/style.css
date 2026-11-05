@@ -424,6 +424,7 @@ pre {
   border: 1px solid var(--accent);
   color: var(--accent);
 }
+.badge-stage-nibble,
 .badge-stage-prospect {
   border: 1px solid var(--jade);
   color: var(--jade);

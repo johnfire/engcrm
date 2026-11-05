@@ -55,7 +55,7 @@ class TestCreateOrganization:
         assert kwargs["pipeline_stage"] == "candidate"
         assert kwargs["country"] == "DE" and kwargs["email"] == "a@acme.de" and kwargs["notes"] == "met at fair"
 
-    @pytest.mark.parametrize("stage", ["candidate", "suspect", "prospect", "opportunity", "customer", "not_in_pipeline"])
+    @pytest.mark.parametrize("stage", ["candidate", "suspect", "nibble", "prospect", "opportunity", "customer", "not_in_pipeline"])
     def test_saves_chosen_stage(self, stage):
         response, save, _, _ = self.post({"name": "Acme", "pipeline_stage": stage})
         assert response.status_code == 200

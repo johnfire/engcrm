@@ -14,7 +14,7 @@ from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, offer_id_sql
 
 PERIODS = ("week", "month", "quarter", "year")
-WORKING_STAGES = ("suspect", "prospect", "opportunity")
+WORKING_STAGES = ("suspect", "nibble", "prospect", "opportunity")
 STUCK_AFTER_DAYS = 28
 _FORWARD_ORDER = [s for s in PIPELINE_STAGES if s != "not_in_pipeline"]
 

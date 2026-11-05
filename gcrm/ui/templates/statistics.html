@@ -105,7 +105,7 @@
     <div class="table-scroll"><table>
       <thead><tr><th>{{ t('common.pipelineStage') }}</th><th class="num">{{ t('nav.organizations') }}</th><th class="num">{{ t('nav.people') }}</th></tr></thead>
       <tbody>
-      {% for s in ['candidate', 'suspect', 'prospect', 'opportunity', 'customer', 'not_in_pipeline'] %}
+      {% for s in pipeline_stages %}
         <tr><td>{{ t('stage.' ~ s) }}</td><td class="num">{{ stats.stages_now.organization.get(s, 0) }}</td>
           <td class="num">{{ stats.stages_now.person.get(s, 0) }}</td></tr>
       {% endfor %}

@@ -608,6 +608,8 @@
   "organizations.anySuppression": "Any suppression",
   "stage.candidate": "Candidate",
   "stage.suspect": "Suspect",
+  "stage.nibble": "Nibble",
+  "deals.offer": "Offer",
   "stage.prospect": "Prospect",
   "stage.opportunity": "Opportunity",
   "stage.customer": "Customer",

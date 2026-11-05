@@ -51,7 +51,9 @@ def test_bad_minutes_are_refused(value):
 
 
 @pytest.mark.parametrize("before, after, direction", [
-    ("candidate", "suspect", "forward"), ("prospect", "suspect", "back"),
+    ("candidate", "suspect", "forward"), ("suspect", "nibble", "forward"),
+    ("nibble", "prospect", "forward"), ("nibble", "suspect", "back"),
+    ("prospect", "suspect", "back"),
     ("opportunity", "not_in_pipeline", "dropped"), ("not_in_pipeline", "prospect", "other"),
     (None, "candidate", "other"),
 ])

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.jwt_auth import create_token
+from gcrm.tools.deal_offer_changes import DealOfferConflict
 from gcrm.tools.deal_records import DealNotFound
 
 client = TestClient(main.app)
@@ -34,6 +35,32 @@ def admin_web():
 
 def post(url, data):
     return client.post(url, data=data, follow_redirects=False)
+
+
+def test_switching_an_existing_offer_preserves_the_deal_and_returns_to_its_page(admin_web):
+    with patch('gcrm.api.routers.deals.change_deal_offer', return_value=DEAL) as change:
+        response = post('/deals/9/offer', {'offer_id': '5', 'next': '/organizations/4'})
+    change.assert_called_once_with(9, 5, None)
+    assert response.status_code == 303 and response.headers['location'] == '/organizations/4'
+
+
+@pytest.mark.parametrize('failure,status', [(DealNotFound(), 404), (DealOfferConflict('Already pitched'), 409)])
+def test_offer_switch_errors_leave_the_existing_deal_alone(admin_web, failure, status):
+    with patch('gcrm.api.routers.deals.change_deal_offer', side_effect=failure):
+        assert post('/deals/9/offer', {'offer_id': '5'}).status_code == status
+
+
+def test_offer_switch_requires_an_admin_on_the_api():
+    with patch('gcrm.api.routers.api_deals.change_deal_offer') as change:
+        response = client.patch('/api/deals/9/offer', headers=VIEWER, json={'offer_id': 5})
+    assert response.status_code == 403
+    change.assert_not_called()
+
+
+def test_offer_switch_rejects_invalid_ids_before_writing(admin_web):
+    with patch('gcrm.api.routers.deals.change_deal_offer') as change:
+        assert post('/deals/9/offer', {'offer_id': '0'}).status_code == 422
+    change.assert_not_called()
 
 
 class TestPanelForms:

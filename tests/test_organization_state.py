@@ -8,6 +8,7 @@ import pytest
 from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
+    PIPELINE_SORT_ORDER,
     PIPELINE_STAGES,
     STATUSES,
     SUPPRESSION_FLAGS,
@@ -103,3 +104,13 @@ def test_customer_is_a_status_as_well_as_a_pipeline_stage():
     assert 'customer' in STATUSES
     assert coerce_status('customer') == 'customer'
     assert is_typical('customer', 'customer')
+
+
+def test_nibble_sits_between_suspect_and_prospect():
+    assert PIPELINE_STAGES == ('candidate', 'suspect', 'nibble', 'prospect',
+                               'opportunity', 'customer', 'not_in_pipeline')
+    assert PIPELINE_SORT_ORDER == ('customer', 'opportunity', 'prospect', 'nibble',
+                                   'suspect', 'candidate', 'not_in_pipeline')
+    assert coerce_stage('nibble') == 'nibble'
+    assert is_typical('nibble', 'contacted')
+    assert not is_typical('nibble', 'ready')

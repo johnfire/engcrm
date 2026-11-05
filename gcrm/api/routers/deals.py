@@ -19,6 +19,7 @@ from gcrm.tools.deal_money import (
     end_subscription,
     start_subscription,
 )
+from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
 from gcrm.tools.deal_records import (
     DealNotFound,
     add_deal,
@@ -95,6 +96,18 @@ def deal_update(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     # back to the list the select was on; its owner's list when `next` is unusable
+    return _back(next, "/people/" if deal.get("person_id") else "/organizations/")
+
+
+@router.post("/{deal_id}/offer")
+def deal_offer_change(request: Request, deal_id: int, offer_id: int = Form(..., gt=0),
+                      next: str = Form(""), _admin: str = Depends(require_admin)):
+    try:
+        deal = change_deal_offer(deal_id, offer_id, request.session.get("workspace_id"))
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal or offer not found")
+    except DealOfferConflict as conflict:
+        raise HTTPException(status_code=409, detail=str(conflict))
     return _back(next, "/people/" if deal.get("person_id") else "/organizations/")
 
 

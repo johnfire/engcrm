@@ -608,6 +608,8 @@
   "organizations.anySuppression": "Alle Sperren",
   "stage.candidate": "Kandidat",
   "stage.suspect": "Verdacht",
+  "stage.nibble": "Nibble",
+  "deals.offer": "Angebot",
   "stage.prospect": "Interessent",
   "stage.opportunity": "Verkaufschance",
   "stage.customer": "Kunde",
