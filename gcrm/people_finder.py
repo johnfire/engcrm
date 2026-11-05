@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 MAX_PEOPLE = 3
 MAX_COMPANY_PAGES = 2
 _TITLE_PARTS = re.compile(r"\s+[-–|·]\s+")
-_SITE_PREFIX = re.compile(r"^(?:XING|LinkedIn)(?=[A-ZÄÖÜ])")  # 'XINGJan Oehler - …' from a search engine
+_SITE_PREFIX = re.compile(r"^(?:XING|LinkedIn)(?=[A-ZÄÖÜ])")  # 'XINGLena Muster - …' from a search engine
 _SOCIAL_HOSTS = re.compile(r"(linkedin\.|xing\.|facebook\.|instagram\.|google\.|youtube\.)", re.IGNORECASE)
 _HONORIFICS = {"dr", "prof", "ing", "dipl", "mag", "herr", "frau"}
 
@@ -102,7 +102,7 @@ def pick_profile(person_name: str, company_name: str, search_results: list[dict]
 
 
 def person_from_profile_result(search_result: dict, company_name: str) -> dict | None:
-    """'Anwar Amir - Produktionsleiter - Faist Systeme GmbH | XING' -> a person, when the
+    """'Max Beispiel - Produktionsleiter - Faist Systeme GmbH | XING' -> a person, when the
     result is a profile at this company held by a decision-maker."""
     profile = profile_url(search_result.get("url") or "")
     if not profile or not names_company(search_result, distinctive_words(company_name)):

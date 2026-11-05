@@ -92,7 +92,7 @@ No message drafting. Two facts are tracked:
 
 - **"I sent a LinkedIn message"** to a person: a new activity type **LinkedIn message**,
   on the person (and so on their company), from the web, the phone and the field
-  connector ("I sent Anwar Amir at Faist a voice message").
+  connector ("I sent Max Beispiel at Faist a voice message").
 - **"I got a meeting out of it"**: logged as a **meeting** activity with its date, and
   the company's deal moves to **prospect** (a real conversation exists).
 

@@ -51,16 +51,16 @@ def test_only_ready_companies_not_yet_searched_are_picked(clean_database):
 
 def test_a_person_found_by_profile_is_the_existing_connection(clean_database):
     company = add_company("Faist Systeme GmbH", "ready")
-    person_id = add_connection(company, "Anwar Amir", "https://www.linkedin.com/in/anwar-amir-9/")
-    saved = save_found_person(company, {"name": "Anwar Amir", "role": "Produktionsleiter",
-                                        "linkedin_url": "https://de.linkedin.com/in/anwar-amir-9"})
+    person_id = add_connection(company, "Max Beispiel", "https://www.linkedin.com/in/max-beispiel-9/")
+    saved = save_found_person(company, {"name": "Max Beispiel", "role": "Produktionsleiter",
+                                        "linkedin_url": "https://de.linkedin.com/in/max-beispiel-9"})
     assert saved["person_id"] == person_id and saved["is_connection"] is True
-    assert saved["linkedin_url"] == "https://www.linkedin.com/in/anwar-amir-9/"  # kept, not replaced
+    assert saved["linkedin_url"] == "https://www.linkedin.com/in/max-beispiel-9/"  # kept, not replaced
 
 
 def test_a_person_with_no_public_profile_is_saved_and_marked_searched(clean_database):
     company = add_company("Meile GmbH", "ready")
-    saved = save_found_person(company, {"name": "Klaus Meile", "role": "Geschäftsführer", "source_url": None})
+    saved = save_found_person(company, {"name": "Klaus Platzhalter", "role": "Geschäftsführer", "source_url": None})
     with db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT contact_id, title, source, linkedin_url, xing_url, profile_searched_at, notes "
@@ -73,8 +73,8 @@ def test_a_person_with_no_public_profile_is_saved_and_marked_searched(clean_data
 
 def test_saving_the_same_person_twice_does_not_duplicate_them(clean_database):
     company = add_company("Meile GmbH", "ready")
-    first = save_found_person(company, {"name": "Klaus Meile", "role": "Geschäftsführer"})
-    second = save_found_person(company, {"name": "Klaus Meile", "role": "Geschäftsführer",
+    first = save_found_person(company, {"name": "Klaus Platzhalter", "role": "Geschäftsführer"})
+    second = save_found_person(company, {"name": "Klaus Platzhalter", "role": "Geschäftsführer",
                                          "xing_url": "https://www.xing.com/profile/Klaus_Meile"})
     assert first["person_id"] == second["person_id"]
     assert second["xing_url"] == "https://www.xing.com/profile/Klaus_Meile"

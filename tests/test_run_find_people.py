@@ -28,12 +28,12 @@ def run_with(found_by_company):
 
 def test_each_company_is_marked_searched_and_a_failure_is_counted_not_fatal():
     totals, marked, saved = run_with({
-        "Meile GmbH": [{"name": "Klaus Meile", "linkedin_url": "https://www.linkedin.com/in/k"}],
+        "Meile GmbH": [{"name": "Klaus Platzhalter", "linkedin_url": "https://www.linkedin.com/in/k"}],
         "Broken GmbH": RuntimeError("search down"),
-        "Faist": [{"name": "Anwar Amir", "known": True}, {"name": "Anna Berg"}],
+        "Faist": [{"name": "Max Beispiel", "known": True}, {"name": "Anna Berg"}],
     })
     assert marked == [1, 3]  # the broken one is retried next run
-    assert saved == ["Klaus Meile", "Anwar Amir", "Anna Berg"]
+    assert saved == ["Klaus Platzhalter", "Max Beispiel", "Anna Berg"]
     assert totals == {"companies": 2, "people": 3, "with_profile": 1, "connections": 1, "errors": 1}
 
 

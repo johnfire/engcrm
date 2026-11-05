@@ -23,23 +23,23 @@ def test_decision_maker_roles_are_recognised_in_german_and_english():
 
 
 def test_profile_urls_are_people_pages_only():
-    assert profile_url("https://de.linkedin.com/in/anwar-amir-123?trk=x") == (
-        "linkedin", "https://www.linkedin.com/in/anwar-amir-123")
-    assert profile_url("https://www.xing.com/profile/Anwar_Amir081717/cv") == (
-        "xing", "https://www.xing.com/profile/Anwar_Amir081717")
+    assert profile_url("https://de.linkedin.com/in/max-beispiel-123?trk=x") == (
+        "linkedin", "https://www.linkedin.com/in/max-beispiel-123")
+    assert profile_url("https://www.xing.com/profile/Max_Beispiel12/cv") == (
+        "xing", "https://www.xing.com/profile/Max_Beispiel12")
     for url in ("https://www.linkedin.com/company/faist", "https://www.xing.com/pages/faist", "https://faist.de"):
         assert profile_url(url) is None
 
 
 def test_a_profile_is_picked_only_when_it_names_the_person_and_the_company():
     results = [
-        hit("https://www.linkedin.com/in/anwar-amir-9", "Anwar Amir – Produktionsleiter – ACME AG"),
-        hit("https://www.xing.com/profile/Anwar_Amir081717", "Anwar Amir - Produktionsleiter - Faist Systeme Gmb",
+        hit("https://www.linkedin.com/in/max-beispiel-9", "Max Beispiel – Produktionsleiter – ACME AG"),
+        hit("https://www.xing.com/profile/Max_Beispiel12", "Max Beispiel - Produktionsleiter - Faist Systeme Gmb",
             "Faist Systeme GmbH Verantwortung für technische Projekte"),
     ]
-    assert pick_profile("Anwar Amir", "Faist Systeme GmbH", results) == (
-        "xing", "https://www.xing.com/profile/Anwar_Amir081717")
-    assert pick_profile("Anna Amir", "Faist Systeme GmbH", results) is None
+    assert pick_profile("Max Beispiel", "Faist Systeme GmbH", results) == (
+        "xing", "https://www.xing.com/profile/Max_Beispiel12")
+    assert pick_profile("Anna Beispiel", "Faist Systeme GmbH", results) is None
 
 
 class Fakes:
@@ -54,7 +54,7 @@ class Fakes:
 
     def fetch_page(self, url):
         self.fetched.append(url)
-        return "Impressum. Geschäftsführer: Dr. Klaus Faist, Maria Huber. Untermeitingen."
+        return "Impressum. Geschäftsführer: Dr. Karl Beispiel, Maria Huber. Untermeitingen."
 
     def extract(self, system, user):
         return json.dumps(self.people)
@@ -67,8 +67,8 @@ def run(people, results_by_word):
 
 
 def test_decision_makers_named_on_the_impressum_are_kept_with_their_role():
-    found, _ = run([{"name": "Klaus Faist", "role": "Geschäftsführer"}], {})
-    assert [(person["name"], person["role"]) for person in found] == [("Klaus Faist", "Geschäftsführer")]
+    found, _ = run([{"name": "Karl Beispiel", "role": "Geschäftsführer"}], {})
+    assert [(person["name"], person["role"]) for person in found] == [("Karl Beispiel", "Geschäftsführer")]
 
 
 def test_a_name_that_appears_nowhere_in_the_sources_is_dropped():
@@ -82,34 +82,34 @@ def test_people_without_a_decision_making_role_are_dropped():
 
 
 def test_each_person_gets_a_profile_search_and_a_found_profile_is_kept():
-    profile = hit("https://de.linkedin.com/in/klaus-faist", "Klaus Faist - Geschäftsführer - Faist Systeme GmbH")
-    found, fakes = run([{"name": "Klaus Faist", "role": "Geschäftsführer"}], {'"Klaus Faist"': [profile]})
-    assert found[0]["linkedin_url"] == "https://www.linkedin.com/in/klaus-faist"
-    assert any('"Klaus Faist"' in query and "LinkedIn" in query for query in fakes.queries)
+    profile = hit("https://de.linkedin.com/in/karl-beispiel", "Karl Beispiel - Geschäftsführer - Faist Systeme GmbH")
+    found, fakes = run([{"name": "Karl Beispiel", "role": "Geschäftsführer"}], {'"Karl Beispiel"': [profile]})
+    assert found[0]["linkedin_url"] == "https://www.linkedin.com/in/karl-beispiel"
+    assert any('"Karl Beispiel"' in query and "LinkedIn" in query for query in fakes.queries)
 
 
 def test_no_public_profile_is_reported_as_none_not_guessed():
-    found, _ = run([{"name": "Klaus Faist", "role": "Geschäftsführer"}], {})
+    found, _ = run([{"name": "Karl Beispiel", "role": "Geschäftsführer"}], {})
     assert found[0]["linkedin_url"] is None and found[0]["xing_url"] is None
 
 
 def test_profiles_in_the_company_search_become_people_directly():
-    profile = hit("https://www.xing.com/profile/Anwar_Amir081717",
-                  "Anwar Amir - Produktionsleiter - Faist Systeme Gmb", "Faist Systeme GmbH")
+    profile = hit("https://www.xing.com/profile/Max_Beispiel12",
+                  "Max Beispiel - Produktionsleiter - Faist Systeme Gmb", "Faist Systeme GmbH")
     found, _ = run([], {"LinkedIn XING": [profile]})
     assert [(person["name"], person["role"], person["xing_url"]) for person in found] == [
-        ("Anwar Amir", "Produktionsleiter", "https://www.xing.com/profile/Anwar_Amir081717")]
+        ("Max Beispiel", "Produktionsleiter", "https://www.xing.com/profile/Max_Beispiel12")]
 
 
 def test_at_most_three_people_per_company_with_the_top_role_first():
     people = [{"name": "Maria Huber", "role": "Leiterin Einkauf"},
-              {"name": "Klaus Faist", "role": "Geschäftsführer"}]
+              {"name": "Karl Beispiel", "role": "Geschäftsführer"}]
     sources = {"LinkedIn XING": [
         hit("https://www.linkedin.com/in/anna-berg-1", "Anna Berg - Werkleiterin - Faist Systeme GmbH"),
         hit("https://www.linkedin.com/in/bernd-ott", "Bernd Ott - Head of IT - Faist Systeme GmbH"),
     ]}
     found, _ = run(people, sources)
-    assert len(found) == 3 and found[0]["name"] == "Klaus Faist"
+    assert len(found) == 3 and found[0]["name"] == "Karl Beispiel"
 
 
 def test_a_failing_search_or_llm_gives_no_people_instead_of_an_error():
@@ -120,17 +120,17 @@ def test_a_failing_search_or_llm_gives_no_people_instead_of_an_error():
 
 
 def test_a_profile_whose_link_belongs_to_someone_else_is_not_used():
-    """Live 2026-11-04: a result titled 'Jan Oehler …' linked to Stefan Stark's profile."""
-    mixed = hit("https://www.xing.com/profile/Stefan_Stark32", "XINGJan Oehler - Werkleiter - Faist Systeme GmbH")
+    """Live 2026-11-04: a result titled 'Lena Muster …' linked to Jonas Probe's profile."""
+    mixed = hit("https://www.xing.com/profile/Jonas_Probe32", "XINGLena Muster - Werkleiter - Faist Systeme GmbH")
     found, _ = run([], {"LinkedIn XING": [mixed]})
     assert found == []
-    assert pick_profile("Jan Oehler", "Faist Systeme GmbH", [mixed]) is None
+    assert pick_profile("Lena Muster", "Faist Systeme GmbH", [mixed]) is None
 
 
 def test_a_site_name_stuck_to_the_title_is_removed():
-    profile = hit("https://www.xing.com/profile/Jan_Oehler4", "XINGJan Oehler - Werkleiter - Faist Systeme GmbH")
+    profile = hit("https://www.xing.com/profile/Lena_Muster4", "XINGLena Muster - Werkleiter - Faist Systeme GmbH")
     found, _ = run([], {"LinkedIn XING": [profile]})
-    assert [person["name"] for person in found] == ["Jan Oehler"]
+    assert [person["name"] for person in found] == ["Lena Muster"]
 
 
 def test_it_alone_is_not_a_leadership_role():
