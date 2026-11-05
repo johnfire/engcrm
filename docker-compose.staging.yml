@@ -1,0 +1,82 @@
+# Standalone local stack. Never combine this file with docker-compose.yml.
+name: engcrm-security-staging
+
+services:
+  app:
+    image: engcrm-security-staging:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/app/.venv/bin/uvicorn", "gcrm.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      PYTHON_DOTENV_DISABLED: "1"
+      DATABASE_URL: postgresql://artcrm_admindude:local-staging-only@db:5432/engcrm_staging
+      APP_ENV: production
+      JWT_SECRET: ${STAGING_JWT_SECRET:?Supply a separate staging JWT secret}
+      SESSION_SECRET: ${STAGING_SESSION_SECRET:?Supply a separate staging session secret}
+      # Deliberate HTTP exception: this stack is reachable only on loopback.
+      SESSION_COOKIE_SECURE: "false"
+      APP_PUBLIC_URL: http://127.0.0.1:8086
+      ADMIN_PASSWORD: ""
+      EMAIL_ENABLED: "false"
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+      MAIL_SMTP_HOST: ""
+      MAIL_IMAP_HOST: ""
+      ANTHROPIC_API_KEY: ""
+      DEEPSEEK_API_KEY: ""
+      GOOGLE_MAPS_API_KEY: ""
+      BRIGHTDATA_API_TOKEN: ""
+      OPEN_BRAIN_URL: ""
+      OPEN_BRAIN_TOKEN: ""
+      PIPELINE_SNAPSHOTS: "off"
+      CARD_IMAGE_DIR: /data/card-images
+    tmpfs:
+      - /data/card-images:mode=0700
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    networks: [audit]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # An internal Docker network cannot publish ports on this Docker version.
+  # Only this fixed-upstream proxy joins the ingress network; the app stays isolated.
+  proxy:
+    image: nginx:alpine
+    user: "101:101"
+    entrypoint: ["nginx", "-g", "daemon off;"]
+    ports:
+      - "127.0.0.1:8086:8080"
+    volumes:
+      - ./infra/staging/nginx.conf:/etc/nginx/nginx.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101
+      - /var/run:uid=101,gid=101
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [ingress, audit]
+    depends_on: [app]
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: artcrm_admindude
+      POSTGRES_PASSWORD: local-staging-only
+      POSTGRES_DB: engcrm_staging
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U artcrm_admindude -d engcrm_staging"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [audit]
+
+networks:
+  ingress:
+  audit:
+    internal: true
