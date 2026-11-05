@@ -14,6 +14,7 @@ Importing the same list again changes nothing.
 from datetime import date
 
 from gcrm.db.connection import db
+from gcrm.lead_list import row_town
 from gcrm.linkedin import normalize_company, normalize_linkedin_url
 from gcrm.sources import LEAD_LIST
 from gcrm.tools.db_agent_runs import finish_run, start_run
@@ -118,17 +119,33 @@ def _save_person(person: dict, company_id: int, list_name: str) -> int:
     return person_id
 
 
-def _plan(businesses: list[dict], default_town: str, report: dict) -> list[tuple[dict, str, int | None, dict | None]]:
-    """(business, town, matched company id, similar existing company) per business with a town."""
+def _check_same(cur, businesses: list[dict], same: dict[str, int]) -> None:
+    """Hand ties must name a business in the list and an existing CRM company."""
+    names = {business["name"] for business in businesses}
+    for name, crm_id in same.items():
+        if name not in names:
+            raise ValueError(f"hand tie names a business not in the list: {name!r}")
+        cur.execute("SELECT 1 FROM contacts WHERE id = %s AND deleted_at IS NULL", (crm_id,))
+        if not cur.fetchone():
+            raise ValueError(f"hand tie for {name!r}: no CRM company #{crm_id}")
+
+
+def _plan(businesses: list[dict], default_town: str, report: dict,
+          same: dict[str, int]) -> list[tuple[dict, str, int | None, dict | None]]:
+    """(business, town, matched company id, similar existing company) per business with a town.
+    A hand tie (same) wins over the name check: it is how a company the check cannot see,
+    e.g. 'ICO Institut f. Coaching & Organisation GbR' for 'ICO Institut für Coaching und
+    Organisationsberatung', is taken as the CRM one."""
     planned = []
     with db() as conn:
         cur = conn.cursor()
+        _check_same(cur, businesses, same)
         for business in businesses:
-            town = business["city"] or default_town
+            town = row_town(business, default_town)
             if not town:
                 report["skipped_no_town"].append(business["name"])
                 continue
-            company_id = find_company(cur, business["name"], town)
+            company_id = same.get(business["name"]) or find_company(cur, business["name"], town)
             similar = None if company_id else similar_company(cur, business["name"], town)
             if similar:
                 report["possible_duplicates"].append(
@@ -165,14 +182,15 @@ def _import_company(business: dict, town: str, company_id: int | None, list_name
 
 
 def import_lead_list(businesses: list[dict], *, list_name: str, default_town: str, apply: bool,
-                     similar: str | None = None) -> dict:
+                     similar: str | None = None, same: dict[str, int] | None = None) -> dict:
     """Import (or, with apply=False, only count) a parsed lead list. Returns the report.
     Possible duplicates must be decided before applying: similar="match" takes each as the
-    existing company, similar="new" creates it as a new one."""
+    existing company, similar="new" creates it as a new one. same ties list names to CRM
+    company ids by hand, for duplicates the name check does not see."""
     report = {"companies_new": 0, "companies_existing": 0, "people_new": 0, "people_existing": 0,
               "people_also_elsewhere": 0,
               "skipped_no_town": [], "possible_duplicates": [], "company_ids": []}
-    planned = _plan(businesses, default_town, report)
+    planned = _plan(businesses, default_town, report, same or {})
     if apply and report["possible_duplicates"] and similar not in SIMILAR_CHOICES:
         raise ValueError(f"{len(report['possible_duplicates'])} possible duplicate(s) to decide first: "
                          f"similar='match' takes them as the existing companies, 'new' creates them")

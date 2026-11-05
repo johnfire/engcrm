@@ -172,6 +172,27 @@ def test_possible_duplicates_can_be_created_as_new_companies(clean_database):
     assert query("SELECT count(*) AS n FROM contacts WHERE name LIKE 'Carglass%%'") == [{"n": 2}]
 
 
+
+def test_a_company_the_name_check_cannot_see_is_tied_to_the_crm_one_by_hand(clean_database):
+    """Live dry run Augsburg 2026-11-05: 'ICO Institut f. Coaching & Organisation GbR' is CRM
+    'ICO Institut für Coaching und Organisationsberatung' and was neither matched nor flagged."""
+    ico = add_existing("ICO Institut für Coaching und Organisationsberatung")
+    report = import_spelling(apply=True, similar="new", same={"Carglass GmbH Kaufbeuren": ico})
+    assert report["companies_existing"] == 1 and ico in report["company_ids"]
+    assert query("SELECT contact_id FROM people WHERE name = 'Max Beispiel'") == [{"contact_id": ico}]
+
+
+def test_a_hand_tie_to_a_company_that_does_not_exist_is_refused(clean_database):
+    with pytest.raises(ValueError, match="no CRM company #999999"):
+        import_spelling(apply=False, same={"Carglass GmbH Kaufbeuren": 999999})
+
+
+def test_a_hand_tie_for_a_name_not_in_the_list_is_refused(clean_database):
+    ico = add_existing("ICO Institut")
+    with pytest.raises(ValueError, match="not in the list: 'ICO'"):
+        import_spelling(apply=False, same={"ICO": ico})
+
+
 TWO_COMPANIES = """| Pg | # | Business | Location | Address | Website | Contact | Role | LinkedIn | LinkedIn status | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 1 | Beispiel Europa GmbH | Park | Am Weg 10, 86825 Bad Wörishofen | beispiel.com | Max Beispiel | Geschäftsführer | [profile](https://www.linkedin.com/in/max-beispiel/) | not sent | |

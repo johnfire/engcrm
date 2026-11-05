@@ -45,6 +45,19 @@ def split_address(address: str | None) -> tuple[str | None, str | None]:
     return (None, last_part) if _TOWN_ONLY.match(last_part) else (None, None)
 
 
+
+def row_town(business: dict, default_town: str) -> str | None:
+    """The town a row's company is in. Without a postcode the "town" is the address's last
+    part, often a remark: 'TONI Park, Augsburg Süd' or 'Innovationspark Augsburg' are in the
+    list's town (Augsburg), not in towns of those names. A row without a town gets the list's."""
+    city = business.get("city")
+    if not city:
+        return default_town or None
+    if business.get("postcode") or not default_town:
+        return city
+    names_default = re.search(rf"(?<!\w){re.escape(default_town)}(?!\w)", city, re.IGNORECASE)
+    return default_town if names_default else city
+
 def _value(cell: str) -> str:
     return "" if cell.strip() in EMPTY else cell.strip()
 

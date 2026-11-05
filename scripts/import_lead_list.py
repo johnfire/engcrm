@@ -20,6 +20,18 @@ from gcrm.lead_list import LeadListError, parse_lead_list  # noqa: E402
 from gcrm.tools.db_lead_import import import_lead_list, summary_line  # noqa: E402
 
 
+def parse_same(pairs: list[str]) -> dict[str, int]:
+    """'ICO Institut f. Coaching & Organisation GbR=1206' -> {name: 1206}. The id is after the
+    last '=', so a name may itself contain '='."""
+    same = {}
+    for pair in pairs:
+        name, _, crm_id = pair.rpartition("=")
+        if not name.strip() or not crm_id.strip().isdigit():
+            raise ValueError(f"--same needs 'LIST NAME=CRM ID', got {pair!r}")
+        same[name.strip()] = int(crm_id)
+    return same
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Import a lead list into the CRM (dry run unless --apply)")
     parser.add_argument("file", help="Markdown lead list, or - for stdin")
@@ -29,7 +41,15 @@ def main() -> int:
     parser.add_argument("--actor", default="claude", help="Who runs the import, for the audit log")
     parser.add_argument("--similar", choices=("match", "new"),
                         help="Possible duplicates: 'match' takes them as the existing companies, 'new' creates them")
+    parser.add_argument("--same", action="append", default=[], metavar="'LIST NAME=CRM ID'",
+                        help="Take this list business as that CRM company (repeatable), for duplicates "
+                             "the name check does not see")
     args = parser.parse_args()
+    try:
+        same = parse_same(args.same)
+    except ValueError as error:
+        print(f"Not imported: {error}")
+        return 1
 
     text = sys.stdin.read() if args.file == "-" else Path(args.file).expanduser().read_text(encoding="utf-8")
     list_name = args.list_name or (Path(args.file).stem if args.file != "-" else "lead list")
@@ -41,9 +61,9 @@ def main() -> int:
     try:
         with audit_scope(args.actor, "ai" if args.actor == "claude" else "user"):
             report = import_lead_list(businesses, list_name=list_name, default_town=args.town,
-                                      apply=args.apply, similar=args.similar)
+                                      apply=args.apply, similar=args.similar, same=same)
     except ValueError as error:
-        print(f"Not imported: {error}. Run the dry run to see them, then add --similar match or --similar new.")
+        print(f"Not imported: {error}")
         return 1
     print(("APPLIED: " if args.apply else "DRY RUN (nothing written): ") + summary_line(report, list_name))
     for entry in report["possible_duplicates"]:

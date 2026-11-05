@@ -27,9 +27,10 @@ Always a dry run first; it writes nothing and prints what would happen:
 ssh claude@82.165.32.162 "docker exec -i engcrm-app uv run --no-sync python scripts/import_lead_list.py - --list-name buchloe-office-parks --town Buchloe" < ~/ai-workzone/marketing-leads/buchloe-office-parks.md
 ```
 
-Then the same command with `--apply`. `--town` is the town for rows whose address names none
-(chain branches often have no address in a list). Production writes need Chris's OK and an
-agent-diary record (`slog record … --undo …`).
+Then the same command with `--apply`. `--town` is the list's town: rows whose address names
+none get it, and so do rows without a postcode whose last address part names it — "TONI Park,
+Augsburg Süd" or "Innovationspark Augsburg" are in Augsburg, not in towns of those names.
+Production writes need Chris's OK and an agent-diary record (`slog record … --undo …`).
 
 ## What it does
 
@@ -41,6 +42,12 @@ agent-diary record (`slog record … --undo …`).
 - **Possible duplicates:** a name whose words contain, or sit inside, an existing name in
   the same town ("Carglass GmbH Kaufbeuren" / "Carglass") is listed by the dry run, and
   `--apply` refuses until you add `--similar match` (same company) or `--similar new`.
+- **Duplicates the check cannot see:** the name check misses a company spelled quite
+  differently ("ICO Institut f. Coaching & Organisation GbR" / CRM "ICO Institut für Coaching
+  und Organisationsberatung"). Before applying, look for CRM companies in the town that share
+  a distinctive word with a new one, and tie the real ones by hand:
+  `--same 'ICO Institut f. Coaching & Organisation GbR=1206'` (repeatable; the id must exist
+  and the name must be in the list, or nothing is imported).
 - **Person:** on the company, with the role as title. A confirmed profile becomes the
   LinkedIn link; "connected" marks a LinkedIn connection; an unconfirmed profile and the
   list's LinkedIn status go into the notes. A person already on the company (same name,

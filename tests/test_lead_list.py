@@ -2,7 +2,7 @@
 into businesses and people, without any LLM. Rows are real ones from the Buchloe and Ulm lists."""
 import pytest
 
-from gcrm.lead_list import LeadListError, parse_lead_list, split_address
+from gcrm.lead_list import LeadListError, parse_lead_list, row_town, split_address
 
 HEADER = ("| Pg | # | Business | Location | Address | Website | Contact | Role | LinkedIn | LinkedIn status | Notes |\n"
           "|---|---|---|---|---|---|---|---|---|---|---|\n")
@@ -99,3 +99,23 @@ def test_an_address_marked_unknown_is_kept_as_a_note_not_as_the_address():
     (business,) = parse_lead_list(HEADER + row)
     assert business["address"] == ""
     assert "Address: — (possibly Glatz Logistik GmbH, Robert-Bunsen-Str. 7)" in business["notes"]
+
+
+@pytest.mark.parametrize("business, expected", [
+    ({"postcode": "86807", "city": "Buchloe"}, "Buchloe"),
+    ({"postcode": None, "city": "Augsburg Süd"}, "Augsburg"),
+    ({"postcode": None, "city": "Innovationspark Augsburg"}, "Augsburg"),
+    ({"postcode": None, "city": "Augsburg textile quarter"}, "Augsburg"),
+    ({"postcode": None, "city": "Kaufbeuren"}, "Kaufbeuren"),
+    ({"postcode": None, "city": None}, "Augsburg"),
+    ({"postcode": "80802", "city": "München"}, "München"),
+    ({"postcode": None, "city": "Augsburger Land"}, "Augsburger Land"),
+])
+def test_a_town_without_postcode_that_names_the_default_town_is_that_town(business, expected):
+    """'TONI Park, Augsburg Süd' is in Augsburg, not in a town called 'Augsburg Süd'."""
+    assert row_town(business, "Augsburg") == expected
+
+
+def test_without_a_default_town_the_row_keeps_its_own_town_or_none():
+    assert row_town({"postcode": None, "city": "Augsburg Süd"}, "") == "Augsburg Süd"
+    assert row_town({"postcode": None, "city": None}, "") is None
