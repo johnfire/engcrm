@@ -170,3 +170,21 @@ def test_possible_duplicates_can_be_created_as_new_companies(clean_database):
     report = import_spelling(apply=True, similar="new")
     assert report["companies_new"] == 3
     assert query("SELECT count(*) AS n FROM contacts WHERE name LIKE 'Carglass%%'") == [{"n": 2}]
+
+
+TWO_COMPANIES = """| Pg | # | Business | Location | Address | Website | Contact | Role | LinkedIn | LinkedIn status | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | Beispiel Europa GmbH | Park | Am Weg 10, 86825 Bad Wörishofen | beispiel.com | Max Beispiel | Geschäftsführer | [profile](https://www.linkedin.com/in/max-beispiel/) | not sent | |
+| 1 | 2 | Beispiel Service Süd | Park | Am Weg 3, 86825 Bad Wörishofen | beispiel.com | Max Beispiel | Geschäftsführer | [profile](https://www.linkedin.com/in/max-beispiel/) | not sent | |
+"""
+
+
+def test_a_person_running_two_companies_is_on_each_and_counted_honestly(clean_database):
+    """Live import 2026-11-05: five managing directors of two companies each were created twice
+    while the report called them 'already known'. One record per company is right (at either
+    door you know whom to ask for); the report now says so."""
+    report = import_lead_list(parse_lead_list(TWO_COMPANIES), list_name="test", default_town="", apply=True)
+    assert (report["people_new"], report["people_existing"], report["people_also_elsewhere"]) == (2, 0, 1)
+    assert query("SELECT count(*) AS n FROM people WHERE name = 'Max Beispiel'") == [{"n": 2}]
+    again = import_lead_list(parse_lead_list(TWO_COMPANIES), list_name="test", default_town="", apply=True)
+    assert (again["people_new"], again["people_existing"]) == (0, 2)

@@ -7,8 +7,8 @@ A name whose words contain, or are contained in, an existing name in the same to
 ("Carglass GmbH Kaufbeuren" / "Carglass") is a *possible duplicate*: the dry run lists it,
 and apply refuses until it is decided (similar="match" or "new"). (Not by website: one list can hold two entities that share a site,
 e.g. MicroStep Europa and MicroStep CompetenceCenter Süd; a leftover duplicate is visible and
-can be merged, a wrong merge is not.) A person already on the company (same name) or anywhere
-with the same LinkedIn profile is reused. A dry run reports the same counts without writing.
+can be merged, a wrong merge is not.) A person already on the company (same name, or the same LinkedIn
+profile on it) is reused; the same profile on another company gets a record here too. A dry run reports the same counts without writing.
 Importing the same list again changes nothing.
 """
 from datetime import date
@@ -49,15 +49,27 @@ def similar_company(cur, name: str, town: str) -> dict | None:
     return None
 
 
+def profile_companies(cur, linkedin_url: str | None) -> set[int]:
+    """The companies that already have a person with this LinkedIn profile."""
+    canonical = normalize_linkedin_url(linkedin_url)
+    if not canonical:
+        return set()
+    cur.execute("SELECT contact_id, linkedin_url FROM people WHERE deleted_at IS NULL AND linkedin_url IS NOT NULL")
+    return {row["contact_id"] for row in cur.fetchall() if normalize_linkedin_url(row["linkedin_url"]) == canonical}
+
+
 def find_person(cur, person: dict, company_id: int | None) -> int | None:
+    """The person already on this company: same name, or the same LinkedIn profile on it.
+    The same profile on *another* company is not a match — a person running two companies
+    gets a record on each, so at either door Chris knows whom to ask for."""
+    if not company_id:
+        return None
+    existing = find_existing_person(cur, person["name"], "", company_id)
+    if existing or company_id not in profile_companies(cur, person.get("linkedin_url")):
+        return existing
     canonical = normalize_linkedin_url(person.get("linkedin_url"))
-    if canonical:
-        cur.execute("SELECT id, linkedin_url FROM people WHERE deleted_at IS NULL AND linkedin_url IS NOT NULL")
-        match = next((row["id"] for row in cur.fetchall()
-                      if normalize_linkedin_url(row["linkedin_url"]) == canonical), None)
-        if match:
-            return match
-    return find_existing_person(cur, person["name"], "", company_id) if company_id else None
+    cur.execute("SELECT id, linkedin_url FROM people WHERE deleted_at IS NULL AND contact_id = %s", (company_id,))
+    return next((row["id"] for row in cur.fetchall() if normalize_linkedin_url(row["linkedin_url"]) == canonical), None)
 
 
 def person_notes(person: dict, list_name: str) -> str:
@@ -127,9 +139,14 @@ def _plan(businesses: list[dict], default_town: str, report: dict) -> list[tuple
 
 def _count_people(business: dict, company_id: int | None, report: dict) -> None:
     with db() as conn:
-        known = sum(1 for person in business["people"] if find_person(conn.cursor(), person, company_id))
-    report["people_existing"] += known
-    report["people_new"] += len(business["people"]) - known
+        cur = conn.cursor()
+        for person in business["people"]:
+            if find_person(cur, person, company_id):
+                report["people_existing"] += 1
+                continue
+            report["people_new"] += 1
+            if profile_companies(cur, person.get("linkedin_url")) - {company_id}:
+                report["people_also_elsewhere"] += 1
 
 
 def _import_company(business: dict, town: str, company_id: int | None, list_name: str, apply: bool,
@@ -153,6 +170,7 @@ def import_lead_list(businesses: list[dict], *, list_name: str, default_town: st
     Possible duplicates must be decided before applying: similar="match" takes each as the
     existing company, similar="new" creates it as a new one."""
     report = {"companies_new": 0, "companies_existing": 0, "people_new": 0, "people_existing": 0,
+              "people_also_elsewhere": 0,
               "skipped_no_town": [], "possible_duplicates": [], "company_ids": []}
     planned = _plan(businesses, default_town, report)
     if apply and report["possible_duplicates"] and similar not in SIMILAR_CHOICES:
@@ -172,4 +190,6 @@ def summary_line(report: dict, list_name: str) -> str:
     return (f"lead list {list_name}: {report['companies_new']} new companies, {report['companies_existing']} "
             f"already in the CRM, {report['people_new']} new people, {report['people_existing']} already known"
             + (f", {len(report['skipped_no_town'])} skipped (no town)" if report["skipped_no_town"] else "")
-            + (f", {len(report['possible_duplicates'])} possible duplicates" if report["possible_duplicates"] else ""))
+            + (f", {len(report['possible_duplicates'])} possible duplicates" if report["possible_duplicates"] else "")
+            + (f", {report['people_also_elsewhere']} of the new people also at another company"
+               if report["people_also_elsewhere"] else ""))

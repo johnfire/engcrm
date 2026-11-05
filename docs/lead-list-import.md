@@ -43,8 +43,9 @@ agent-diary record (`slog record … --undo …`).
   `--apply` refuses until you add `--similar match` (same company) or `--similar new`.
 - **Person:** on the company, with the role as title. A confirmed profile becomes the
   LinkedIn link; "connected" marks a LinkedIn connection; an unconfirmed profile and the
-  list's LinkedIn status go into the notes. A person already on the company, or with the
-  same profile anywhere, is reused — so a person listed under two companies is one record.
+  list's LinkedIn status go into the notes. A person already on the company (same name,
+  or the same profile on it) is reused. A person who runs two companies gets a record on
+  each, so at either door you know whom to ask for; the report counts them.
 - **Not geocoded:** pinning on the Maps list fills the exact coordinates.
 - **Recorded** as a `lead_import` run with its company ids, so the pin queue can take
   "the companies from the latest import" (`latest_import_ids`).
