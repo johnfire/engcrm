@@ -429,9 +429,9 @@ pre {
   color: var(--jade);
 }
 .badge-stage-prospect {
-  background: #ffeb3b;
+  background: #000;
   border: 1px solid #ffeb3b;
-  color: var(--bg);
+  color: #ffeb3b;
 }
 .badge-stage-opportunity {
   border: 1px solid #c8794a;
