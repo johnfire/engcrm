@@ -33,6 +33,8 @@ def db():
                 workspace_id = cursor.fetchone()["id"]
             cursor.execute("SELECT set_config('app.workspace_id', %s, TRUE)", (str(workspace_id),))
             cursor.execute("SET LOCAL ROLE engcrm_workspace")
+            # Policy-heavy list queries otherwise spend seconds compiling code before reading rows.
+            cursor.execute("SET LOCAL jit = off")
         yield conn
         conn.commit()
     except Exception:
