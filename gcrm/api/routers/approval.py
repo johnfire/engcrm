@@ -7,6 +7,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.templates import templates
 from gcrm.db.connection import db
 from gcrm.tools.db_deals import offer_slug_for, set_organization_deal, update_organization_status
+from gcrm.tools.outreach_guard import require_draft_permission, send_reviewed_email
 
 router = APIRouter(prefix="/approvals", tags=["approvals"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -60,8 +61,7 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
     The send is logged against the draft's offer, and that offer's deal moves."""
     try:
         from gcrm.tools.db import log_interaction
-        from gcrm.tools.email import send_email
-        success = send_email(to_email=to_email, subject=subject, body=body)
+        success = send_reviewed_email(contact_id, draft_id=item_id, to_email=to_email, subject=subject, body=body)
         log_interaction(
             contact_id=contact_id,
             method="email",
@@ -80,6 +80,8 @@ def _send_and_log(item_id: int, contact_id: int, to_email: str, subject: str, bo
                     (contact_id,),
                 )
         return success, "sent" if success else "approved_unsent"
+    except HTTPException:
+        raise
     except Exception as error:
         logger.error("_send_and_log: item_id=%d error=%s", item_id, error)
         return False, str(error)
@@ -93,8 +95,19 @@ def approval_list(request: Request):
     return templates.TemplateResponse("approval.html", {"request": request, "items": items, "on_hold": on_hold})
 
 
+def _record_unsent(item_id: int, success: bool, note: str, send_message: str, status: str = "approved_unsent") -> None:
+    if success:
+        return
+    with db() as connection:
+        connection.cursor().execute(
+            "UPDATE approval_queue SET status=%s,reviewer_note=%s WHERE id=%s",
+            (status, (note or send_message) or None, item_id),
+        )
+
+
 @router.post("/{item_id}/approve", response_class=HTMLResponse)
 def approve(request: Request, item_id: int, note: str = Form(default=""), _admin: str = Depends(require_admin)):
+    require_draft_permission(item_id)
     # Atomically claim the item (pending/on_hold -> approved) so a concurrent or
     # double-clicked approve can't send the same draft twice — only the request
     # that wins the claim proceeds to send.
@@ -121,13 +134,7 @@ def approve(request: Request, item_id: int, note: str = Form(default=""), _admin
     )
 
     # Already claimed as 'approved'; downgrade only if the send failed.
-    if not success:
-        with db() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "UPDATE approval_queue SET status = 'approved_unsent', reviewer_note = %s WHERE id = %s",
-                ((note or send_msg) or None, item_id),
-            )
+    _record_unsent(item_id, success, note, send_msg)
     from gcrm.tools.db_audit import log_audit
     log_audit(
         request.session.get("email") or "shared-admin", "user", "approval.approve",
@@ -194,6 +201,7 @@ def edit_and_approve(
     note: str = Form(default=""),
     _admin: str = Depends(require_admin),
 ):
+    require_draft_permission(item_id)
     # Atomically claim (pending -> edited) so a concurrent edit/approve can't
     # re-send the same item; only the claim winner proceeds to send.
     with db() as conn:
@@ -219,13 +227,7 @@ def edit_and_approve(
     )
 
     # Already claimed as 'edited'; downgrade only if the send failed.
-    if not success:
-        with db() as conn:
-            cur = conn.cursor()
-            cur.execute(
-                "UPDATE approval_queue SET status = 'edited_unsent', reviewer_note = %s WHERE id = %s",
-                ((note or send_msg) or None, item_id),
-            )
+    _record_unsent(item_id, success, note, send_msg, "edited_unsent")
 
     with db() as conn:
         items = _fetch_pending(conn)

@@ -55,12 +55,12 @@ def main():
     from gcrm.supervisor.run_opportunity_analysis import analyse
     from gcrm.supervisor.run_scout import scout
     from gcrm.tools import finish_run, start_run
-    from gcrm.tools.db_account_lifecycle import get_default_workspace_id
+    from gcrm.tools.db_account_lifecycle import get_active_workspace_id
     from gcrm.tools.map_pins import dropped_but_pinned
 
     run_id = start_run("judge", {"limit": args.limit})
     outcome = judge(lambda: scout(args.limit), lambda: analyse(args.limit),
-                    lambda: dropped_but_pinned(get_default_workspace_id()))
+                    lambda: dropped_but_pinned(get_active_workspace_id()))
     summary = summary_line(outcome)
     finish_run(run_id, "completed" if not outcome["errors"] else "failed", summary[:500],
                {"dropped_on_map": outcome["dropped_on_map"], "errors": outcome["errors"]})

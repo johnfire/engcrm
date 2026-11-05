@@ -5,7 +5,7 @@ import psycopg2
 import psycopg2.extras
 
 from gcrm.config import DATABASE_URL
-from gcrm.workspace_context import get_workspace_id
+from gcrm.workspace_context import get_workspace_id, has_workspace_scope
 
 
 def serialize_row(row: dict) -> dict:
@@ -26,8 +26,13 @@ def db():
     conn = get_connection()
     try:
         workspace_id = get_workspace_id()
-        if workspace_id is not None:
-            conn.cursor().execute("SELECT set_config('app.workspace_id', %s, TRUE)", (str(workspace_id),))
+        if has_workspace_scope():
+            cursor = conn.cursor()
+            if workspace_id is None:
+                cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+                workspace_id = cursor.fetchone()["id"]
+            cursor.execute("SELECT set_config('app.workspace_id', %s, TRUE)", (str(workspace_id),))
+            cursor.execute("SET LOCAL ROLE engcrm_workspace")
         yield conn
         conn.commit()
     except Exception:

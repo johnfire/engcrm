@@ -1,6 +1,7 @@
 """User-account database operations (web-UI authentication)."""
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.workspace_context import get_workspace_id
 
 
 def get_user_by_email(email: str) -> dict | None:
@@ -48,8 +49,8 @@ def create_user(email: str, password_hash: str, role: str = "admin", name: str =
         cur.execute(
             "INSERT INTO users (email, name, password_hash, role, workspace_id) "
             "VALUES (LOWER(%s), %s, %s, %s, "
-            "(SELECT id FROM workspaces WHERE slug = 'default')) RETURNING id",
-            (email, name, password_hash, role),
+            "COALESCE(%s,(SELECT id FROM workspaces WHERE slug = 'default'))) RETURNING id",
+            (email, name, password_hash, role, get_workspace_id()),
         )
         user_id = cur.fetchone()["id"]
     log_audit(None, None, "user.created", f"user:{user_id}", "created")

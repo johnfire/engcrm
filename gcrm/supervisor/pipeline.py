@@ -9,6 +9,7 @@ agent_runs, so progress shows on the Activity screen.
 import subprocess
 import sys
 
+from gcrm.supervisor.job_environment import job_environment
 from gcrm.vertical import SCAN_LEVELS
 
 # Stages exposed as buttons. 'all' is Gather for a city: research, enrichment, people finder
@@ -58,6 +59,7 @@ def spawn_stage(stage: str, city: str = "", level=None, country: str = "DE") -> 
     validate(stage, city, level)
     subprocess.Popen(
         _command(stage, (city or "").strip(), level, country),
+        env=job_environment(),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -94,6 +96,7 @@ def spawn_area_stage(stage: str, area_id: int, levels: list[int]) -> None:
     validate_area(stage, area_id, levels)
     subprocess.Popen(
         _area_command(stage, area_id, levels),
+        env=job_environment(),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

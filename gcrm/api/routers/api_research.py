@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
 from gcrm.research import get_or_create_dossier
+from gcrm.supervisor.job_environment import job_environment
 from gcrm.tools.db import build_research_overview
 from gcrm.tools.db_audit import log_audit
 from gcrm.vertical import SCAN_LEVELS
@@ -31,6 +32,7 @@ def _run_research(city: str, level: int, country: str) -> None:
     subprocess.Popen(
         [sys.executable, "-m", "gcrm.supervisor.run_research",
          "--city", city, "--level", str(level), "--country", country],
+        env=job_environment(),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

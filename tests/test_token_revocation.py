@@ -47,7 +47,9 @@ def test_legacy_token_without_uid_skips_db_check():
         assert require_jwt(_creds(token)) == "admin"
 
 
-def test_version_check_fails_open_on_db_error():
+def test_version_check_refuses_access_on_db_error():
     token = create_token("admin", user_id=7, token_version=0)
     with patch("gcrm.api.jwt_auth.get_user_token_version", side_effect=RuntimeError("db down")):
-        assert require_jwt(_creds(token)) == "admin"
+        with pytest.raises(HTTPException) as exc:
+            require_jwt(_creds(token))
+        assert exc.value.status_code == 503

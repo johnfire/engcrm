@@ -57,6 +57,7 @@ packages = ["gcrm"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
+    "security_boundary: exercises real security controls without synthetic browser setup",
     "integration: requires TEST_DATABASE_URL and a real PostgreSQL instance",
     "e2e: exercises a main user flow against the real PostgreSQL instance",
     "network: hits a live third-party service; excluded from the default run",

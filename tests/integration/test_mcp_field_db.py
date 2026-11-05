@@ -144,6 +144,8 @@ def test_refusals_are_said_back_not_crashes(chris):
 
 
 def test_another_workspace_is_out_of_reach(chris):
+    # Seed the other tenant as the operator, then restore the connector scope.
+    set_workspace_id(None)
     with db() as connection:
         cursor = connection.cursor()
         # Workspaces survive clean_database, so a rerun finds this one already there.
@@ -153,6 +155,7 @@ def test_another_workspace_is_out_of_reach(chris):
         cursor.execute("INSERT INTO contacts (name, city, workspace_id) VALUES ('Foreign Co', 'Ulm', %s) "
                        "RETURNING id", (other,))
         foreign = cursor.fetchone()["id"]
+    set_workspace_id(chris.workspace_id)
     assert field.find_organization(chris, "Foreign") == []
     with pytest.raises(FieldError, match=f"no organization #{foreign}"):
         field.log_activity(chris, "x", organization_id=foreign)

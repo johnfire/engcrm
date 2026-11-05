@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
 from gcrm.db.connection import db
 from gcrm.tools.db import serialize_row
+from gcrm.tools.outreach_guard import require_draft_permission
 
 router = APIRouter(prefix="/api/approvals", tags=["mobile-approvals"])
 
@@ -38,6 +39,7 @@ class RejectBody(BaseModel):
 def approve(approval_id: int, payload: dict = Depends(require_jwt_payload)) -> None:
     if payload["sub"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
+    require_draft_permission(approval_id)
     with db() as conn:
         cur = conn.cursor()
         cur.execute(

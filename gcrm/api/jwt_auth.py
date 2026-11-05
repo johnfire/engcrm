@@ -14,10 +14,13 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.concurrency import run_in_threadpool
 
 from gcrm.audit_context import set_audit_context
 from gcrm.config import JWT_SECRET, TOKEN_EXPIRY_HOURS
 from gcrm.tools.db import get_user_token_version
+from gcrm.tools.db_users import get_user_by_id
+from gcrm.workspace_context import require_workspace_scope, set_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +60,13 @@ def decode_token(token: str, secret: str = JWT_SECRET) -> str:
 def _token_version_ok(user_id: int, token_version) -> bool:
     """True if the token's version matches the user's current (active) version.
 
-    Fails OPEN on a DB error — consistent with the rest of the auth layer, and
-    harmless because every protected endpoint needs the DB anyway, so a revoked
-    token still can't do anything during an outage."""
+    Authentication storage failures refuse access rather than guessing that a
+    credential is still valid."""
     try:
         current = get_user_token_version(user_id)
     except Exception as error:
-        logger.warning("token version check failed (allowing request): %s", error)
-        return True
+        logger.warning("token version check unavailable: %s", error)
+        raise HTTPException(503, "Authentication temporarily unavailable") from error
     return current is not None and current == token_version
 
 
@@ -82,21 +84,47 @@ def _validated_payload(credentials: HTTPAuthorizationCredentials) -> dict:
     return payload
 
 
-def require_jwt_payload(
+async def establish_jwt_workspace(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Security(_bearer),
 ) -> dict:
+    """Run in the request's async context so handlers inherit the verified scope."""
+    payload = await run_in_threadpool(_validated_payload, credentials)
+    user_id = payload.get("uid")
+    if user_id is not None:
+        try:
+            user = await run_in_threadpool(get_user_by_id, user_id)
+        except Exception as error:
+            logger.warning("account lookup unavailable: %s", error)
+            raise HTTPException(503, "Authentication temporarily unavailable") from error
+        if not user or not user["is_active"] or user["token_version"] != payload.get("ver"):
+            raise HTTPException(401, "Token revoked")
+        if user.get("workspace_id") is None:
+            raise HTTPException(403, "Workspace required")
+        set_workspace_id(user["workspace_id"])
+        payload = {**payload, "sub": user["role"]}
+    require_workspace_scope()
+    actor = f"user:{user_id}" if user_id is not None else "shared-admin"
+    set_audit_context(actor, "user", request.state.correlation_id)
+    return payload
+
+
+def require_jwt_payload(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+    scope: dict = Depends(establish_jwt_workspace),
+) -> dict:
     """FastAPI dependency: returns the validated token payload, or 401."""
-    payload = _validated_payload(credentials)
+    payload = scope if isinstance(scope, dict) else _validated_payload(credentials)
     user_id = payload.get("uid")
     actor = f"user:{user_id}" if user_id is not None else "shared-admin"
     set_audit_context(actor, "user", request.state.correlation_id)
     return payload
 
 
-def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
+def require_jwt(credentials: HTTPAuthorizationCredentials = Security(_bearer), scope: dict = Depends(establish_jwt_workspace)) -> str:
     """FastAPI dependency: returns the caller's role, or 401."""
-    return _validated_payload(credentials)["sub"]
+    return (scope if isinstance(scope, dict) else _validated_payload(credentials))["sub"]
 
 
 def require_jwt_admin(payload: dict = Depends(require_jwt_payload)) -> str:

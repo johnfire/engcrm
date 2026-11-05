@@ -12,6 +12,7 @@ from gcrm.i18n import DEFAULT_LANGUAGE
 from gcrm.tools.db import get_user_by_email
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_users import get_user_by_id
+from gcrm.workspace_context import set_workspace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["mobile-auth"])
@@ -37,6 +38,7 @@ def get_token(body: TokenRequest, _throttle: None = Depends(rate_limit_auth)) ->
             logger.warning("mobile auth user lookup failed: %s", error)
     payload = authenticate(body.email, body.password, user)
     if payload:
+        set_workspace_id(payload.get("workspace_id"))
         log_audit(
             payload["email"],
             "user",

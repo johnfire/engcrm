@@ -22,7 +22,9 @@ from gcrm.tools.db_account_lifecycle import (
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_help import has_completed_help_tour
 from gcrm.tools.db_users import set_user_password_by_id
+from gcrm.tools.db_web_sessions import create_web_session, revoke_web_session
 from gcrm.tools.email import send_email
+from gcrm.workspace_context import set_workspace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,7 +41,7 @@ def get_role(request: Request) -> str | None:
 
 def require_login(request: Request) -> str:
     role = get_role(request)
-    if not role:
+    if not role or not getattr(request.state, "browser_authenticated", False):
         raise HTTPException(status_code=307, headers={"Location": "/login"})
     actor = request.session.get("email") or "shared-admin"
     set_audit_context(actor, "user", request.state.correlation_id)
@@ -142,7 +144,12 @@ def login_page(request: Request):
 def login_submit(request: Request, email: str = Form(""), password: str = Form(...), _throttle: None = Depends(rate_limit_auth)):
     payload = authenticate(email, password, _lookup_user(email))
     if payload:
+        set_workspace_id(payload.get("workspace_id"))
+        session_id = create_web_session(payload, ADMIN_PASSWORD)
+        request.session.clear()
         request.session.update(payload)
+        request.session["session_id"] = session_id
+        request.session["csrf_token"] = secrets.token_urlsafe(32)
         if payload["user_id"] is not None:
             try:
                 touch_user_login(payload["user_id"])
@@ -205,5 +212,9 @@ def reset_password_submit(
 
 @router.post("/logout")
 def logout(request: Request):
+    session_id = request.session.get("session_id")
+    if session_id:
+        revoke_web_session(session_id)
+        log_audit(None, None, "auth.logout", "browser-session", "revoked", request.state.correlation_id)
     request.session.clear()
     return RedirectResponse(url="/login", status_code=303)

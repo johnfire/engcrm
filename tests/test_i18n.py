@@ -17,7 +17,10 @@ AUTH = {"Authorization": f"Bearer {create_token('admin', user_id=7, token_versio
 @pytest.fixture(autouse=True)
 def active_language_test_account():
     """The mocked account has an active version-0 token, independent of DB state."""
-    with patch("gcrm.api.jwt_auth.get_user_token_version", return_value=0):
+    with patch("gcrm.api.jwt_auth.get_user_token_version", return_value=0), \
+         patch("gcrm.api.jwt_auth.get_user_by_id", return_value={
+             "id": 7, "is_active": True, "token_version": 0, "workspace_id": 1, "role": "admin",
+         }):
         yield
 
 

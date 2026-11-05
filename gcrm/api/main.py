@@ -6,11 +6,14 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from psycopg2.errors import InsufficientPrivilege
 from starlette.middleware.sessions import SessionMiddleware
 
 from gcrm.api import auth
+from gcrm.api.browser_sessions import refresh_browser_session
+from gcrm.api.csrf import accepts_browser_write
 from gcrm.api.redirects import local_path
 from gcrm.api.routers import (
     account,
@@ -60,7 +63,7 @@ from gcrm.audit_context import CorrelationIdFilter, audit_scope
 from gcrm.config import SESSION_COOKIE_SECURE, SESSION_SECRET
 from gcrm.i18n import SUPPORTED_LANGUAGES
 from gcrm.tools.statistics_history import start_snapshot_loop
-from gcrm.workspace_context import set_workspace_id
+from gcrm.workspace_context import require_workspace_scope, set_workspace_id
 
 # The remote MCP connector (Claude from anywhere, gcrm/mcp/remote.py). Its own failure
 # domain: if it cannot load, the web app and phone API still start, without /mcp.
@@ -86,8 +89,15 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None, lifespan=lifespan)
+AUTHENTICATION_PATHS = frozenset({"/login", "/logout", "/signup", "/forgot-password", "/reset-password"})
 for handler in logging.getLogger().handlers:
     handler.addFilter(CorrelationIdFilter())
+
+
+@app.exception_handler(InsufficientPrivilege)
+async def unavailable_workspace_record(request: Request, error: InsufficientPrivilege):
+    logging.getLogger(__name__).warning("workspace access refused: request=%s", request.state.correlation_id)
+    return JSONResponse({"detail": "Record unavailable in this workspace"}, status_code=403)
 
 
 @app.middleware("http")
@@ -106,8 +116,18 @@ async def add_correlation_id(request: Request, call_next):
     lang = request.query_params.get("lang")
     if lang in SUPPORTED_LANGUAGES:
         session["ui_language"] = lang
-    workspace_id = session.get("workspace_id")
-    set_workspace_id(workspace_id)
+    set_workspace_id(None)
+    require_workspace_scope(False)
+    if not request.url.path.startswith(("/api/", "/mcp")):
+        try:
+            identity = await refresh_browser_session(request, auth.ADMIN_PASSWORD)
+        except Exception:
+            logging.getLogger(__name__).exception("browser session lookup unavailable")
+            return JSONResponse({"detail": "Authentication temporarily unavailable"}, status_code=503)
+        if identity and request.url.path not in AUTHENTICATION_PATHS:
+            set_workspace_id(identity["workspace_id"])
+    if not await accepts_browser_write(request):
+        return JSONResponse({"detail": "Please reload the page and try again."}, status_code=403)
     actor = session.get("email") or "anonymous"
     with audit_scope(actor, "user", correlation_id):
         response = await call_next(request)

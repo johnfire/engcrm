@@ -1,5 +1,9 @@
 # Local security staging
 
+The local app now includes the high-priority fixes described in
+[the remediation record](security-fixes-2026-11-05.md). The original audit image
+digest at the end of this document identifies the pre-fix audit snapshot.
+
 Open <http://127.0.0.1:8086/login>. This is a separate, disposable CRM, not the
 production website and not the Google Play reviewer deployment.
 

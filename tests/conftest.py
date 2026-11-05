@@ -4,6 +4,7 @@ dummy URL; CI integration and e2e tests opt into a real Postgres service with
 TEST_DATABASE_URL.
 """
 import os
+import re
 import sys
 from pathlib import Path
 from subprocess import run
@@ -22,6 +23,38 @@ os.environ.setdefault("EMAIL_ENABLED", "false")
 os.environ.setdefault("PIPELINE_SNAPSHOTS", "off")  # no background snapshot loop in tests
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _browser_request_verification(request, monkeypatch):
+    """Legacy route tests act as same-origin browsers; security tests set their own credentials."""
+    from fastapi.testclient import TestClient
+
+    from gcrm.api.main import app
+    from gcrm.workspace_context import require_workspace_scope, set_workspace_id
+
+    set_workspace_id(None)
+    require_workspace_scope(False)
+    if request.node.get_closest_marker("security_boundary"):
+        yield
+        return
+    original = TestClient.request
+
+    def browser_request(client, method, url, **kwargs):
+        if client.app is app and method.upper() not in ("GET", "HEAD", "OPTIONS") and not str(url).startswith(("/api/", "/mcp")):
+            page = original(client, "GET", "/login", follow_redirects=True)
+            token = re.search(r'<meta name="csrf-token" content="([^"]+)"', page.text)
+            headers = dict(kwargs.get("headers") or {})
+            headers.setdefault("Origin", str(client.base_url).rstrip("/"))
+            if token:
+                headers.setdefault("X-CSRF-Token", token.group(1))
+            kwargs["headers"] = headers
+        return original(client, method, url, **kwargs)
+
+    monkeypatch.setattr(TestClient, "request", browser_request)
+    yield
+    set_workspace_id(None)
+    require_workspace_scope(False)
 
 
 @pytest.fixture(scope="session")

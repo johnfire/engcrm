@@ -3,6 +3,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 
 from gcrm.db.connection import db
+from gcrm.workspace_context import get_workspace_id
 
 
 def hash_one_time_token(token: str) -> str:
@@ -18,6 +19,11 @@ def get_default_workspace_id() -> int:
         return cursor.fetchone()["id"]
 
 
+def get_active_workspace_id() -> int:
+    """Use the verified request/job workspace, or the operator's default workspace."""
+    return get_workspace_id() or get_default_workspace_id()
+
+
 def create_invitation(email: str, role: str, creator_id: int | None, token: str) -> None:
     """Store a 7-day invitation for the default workspace."""
     expiration = datetime.now(timezone.utc) + timedelta(days=7)
@@ -27,7 +33,7 @@ def create_invitation(email: str, role: str, creator_id: int | None, token: str)
             """INSERT INTO account_invitations
             (workspace_id, email, role, token_hash, expires_at, created_by_user_id)
             VALUES (%s, LOWER(%s), %s, %s, %s, %s)""",
-            (get_default_workspace_id(), email, role, hash_one_time_token(token), expiration, creator_id),
+            (get_active_workspace_id(), email, role, hash_one_time_token(token), expiration, creator_id),
         )
 
 

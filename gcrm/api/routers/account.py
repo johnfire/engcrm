@@ -14,6 +14,7 @@ from gcrm.tools.db_account_lifecycle import accept_invitation
 from gcrm.tools.db_ai_backends import CHEAP_MODELS, SMART_MODELS, get_ai_backends, set_ai_backends
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_users import get_user_by_email, set_user_password, set_user_ui_language
+from gcrm.workspace_context import set_workspace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["account"])
@@ -54,6 +55,10 @@ def signup_submit(
             "signup.html", {"request": request, "error": t("signup.invitationInvalid", _lang(request))},
             status_code=400,
         )
+    created_user = get_user_by_email(normalized_email)
+    if created_user is None:
+        raise HTTPException(503, "Account temporarily unavailable")
+    set_workspace_id(created_user["workspace_id"])
     log_audit(str(user_id), "user", "account.signup", f"user:{user_id}", "created", request.state.correlation_id)
     return RedirectResponse("/login", status_code=303)
 

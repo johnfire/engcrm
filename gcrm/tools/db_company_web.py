@@ -11,6 +11,7 @@ from collections.abc import Callable
 
 from psycopg2.extras import Json
 
+from gcrm.audit_context import audit_scope, current_audit_context
 from gcrm.company_web import Address, WebResult, lookup_company
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
@@ -251,7 +252,9 @@ def _job(limit: int) -> None:
             if not cur.fetchone()["got"]:
                 return
             try:
-                resolve_company_websites(limit=limit, max_seconds=JOB_SECONDS)
+                context = current_audit_context()
+                with audit_scope("agent:company_web_lookup", "ai", context.correlation_id if context else None):
+                    resolve_company_websites(limit=limit, max_seconds=JOB_SECONDS)
             finally:
                 cur.execute("SELECT pg_advisory_unlock(%s)", (LOCK_KEY,))
     except Exception:
@@ -266,7 +269,9 @@ def start_web_job(limit: int, spawn=None) -> bool:
         return False
     if spawn is None:
         import threading
+        from contextvars import copy_context
+        context = copy_context()
         spawn = lambda target, args: threading.Thread(  # noqa: E731
-            target=target, args=args, daemon=True, name="company-web-lookup").start()
+            target=context.run, args=(target, *args), daemon=True, name="company-web-lookup").start()
     spawn(_job, (limit,))
     return True

@@ -24,7 +24,7 @@ from gcrm.tools.db_deals import (
     set_organization_deal,
     update_organization_status,
 )
-from gcrm.tools.email import send_email
+from gcrm.tools.outreach_guard import require_draft_permission, send_reviewed_email
 from gcrm.vertical import SCAN_LEVELS
 
 logger = logging.getLogger(__name__)
@@ -151,66 +151,66 @@ def approval_list() -> str:
         return json.dumps({"error": str(error)})
 
 
+def _claim_pending_approval(item_id: int) -> dict | None:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT aq.draft_subject,aq.draft_body,aq.contact_id,aq.offer_id,c.email,c.name "
+            "FROM approval_queue aq JOIN contacts c ON c.id=aq.contact_id "
+            "WHERE aq.id=%s AND aq.status='pending'", (item_id,),
+        )
+        draft = cursor.fetchone()
+        if not draft:
+            return None
+        cursor.execute("UPDATE approval_queue SET status='approved',reviewed_at=NOW() WHERE id=%s AND status='pending'", (item_id,))
+        return draft if cursor.rowcount else None
+
+
+def _record_mcp_approval(item_id: int, row: dict, note: str, final_status: str) -> None:
+    # Log interaction and mark contacted on approval regardless of send result
+    log_interaction(
+        contact_id=row["contact_id"],
+        method="email",
+        direction="outbound",
+        summary=row["draft_subject"],
+        outcome="no_reply",
+        offer_id=row["offer_id"],
+    )
+
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE approval_queue
+            SET status = %s, reviewed_at = NOW(), reviewer_note = %s
+            WHERE id = %s
+        """, (final_status, note or None, item_id))
+        if update_organization_status(cur, row["contact_id"], "contacted", only_from=("ready", "on_hold"),
+                                      offer=offer_slug_for(cur, row["offer_id"])):
+            cur.execute(
+                "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (row["contact_id"],),
+            )
+    log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
+
+
+
 @server.tool()
 @mcp_mutation
 def approval_approve(item_id: int, note: str = "") -> str:
-    """
-    Approve a queued email draft. Sends the email via Proton Bridge SMTP,
-    logs the interaction, and moves the contact to status=contacted.
-    """
+    """Approve one queued draft, rechecking suppression before mail leaves."""
     try:
-        with db() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT aq.draft_subject, aq.draft_body, aq.contact_id, aq.offer_id, c.email, c.name
-                FROM approval_queue aq
-                JOIN contacts c ON c.id = aq.contact_id
-                WHERE aq.id = %s AND aq.status = 'pending'
-            """, (item_id,))
-            row = cur.fetchone()
-
+        require_draft_permission(item_id)
+        row = _claim_pending_approval(item_id)
         if not row:
             return json.dumps({"error": f"Item {item_id} not found or already reviewed"})
-
-        success = send_email(
-            to_email=row["email"] or "",
-            subject=row["draft_subject"],
-            body=row["draft_body"],
+        success = send_reviewed_email(
+            row["contact_id"], draft_id=item_id, to_email=row["email"] or "",
+            subject=row["draft_subject"], body=row["draft_body"],
         )
         final_status = "approved" if success else "approved_unsent"
-
-        # Log interaction and mark contacted on approval regardless of send result
-        log_interaction(
-            contact_id=row["contact_id"],
-            method="email",
-            direction="outbound",
-            summary=row["draft_subject"],
-            outcome="no_reply",
-            offer_id=row["offer_id"],
-        )
-
-        with db() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                UPDATE approval_queue
-                SET status = %s, reviewed_at = NOW(), reviewer_note = %s
-                WHERE id = %s
-            """, (final_status, note or None, item_id))
-            if update_organization_status(cur, row["contact_id"], "contacted", only_from=("ready", "on_hold"),
-                                          offer=offer_slug_for(cur, row["offer_id"])):
-                cur.execute(
-                    "UPDATE contacts SET last_emailed_at = NOW(), updated_at = NOW() WHERE id = %s",
-                    (row["contact_id"],),
-                )
-        log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
-
-        return json.dumps({
-            "approved": True,
-            "sent": success,
-            "status": final_status,
-            "contact": row["name"],
-            "to": row["email"],
-        })
+        _record_mcp_approval(item_id, row, note, final_status)
+        return json.dumps({"approved": True, "sent": success, "status": final_status,
+                           "contact": row["name"], "to": row["email"]})
     except Exception as error:
         logger.error("approval_approve failed: item_id=%d error=%s", item_id, error)
         return json.dumps({"error": str(error)})

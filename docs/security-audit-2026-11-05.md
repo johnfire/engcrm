@@ -1,5 +1,11 @@
 # EngCRM security audit — 5 November 2026
 
+**Local remediation update:** A01–A04 have been fixed and verified locally;
+the related A09 fail-open path was hardened too. See
+[the remediation record](security-fixes-2026-11-05.md) for current validation
+and deployment requirements. The original observations below remain the audit
+snapshot. Production is not remediated until these fixes are deployed.
+
 ## Decision
 
 **Security work remains open.** Four high-priority application findings were

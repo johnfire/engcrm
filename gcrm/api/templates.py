@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
 from gcrm.activity_types import ATTITUDES, MY_READS, activity_type
+from gcrm.api.csrf import csrf_token, protect_html_forms
 from gcrm.api.web_links import browsable_url
 from gcrm.dates import format_day, format_day_time
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
@@ -54,7 +55,15 @@ class AppTemplates(Jinja2Templates):
         except AssertionError:
             pass  # no SessionMiddleware in this context (shouldn't happen in prod)
         context.setdefault("t", lambda key, **params: translate(key, language, **params))
-        return super().TemplateResponse(request, name, context, **kwargs)
+        response = super().TemplateResponse(request, name, context, **kwargs)
+        try:
+            token = csrf_token(request)
+        except AssertionError:
+            return response  # Standalone template previews have no browser session.
+        response.body = protect_html_forms(response.body.decode(response.charset), token).encode(response.charset)
+        response.headers["content-length"] = str(len(response.body))
+        response.headers["cache-control"] = "private, no-store"
+        return response
 
 
 templates = AppTemplates(directory=str(UI_DIR / "templates"))

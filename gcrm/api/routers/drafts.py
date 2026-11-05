@@ -10,6 +10,7 @@ from gcrm.config import MAIL_SENDER_OPTIONS
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import offer_slug_for, update_organization_status
+from gcrm.tools.outreach_guard import require_draft_permission, send_reviewed_email
 
 router = APIRouter(prefix="/drafts", tags=["drafts"], dependencies=[Depends(require_login)])
 logger = logging.getLogger(__name__)
@@ -91,19 +92,7 @@ def draft_detail(request: Request, item_id: int):
     })
 
 
-@router.post("/{item_id}/approve", response_class=HTMLResponse)
-def approve(
-    request: Request,
-    item_id: int,
-    final_subject: str = Form(default=""),
-    final_body: str = Form(default=""),
-    from_email: str = Form(default=""),
-    note: str = Form(default=""),
-    _admin: str = Depends(require_admin),
-):
-    """Sends the draft — final_subject/final_body/from_email (from the
-    full-page editor) override the stored draft when provided; the list
-    page's quick actions omit them and the stored values are sent as-is."""
+def _claim_held_draft(item_id: int) -> dict:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(f"""
@@ -115,14 +104,16 @@ def approve(
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Draft not found or not on hold")
+        cur.execute("UPDATE approval_queue SET status='approved',reviewed_at=NOW() WHERE id=%s AND status='on_hold'", (item_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Draft already reviewed")
 
-    subject = final_subject.strip() or row["draft_subject"]
-    body = final_body.strip() or row["draft_body"]
-    sender = from_email if from_email in MAIL_SENDER_OPTIONS else row["from_email"]
+    return row
 
+
+def _send_held_draft(item_id: int, row: dict, subject: str, body: str, sender: str | None) -> bool:
     try:
-        from gcrm.tools.email import send_email
-        success = send_email(to_email=row["email"] or "", subject=subject, body=body, from_email=sender)
+        success = send_reviewed_email(row["contact_id"], row["person_id"], draft_id=item_id, to_email=row["email"] or "", subject=subject, body=body, from_email=sender)
         if row["contact_id"]:
             from gcrm.tools.db import log_interaction
             log_interaction(
@@ -136,10 +127,16 @@ def approve(
         else:
             from gcrm.tools.db_people_interactions import log_person_note
             log_person_note(row["person_id"], "email", f"Sent: {subject}", offer_id=row["offer_id"])
+    except HTTPException:
+        raise
     except Exception as error:
         logger.error("drafts approve send failed: item_id=%d error=%s", item_id, error)
         success = False
 
+    return success
+
+
+def _complete_held_draft(item_id: int, row: dict, subject: str, body: str, sender: str | None, note: str, success: bool) -> list[dict]:
     final_status = "approved" if success else "approved_unsent"
 
     with db() as conn:
@@ -159,6 +156,23 @@ def approve(
         drafts = _fetch_held_drafts(conn)
     log_audit(None, None, "approval.approve", f"approval:{item_id}", final_status)
 
+    return drafts
+
+
+@router.post("/{item_id}/approve", response_class=HTMLResponse)
+def approve(
+    request: Request, item_id: int, final_subject: str = Form(default=""),
+    final_body: str = Form(default=""), from_email: str = Form(default=""),
+    note: str = Form(default=""), _admin: str = Depends(require_admin),
+):
+    """Claim one held draft, send only with current permission, and record the outcome."""
+    require_draft_permission(item_id)
+    row = _claim_held_draft(item_id)
+    subject = final_subject.strip() or row["draft_subject"]
+    body = final_body.strip() or row["draft_body"]
+    sender = from_email if from_email in MAIL_SENDER_OPTIONS else row["from_email"]
+    success = _send_held_draft(item_id, row, subject, body, sender)
+    drafts = _complete_held_draft(item_id, row, subject, body, sender, note, success)
     return _list_or_redirect(request, drafts)
 
 

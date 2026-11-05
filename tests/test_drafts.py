@@ -31,7 +31,12 @@ def make_mock_conn(rows=None):
 def admin_web():
     main.app.dependency_overrides[require_login] = lambda: "admin"
     main.app.dependency_overrides[require_admin] = lambda: "admin"
-    yield
+    # These are composition tests with fake recipients; the real recipient gate
+    # is covered against PostgreSQL in test_security_boundaries and its unit tests.
+    with patch("gcrm.api.routers.drafts.require_draft_permission"), \
+         patch("gcrm.tools.outreach_guard.require_recipient_permission"), \
+         patch("gcrm.tools.outreach_guard.db"):
+        yield
     main.app.dependency_overrides.pop(require_login, None)
     main.app.dependency_overrides.pop(require_admin, None)
 
