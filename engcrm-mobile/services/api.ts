@@ -1,10 +1,16 @@
 import axios from "axios";
 import { router } from "expo-router";
-import { clearToken, getToken } from "./auth";
+import { clearToken, getSession } from "./auth";
+import { Server, serverForEmail } from "./reviewer-routing";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
 import type { DealChip } from "./deals";
 
 export const API_BASE = "https://engcrm.christopherrehm.de";
+const REVIEWER_API_BASE = `${API_BASE}/reviewer`;
+
+function baseForServer(server: Server): string {
+  return server === "reviewer" ? REVIEWER_API_BASE : API_BASE;
+}
 
 export function buildHeaders(token: string | null): Record<string, string> {
   const headers: Record<string, string> = {
@@ -17,7 +23,9 @@ export function buildHeaders(token: string | null): Record<string, string> {
 export const client = axios.create({ baseURL: API_BASE });
 
 client.interceptors.request.use(async (config) => {
-  const token = await getToken();
+  if (config.url === "/api/auth/token") return config;
+  const { token, server } = await getSession();
+  config.baseURL = baseForServer(server);
   if (token) config.headers["Authorization"] = `Bearer ${token}`;
   return config;
 });
@@ -51,9 +59,10 @@ client.interceptors.response.use(
 export async function login(
   email: string,
   password: string,
-): Promise<{ token: string; role: string }> {
-  const resp = await client.post("/api/auth/token", { email, password });
-  return resp.data;
+): Promise<{ token: string; role: string; server: Server }> {
+  const server = serverForEmail(email);
+  const resp = await client.post("/api/auth/token", { email, password }, { baseURL: baseForServer(server) });
+  return { ...resp.data, server };
 }
 
 // --- Push ---

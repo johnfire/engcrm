@@ -29,8 +29,8 @@ export default function LoginScreen() {
     if (!email.trim() || !password.trim()) return;
     setLoading(true);
     try {
-      const { token, role } = await login(email.trim(), password.trim());
-      await saveToken(token, role);
+      const { token, role, server } = await login(email.trim(), password.trim());
+      await saveToken(token, role, server);
       // Best-effort — apply the account's language immediately rather than
       // waiting for the next foreground/cold-start sync cycle.
       try {

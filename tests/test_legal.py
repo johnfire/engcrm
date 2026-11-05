@@ -52,3 +52,19 @@ class TestPrivacyInformation:
             response = client.get("/privacy?lang=en")
         assert response.status_code == 200
         assert "direct marketing" in response.text and "currently offer" not in response.text
+
+
+class TestAccountDeletionInformation:
+    def test_public_page_explains_how_to_request_deletion(self):
+        response = client.get("/delete-data")
+        assert response.status_code == 200
+        assert "EngCRM" in response.text
+        assert 'mailto:car2187bus@pm.me?subject=' in response.text
+        assert "account" in response.text.lower()
+        assert "backup" in response.text.lower()
+        assert "730 days" in response.text
+        assert "seven daily, four weekly and three monthly" in response.text
+
+    def test_privacy_policy_links_to_deletion_page(self):
+        response = client.get("/privacy?lang=en")
+        assert 'href="/delete-data"' in response.text
