@@ -27,6 +27,8 @@ def main() -> int:
     parser.add_argument("--list-name", default="", help="Name recorded on each company (default: file name)")
     parser.add_argument("--apply", action="store_true", help="Write to the database (default: dry run)")
     parser.add_argument("--actor", default="claude", help="Who runs the import, for the audit log")
+    parser.add_argument("--similar", choices=("match", "new"),
+                        help="Possible duplicates: 'match' takes them as the existing companies, 'new' creates them")
     args = parser.parse_args()
 
     text = sys.stdin.read() if args.file == "-" else Path(args.file).expanduser().read_text(encoding="utf-8")
@@ -36,9 +38,16 @@ def main() -> int:
     except LeadListError as error:
         print(f"Not imported: {error}")
         return 1
-    with audit_scope(args.actor, "ai" if args.actor == "claude" else "user"):
-        report = import_lead_list(businesses, list_name=list_name, default_town=args.town, apply=args.apply)
+    try:
+        with audit_scope(args.actor, "ai" if args.actor == "claude" else "user"):
+            report = import_lead_list(businesses, list_name=list_name, default_town=args.town,
+                                      apply=args.apply, similar=args.similar)
+    except ValueError as error:
+        print(f"Not imported: {error}. Run the dry run to see them, then add --similar match or --similar new.")
+        return 1
     print(("APPLIED: " if args.apply else "DRY RUN (nothing written): ") + summary_line(report, list_name))
+    for entry in report["possible_duplicates"]:
+        print(f"  possible duplicate: {entry['name']}  ~  CRM #{entry['crm_id']} {entry['crm_name']}")
     for name in report["skipped_no_town"]:
         print(f"  skipped, no town (pass --town): {name}")
     return 0

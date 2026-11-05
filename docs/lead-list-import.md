@@ -35,8 +35,12 @@ agent-diary record (`slog record … --undo …`).
 
 - **Company:** new → organization at stage candidate, source `lead_list`, with address,
   website, the park/area as neighbourhood and the list's notes. Already in the CRM (same
-  name in the same town) → only blank address, website and neighbourhood are filled.
+  name in the same town, compared normalised: case, umlauts, punctuation, legal forms and
+  "und"/"+" ignored) → only blank address, website and neighbourhood are filled.
   Companies are not matched by website: two entities in one list can share a site.
+- **Possible duplicates:** a name whose words contain, or sit inside, an existing name in
+  the same town ("Carglass GmbH Kaufbeuren" / "Carglass") is listed by the dry run, and
+  `--apply` refuses until you add `--similar match` (same company) or `--similar new`.
 - **Person:** on the company, with the role as title. A confirmed profile becomes the
   LinkedIn link; "connected" marks a LinkedIn connection; an unconfirmed profile and the
   list's LinkedIn status go into the notes. A person already on the company, or with the

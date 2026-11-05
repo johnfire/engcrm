@@ -114,3 +114,59 @@ def test_the_latest_imports_companies_wait_to_be_pinned(clean_database):
     assert sorted(latest_import_ids()) == sorted(report["company_ids"])
     karwendel = query("SELECT id FROM contacts WHERE name = 'Karwendel-Werke Huber GmbH & Co. KG'")[0]["id"]
     assert karwendel in {row["id"] for row in pin_queue(workspace_id(), ids=latest_import_ids())}
+
+
+SPELLING = """| Pg | # | Business | Location | Address | Website | Contact | Role | LinkedIn | LinkedIn status | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | Online-Info-Service GmbH | Park | Am Weg 1, 87600 Kaufbeuren | — | — | — | — | no contact yet | |
+| 1 | 2 | Brandtner CNC Zerspanung und Mechanik | Park | Am Weg 2, 87600 Kaufbeuren | — | — | — | — | no contact yet | |
+| 1 | 3 | Carglass GmbH Kaufbeuren | Park | Am Weg 3, 87600 Kaufbeuren | — | Max Beispiel | Leiter | — | not searched | |
+"""
+
+
+def add_existing(name: str, town: str = "Kaufbeuren") -> int:
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO contacts (name, city, workspace_id, source) VALUES (%s, %s, %s, 'maps_import') RETURNING id",
+                    (name, town, workspace_id()))
+        return cur.fetchone()["id"]
+
+
+def import_spelling(**options):
+    return import_lead_list(parse_lead_list(SPELLING), list_name="kaufbeuren", default_town="Kaufbeuren", **options)
+
+
+def test_spelling_variants_of_an_existing_company_are_matched(clean_database):
+    """Live dry run 2026-11-05: hyphens, '+' vs 'und' and dashes made duplicates."""
+    online, brandtner = add_existing("Online-Info Service GmbH"), add_existing("Brandtner CNC Zerspanung + Mechanik")
+    report = import_spelling(apply=False)
+    assert report["companies_existing"] == 2
+    assert [entry["crm_id"] for entry in report["possible_duplicates"]] == []
+    assert online and brandtner
+
+
+def test_a_name_contained_in_an_existing_one_is_listed_as_a_possible_duplicate(clean_database):
+    carglass = add_existing("Carglass")
+    report = import_spelling(apply=False)
+    assert report["possible_duplicates"] == [{"name": "Carglass GmbH Kaufbeuren", "crm_id": carglass, "crm_name": "Carglass"}]
+
+
+def test_apply_refuses_until_possible_duplicates_are_decided(clean_database):
+    add_existing("Carglass")
+    with pytest.raises(ValueError, match="possible duplicate"):
+        import_spelling(apply=True)
+    assert query("SELECT count(*) AS n FROM contacts") == [{"n": 1}]
+
+
+def test_possible_duplicates_can_be_taken_as_the_same_company(clean_database):
+    carglass = add_existing("Carglass")
+    report = import_spelling(apply=True, similar="match")
+    assert report["companies_existing"] == 1 and carglass in report["company_ids"]
+    assert query("SELECT contact_id FROM people WHERE name = 'Max Beispiel'") == [{"contact_id": carglass}]
+
+
+def test_possible_duplicates_can_be_created_as_new_companies(clean_database):
+    add_existing("Carglass")
+    report = import_spelling(apply=True, similar="new")
+    assert report["companies_new"] == 3
+    assert query("SELECT count(*) AS n FROM contacts WHERE name LIKE 'Carglass%%'") == [{"n": 2}]
