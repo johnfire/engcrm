@@ -9,7 +9,7 @@ Complete setup, operation, and testing guide.
 | Repo | Purpose | Status |
 |---|---|---|
 | `theo-hits-the-road` | Original CRM, CLI, PostgreSQL schema | Untouched — always works as fallback |
-| `gcrm supervisor` | Orchestrator, FastAPI UI, tool implementations, supervisor graph | Done |
+| `gcrm supervisor` | Run scripts (Gather, Judge, Outreach), FastAPI UI, tool implementations | Done |
 | `gcrm-research-agent` | Researches cities/industries for new contacts | Done |
 | `gcrm-scout-agent` | Scores candidates for mission fit | Done |
 | `gcrm-outreach-agent` | Drafts first-contact emails, queues for approval | Done |
@@ -91,24 +91,25 @@ uv run python -m gcrm.api.main
 
 ## Running the System
 
-### Full supervisor run
+### Runs: Gather, Judge, Outreach
 
 ```bash
-uv run python -m gcrm.supervisor.run
+uv run python -m gcrm.supervisor.run_gather --area-id 7 --levels 1,2      # Gather an area
+uv run python -m gcrm.supervisor.run_gather --city Untermeitingen --level 2
+uv run python -m gcrm.supervisor.run_judge                                # Judge
+uv run python -m gcrm.supervisor.run_outreach --city Augsburg --level 1   # Outreach (rarely)
 ```
 
-Run order:
-1. **Research** — once per target in `gcrm/supervisor/targets.py`
-2. **Scout** — scores all contacts at the `candidate` stage
-3. **Outreach** — drafts emails for `status=ready` contacts, queues for approval
-4. **Follow-up** — reads inbox, classifies replies, sends follow-ups to overdue contacts
+Three separate runs, each started by hand (plan `docs/plans/2026-11-05-gather-judge-reach-plan.md`):
+1. **Gather** — research an area or city, then enrichment and the people finder on the companies it found
+2. **Judge** — the scout rates candidates, opportunity analysis looks at the ready ones, and the report lists dropped companies still on the Maps list
+3. **Outreach** — drafts emails for ready companies into the approval queue (nothing is sent without approval)
 
-Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
+Follow-up stays switched off. Nothing runs on a schedule. Each run logs to the `/activity/` UI page.
 
 ### Schedule with cron
 
 ```cron
-0 7 * * * cd ~/ppp2/engcrm && ~/.local/bin/uv run python -m gcrm.supervisor.run >> ~/logs/supervisor.log 2>&1
 # Apply the controller-reviewed GDPR retention schedule once daily.
 15 2 * * * cd ~/ppp2/engcrm && ~/.local/bin/uv run python -m gcrm.supervisor.run_retention >> ~/logs/privacy-retention.log 2>&1
 ```

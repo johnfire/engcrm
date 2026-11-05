@@ -236,7 +236,7 @@ The five worker agents are **tool-agnostic**. Each one defines its dependencies 
 - The supervisor injects concrete implementations at startup
 - Tests inject fakes — no real DB, no real LLM, no real SMTP needed
 
-The supervisor (`gcrm/supervisor/graph.py`) is the only place that knows about the actual infrastructure.
+The run scripts in `gcrm/supervisor/` (`run_gather.py`, `run_judge.py`, and the per-agent `run_*.py` they call) are the only place that knows about the actual infrastructure.
 
 ---
 
@@ -255,10 +255,11 @@ The supervisor (`gcrm/supervisor/graph.py`) is the only place that knows about t
 
 ## Running manually vs. on schedule
 
-**Full pipeline run:**
+**Gather, Judge, Outreach** (separate runs, started by hand):
 
 ```bash
-uv run python -m gcrm.supervisor.run
+uv run python -m gcrm.supervisor.run_gather --city Untermeitingen --level 2
+uv run python -m gcrm.supervisor.run_judge
 ```
 
 **Research only (single city + level):**
@@ -271,11 +272,7 @@ uv run python -m gcrm.supervisor.run_research --city Innsbruck --level 1 --count
 **Individual agent (for debugging):**
 Each agent package exposes a `create_*_agent()` factory. You can instantiate and invoke them directly — see the test files for examples.
 
-**Scheduled:**
-
-```cron
-0 7 * * * cd ~/ppp2/engcrm && uv run python -m gcrm.supervisor.run >> ~/logs/supervisor.log 2>&1
-```
+**Scheduled:** nothing. Every run is started by hand (decision 2026-11-05).
 
 ---
 

@@ -195,15 +195,21 @@ uv run python -m gcrm.api.main
 
 ## Running the Pipeline
 
-### Full run
+### Runs: Gather, Judge, Outreach
 
 ```bash
-uv run python -m gcrm.supervisor.run
+uv run python -m gcrm.supervisor.run_gather --area-id 7 --levels 1,2      # Gather an area
+uv run python -m gcrm.supervisor.run_gather --city Untermeitingen --level 2
+uv run python -m gcrm.supervisor.run_judge                                # Judge
+uv run python -m gcrm.supervisor.run_outreach --city Augsburg --level 1   # Outreach (rarely)
 ```
 
-This runs all agents in sequence: research → enrich → scout → outreach → followup. Logs to `~/logs/supervisor.log` and the `/activity/` UI page.
+Three separate runs, each started by hand (plan `docs/plans/2026-11-05-gather-judge-reach-plan.md`):
+1. **Gather** — research an area or city, then enrichment and the people finder on the companies it found
+2. **Judge** — the scout rates candidates, opportunity analysis looks at the ready ones, and the report lists dropped companies still on the Maps list
+3. **Outreach** — drafts emails for ready companies into the approval queue (nothing is sent without approval)
 
-Research jobs come from the `cities` table (any city with unscanned levels). To skip research and only run scout/outreach/followup, clear the city scan queue or set all levels to already-scanned.
+Follow-up stays switched off. Nothing runs on a schedule. Each run logs to the `/activity/` UI page.
 
 ### Research a specific city
 
@@ -213,12 +219,6 @@ uv run python -m gcrm.supervisor.run_research --city Vienna --level 2 --country 
 ```
 
 Levels are defined in `gcrm/vertical.py` under `SCAN_LEVELS`. Run level 1 before any others (it's enforced).
-
-### Schedule with cron
-
-```cron
-0 7 * * * cd /path/to/general-crm && /home/you/.local/bin/uv run python -m gcrm.supervisor.run >> /home/you/logs/supervisor.log 2>&1
-```
 
 ---
 
@@ -378,7 +378,7 @@ If you use Claude Code, you can control the system from a conversation without t
 uv run python -m gcrm.mcp.server
 ```
 
-Available tools: `pipeline_status`, `contacts_list`, `approval_list`, `approval_approve`, `approval_reject`, `agent_runs`, `manual_drop`, `manual_promote`, `run_research`, `trigger_run`, `set_city_notes`, `research_status`.
+Available tools: `pipeline_status`, `contacts_list`, `approval_list`, `approval_approve`, `approval_reject`, `agent_runs`, `manual_drop`, `manual_promote`, `run_research`, `trigger_gather`, `trigger_judge`, `set_city_notes`, `research_status`.
 
 To configure as a persistent MCP server in Claude Code, add it to your `~/.claude/settings.json`.
 

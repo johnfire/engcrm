@@ -15,6 +15,7 @@ from mcp.server.fastmcp import FastMCP
 
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
+from gcrm.supervisor.pipeline import spawn_stage
 from gcrm.tools.db import log_interaction, update_city_market
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import (
@@ -469,33 +470,37 @@ def run_research(city: str, level: int, country: str = "DE") -> str:
 
 @server.tool()
 @mcp_mutation
-def trigger_run() -> str:
+def trigger_gather(city: str, level: int, country: str = "DE") -> str:
     """
-    Kick off a full supervisor pipeline run (research → scout → outreach → followup).
-    Starts in the background and returns immediately. Check agent_runs for progress.
-    Requires the agents extra to be installed: uv sync --extra agents
+    Start Gather for a city and scan level: research, then enrichment and the people finder
+    on the companies it finds. Runs in the background; check agent_runs for progress.
     """
     try:
-        project_root = Path(__file__).parent.parent.parent
-        uv = Path.home() / ".local" / "bin" / "uv"
-        cmd = [str(uv), "run", "python", "-m", "gcrm.supervisor.run"]
-
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(project_root),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        log_audit(None, None, "pipeline.full_run_queued", "supervisor", "queued")
-        return json.dumps({
-            "triggered": True,
-            "pid": proc.pid,
-            "message": "Supervisor run started in background. Check agent_runs for progress.",
-        })
+        spawn_stage("all", city=city, level=level, country=country)
     except Exception as error:
-        logger.error("trigger_run failed: %s", error)
+        logger.error("trigger_gather failed: %s", error)
         return json.dumps({"error": str(error)})
+    log_audit(None, None, "pipeline.stage_queued", "pipeline:gather", city)
+    return json.dumps({"started": "gather", "city": city, "level": level,
+                       "message": "Gather started in the background. Check agent_runs for progress."})
+
+
+@server.tool()
+@mcp_mutation
+def trigger_judge() -> str:
+    """
+    Start Judge: the scout rates the candidates, opportunity analysis looks at the ready
+    ones, and the report lists dropped companies still on the Maps list. Runs in the
+    background; check agent_runs for progress.
+    """
+    try:
+        spawn_stage("judge")
+    except Exception as error:
+        logger.error("trigger_judge failed: %s", error)
+        return json.dumps({"error": str(error)})
+    log_audit(None, None, "pipeline.stage_queued", "pipeline:judge", "global")
+    return json.dumps({"started": "judge",
+                       "message": "Judge started in the background. Check agent_runs for progress."})
 
 
 # =============================================================================
@@ -592,7 +597,7 @@ def pipeline_review() -> str:
 2. Use agent_runs(limit=10) to see what the agents did recently
 3. Use approval_list to check if there are drafts waiting for you
 4. Based on what you see, recommend:
-   - Whether to trigger a new run (trigger_run)
+   - Whether to start a Gather (trigger_gather) or a Judge run (trigger_judge)
    - Whether any approvals need immediate attention
    - Whether the pipeline looks healthy or has a bottleneck
 """

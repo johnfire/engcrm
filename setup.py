@@ -248,7 +248,7 @@ def main():
     print(f"\nWritten: {VERTICAL_PATH}")
     print("\nNext steps:")
     print("  1. Review gcrm/vertical.py and tweak any details")
-    print("  2. Run: uv run python -m gcrm.supervisor.run")
+    print("  2. Run: uv run python -m gcrm.supervisor.run_gather --city <city> --level 1")
     print("  3. Open the UI: uv run uvicorn gcrm.api.main:app --reload")
 
 

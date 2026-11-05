@@ -147,7 +147,7 @@ def main():
         logger.info("%s: %d saved, %d skipped", filepath.name, saved, skipped)
 
     print(f"\nImport complete: {total_saved} contacts saved, {total_skipped} skipped")
-    print("Run the supervisor (uv run python -m src.supervisor.run) to score and process them.")
+    print("Run Judge (uv run python -m gcrm.supervisor.run_judge) to score and process them.")
 
 
 if __name__ == "__main__":

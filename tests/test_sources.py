@@ -96,10 +96,12 @@ def test_no_code_path_creates_a_record_without_naming_its_source():
 
 
 def test_research_agent_saves_are_tagged():
-    from gcrm.supervisor import graph
+    import gcrm.tools as tools
+    from gcrm.supervisor import run_research
     saver = MagicMock()
-    with patch.object(graph, "save_organization", saver), patch.object(graph, "create_research_agent") as create:
-        graph._build_research_agent(MagicMock())
+    with patch.object(tools, "save_organization", saver), patch.object(tools, "get_llm"), \
+            patch("gcrm_research_agent.create_research_agent") as create:
+        run_research._research_agent()
     created = create.call_args.kwargs["save_organization"]
     created(name="Acme", city="Augsburg")
     saver.assert_called_once_with(name="Acme", city="Augsburg", source=sources.RESEARCH_AGENT)
