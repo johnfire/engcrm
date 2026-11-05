@@ -8,15 +8,17 @@ from gcrm.tools.db_deals import organization_deal_join
 from gcrm.tools.db_people import save_person
 
 
-def get_organizations_needing_people(limit: int = 20) -> list[dict]:
-    """Companies the scout rated ready that have not been searched for people, best fit first."""
+def get_organizations_needing_people(limit: int = 20, ids: list[int] | None = None) -> list[dict]:
+    """Companies not yet searched for people: the given ones (a Gather run's, judged or
+    not), or else the ones the scout rated ready, best fit first."""
+    scope, params = ("c.id = ANY(%s)", [list(ids)]) if ids is not None else ("d.status = 'ready'", [])
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT c.*, d.pipeline_stage, d.status FROM contacts c" + organization_deal_join("c", "d")
-            + " WHERE d.status = 'ready' AND c.deleted_at IS NULL AND c.people_searched_at IS NULL"
+            + f" WHERE {scope} AND c.deleted_at IS NULL AND c.people_searched_at IS NULL"
             " ORDER BY c.fit_score DESC NULLS LAST, c.created_at ASC LIMIT %s",
-            (limit,),
+            (*params, limit),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]
 

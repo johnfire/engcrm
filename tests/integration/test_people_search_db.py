@@ -78,3 +78,12 @@ def test_saving_the_same_person_twice_does_not_duplicate_them(clean_database):
                                          "xing_url": "https://www.xing.com/profile/Klaus_Meile"})
     assert first["person_id"] == second["person_id"]
     assert second["xing_url"] == "https://www.xing.com/profile/Klaus_Meile"
+
+
+def test_a_gather_run_searches_its_own_companies_whether_judged_or_not(clean_database):
+    """Plan 2026-11-05: the people finder runs in Gather, before the scout."""
+    unjudged, other = add_company("Meile GmbH", "none"), add_company("Faist Systeme GmbH", "ready")
+    assert [row["id"] for row in get_organizations_needing_people(ids=[unjudged["id"]])] == [unjudged["id"]]
+    mark_people_searched(unjudged["id"])
+    assert get_organizations_needing_people(ids=[unjudged["id"]]) == []
+    assert other["id"]

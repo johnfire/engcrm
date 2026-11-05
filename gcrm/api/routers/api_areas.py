@@ -49,7 +49,7 @@ def scan_area(
 
     area_id = find_or_create_area(body.lat, body.lon, body.radius_m, label=body.label, city_id=city_id)
     try:
-        spawn_area_stage("research", area_id, body.levels)
+        spawn_area_stage("gather", area_id, body.levels)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error))
     log_audit(None, None, "pipeline.area_scan_queued", f"area:{area_id}", ",".join(map(str, body.levels)))

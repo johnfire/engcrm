@@ -27,7 +27,7 @@ class TestMobileAreasEndpoint:
         assert resp.status_code == 202
         assert resp.json() == {"status": "queued", "area_id": 42, "levels": [1, 3]}
         find_area.assert_called_once_with(48.37, 10.9, 500, label="Test area", city_id=None)
-        spawn.assert_called_once_with("research", 42, [1, 3])
+        spawn.assert_called_once_with("gather", 42, [1, 3])
 
     def test_resolves_city_id_from_reverse_geocode(self):
         resolved = {"name": "Augsburg", "country": "DE", "state": "Bavaria"}
@@ -105,7 +105,7 @@ class TestWebAreasEndpoint:
             assert resp.status_code == 202
             assert resp.json() == {"status": "queued", "area_id": 42, "levels": [1]}
             find_area.assert_called_once_with(48.37, 10.9, 500, label="", city_id=None)
-            spawn.assert_called_once_with("research", 42, [1])
+            spawn.assert_called_once_with("gather", 42, [1])
         finally:
             main.app.dependency_overrides.pop(require_login, None)
             main.app.dependency_overrides.pop(require_admin, None)

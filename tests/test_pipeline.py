@@ -38,10 +38,13 @@ class TestSpawn:
         assert "gcrm.supervisor.run_research" in argv
         assert "--city" in argv and "Augsburg" in argv and "1" in argv
 
-    def test_all_uses_run_pipeline(self):
+    def test_all_runs_gather(self):
+        """Since 2026-11-05 'Run all' is Gather: research, enrichment, people finder."""
         with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
             pipeline.spawn_stage("all", city="Augsburg", level=2)
-        assert "gcrm.supervisor.run_pipeline" in popen.call_args.args[0]
+        argv = popen.call_args.args[0]
+        assert "gcrm.supervisor.run_gather" in argv
+        assert "--city" in argv and "Augsburg" in argv and "--level" in argv and "2" in argv
 
     def test_followup_command(self):
         with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
@@ -85,6 +88,14 @@ class TestSpawnArea:
             pipeline.spawn_area_stage("research", area_id=7, levels=[1, 3])
         argv = popen.call_args.args[0]
         assert "gcrm.supervisor.run_research" in argv
+        assert "--area-id" in argv and "7" in argv
+        assert "--levels" in argv and "1,3" in argv
+
+    def test_gather_command(self):
+        with patch("gcrm.supervisor.pipeline.subprocess.Popen") as popen:
+            pipeline.spawn_area_stage("gather", area_id=7, levels=[1, 3])
+        argv = popen.call_args.args[0]
+        assert "gcrm.supervisor.run_gather" in argv
         assert "--area-id" in argv and "7" in argv
         assert "--levels" in argv and "1,3" in argv
 

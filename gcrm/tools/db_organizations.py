@@ -382,9 +382,12 @@ def set_suppression_flag(contact_id: int, flag: str, value: bool = True) -> None
     log_audit(None, None, f"contact.{flag}", f"contact:{contact_id}", str(value).lower())
 
 
-def get_organizations_needing_enrichment(limit: int = 50, city: str | None = None) -> list[dict]:
+def get_organizations_needing_enrichment(
+    limit: int = 50, city: str | None = None, ids: list[int] | None = None
+) -> list[dict]:
     """Return contacts missing an email (skipping dead-ends) or never checked for their
-    LinkedIn/XING pages, never-enriched first."""
+    LinkedIn/XING pages, never-enriched first. `ids` limits it to those contacts (the
+    companies a Gather run just found)."""
     with db() as conn:
         cur = conn.cursor()
         conditions = [
@@ -396,6 +399,9 @@ def get_organizations_needing_enrichment(limit: int = 50, city: str | None = Non
         if city:
             conditions.append("lower(c.city) = lower(%s)")
             params.append(city)
+        if ids is not None:
+            conditions.append("c.id = ANY(%s)")
+            params.append(list(ids))
         params.append(limit)
         where = " AND ".join(conditions)
         cur.execute(

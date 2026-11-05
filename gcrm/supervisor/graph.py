@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import TypedDict
 
-from gcrm_enrichment_agent import create_enrichment_agent
 from gcrm_followup_agent import create_followup_agent
 from gcrm_opportunity_agent import create_opportunity_agent
 from gcrm_outreach_agent import create_outreach_agent
@@ -51,7 +50,6 @@ from gcrm.tools import (
     read_inbox,
     record_scan_result,
     record_warm_outcome,
-    save_company_pages,
     save_inbox_classification,
     save_opportunity_analysis,
     save_organization,
@@ -60,7 +58,6 @@ from gcrm.tools import (
     set_organization_state,
     set_visit_when_nearby,
     start_run,
-    update_organization_details,
     web_search,
 )
 
@@ -97,16 +94,9 @@ def _build_research_agent(llm):
 
 
 def _build_enrichment_agent(llm):
-    return create_enrichment_agent(
-        llm=llm,
-        web_search=web_search,
-        fetch_page=fetch_page,
-        fetch_organizations=get_organizations_needing_enrichment,
-        update_organization=update_organization_details,
-        start_run=start_run,
-        finish_run=finish_run,
-        save_company_pages=save_company_pages,
-    )
+    from gcrm.supervisor.run_enrichment import build_enrichment_agent
+
+    return build_enrichment_agent(get_organizations_needing_enrichment, llm=llm)
 
 
 def _build_opportunity_agent(llm):

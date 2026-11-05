@@ -491,7 +491,7 @@
   "research.scout": "Scout",
   "research.enrich": "Enrich",
   "research.opportunityAnalysis": "Analyse opportunities",
-  "research.runAll": "Run all (research → enrich)",
+  "research.runAll": "Gather (research → enrich → people)",
   "research.outreach": "Outreach",
   "research.followupAllCities": "Followup (all cities)",
   "research.cities": "cities",

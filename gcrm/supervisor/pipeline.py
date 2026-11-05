@@ -11,7 +11,8 @@ import sys
 
 from gcrm.vertical import SCAN_LEVELS
 
-# Stages exposed as buttons. 'all' runs the city pipeline in sequence.
+# Stages exposed as buttons. 'all' is Gather for a city: research, enrichment, people finder
+# (plan docs/plans/2026-11-05-gather-judge-reach-plan.md).
 STAGES = ("research", "scout", "enrichment", "opportunity", "outreach", "followup", "all")
 
 _CITY_STAGES = ("research", "scout", "enrichment", "outreach", "all")
@@ -44,7 +45,7 @@ def _command(stage: str, city: str, level, country: str) -> list[str]:
     if stage == "followup":
         return run + ["gcrm.supervisor.run_followup"]
     # stage == "all"
-    return run + ["gcrm.supervisor.run_pipeline", "--city", city,
+    return run + ["gcrm.supervisor.run_gather", "--city", city,
                   "--level", str(level), "--country", country]
 
 
@@ -58,12 +59,10 @@ def spawn_stage(stage: str, city: str = "", level=None, country: str = "DE") -> 
     )
 
 
-# Only discovery is geography-scoped. Scout and enrichment already process
-# every 'candidate'/'ready' contact regardless of how it was found (city scan
-# or area scan) — see get_candidates()/run_scout.py — so an area scan just
-# triggers the ordinary "scout"/"enrichment" stage via spawn_stage() after
-# research finds new contacts, rather than needing its own area variant.
-_AREA_STAGES = ("research",)
+# An area scan is Gather: research for the area, then enrichment and the people finder on
+# exactly the companies it found (run_gather). 'research' alone stays available. The scout
+# is not geography-scoped: it judges every candidate, however it was found.
+_AREA_STAGES = ("research", "gather")
 _MAX_AREA_LEVELS = 6  # bounds Places API calls per run — see design doc's rollout risks
 
 
@@ -79,18 +78,18 @@ def validate_area(stage: str, area_id, levels: list[int]) -> None:
         raise ValueError(f"area scans are capped at {_MAX_AREA_LEVELS} levels per run")
 
 
-def _area_command(area_id: int, levels: list[int]) -> list[str]:
+def _area_command(stage: str, area_id: int, levels: list[int]) -> list[str]:
     level_arg = ",".join(str(level) for level in levels)
-    return [sys.executable, "-m", "gcrm.supervisor.run_research",
-            "--area-id", str(area_id), "--levels", level_arg]
+    module = "gcrm.supervisor.run_gather" if stage == "gather" else "gcrm.supervisor.run_research"
+    return [sys.executable, "-m", module, "--area-id", str(area_id), "--levels", level_arg]
 
 
 def spawn_area_stage(stage: str, area_id: int, levels: list[int]) -> None:
-    """Validate the request, then launch an area/GPS-radius research scan as a
-    detached background process."""
+    """Validate the request, then launch an area/GPS-radius scan ('gather', or research
+    alone) as a detached background process."""
     validate_area(stage, area_id, levels)
     subprocess.Popen(
-        _area_command(area_id, levels),
+        _area_command(stage, area_id, levels),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

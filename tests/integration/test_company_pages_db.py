@@ -57,3 +57,10 @@ def test_a_dead_end_without_an_email_still_gets_its_pages_checked_once(clean_dat
     assert contact_id in {row["id"] for row in get_organizations_needing_enrichment(limit=50)}
     save_company_pages(contact_id)
     assert contact_id not in {row["id"] for row in get_organizations_needing_enrichment(limit=50)}
+
+
+def test_enrichment_can_be_limited_to_the_companies_a_gather_run_found(clean_database):
+    found_now, found_before = add_contact("Meile GmbH"), add_contact("Faist Systeme GmbH")
+    rows = get_organizations_needing_enrichment(limit=50, ids=[found_now])
+    assert [row["id"] for row in rows] == [found_now]
+    assert found_before

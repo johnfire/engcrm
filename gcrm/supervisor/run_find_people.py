@@ -43,7 +43,8 @@ def summary_line(totals: dict) -> str:
             + (f", {totals['errors']} error(s)" if totals["errors"] else ""))
 
 
-def run(limit: int) -> str:
+def run(limit: int, ids: list[int] | None = None) -> str:
+    """Search for people at `ids` (a Gather run's companies), or else at ready companies."""
     from functools import partial
 
     from gcrm.config import CHEAP_LLM
@@ -55,10 +56,10 @@ def run(limit: int) -> str:
         save_found_person,
     )
 
-    run_id = start_run("people_finder", {"limit": limit})
+    run_id = start_run("people_finder", {"limit": limit, "companies": len(ids) if ids is not None else None})
     find = partial(find_people, search=web_search, fetch_page=fetch_page, extract=llm_extractor(get_llm(CHEAP_LLM)))
     totals = find_people_for_ready_companies(
-        limit, find=find, fetch_organizations=get_organizations_needing_people,
+        limit, find=find, fetch_organizations=partial(get_organizations_needing_people, ids=ids),
         save_person_found=save_found_person, mark_searched=mark_people_searched,
     )
     summary = summary_line(totals)
