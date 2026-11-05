@@ -50,8 +50,12 @@ not close it) was re-read for every later place, so one genuinely ticked place m
 following ones look ticked. The loop now opens a fresh menu for every place, sends Escape to
 the focused element and checks the menu is gone, and counts a tick only when the Save button
 also says "Saved". A results list counts only once the URL carries the new search (the
-previous search's list could resurface), and the place title is read from the place's own
-panel, not the first `<h1>` ("Results"/"Sponsored").
+previous search's list could resurface, and the same list twice in a row is never this
+search's), the loop waits for the page to be quiet before each search (a slow card from the
+previous search landed late and was read for the next company), and the place title is read
+from the place's own panel, not the first `<h1>` ("Results"/"Sponsored"). The closed check
+reads the place's own panel (it read the whole page and once flagged DEKRA Mindelheim,
+which is open); still check a `closed` by hand before dropping the company.
 
 After a large run, **check a sample against the list itself** before recording: open the
 list (`/maps/@…/data=!4m3!11m2!2s<list id>!3e3`), scroll it to the end and compare names.

@@ -74,8 +74,14 @@
     return [...document.querySelectorAll('h1')].map(h => h.innerText.trim()).find(t => !NOT_TITLE.test(t)) || null;
   };
   const listUp = () => !!document.querySelector('a.hfpxzc');
-  // What the page shows: a place card (with its title), a results list, or nothing usable yet.
-  const pageState = () => cardUp() && placeTitle() ? 'card:' + placeTitle() : (listUp() && !cardUp() ? 'list' : null);
+  const listSig = () => [...document.querySelectorAll('a.hfpxzc')].slice(0, 3).map(a => a.getAttribute('aria-label')).join('|');
+  // What the page shows: a place card (with its title), a results list (with its first
+  // entries, so two different lists differ), or nothing usable yet.
+  const pageState = () => cardUp() && placeTitle() ? 'card:' + placeTitle() : (listUp() && !cardUp() ? 'list:' + listSig() : null);
+  const isList = state => !!state && state.startsWith('list:');
+  // The last results list an item worked from: the same list showing again is the old
+  // search's, never this one's (5 Nov 2026: Finsterwalder read the DEKRA results).
+  let prevList = null;
   // Wait (up to 15 s) until the page shows a new card or list and has held it for two polls,
   // so a passing in-between state (list heading under a loading card) is never read. Two
   // companies at one Maps place keep the same card: after the wait, a changed URL is accepted.
@@ -91,7 +97,7 @@
     let last = null;
     const current = () => {
       const s = pageState();
-      return s === 'list' && query && !urlHasQuery(query) ? null : s;
+      return isList(s) && (s === prevList || (query && !urlHasQuery(query))) ? null : s;
     };
     for (let i = 0; i < 30; i++) {
       await sleep(500);
@@ -100,6 +106,18 @@
       last = now;
     }
     return location.href !== beforeUrl && !!current();
+  };
+  // Before a new search, let the previous one finish: a slow card that lands late would
+  // otherwise be read as the next company's (5 Nov 2026: Elektro Schromm's card was read
+  // for Holzmann — caught by the name check). Waits until the page is unchanged for 1.5 s.
+  const quiet = async () => {
+    let last = pageState(), same = 0;
+    for (let i = 0; i < 16 && same < 3; i++) {
+      await sleep(500);
+      const now = pageState();
+      same = now === last ? same + 1 : 0;
+      last = now;
+    }
   };
   const menuItems = () => [...document.querySelectorAll('[role=menuitemradio]')].filter(e => e.offsetParent);
   const radio = () => menuItems().find(e => LIST.test(e.innerText) && !NOT_LIST.test(e.innerText));
@@ -155,7 +173,9 @@
     r.phone = ((q('button[data-item-id^="phone"]') || {}).ariaLabel || '').replace(/^Phone:\s*/, '').trim() || null;
     r.website = (q('a[data-item-id="authority"]') || {}).href || null;
     r.dist = c && byLocation(it) ? Math.round(hav(it.lat, it.lon, c[0], c[1])) : null;
-    r.closed = (document.body.innerText.slice(0, 3000).match(/(Permanently|Temporarily) closed/i) || [null])[0];
+    // Read from the place's own panel: the page text can carry a neighbour's "closed" notice.
+    const panel = [...document.querySelectorAll('[role=main]')].find(m => m.ariaLabel && !NOT_TITLE.test(m.ariaLabel.trim()));
+    r.closed = ((panel || document.body).innerText.slice(0, 3000).match(/(Permanently|Temporarily) closed/i) || [null])[0];
     return c;
   };
   const save = async (r) => {
@@ -180,17 +200,20 @@
       const r = {id: it.id, crm: it.name, status: 'error'};
       try {
         const where = byLocation(it) ? (it.city ? ' ' + it.city : '') : ' ' + (it.addr || it.city || '');
+        await closeMenu();
+        await quiet();
         const beforeUrl = location.href, beforeState = pageState();
         const query = (it.alias || it.name) + where;
-        await closeMenu();
         setSearch(query);
         if (!await settle(beforeUrl, beforeState, query)) { r.status = 'no_card'; store(r); continue; }
-        if (pageState() === 'list') {
+        if (isList(pageState())) {
+          const listState = pageState();
+          prevList = listState;
           const {ranked, links} = pickFromList(it);
           if (!ranked.length) { r.status = 'no_match'; r.results = links.slice(0, 3).map(x => x.t); store(r); continue; }
           const listUrl = location.href;
           ranked[0].a.click();
-          await settle(listUrl, 'list');
+          await settle(listUrl, listState);
         }
         if (!cardUp() || !placeTitle()) { r.status = 'no_card'; store(r); continue; }
         const c = readCard(it, r);
