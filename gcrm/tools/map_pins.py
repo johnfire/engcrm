@@ -83,15 +83,24 @@ def candidates_not_on_map(workspace_id: int, list_name: str = COLD_CALL_CANDIDAT
     """Organizations at the candidate stage (consulting) with a location but no live pin on `list_name`,
     in id order so a batch resumes where the last one stopped. Not contacted yet and not
     do-not-contact: the same rule as the list itself."""
+    return pin_queue(workspace_id, list_name=list_name, limit=limit)
+
+
+def pin_queue(workspace_id: int, ids: list[int] | None = None, list_name: str = COLD_CALL_CANDIDATES,
+              limit: int = 200) -> list[dict]:
+    """Companies waiting to be pinned on `list_name`: with a location (coordinates or an
+    address), not pinned yet, not do-not-contact, no logged activity. With `ids` (a Gather
+    run's companies) any stage counts; without, only candidates, as the list has always held."""
+    scope, params = ("c.id = ANY(%s)", [list(ids)]) if ids is not None else ("d.pipeline_stage = 'candidate'", [])
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT c.id, c.name, c.city, c.type, c.address, c.latitude, c.longitude, c.website
               FROM contacts c
               JOIN deals d ON d.contact_id = c.id AND d.deleted_at IS NULL
                           AND d.offer_id = offer_id_for(c.workspace_id, 'consulting')
-             WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND d.pipeline_stage = 'candidate'
+             WHERE c.workspace_id = %s AND c.deleted_at IS NULL AND {scope}
                AND NOT c.do_not_contact
                AND (c.latitude IS NOT NULL OR COALESCE(c.address, '') <> '')
                AND NOT EXISTS (SELECT 1 FROM interactions i WHERE i.contact_id = c.id)
@@ -99,9 +108,53 @@ def candidates_not_on_map(workspace_id: int, list_name: str = COLD_CALL_CANDIDAT
                                 AND p.removed_at IS NULL)
              ORDER BY c.id LIMIT %s
             """,
-            (workspace_id, list_name, limit),
+            (workspace_id, *params, list_name, limit),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+def latest_gather_ids() -> list[int]:
+    """The companies the most recent finished Gather run found (empty if none)."""
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT output_json FROM agent_runs WHERE agent_name = 'gather' AND status = 'completed' "
+                    "ORDER BY started_at DESC, id DESC LIMIT 1")
+        row = cur.fetchone()
+    output = (row or {}).get("output_json") or {}
+    return [int(contact_id) for contact_id in output.get("saved_ids", [])]
+
+
+PINNED_STATUSES = ("saved", "already")
+PLACE_KEY_SHAPE = re.compile(r"0x[0-9a-f]+:0x[0-9a-f]+")
+
+
+def apply_pin_result(result: dict, list_name: str = COLD_CALL_CANDIDATES) -> str:
+    """Record one result of the browser pin loop. Only a place the loop saw saved on the
+    list is recorded; the organization's blank address, phone, website and coordinates are
+    filled from Maps, and nothing already there is replaced. Returns what happened."""
+    status = result.get("status")
+    if status not in PINNED_STATUSES:
+        return f"skipped: {status}"
+    if not PLACE_KEY_SHAPE.fullmatch(result.get("key") or ""):
+        return "bad key"
+    distance = f"{result['dist']} m from the CRM location" if result.get("dist") is not None else "found by address"
+    pin = record_pin(result["id"], result["key"], result.get("title") or "", list_name=list_name,
+                     maps_address=result.get("address") or "", latitude=result.get("lat"),
+                     longitude=result.get("lon"), note=f"Pinned by engcrm; Maps place {distance}.")
+    if pin is None:
+        return "no such organization"
+    with db() as conn:
+        conn.cursor().execute(
+            """UPDATE contacts SET address = COALESCE(NULLIF(address, ''), %s),
+                   phone = COALESCE(NULLIF(phone, ''), %s), website = COALESCE(NULLIF(website, ''), %s),
+                   longitude = CASE WHEN latitude IS NULL THEN %s ELSE longitude END,
+                   latitude = COALESCE(latitude, %s), updated_at = NOW()
+               WHERE id = %s""",
+            (result.get("address"), result.get("phone"), result.get("website"),
+             result.get("lon"), result.get("lat"), result["id"]),
+        )
+    log_audit(None, None, "contact.filled_from_maps", f"contact:{result['id']}", "blank fields only")
+    return "pinned"
 
 
 def dropped_but_pinned(workspace_id: int, list_name: str = COLD_CALL_CANDIDATES) -> list[dict]:
