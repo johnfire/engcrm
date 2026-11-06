@@ -13,3 +13,8 @@
 03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:jwt:35
 03f20a036d2a0266d6d2beb2ea946400006a08a5:docs/open-brain-guide.md:jwt:63
 b4106be6c94b036c0728fc08d0eef4fd05001983:docs/agent-memory-integration.md:jwt:34
+
+# Public RFC 6238 SHA-1 test vector: base32 of 12345678901234567890.
+# Used only in deterministic unit tests, never an account credential. Limit the
+# exception to this exact historical finding; future credentials still fail.
+f07901541bc1f00a8b28d3d65d2ed725cd383696:tests/test_mfa.py:generic-api-key:19
