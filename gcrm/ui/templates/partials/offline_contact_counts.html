@@ -1,0 +1,15 @@
+{% macro monthly_offline(month_start) %}
+{% if offline_totals is not none and month_start >= counts.business_start %}
+<dd class="offline-count">
+  {% if request.session.get('role') == 'admin' %}
+  <form id="offline-form-{{ month_start }}" method="post" action="/contact-feed/offline" class="offline-count-form">
+    <input type="hidden" name="month" value="{{ month_start }}">
+    <label for="offline-{{ month_start }}">{{ t('contactFeed.offline') }}</label>
+    <input id="offline-{{ month_start }}" type="number" name="total" min="0" max="1000000" step="1" required
+           value="{{ offline_totals.get(month_start, 0) }}" aria-describedby="offline-hint">
+    <button type="submit" class="btn-secondary">{{ t('common.save') }}<span class="sr-only"> — {{ month_start[:7] }}</span></button>
+  </form>
+  {% else %}{{ t('contactFeed.offline') }}: {{ offline_totals.get(month_start, 0) }}{% endif %}
+</dd>
+{% endif %}
+{% endmacro %}

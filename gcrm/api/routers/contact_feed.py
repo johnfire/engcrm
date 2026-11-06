@@ -3,17 +3,23 @@ import logging
 from datetime import date
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-from gcrm.api.auth import require_login
+from gcrm.api.auth import require_admin, require_login
 from gcrm.api.jwt_auth import require_jwt_payload
 from gcrm.api.offer_filter import api_offer_filter, web_offer_filter
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.api.templates import templates
+from gcrm.audit_context import audit_scope
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_contact_counts import get_contact_counts
 from gcrm.tools.db_contact_feed import PAGE_SIZE, get_contact_feed, validate_feed_filters
+from gcrm.tools.db_offline_contacts import (
+    get_offline_totals,
+    parse_offline_total,
+    save_offline_total,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["contact-feed"])
@@ -63,6 +69,27 @@ def safe_contact_counts(workspace_id: int | None, offer: str | None = None) -> d
         return None
 
 
+def safe_offline_totals() -> dict | None:
+    try:
+        return get_offline_totals()
+    except Exception:
+        logger.exception("offline contact totals unavailable")
+        return None
+
+
+@router.post("/contact-feed/offline", dependencies=[Depends(require_admin)])
+def web_save_offline_total(request: Request, month: str = Form(..., max_length=10),
+                           total: str = Form(..., max_length=7)):
+    selected_month, selected_total = parse_offline_total(month, total)
+    try:
+        with audit_scope(request.session.get("email") or "shared-admin", "user", request.state.correlation_id):
+            save_offline_total(selected_month, selected_total)
+    except Exception as failure:
+        logger.exception("offline contact total could not be saved")
+        raise HTTPException(503, "The offline total could not be saved. Please try again.") from failure
+    return RedirectResponse("/contact-feed/?offline_saved=1", status_code=303)
+
+
 def remember_feed_filters(request: Request, **selections) -> dict:
     saved = request.session.get("contact_feed_filters", {})
     filters = {key: selected if selected is not None else saved.get(key, default)
@@ -98,6 +125,7 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
         "stages": PIPELINE_STAGES, "page": page, "today": date.today().isoformat(), "offers": offers, "active_offer": active_offer,
         "counts": safe_contact_counts(request.session.get("workspace_id"), active_offer),
+        "offline_totals": safe_offline_totals(),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,
     })

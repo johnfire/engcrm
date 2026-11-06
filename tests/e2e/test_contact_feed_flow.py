@@ -90,6 +90,60 @@ def test_contacts_page_displays_completed_month_history(linked_contacts, monkeyp
     assert page.text.count('1 person · 1 organization') == 3
 
 
+def test_offline_months_save_reload_and_leave_contact_records_unchanged(linked_contacts, monkeypatch):
+    from gcrm.db.connection import db
+    from tests.test_list_control_forms import ListForms
+
+    browser, headers, organization_id, person_id, password = linked_contacts
+    monkeypatch.setattr("gcrm.tools.db_contact_counts.today", lambda: date(2026, 11, 6))
+    monkeypatch.setattr("gcrm.tools.db_offline_contacts.today", lambda: date(2026, 11, 6))
+    browser.post('/login', data={'email': 'contacts@example.test', 'password': password})
+    original = browser.get('/api/contact-feed/counts', headers=headers).json()
+    page = browser.get('/contact-feed/?lang=en')
+    forms = ListForms(page.text).forms
+    assert 'offline-form-2026-10-01' in forms and 'offline-form-2026-11-01' in forms
+    assert 'offline-form-2026-09-01' not in forms
+    for month, total in [('2026-10-01', '35'), ('2026-11-01', '36'), ('2026-11-01', '37')]:
+        fields = ListForms(page.text).forms[f'offline-form-{month}']['fields']
+        fields['total'] = total
+        saved = browser.post('/contact-feed/offline', data=fields, follow_redirects=False)
+        assert saved.status_code == 303
+        page = browser.get(saved.headers['location'])
+        assert 'Offline contacts saved.' in page.text
+    reloaded = browser.get('/contact-feed/?offer=consulting')
+    assert ListForms(reloaded.text).forms['offline-form-2026-11-01']['fields']['total'] == '37'
+    assert '<span id="offline-all-time">72</span>' in reloaded.text
+    assert browser.get('/api/contact-feed/counts', headers=headers).json() == original
+    assert browser.post('/contact-feed/offline', data={'month': '2026-11-01', 'total': '-1'}).status_code == 400
+    assert browser.post('/contact-feed/offline', data={'month': '2026-12-01', 'total': '99'}).status_code == 400
+    assert browser.post('/contact-feed/offline', data={'month': '2026-11-01', 'total': '99'},
+                        headers={'Origin': 'https://untrusted.example'}).status_code == 403
+    assert browser.post('/contact-feed/offline', data={'month': '2026-11-01', 'total': '99'},
+                        headers={'X-CSRF-Token': 'forged'}).status_code == 403
+    assert '<span id="offline-all-time">72</span>' in browser.get('/contact-feed/').text
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT COUNT(*) AS n FROM people")
+        assert cursor.fetchone()['n'] == 1
+        cursor.execute("SELECT COUNT(*) AS n FROM contacts")
+        assert cursor.fetchone()['n'] == 1
+
+
+def test_spectator_can_read_but_cannot_save_offline_counts(linked_contacts):
+    from gcrm.db.connection import db
+
+    browser, headers, organization_id, person_id, password = linked_contacts
+    create_user('offline-viewer@example.test', hash_password(password), 'spectator')
+    browser.post('/login', data={'email': 'offline-viewer@example.test', 'password': password})
+    page = browser.get('/contact-feed/?lang=en')
+    assert 'Offline contacts' in page.text and 'offline-count-form' not in page.text
+    assert browser.post('/contact-feed/offline', data={'month': '2026-11-01', 'total': '35'}).status_code == 403
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM offline_contact_totals")
+        assert cursor.fetchall() == []
+
+
 @pytest.mark.parametrize('path,first_name,last_name', [
     ('/contact-feed/', 'Academy', 'Zulu'),
     ('/organizations/', 'Academy', 'Zulu'),

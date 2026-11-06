@@ -11,16 +11,24 @@
 </div>
 <p class="muted">{{ t('contactFeed.hint') }}</p>
 {% if counts %}
+{% from 'partials/offline_contact_counts.html' import monthly_offline with context %}
 <dl class="contact-counts" aria-label="{{ t('contactFeed.counts') }}">
   <div><dt>{{ t('contactFeed.countMonth') }}</dt>
-    <dd>{{ t('contactFeed.countPeople', count=counts.month.people) }} · {{ t('contactFeed.countOrganizations', count=counts.month.organizations) }}</dd></div>
+    <dd>{{ t('contactFeed.countPeople', count=counts.month.people) }} · {{ t('contactFeed.countOrganizations', count=counts.month.organizations) }}</dd>
+    {{ monthly_offline(counts.month_start) }}</div>
   {% for period in counts.previous_months %}
   <div><dt><time datetime="{{ period.month_start[:7] }}" title="{{ t('calendar.month.' ~ period.month_start[5:7]) }} {{ period.month_start[:4] }}">{{ t('contactFeed.countLastMonth' if loop.first else 'contactFeed.countTwoMonthsAgo') }}</time></dt>
-    <dd>{{ t('contactFeed.countPeople', count=period.people) }} · {{ t('contactFeed.countOrganizations', count=period.organizations) }}</dd></div>
+    <dd>{{ t('contactFeed.countPeople', count=period.people) }} · {{ t('contactFeed.countOrganizations', count=period.organizations) }}</dd>
+    {{ monthly_offline(period.month_start) }}</div>
   {% endfor %}
   <div><dt>{{ t('contactFeed.countSince', date=counts.business_start|dmy) }}</dt>
-    <dd>{{ t('contactFeed.countPeople', count=counts.since_start.people) }} · {{ t('contactFeed.countOrganizations', count=counts.since_start.organizations) }}</dd></div>
+    <dd>{{ t('contactFeed.countPeople', count=counts.since_start.people) }} · {{ t('contactFeed.countOrganizations', count=counts.since_start.organizations) }}</dd>
+    {% if offline_totals is not none %}<dd>{{ t('contactFeed.offline') }}: <span id="offline-all-time">{{ offline_totals.values()|sum }}</span></dd>{% endif %}</div>
 </dl>
+<p class="muted">{{ t('contactFeed.distinctHint') }}</p>
+<p id="offline-hint" class="muted">{{ t('contactFeed.offlineHint') }}</p>
+{% if offline_totals is none %}<p role="alert">{{ t('contactFeed.offlineUnavailable') }}</p>{% endif %}
+{% if request.query_params.get('offline_saved') == '1' %}<p role="status">{{ t('contactFeed.offlineSaved') }}</p>{% endif %}
 {% endif %}
 {% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 {% set active_sort = filters.sort %}

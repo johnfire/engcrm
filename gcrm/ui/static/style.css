@@ -1368,6 +1368,12 @@ main.statistics-page { max-width: none; }
 .contact-counts { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0.5rem 0 1rem; }
 .contact-counts dt { font-size: 0.8rem; opacity: 0.7; }
 .contact-counts dd { margin: 0; font-weight: 600; }
+.offline-count-form { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.offline-count-form input[type="number"] {
+  width: 6.5rem; min-width: 0; padding: 0.4rem 0.5rem;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); font: inherit;
+}
+.offline-count-form label { margin: 0; font-size: 0.85rem; }
 
 /* ── Deals: one card per offer pitched to an organization or person ───────── */
 .deals { margin-bottom: 1rem; }

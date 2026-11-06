@@ -135,3 +135,23 @@ def test_previous_months_respect_the_selected_offer(workspace):
     consulting = get_contact_counts(workspace, date(2026, 11, 5), offer="consulting")
     assert all_offers["previous_months"][0]["organizations"] == 2
     assert consulting["previous_months"][0]["organizations"] == 1
+
+
+def test_first_day_is_included_at_berlin_midnight(workspace):
+    with db() as connection:
+        cursor = connection.cursor()
+        company = organization(cursor, "First day", workspace)
+        colleague = person(cursor, "Midnight", workspace, company)
+        organization_contact(cursor, company, date(2026, 10, 1))
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) "
+                       "VALUES (%s,'2026-09-30T22:00:00Z','visit','Midnight contact')", (colleague,))
+        before = person(cursor, "Too early", workspace)
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) "
+                       "VALUES (%s,'2026-09-30T21:59:59Z','visit','Before start')", (before,))
+        person_contact(cursor, colleague, date(2026, 11, 1))
+        organization_contact(cursor, company, date(2026, 11, 1))
+    counts = get_contact_counts(workspace, date(2026, 11, 6))
+    assert counts["previous_months"][0]["people"] == 1
+    assert counts["previous_months"][0]["organizations"] == 1
+    assert counts["month"] == {"people": 1, "organizations": 1}
+    assert counts["since_start"] == {"people": 1, "organizations": 1}
