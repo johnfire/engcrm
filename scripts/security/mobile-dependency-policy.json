@@ -1,0 +1,15 @@
+{
+  "minimumSeverity": "high",
+  "exceptions": [
+    {
+      "package": "zod",
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "severity": "high",
+      "versions": ["3.25.76"],
+      "paths": ["node_modules/expo/node_modules/zod"],
+      "expires": "2026-12-05",
+      "reason": "Expo 56 CLI's development-tool schema validator requires Zod 3. This exact copy is excluded from the Android bundle by a separate release gate. Do not expose the development/MCP server to untrusted clients. Remove this exception when Expo supports a fixed compatible validator."
+    }
+  ],
+  "toolingOnlyPackages": ["zod", "node-forge", "deepmerge", "glob", "minimatch"]
+}

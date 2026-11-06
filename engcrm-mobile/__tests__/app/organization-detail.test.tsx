@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from "@testing-library/react-native";
+import { act, render, fireEvent, waitFor } from "@testing-library/react-native";
 
 const mockFetchContact = jest.fn();
 const mockRunAnalysis = jest.fn();
@@ -115,6 +115,10 @@ describe("organization detail — opportunity analysis", () => {
       .mockResolvedValueOnce(null);
 
     const screen = render(<OrganizationDetailScreen />);
+    // Flush the resolved load inside React's async act boundary before inspecting
+    // the first cold-rendered screen; keep the actual set/clear assertions below.
+    await act(async () => { await mockFetchContact.mock.results[0].value; });
+    expect(mockFetchContact).toHaveBeenCalledWith(42);
     await waitFor(() => expect(screen.getByText("1 Best")).toBeTruthy());
 
     fireEvent.press(screen.getByText("1 Best"));

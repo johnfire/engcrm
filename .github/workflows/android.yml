@@ -5,10 +5,14 @@ on:
     branches: [main]
     paths:
       - "engcrm-mobile/**"
+      - "scripts/security/mobile-*"
+      - "scripts/security/check-mobile-*"
       - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "engcrm-mobile/**"
+      - "scripts/security/mobile-*"
+      - "scripts/security/check-mobile-*"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
@@ -45,13 +49,15 @@ jobs:
       - name: Lint
         run: npm run lint
       - name: Dependency audit
-        # 'critical' rather than 'high': the Expo/React-Native transitive tree
-        # regularly carries high-severity advisories (e.g. brace-expansion DoS)
-        # with no fix short of major Expo/jest downgrades, which would otherwise
-        # red every mobile PR for issues we can't act on. Critical still gates.
-        run: npm audit --omit=dev --audit-level=critical
+        run: node ../scripts/security/check-mobile-dependencies.mjs
+      - name: Dependency security regressions
+        run: node --test ../scripts/security/mobile-*.test.mjs
       - name: Unit tests
         run: npm test
+      - name: Verify Android runtime dependency inventory
+        run: |
+          npx expo export --platform android --source-maps --output-dir /tmp/engcrm-dependency-bundle
+          node ../scripts/security/check-mobile-bundle.mjs /tmp/engcrm-dependency-bundle/_expo/static/js/android/*.map
 
   build:
     if: github.event_name == 'push'
@@ -104,6 +110,8 @@ jobs:
         # runner's native compile fast. Add armeabi-v7a back for a production track
         # if you need 32-bit/legacy device coverage.
         run: cd android && ./gradlew bundleRelease --no-daemon -PengcrmVersionCode=${{ github.run_number }} -PreactNativeArchitectures=arm64-v8a
+      - name: Verify release bundle dependency inventory
+        run: node ../scripts/security/check-mobile-bundle.mjs android/app/build/generated/sourcemaps/react/release/index.android.bundle.map
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v7
         with:

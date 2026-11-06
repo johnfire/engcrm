@@ -1,5 +1,11 @@
 module.exports = {
   preset: "jest-expo",
+  // The fixed URI decoder is ESM; compile it alongside Expo's normal modules.
+  transformIgnorePatterns: [
+    "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|decode-uri-component))",
+    "/node_modules/react-native-reanimated/plugin/",
+    "/node_modules/@react-native/babel-preset/",
+  ],
   moduleNameMapper: {
     "^expo-secure-store$": "<rootDir>/__mocks__/expo-secure-store.js",
     "^expo-device$": "<rootDir>/__mocks__/expo-device.js",
