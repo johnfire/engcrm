@@ -14,7 +14,7 @@ After a Gather run or a lead-list import: "pin the new ones".
 
 1. **Queue** (read-only on the server): the companies waiting to be pinned, as loop items.
    ```bash
-   ssh claude@82.165.32.162 "docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' engcrm-app uv run --no-sync python scripts/maps/pin_queue.py --import" > items.json
+   ssh claude@82.165.32.162 "docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' engcrm-app python -m scripts.workspace_command scripts/maps/pin_queue.py --import" > items.json
    ```
    `--gather` for the latest Gather run; no flag for every unpinned candidate. Companies
    with logged activity, do-not-contact, or neither coordinates nor an address are left out.
@@ -25,7 +25,7 @@ After a Gather run or a lead-list import: "pin the new ones".
    `__pins`; an interrupted run resumes, skipping what is done.
 3. **Review:** `window.__pinResults()` → `results.json`, then the dry run:
    ```bash
-   ssh claude@82.165.32.162 "docker exec -i engcrm-app uv run --no-sync python scripts/maps/apply_pins.py" < results.json
+   ssh claude@82.165.32.162 "docker exec -i engcrm-app python -m scripts.workspace_command scripts/maps/apply_pins.py" < results.json
    ```
    Read every `saved` title. A pin saved on the wrong place is removed on the map by hand
    and its row deleted from the results before applying.

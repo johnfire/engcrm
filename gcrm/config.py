@@ -6,14 +6,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from gcrm import vertical
+from gcrm.config_security import STRICT_ENVIRONMENTS, is_weak_secret, validate_deployment_security
 from gcrm.mission import Mission
+from gcrm.runtime_credentials import resolve_database_url
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # --- Database ---
-DATABASE_URL: str = os.environ["DATABASE_URL"]
+DATABASE_URL: str = resolve_database_url(os.getenv("DATABASE_URL"), os.getenv("DATABASE_URL_FILE"))
 
 # --- AI backends ---
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
@@ -67,11 +69,11 @@ def resolve_secret(name: str, value: str | None, app_env: str) -> str:
     work without shipping a guessable default — such tokens/sessions simply do
     not survive a restart.
     """
-    if value and value != _PLACEHOLDER_SECRET:
+    if value and value != _PLACEHOLDER_SECRET and (app_env not in STRICT_ENVIRONMENTS or not is_weak_secret(value)):
         return value
-    if app_env == "production":
+    if app_env in STRICT_ENVIRONMENTS:
         raise RuntimeError(
-            f"{name} must be set to a strong random value in production "
+            f"{name} must be set to a strong, non-repeating random value of at least 32 bytes "
             f"(generate one with: openssl rand -hex 32)"
         )
     logger.warning(
@@ -99,8 +101,9 @@ SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false").lower(
 
 # Encrypt TOTP seeds at rest. Defaults to the already-required session secret
 # so adding account features cannot lock an existing production out at startup.
-ACCOUNT_ENCRYPTION_KEY: str = os.getenv("ACCOUNT_ENCRYPTION_KEY", SESSION_SECRET)
+ACCOUNT_ENCRYPTION_KEY: str = resolve_secret("ACCOUNT_ENCRYPTION_KEY", os.getenv("ACCOUNT_ENCRYPTION_KEY") or SESSION_SECRET, APP_ENV)
 APP_PUBLIC_URL: str = os.getenv("APP_PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
+validate_deployment_security(APP_ENV, JWT_SECRET, SESSION_SECRET, APP_PUBLIC_URL, SESSION_COOKIE_SECURE)
 
 # Only these direct peers may supply X-Forwarded-For. Apache runs locally in
 # production; requests that reach Uvicorn directly must use their socket IP.

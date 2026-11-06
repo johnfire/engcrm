@@ -44,7 +44,7 @@
   {% endif %}
 </section>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   (() => {
     const panel = document.querySelector("[data-contact-value-rating]");
     if (!panel) return;

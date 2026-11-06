@@ -43,7 +43,7 @@
   {% endif %}
 </section>
 
-<script>
+<script nonce="{{ csp_nonce }}">
   (() => {
     document.querySelectorAll("[data-value-rating]").forEach((row) => {
       const buttons = [...row.querySelectorAll("[data-rating-value]")];

@@ -6,7 +6,7 @@ Plain parsing and matching, no LLM. Dry run unless --apply.
     uv run python scripts/import_lead_list.py <file> --town Buchloe --apply
 
 On the server the file is read from stdin:
-    ssh claude@<vps> "docker exec -i engcrm-app uv run --no-sync python scripts/import_lead_list.py - \\
+    ssh claude@<vps> "docker exec -i engcrm-app python -m scripts.workspace_command scripts/import_lead_list.py - \\
         --list-name buchloe-office-parks --town Buchloe" < buchloe-office-parks.md
 """
 import argparse

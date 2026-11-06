@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ t('login.pageTitle') }}</title>
     <link rel="stylesheet" href="/static/style.css" />
-    <style>
+    <style nonce="{{ csp_nonce }}">
       body {
         display: flex;
         align-items: center;
@@ -138,7 +138,7 @@
         <a href="?lang=de" {% if request.session.get('ui_language', 'en') == 'de' %}class="active"{% endif %}>DE</a>
       </div>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce }}">
       (function () {
         const btn = document.querySelector(".toggle-password");
         const input = document.getElementById("password");

@@ -40,7 +40,7 @@
 </form>
 
 <form method="post" action="/drafts/{{ draft.id }}/reject" style="margin-top: 1rem"
-      onsubmit="return confirm('{{ t('draftsList.dropConfirm') }}')">
+      data-confirm="{{ t('draftsList.dropConfirm') }}">
   <button type="submit" class="btn-danger">{{ t('draftsList.drop') }}</button>
 </form>
 {% endblock %}

@@ -1,28 +1,82 @@
 services:
   app:
-    # Image is built and pushed by CI (.github/workflows/backend.yml); the VPS pulls it.
-    # For a local build instead, run: docker compose build (uses the Dockerfile).
-    image: ghcr.io/johnfire/engcrm:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${ENGCRM_IMAGE:?Set ENGCRM_IMAGE to the tested release image digest}
     container_name: engcrm-app
-    env_file: .env
+    user: "10001:10001"
+    env_file:
+      - path: .runtime/app.env
+        required: false # Initialization creates it; startup fails closed if it is absent.
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/gcrm
+      DATABASE_URL_FILE: /run/engcrm-runtime/database-dsn
+      APP_ENV: production
+      PYTHON_DOTENV_DISABLED: "1"
     ports:
       # Apache is the sole public entry point; direct access would permit XFF spoofing.
       - "127.0.0.1:8085:8000"
     volumes:
       # Business-card images (personal data) — persisted on the VPS, not in the image.
       - card-images:/data/card-images
+      - runtime-credentials:/run/engcrm-runtime:ro
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/login',timeout=5).close()"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 15s
+    networks: [default, database]
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
+  initialize:
+    image: ${ENGCRM_IMAGE:?Set ENGCRM_IMAGE to the tested release image digest}
+    profiles: [tools]
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/app/infra/initialize-volumes.sh"]
+    volumes:
+      - card-images:/data/card-images
+      - runtime-credentials:/run/engcrm-runtime
+      - ./.env:/run/operator.env:ro
+      - ./.runtime:/run/engcrm-settings
+      - ./backups:/data/backups
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+
+  migrate:
+    image: ${ENGCRM_IMAGE:?Set ENGCRM_IMAGE to the tested release image digest}
+    profiles: [tools]
+    user: "10001:10001"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/gcrm
+      DATABASE_URL_FILE: ""
+      PYTHON_DOTENV_DISABLED: "1"
+    command: ["/app/.venv/bin/python", "scripts/prepare_deployment.py"]
+    volumes:
+      - runtime-credentials:/run/engcrm-runtime
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001,mode=1777,size=128m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [database]
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     container_name: engcrm-db
     environment:
       POSTGRES_DB: gcrm
@@ -37,9 +91,10 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks: [database]
 
   db-backup:
-    image: prodrigestivill/postgres-backup-local:16-alpine
+    image: prodrigestivill/postgres-backup-local:16-alpine@sha256:08e7b70879af45a89305b91f4600cfbc88da2419a65948df870cddb082b8cf83
     container_name: engcrm-db-backup
     environment:
       POSTGRES_HOST: db
@@ -56,7 +111,13 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks: [database]
 
 volumes:
   engcrm-db-data:
   card-images:
+  runtime-credentials:
+
+networks:
+  database:
+    internal: true

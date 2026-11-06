@@ -7,7 +7,7 @@ Print the companies waiting to be pinned on the Maps list, as items for scripts/
 
 On the server (read-only):
     ssh claude@<vps> "docker exec -i -e PGOPTIONS='-c default_transaction_read_only=on' engcrm-app \\
-        uv run --no-sync python scripts/maps/pin_queue.py --import" > items.json
+        python -m scripts.workspace_command scripts/maps/pin_queue.py --import" > items.json
 """
 import argparse
 import json

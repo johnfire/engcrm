@@ -207,7 +207,7 @@ def test_value_panel_marks_each_horizon_separately_and_zero_counts():
     assert "Short-term value" in rendered and "Long-term value" in rendered
     assert all(level in rendered for level in ("High", "Medium", "Low", "Zero"))
     # Zero on short-term is selected; long-term is unrated, so its clear button is disabled.
-    markup = rendered.split("<script>")[0]
+    markup = rendered.split("<script", 1)[0]
     assert markup.count('aria-pressed="true"') == 1
     assert 'class="personal-priority__button tone-gray selected"\n        data-rating-value="0"' in markup
     assert markup.count("disabled") == 1
@@ -222,7 +222,7 @@ def test_value_panel_asks_shared_admin_to_sign_in():
     )
 
     assert "Sign in with a personal account" in rendered
-    assert "data-value-rating" not in rendered.split("<script>")[0]
+    assert "data-value-rating" not in rendered.split("<script", 1)[0]
 
 
 # --- colours and priority 6 ----------------------------------------------------
@@ -244,7 +244,7 @@ def test_priority_panel_offers_forget_it_and_colours_every_button():
         request=SimpleNamespace(session={"user_id": 7}),
         t=lambda key: translate(key, "en"),
     )
-    markup = rendered.split("<script>")[0]
+    markup = rendered.split("<script", 1)[0]
     assert "6 Forget it" in markup
     for tone in ("green", "yellow", "blue", "orange", "gray"):
         assert f"personal-priority__button tone-{tone}\"" in markup

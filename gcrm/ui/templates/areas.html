@@ -4,7 +4,8 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="/static/leaflet/leaflet.css">
-<script src="/static/leaflet/leaflet.js"></script>
+<script nonce="{{ csp_nonce }}" src="/static/leaflet/leaflet.js"></script>
+<script nonce="{{ csp_nonce }}" src="/static/area-popup.js?v={{ static_version }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -35,7 +36,7 @@
   <button type="submit" class="primary">{{ t('areas.scan') }}</button>
 </form>
 
-<style>
+<style nonce="{{ csp_nonce }}">
   .pipeline-run { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 1rem 0; padding: 1rem; background: var(--surface); border-radius: 10px; }
   .pipeline-run input[type="text"], .pipeline-run select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--bg-inset); color: var(--text); }
   .pipeline-run button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--surface); color: var(--text); cursor: pointer; }
@@ -84,7 +85,7 @@
 </table>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   const AREAS = {{ areas | tojson }};
   const map = L.map('area-map');
@@ -103,11 +104,8 @@
       radius: 6, color: '#c9a24a', fillColor: '#c9a24a', fillOpacity: 0.6,
     }).addTo(savedLayer);
     const label = area.label || '{{ t("areas.unnamed") }}';
-    marker.bindPopup(
-      `<div class="area-popup"><strong>${label}</strong><br/>${area.radius_m}m` +
-      `<br/><button type="button" onclick="window.__viewAreaResults(${area.id}, ${JSON.stringify(label)})">` +
-      `{{ t("areas.viewResults") }}</button></div>`
-    );
+    marker.bindPopup(window.buildAreaPopup(area, label, {{ t("areas.viewResults") | tojson }},
+      (id, selectedLabel) => window.__viewAreaResults(id, selectedLabel)));
   });
 
   // --- pick mode: click the map to choose a scan center ---

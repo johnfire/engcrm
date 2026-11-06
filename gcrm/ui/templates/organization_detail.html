@@ -247,7 +247,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 </section>
 {% endif %}
 
-<script>
+<script nonce="{{ csp_nonce }}">
   (() => {
     const form = document.querySelector("[data-opportunity-form]");
     if (!form) return;
@@ -385,7 +385,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       <li>
         <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}{% if sale.offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}{% if sale.description %} · {{ sale.description }}{% endif %}
         <form method="post" action="/organizations/{{ organization.id }}/sales/{{ sale.id }}/delete" style="display:inline"
-              onsubmit="return confirm('{{ t('sales.deleteConfirm') }}')">
+              data-confirm="{{ t('sales.deleteConfirm') }}">
           <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
         </form>
       </li>

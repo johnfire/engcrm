@@ -24,7 +24,7 @@ index) are ignored. A `|` inside the Notes cell is fine.
 Always a dry run first; it writes nothing and prints what would happen:
 
 ```bash
-ssh claude@82.165.32.162 "docker exec -i engcrm-app uv run --no-sync python scripts/import_lead_list.py - --list-name buchloe-office-parks --town Buchloe" < ~/ai-workzone/marketing-leads/buchloe-office-parks.md
+ssh claude@82.165.32.162 "docker exec -i engcrm-app python -m scripts.workspace_command scripts/import_lead_list.py - --list-name buchloe-office-parks --town Buchloe" < ~/ai-workzone/marketing-leads/buchloe-office-parks.md
 ```
 
 Then the same command with `--apply`. `--town` is the list's town: rows whose address names

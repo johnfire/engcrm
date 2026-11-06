@@ -18,7 +18,7 @@
       <form method="post" action="/deals/{{ deal.id }}/offer" class="deal-card__state">
         <input type="hidden" name="next" value="{{ deal_page }}" />
         <label for="deal-{{ deal.id }}-offer">{{ t('deals.offer') }}
-        <select id="deal-{{ deal.id }}-offer" name="offer_id" class="stage-select" onchange="this.form.submit()"
+        <select id="deal-{{ deal.id }}-offer" name="offer_id" class="stage-select" data-submit-on-change
                 {% if request.session.get('role') != 'admin' %}disabled{% endif %}>
           <option value="{{ deal.offer_id }}" selected>{{ deal.offer_name }}</option>
           {% for offer in addable_offers %}<option value="{{ offer.id }}">{{ offer.name }}</option>{% endfor %}
@@ -29,14 +29,14 @@
       <form method="post" action="/deals/{{ deal.id }}" class="deal-card__state">
         <input type="hidden" name="next" value="{{ deal_page }}" />
         <label>{{ t('common.pipelineStage') }}
-          <select name="stage" class="stage-select badge-stage-{{ deal.pipeline_stage }}" onchange="this.form.submit()">
+          <select name="stage" class="stage-select badge-stage-{{ deal.pipeline_stage }}" data-submit-on-change>
             {% for s in pipeline_stages %}
             <option value="{{ s }}" {% if s == deal.pipeline_stage %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
             {% endfor %}
           </select>
         </label>
         <label>{{ t('common.status') }}
-          <select name="status" class="stage-select" onchange="this.form.submit()">
+          <select name="status" class="stage-select" data-submit-on-change>
             {% for s in statuses %}
             <option value="{{ s }}" {% if s == deal.status %}selected{% endif %}>{{ t('status.' ~ s) }}</option>
             {% endfor %}
@@ -44,7 +44,7 @@
         </label>
         {% if deal_owner == 'organization' %}
         <label>{{ t('deals.contactPerson') }}
-          <select name="contact_person_id" class="stage-select" onchange="this.form.submit()">
+          <select name="contact_person_id" class="stage-select" data-submit-on-change>
             <option value="0" {% if not deal.contact_person_id %}selected{% endif %}>—</option>
             {% for p in contact_people %}
             <option value="{{ p.id }}" {% if p.id == deal.contact_person_id %}selected{% endif %}>{{ p.name }}{% if p.title %} · {{ p.title }}{% endif %}</option>
@@ -123,7 +123,7 @@
             {% for sub in money.subscriptions %}
             <li>{{ sub.amount_eur_month | eur }} {{ t('subscription.perMonth') }} · {{ sub.started_on|dmy }} – {{ (sub.ended_on|dmy) or t('subscription.running') }}
               <form method="post" action="/deals/{{ deal.id }}/subscription/{{ sub.id }}/delete" style="display:inline"
-                    onsubmit="return confirm({{ t('subscription.deleteConfirm') | tojson | forceescape }})">
+                    data-confirm="{{ t('subscription.deleteConfirm') }}">
                 <input type="hidden" name="next" value="{{ deal_page }}" />
                 <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
               </form>
@@ -135,7 +135,7 @@
       </div>
 
       <form method="post" action="/deals/{{ deal.id }}/remove" class="deal-card__remove"
-            onsubmit="return confirm({{ t('deals.removeConfirm', offer=deal.offer_name) | tojson | forceescape }})">
+            data-confirm="{{ t('deals.removeConfirm', offer=deal.offer_name) }}">
         <input type="hidden" name="next" value="{{ deal_page }}" />
         <button type="submit" class="btn-tiny btn-danger">{{ t('deals.remove') }}</button>
       </form>

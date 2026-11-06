@@ -15,6 +15,7 @@ from gcrm.activity_types import NOT_ACTIVITIES
 from gcrm.db.connection import db
 from gcrm.tools.db_deals import offer_id_sql
 from gcrm.tools.statistics import activities_sql, get_minute_defaults
+from gcrm.workspace_context import get_workspace_id, set_workspace_id
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,32 @@ def _subscription_series(cur, workspace_id: int, trunc: str, first: date, today:
     return {row["b"]: Decimal(row["revenue"]).quantize(Decimal("0.01")) for row in cur.fetchall()}
 
 
+def record_all_workspace_snapshots() -> int:
+    """A runtime job enters each authorized workspace instead of using an operator connection."""
+    previous = get_workspace_id()
+    if previous is not None:
+        return record_pipeline_snapshot()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces ORDER BY id")
+        workspaces = [row["id"] for row in cursor.fetchall()]
+    written = 0
+    try:
+        for workspace_id in workspaces:
+            set_workspace_id(workspace_id)
+            try:
+                written += record_pipeline_snapshot()
+            except Exception:
+                logger.exception("pipeline snapshot failed for workspace %s", workspace_id)
+    finally:
+        set_workspace_id(previous)
+    return written
+
+
 def _snapshot_loop() -> None:
     while True:
         try:
-            record_pipeline_snapshot()
+            record_all_workspace_snapshots()
         except Exception:
             logger.exception("pipeline snapshot failed; trying again in an hour")
         time.sleep(SNAPSHOT_EVERY_SECONDS)

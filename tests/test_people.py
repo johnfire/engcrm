@@ -10,6 +10,7 @@ import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.jwt_auth import create_token
 from gcrm.tools import cards, db_people, db_people_interactions, email_extract
+from tests.html_forms import read_form
 
 client = TestClient(main.app)
 AUTH = {"Authorization": f"Bearer {create_token('admin')}"}
@@ -784,7 +785,9 @@ class TestDeletePerson:
              patch("gcrm.api.routers.people.get_person_interactions", return_value=[]):
             resp = client.get("/people/3")
         assert 'action="/people/3/delete"' in resp.text
-        assert "confirm(" in resp.text.split('action="/people/3/delete"')[1].split("</form>")[0]
+        deletion_form = read_form(resp.text, "/people/3/delete")["attributes"]
+        assert deletion_form["data-confirm"] == "Permanently delete this person and their notes? This cannot be undone."
+        assert "onsubmit" not in deletion_form
         assert 'name="retention_hold"' in resp.text
         assert "otherwise deleted after 1095 days without activity" in resp.text
 

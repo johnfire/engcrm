@@ -11,7 +11,7 @@ services:
     environment:
       PYTHON_DOTENV_DISABLED: "1"
       DATABASE_URL: postgresql://artcrm_admindude:local-staging-only@db:5432/engcrm_staging
-      APP_ENV: production
+      APP_ENV: staging
       JWT_SECRET: ${STAGING_JWT_SECRET:?Supply a separate staging JWT secret}
       SESSION_SECRET: ${STAGING_SESSION_SECRET:?Supply a separate staging session secret}
       # Deliberate HTTP exception: this stack is reachable only on loopback.
@@ -32,7 +32,7 @@ services:
       PIPELINE_SNAPSHOTS: "off"
       CARD_IMAGE_DIR: /data/card-images
     tmpfs:
-      - /data/card-images:mode=0700
+      - /data/card-images:uid=10001,gid=10001,mode=0700
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     pids_limit: 256

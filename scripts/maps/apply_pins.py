@@ -3,7 +3,7 @@ Record what scripts/maps/pin_loop.js saved on the Maps list. Reads the loop's re
 JSON window.__pinResults() returns) from stdin. Dry run unless --apply: read the titles of
 the dry run first — a saved pin with the wrong title is fixed on the map, not recorded.
 
-    ssh claude@<vps> "docker exec -i engcrm-app uv run --no-sync python scripts/maps/apply_pins.py --apply" < results.json
+    ssh claude@<vps> "docker exec -i engcrm-app python -m scripts.workspace_command scripts/maps/apply_pins.py --apply" < results.json
 """
 import argparse
 import json

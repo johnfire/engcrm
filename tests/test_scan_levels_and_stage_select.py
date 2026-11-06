@@ -5,6 +5,7 @@ import re
 
 from gcrm.api.templates import UI_DIR, templates
 from gcrm.vertical import SCAN_LEVELS
+from tests.html_forms import read_form
 
 NOT_TARGETS = re.compile(
     r"caf[eé]|restaurant|gasthof|gasthaus|gaststätte|wirtshaus|hotel|pension|bistro|imbiss|"
@@ -37,7 +38,11 @@ def _render_stage_selects(**extra):
 def test_the_stage_select_saves_in_the_background_with_the_plain_submit_as_fallback():
     html = _render_stage_selects()
     # No script loaded (or it failed): the select still saves, as a normal form post.
-    assert "window.keepPlaceSubmit ? keepPlaceSubmit(this.form) : this.form.submit()" in html
+    stage_select = read_form(html, "/deals/7")["selects"]
+    assert len(stage_select) == 1 and stage_select[0]["name"] == "stage"
+    assert "data-submit-on-change" in stage_select[0] and stage_select[0]["data-keep-place"] == "true"
+    behavior = (UI_DIR / "static" / "form-behavior.js").read_text()
+    assert "window.keepPlaceSubmit(select.form)" in behavior and "select.form.requestSubmit()" in behavior
     assert 'action="/deals/7"' in html
 
 

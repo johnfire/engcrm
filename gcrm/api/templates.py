@@ -49,6 +49,7 @@ class AppTemplates(Jinja2Templates):
         outside a request-scoped session) fall back to English.
         """
         request = context["request"]
+        context.setdefault("csp_nonce", getattr(request.state, "csp_nonce", ""))
         language = DEFAULT_LANGUAGE
         try:
             language = request.session.get("ui_language", DEFAULT_LANGUAGE)
@@ -60,7 +61,7 @@ class AppTemplates(Jinja2Templates):
             token = csrf_token(request)
         except AssertionError:
             return response  # Standalone template previews have no browser session.
-        response.body = protect_html_forms(response.body.decode(response.charset), token).encode(response.charset)
+        response.body = protect_html_forms(response.body.decode(response.charset), token, context["csp_nonce"]).encode(response.charset)
         response.headers["content-length"] = str(len(response.body))
         response.headers["cache-control"] = "private, no-store"
         return response

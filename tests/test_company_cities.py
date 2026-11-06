@@ -13,6 +13,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.tools import company_places, db_linkedin
 from gcrm.tools.company_places import PlacesError, decide_city, lookup_places
 from gcrm.tools.deal_records import DealNotFound
+from tests.html_forms import read_form
 
 
 def place(name, city="Augsburg", country="DE", pid="p1"):
@@ -496,7 +497,9 @@ class TestCompaniesPage:
     def test_the_confirm_message_is_safe_javascript(self, admin_session):
         with patch("gcrm.api.routers.people.get_company_promotion_plan", return_value=a_plan()):
             response = admin_session.get("/people/linkedin/companies")
-        assert "onsubmit='return confirm(" in response.text
+        confirmation = read_form(response.text, "/people/linkedin/companies")["attributes"]
+        assert confirmation["data-confirm"] == "Create 2 organizations and link your connections to them?"
+        assert "onsubmit" not in confirmation
 
     def test_nothing_to_do_hides_the_button(self, admin_session):
         empty = plan_company_promotion([], [])
@@ -561,7 +564,10 @@ class TestPersonStage:
             assert f'<option value="{stage}" ' in response.text
         # saves the moment it is picked: in the background (keeps the scroll position),
         # with the plain form submit as the fallback
-        assert 'onchange="window.keepPlaceSubmit ? keepPlaceSubmit(this.form) : this.form.submit()"' in response.text
+        stage_select = read_form(response.text, "/deals/41")["selects"]
+        assert len(stage_select) == 1 and stage_select[0]["name"] == "stage"
+        assert "data-submit-on-change" in stage_select[0] and stage_select[0]["data-keep-place"] == "true"
+        assert "onchange" not in stage_select[0]
 
     def test_a_person_without_a_stage_shows_a_dash(self, admin_session):
         """Not pitched anything: nothing to change from the list; offers are added on the person's page."""
@@ -633,7 +639,10 @@ class TestPersonStage:
         for stage in ("suspect", "prospect", "opportunity", "customer", "not_in_pipeline"):
             assert f'<option value="{stage}" ' in page
         assert 'name="pipeline_stage"' not in page
-        assert 'onchange="this.form.submit()"' in page
+        stage_select = read_form(page, "/deals/9")["selects"]
+        assert {control["name"] for control in stage_select} == {"stage", "status"}
+        assert all("data-submit-on-change" in control for control in stage_select)
+        assert all("onchange" not in control for control in stage_select)
         # the edit form never changes the stage, even an old cached form that still sends one
         for data in ({"name": "Ann"}, {"name": "Ann", "pipeline_stage": "customer"}):
             with patch("gcrm.api.routers.people.update_person", return_value=True) as update, \
@@ -698,7 +707,10 @@ class TestLookupButton:
         assert "about $35 per 1,000 lookups" in text and "estimate" in text
         assert 'name="limit" value="5" min="1" max="50"' in text
         assert 'action="/people/linkedin/cities/lookup"' in text
-        assert "onsubmit='this.querySelector" in text  # confirm + double-click guard
+        lookup_form = read_form(text, "/people/linkedin/cities/lookup")["attributes"]
+        assert lookup_form["data-confirm"] == "Send these company names to Google Places now? Each lookup is billed."
+        assert "data-disable-submit" in lookup_form
+        assert "onsubmit" not in lookup_form
 
     def test_without_a_key_the_button_is_absent_and_the_page_says_nothing_is_billed(self, admin_session):
         text = self.page(admin_session, {**self.PANEL, "key_set": False}).text

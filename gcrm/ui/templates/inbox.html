@@ -84,7 +84,7 @@
 
 {% endif %}
 
-<style>
+<style nonce="{{ csp_nonce }}">
 .inbox-summary { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem; }
 .inbox-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.25rem 0.65rem; border-radius:0; font-size:0.8rem; text-decoration:none; border:1px solid transparent; }
 .inbox-pill span { font-weight:bold; }

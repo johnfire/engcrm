@@ -31,7 +31,7 @@ def _page(request: Request, user: dict, **context):
         status_code=400 if context.get("error") else 200,
     )
     response.headers["Content-Security-Policy"] = (
-        "default-src 'none'; style-src 'self'; font-src 'self'; "
+        f"default-src 'none'; script-src 'nonce-{request.state.csp_nonce}'; style-src 'self'; font-src 'self'; "
         "form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
     )
     response.headers["Referrer-Policy"] = "no-referrer"

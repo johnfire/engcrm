@@ -12,6 +12,7 @@ from psycopg2.errors import InsufficientPrivilege
 from starlette.middleware.sessions import SessionMiddleware
 
 from gcrm.api import auth
+from gcrm.api.browser_headers import BrowserHeadersMiddleware
 from gcrm.api.browser_sessions import refresh_browser_session
 from gcrm.api.csrf import accepts_browser_write
 from gcrm.api.redirects import local_path
@@ -152,6 +153,7 @@ app.add_middleware(
     https_only=SESSION_COOKIE_SECURE,
     same_site="lax",
 )
+app.add_middleware(BrowserHeadersMiddleware)
 
 UI_DIR = Path(__file__).parent.parent / "ui"
 app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")

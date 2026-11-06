@@ -12,6 +12,7 @@ on:
       - "uv.lock"
       - "Dockerfile"
       - "docker-compose.yml"
+      - "infra/**"
       - ".github/workflows/backend.yml"
   pull_request:
     paths:
@@ -23,6 +24,7 @@ on:
       - "uv.lock"
       - "Dockerfile"
       - "docker-compose.yml"
+      - "infra/**"
       - ".github/workflows/backend.yml"
   workflow_dispatch:
 
@@ -63,12 +65,17 @@ jobs:
         run: uv sync --extra agents --extra dev
       - name: Lint
         run: uv run ruff check .
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Browser interaction regressions
+        run: node --test scripts/security/browser-ui.test.mjs
       - name: Dependency audit
         run: uv run --with pip-audit pip-audit
       - name: Run unit tests
         run: |
           uv run pytest tests -q -m "not integration and not e2e and not network"
-          for a in research scout enrichment outreach followup; do
+          for a in research scout enrichment opportunity outreach followup; do
             uv run pytest "agents/gcrm-$a-agent/tests" -q
           done
       - name: Run real-PostgreSQL integration tests
@@ -92,31 +99,61 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push image
+      - name: Build release image
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
-          tags: |
-            ghcr.io/johnfire/engcrm:latest
-            ghcr.io/johnfire/engcrm:${{ github.sha }}
+          load: true
+          tags: engcrm-release:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Scan release image
+        run: |
+          docker save engcrm-release:${{ github.sha }} -o /tmp/engcrm-release.tar
+          docker run --rm -v /tmp/engcrm-release.tar:/scan/release.tar:ro -v "$PWD:/repo" \
+            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            image --input /scan/release.tar --scanners vuln --format json --output /repo/image-vulnerabilities.json
+          python3 scripts/security/check_image_vulnerabilities.py image-vulnerabilities.json
+      - name: Retain image vulnerability report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-vulnerabilities
+          path: image-vulnerabilities.json
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish tested image
+        id: publish
+        run: |
+          docker tag engcrm-release:${{ github.sha }} ghcr.io/johnfire/engcrm:${{ github.sha }}
+          docker push ghcr.io/johnfire/engcrm:${{ github.sha }}
+          image_ref=$(docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/johnfire/engcrm:${{ github.sha }})
+          printf 'digest=%s\n' "${image_ref#*@}" >> "$GITHUB_OUTPUT"
       - name: Deploy to VPS (pull + migrate + restart)
         uses: appleboy/ssh-action@v1.2.5
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
+          APP_IMAGE: ghcr.io/johnfire/engcrm@${{ steps.publish.outputs.digest }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GHCR_TOKEN,GHCR_USER
-          script_stop: true
+          envs: GHCR_TOKEN,GHCR_USER,APP_IMAGE
           script: |
+            set -eu
             echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
             cd /opt/engcrm
-            sudo docker compose pull app
-            sudo docker compose run --rm app uv run python scripts/migrate.py
-            sudo docker compose up -d app
-            sudo docker image prune -f
+            sudo docker pull "$APP_IMAGE"
+            sudo mkdir -p .runtime
+            compose_content=$(sudo docker run --rm --network none --read-only --cap-drop=ALL \
+              --security-opt=no-new-privileges --entrypoint cat "$APP_IMAGE" \
+              /app/infra/docker-compose.yml)
+            test -n "$compose_content"
+            printf '%s\n' "$compose_content" | sudo tee docker-compose.yml.new >/dev/null
+            sudo mv docker-compose.yml.new docker-compose.yml
+            sudo env ENGCRM_IMAGE="$APP_IMAGE" docker compose run --rm --no-deps initialize
+            sudo env ENGCRM_IMAGE="$APP_IMAGE" docker compose run --rm migrate
+            sudo env ENGCRM_IMAGE="$APP_IMAGE" docker compose up -d --wait --wait-timeout 180 app db-backup
+            printf 'ENGCRM_IMAGE=%s\n' "$APP_IMAGE" | sudo tee .runtime/image.env >/dev/null
+            sudo chmod 0600 .runtime/image.env

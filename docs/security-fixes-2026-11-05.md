@@ -1,8 +1,9 @@
 # High-priority security fixes — 5 November 2026
 
-The four high-priority findings in the audit are fixed in local source and
-verified on the isolated staging site. Production has not received these fixes;
-the changes must be pushed and deployed before the live findings can be closed.
+The four high-priority findings in the audit were fixed in source, verified on
+the isolated staging site, and subsequently deployed. The related A09 fix was
+deployed too. Follow-on work on A07/A08/A10 remains local and is tracked in
+[the hardening record](security-hardening-2026-11-06.md).
 
 ## What changed
 

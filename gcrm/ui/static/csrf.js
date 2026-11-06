@@ -3,6 +3,7 @@
   const token = () => document.querySelector('meta[name="csrf-token"]')?.content;
   document.addEventListener("htmx:configRequest", (event) => {
     event.detail.headers["X-CSRF-Token"] = token();
+    event.detail.headers["X-CSP-Nonce"] = document.querySelector('meta[name="csp-nonce"]')?.content;
   });
   const originalFetch = window.fetch;
   window.fetch = (input, options = {}) => {

@@ -32,7 +32,7 @@
 
 {% if plan.create or plan.link %}
 <form method="post" action="/people/linkedin/companies"
-      onsubmit='return confirm({{ t("linkedin.companies.confirm", count=plan.create|length)|tojson }});'>
+      data-confirm="{{ t('linkedin.companies.confirm', count=plan.create|length) }}">
   <button type="submit" class="btn-primary">{{ t('linkedin.companies.apply', count=plan.create|length) }}</button>
 </form>
 {% else %}

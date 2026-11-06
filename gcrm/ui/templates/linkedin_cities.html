@@ -48,7 +48,7 @@
     {% if web.review %}<li>{{ t('linkedin.web.review', count=web.review) }}</li>{% endif %}
   </ul>
   <form method="post" action="/people/linkedin/cities/web" class="filter-bar"
-        onsubmit='this.querySelector("button").disabled = true; return true;'>
+        data-disable-submit>
     <label for="web-limit">{{ t('linkedin.web.limit') }}</label>
     <input id="web-limit" type="number" name="limit" value="25" min="1" max="{{ web.max }}" size="4" />
     <button type="submit" class="btn-primary">{{ t('linkedin.web.button') }}</button>
@@ -70,7 +70,7 @@
     <li>{{ t('linkedin.lookup.estimate', per1000=lookup.per_1000) }}</li>
   </ul>
   <form method="post" action="/people/linkedin/cities/lookup" class="filter-bar"
-        onsubmit='this.querySelector("button").disabled = true; return confirm({{ t("linkedin.lookup.confirm")|tojson }});'>
+        data-disable-submit data-confirm="{{ t('linkedin.lookup.confirm') }}">
     <label for="lookup-limit">{{ t('linkedin.lookup.limit') }}</label>
     <input id="lookup-limit" type="number" name="limit" value="5" min="1" max="{{ lookup.max }}" size="4" />
     <button type="submit" class="btn-primary">{{ t('linkedin.lookup.button') }}</button>

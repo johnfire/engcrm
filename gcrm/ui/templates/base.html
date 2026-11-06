@@ -4,15 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AI-CRM Leads{% endblock %}</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"inlineScriptNonce":"{{ csp_nonce }}"}'>
+  <script nonce="{{ csp_nonce }}" src="/static/vendor/htmx-1.9.12.min.js"></script>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="preload" href="/static/fonts/josefin-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/poiret-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css?v={{ static_version }}">
   <link rel="stylesheet" href="/static/navigation-menus.css?v={{ static_version }}">
-  <script src="/static/navigation-menus.js?v={{ static_version }}" defer></script>
-  <script src="/static/date-field.js?v={{ static_version }}" defer></script>
-  <script src="/static/keep-place.js?v={{ static_version }}" defer></script>
+  <script nonce="{{ csp_nonce }}" src="/static/navigation-menus.js?v={{ static_version }}" defer></script>
+  <script nonce="{{ csp_nonce }}" src="/static/date-field.js?v={{ static_version }}" defer></script>
+  <script nonce="{{ csp_nonce }}" src="/static/keep-place.js?v={{ static_version }}" defer></script>
+  <script nonce="{{ csp_nonce }}" src="/static/form-behavior.js?v={{ static_version }}" defer></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body>

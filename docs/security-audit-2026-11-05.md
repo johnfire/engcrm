@@ -1,10 +1,13 @@
 # EngCRM security audit — 5 November 2026
 
-**Local remediation update:** A01–A04 have been fixed and verified locally;
-the related A09 fail-open path was hardened too. See
-[the remediation record](security-fixes-2026-11-05.md) for current validation
-and deployment requirements. The original observations below remain the audit
-snapshot. Production is not remediated until these fixes are deployed.
+**6 November remediation update:** A01–A04 and A09 were fixed, verified and
+subsequently deployed. A05's MFA implementation is now deployed too. A06's
+dependency remediation and release gate are documented with their remaining
+tooling exceptions in [the mobile record](mobile-dependency-security.md).
+A07, A08 and A10 are undergoing [local hardening](security-hardening-2026-11-06.md)
+and are not yet deployed. The original observations below remain the dated
+audit snapshot; see [the remediation record](security-fixes-2026-11-05.md) for
+the earlier fixes rather than treating their original descriptions as current.
 
 ## Decision
 

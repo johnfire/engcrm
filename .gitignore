@@ -1,4 +1,6 @@
 .env
+.runtime/
+image-vulnerabilities.json
 .venv/
 __pycache__/
 *.pyc

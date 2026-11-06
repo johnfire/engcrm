@@ -258,7 +258,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
           method="post"
           action="/organizations/{{ c.id }}/delete"
           style="display: inline"
-          onsubmit="return confirm('{{ t('organizations.deleteConfirm', name=c.name) }}')"
+          data-confirm="{{ t('organizations.deleteConfirm', name=c.name) }}"
         >
           <button class="btn-danger btn-tiny">{{ t('organizations.del') }}</button>
         </form>

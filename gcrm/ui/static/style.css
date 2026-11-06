@@ -402,6 +402,8 @@ pre {
   padding: 0.1em 0.55em;
   border-radius: 0;
 }
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
 .badge-running {
   background: var(--warn);
   color: var(--bg);

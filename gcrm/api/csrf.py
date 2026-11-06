@@ -44,7 +44,7 @@ async def accepts_browser_write(request: Request) -> bool:
     return isinstance(submitted, str) and hmac.compare_digest(submitted, csrf_token(request))
 
 
-def protect_html_forms(html: str, token: str) -> str:
+def protect_html_forms(html: str, token: str, nonce: str = "") -> str:
     field = f'<input type="hidden" name="csrf_token" value="{token}">'
 
     def protect_form(match: re.Match) -> str:
@@ -53,5 +53,6 @@ def protect_html_forms(html: str, token: str) -> str:
         return opening + field if unsafe else opening
 
     html = FORM_OPEN.sub(protect_form, html)
-    script = f'<meta name="csrf-token" content="{token}"><script src="/static/csrf.js" defer></script>'
+    script = (f'<meta name="csrf-token" content="{token}"><meta name="csp-nonce" content="{nonce}">'
+              f'<script nonce="{nonce}" src="/static/csrf.js" defer></script>')
     return html.replace("</head>", script + "</head>", 1)

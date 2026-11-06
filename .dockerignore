@@ -1,4 +1,6 @@
 .git
+.runtime
+image-vulnerabilities.json
 .env
 .env.*
 !.env.example

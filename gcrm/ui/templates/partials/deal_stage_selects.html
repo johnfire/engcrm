@@ -7,7 +7,7 @@
   <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
   {%- if not active_offer %}<span class="deal-offer-label">{{ d.offer }}</span>{% endif %}
   <select name="stage" class="stage-select badge-stage-{{ d.stage }}"
-          aria-label="{{ t('common.pipelineStage') }} · {{ d.offer }}: {{ owner_name }}" onchange="window.keepPlaceSubmit ? keepPlaceSubmit(this.form) : this.form.submit()">
+          aria-label="{{ t('common.pipelineStage') }} · {{ d.offer }}: {{ owner_name }}" data-submit-on-change data-keep-place="true">
     {% for s in pipeline_stages %}
     <option value="{{ s }}" {% if d.stage == s %}selected{% endif %}>{{ t('stage.' ~ s) }}</option>
     {% endfor %}

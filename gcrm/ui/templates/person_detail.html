@@ -153,7 +153,7 @@
 <form id="person-unlink-form" method="post" action="/people/{{ person.id }}/unlink"></form>
 
 <form method="post" action="/people/{{ person.id }}/delete" style="margin-top: 1rem"
-      onsubmit="return confirm('{{ t('personDetail.deleteConfirm') }}')">
+      data-confirm="{{ t('personDetail.deleteConfirm') }}">
   <button type="submit" class="btn-danger">{{ t('personDetail.delete') }}</button>
 </form>
 
@@ -224,7 +224,7 @@
         <td>
           <form method="post" action="/people/{{ person.id }}/notes/{{ entry.id }}/delete"
                 style="display: inline"
-                onsubmit="return confirm('{{ t('personDetail.notes.deleteConfirm') }}')">
+                data-confirm="{{ t('personDetail.notes.deleteConfirm') }}">
             <button class="btn-danger btn-tiny">{{ t('personDetail.notes.delete') }}</button>
           </form>
         </td>
@@ -238,7 +238,7 @@
   {% endif %}
 </section>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   const recordButton = document.getElementById('person-note-record');
   const textarea = document.getElementById('person-note-text');
@@ -333,7 +333,7 @@
   <p id="curiosity-status" class="muted small" role="status" aria-live="polite"></p>
 </section>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   const draftButton = document.getElementById('curiosity-draft-button');
   if (!draftButton) return;

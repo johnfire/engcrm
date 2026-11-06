@@ -98,7 +98,7 @@ def test_contact_value_rating_partial_marks_only_the_users_selected_value():
         t=lambda key: translate(key, "en"),
     )
 
-    markup = rendered.split("<script>")[0]  # the script text itself quotes aria-pressed="true"
+    markup = rendered.split("<script", 1)[0]  # Exclude scripts with or without nonce attributes.
     assert "Only you can see this rating." in markup
     assert 'data-priority-value="4"' in markup
     assert markup.count('aria-pressed="true"') == 1
