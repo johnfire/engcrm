@@ -1061,7 +1061,7 @@
   "revenue.salesCount": "{{count}} Verkäufe",
   "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert.",
   "sale.paymentOf": "Rate {{part}} von {{total}}",
-  "sale.contractMove": "Ganzer Vertrag",
+  "sale.contractMove": "Noch offene Raten verschieben nach",
   "sale.monthsLabel": "Wenn monatlich: für wie viele Monate",
   "nav.forecast": "Prognose",
   "forecast.title": "Prognose",
@@ -1122,5 +1122,6 @@
   "forecast.otherCovers_other": "deckt {{count}} Monate ab {{date}}",
   "forecast.firstPaid": "erstmals gezahlt am {{date}}",
   "forecast.edit": "Bearbeiten",
-  "forecast.saveChanges": "Änderungen speichern"
+  "forecast.saveChanges": "Änderungen speichern",
+  "sale.contractLine": "Vertrag: {{total}} in {{payments}} Raten · {{open}} noch offen"
 }

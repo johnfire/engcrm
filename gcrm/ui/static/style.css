@@ -1468,3 +1468,14 @@ main.statistics-page { max-width: none; }
 .forecast-table td, .forecast-table th { white-space: nowrap; }
 .forecast-table tr.forecast-now td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .forecast-table tr.forecast-past td { color: var(--muted); }
+
+/* Sales list: a contract's control sits on its own line above its payments; the one-time/monthly
+   choice reads as a row of options instead of a stack. */
+.sale-contract { list-style: none; padding: 0.4rem 0; border-bottom: 1px dashed var(--border); }
+.sale-contract .sale__move { margin: 0; }
+.record-form fieldset.sale-kind { grid-column: 1 / -1; border: 1px solid var(--border); padding: 0.5rem 0.8rem; display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; align-items: center; }
+.record-form fieldset.sale-kind legend { padding: 0 0.4rem; color: var(--muted); font-size: 0.85em; }
+.record-form .sale-kind .flag-check { flex-direction: row; align-items: center; gap: 0.35rem; }
+.record-form .sale-kind input[type="radio"] { width: auto; min-width: 0; margin: 0; padding: 0; }
+.record-form .sale-kind input[type="number"] { width: 5rem; }
+.record-form .sale-kind p { flex-basis: 100%; margin: 0; }

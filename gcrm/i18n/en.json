@@ -1061,7 +1061,7 @@
   "revenue.salesCount": "{{count}} sales",
   "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled.",
   "sale.paymentOf": "payment {{part}} of {{total}}",
-  "sale.contractMove": "Whole contract",
+  "sale.contractMove": "Move the payments still to come to",
   "sale.monthsLabel": "If monthly: for how many months",
   "nav.forecast": "Forecast",
   "forecast.title": "Forecast",
@@ -1122,5 +1122,6 @@
   "forecast.otherCovers_other": "covers {{count}} months from {{date}}",
   "forecast.firstPaid": "first paid {{date}}",
   "forecast.edit": "Edit",
-  "forecast.saveChanges": "Save changes"
+  "forecast.saveChanges": "Save changes",
+  "sale.contractLine": "Contract: {{total}} in {{payments}} payments · {{open}} still to come"
 }

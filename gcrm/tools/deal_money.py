@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.sale_series import due_dates, split_amount
+from gcrm.sale_series import attach_contract_summaries, due_dates, split_amount
 from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.deal_records import get_deal
@@ -231,6 +231,8 @@ def deal_money(deal_ids: list[int], today: date | None = None) -> dict[int, dict
                 entry["pipeline_total"] += row["amount_eur"]
             elif row["status"] == "expected":
                 entry["expected_total"] += row["amount_eur"]
+        for entry in money.values():
+            attach_contract_summaries(entry["sales"])
         cur.execute(
             "SELECT id, deal_id, amount_eur_month, started_on, ended_on, note FROM subscriptions "
             "WHERE deal_id = ANY(%s) AND deleted_at IS NULL ORDER BY started_on DESC, id DESC",

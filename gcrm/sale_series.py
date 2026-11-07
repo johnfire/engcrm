@@ -57,3 +57,25 @@ def contract_from_form(amount: Decimal, schedule: str, months: int) -> tuple[Dec
     if schedule == "":
         return amount, 1 if months == 1 else check_months(months)
     raise ValueError("choose a one-time payment or monthly payments")
+
+
+def attach_contract_summaries(sales: list[dict]) -> list[dict]:
+    """Give the first payment of each contract in `sales` a `contract` summary for the screen:
+    {payments, total (cancelled payments left out), open, open_status}. `open` counts the
+    payments not yet received and `open_status` is the status they are in (that of the first
+    of them), so the whole-contract control describes what is still to come rather than
+    copying a payment that was already received. Mutates and returns the list."""
+    contracts: dict[str, list[dict]] = {}
+    for sale in sales:
+        if sale.get("series_id"):
+            contracts.setdefault(sale["series_id"], []).append(sale)
+    for payments in contracts.values():
+        payments.sort(key=lambda sale: sale["series_part"])
+        still_open = [sale for sale in payments if sale["status"] != "collected"]
+        payments[0]["contract"] = {
+            "payments": payments[0].get("series_total") or len(payments),
+            "total": sum((Decimal(str(sale["amount_eur"])) for sale in payments if sale["status"] != "cancelled"), Decimal("0")),
+            "open": len(still_open),
+            "open_status": still_open[0]["status"] if still_open else None,
+        }
+    return sales

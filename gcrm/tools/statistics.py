@@ -10,6 +10,7 @@ from decimal import Decimal
 from gcrm.activity_types import ACTIVITY_TYPES, DEFAULT_MINUTES, NOT_ACTIVITIES, type_case_sql
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sale_series import attach_contract_summaries
 from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, offer_id_sql
@@ -121,7 +122,7 @@ def get_sales(contact_id: int) -> list[dict]:
             "ORDER BY s.won_on DESC, COALESCE(s.series_id::text, ''), s.series_part, s.id DESC",
             (contact_id,),
         )
-        return [serialize_row(dict(row)) for row in cur.fetchall()]
+        return attach_contract_summaries([serialize_row(dict(row)) for row in cur.fetchall()])
 
 
 def delete_sale(contact_id: int, sale_id: int) -> bool:

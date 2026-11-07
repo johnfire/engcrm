@@ -170,3 +170,42 @@ def test_the_organization_form_makes_monthly_payments_of_the_typed_amount_or_one
     assert len(_rows(firm["deal"])) == 4 and _rows(firm["deal"])[0]["series_id"] is None          # one plain sale, the months box ignored
     page = browser.get(f"/organizations/{firm['contact']}?lang=en").text
     assert 'name="schedule"' in page and "One-time payment" in page and "Paid monthly" in page
+
+
+def test_the_whole_contract_control_follows_the_payments_still_to_come(firm):
+    from fastapi.testclient import TestClient
+
+    import gcrm.api.main as main
+    from gcrm.api.security import hash_password
+    with db() as connection:
+        connection.cursor().execute(
+            "INSERT INTO users (email, name, password_hash, role, workspace_id, is_active) "
+            "VALUES ('owner3@vhs.example', 'owner3', %s, 'admin', %s, TRUE)",
+            (hash_password("a-long-test-password-1"), firm["workspace"]))
+    _, rows = _contract(firm, months=3, total="1500")
+    browser = TestClient(main.app)
+    assert browser.post("/login", data={"email": "owner3@vhs.example", "password": "a-long-test-password-1"},
+                        follow_redirects=False).status_code in (302, 303)
+    page_url = f"/organizations/{firm['contact']}?lang=en"
+
+    def control(html):
+        start = html.index("sale-contract")
+        block = html[start:html.index("</li>", start)]
+        selected = block[block.index("selected") - 40:block.index("selected") + 40]
+        return block, selected
+
+    block, selected = control(browser.get(page_url).text)
+    assert 'value="booked" selected' in block and "3 payments" in block.replace("\xa0", " ")
+    # the first payment is received: the control must now describe the remaining two, not read "expected"
+    set_sale_status(firm["deal"], rows[0]["id"], "collected", collected_on=date(2027, 2, 3), workspace_id=firm["workspace"])
+    block, _ = control(browser.get(page_url).text)
+    assert 'value="booked" selected' in block and 'value="expected" selected' not in block and "2 still to come" in block
+    # saving it as it stands must leave the open payments exactly as they were
+    series = rows[0]["series_id"]
+    assert browser.post(f"/deals/{firm['deal']}/series/{series}/status", data={"status": "booked", "next": "/"},
+                        follow_redirects=False).status_code == 303
+    assert [r["status"] for r in _rows(firm["deal"])] == ["collected", "booked", "booked"]
+    # once every payment is received there is nothing left to move
+    for row in rows[1:]:
+        set_sale_status(firm["deal"], row["id"], "collected", collected_on=date(2027, 3, 3), workspace_id=firm["workspace"])
+    assert "sale-contract" not in browser.get(page_url).text

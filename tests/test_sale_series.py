@@ -61,3 +61,47 @@ def test_the_form_choice_decides_whether_the_amount_is_the_whole_or_per_month():
 def test_the_form_choice_refuses_nonsense(schedule, months):
     with pytest.raises(ValueError):
         contract_from_form(Decimal("500"), schedule, months)
+
+
+from gcrm.sale_series import attach_contract_summaries  # noqa: E402
+
+
+def _payment(part, status, series="abc", amount="500", total=3):
+    return {"id": part, "series_id": series, "series_part": part, "series_total": total, "status": status, "amount_eur": amount}
+
+
+def test_the_first_payment_of_a_contract_carries_its_summary():
+    rows = [{"id": 99, "series_id": None, "status": "booked", "amount_eur": "50"},
+            _payment(1, "booked"), _payment(2, "booked"), _payment(3, "booked")]
+    out = attach_contract_summaries(rows)
+    assert "contract" not in out[0] and "contract" not in out[2] and "contract" not in out[3]
+    assert out[1]["contract"] == {"payments": 3, "total": Decimal("1500"), "open": 3, "open_status": "booked"}
+
+
+def test_the_summary_describes_the_payments_still_to_come_not_the_first_one():
+    rows = [_payment(1, "collected"), _payment(2, "contracted"), _payment(3, "contracted")]
+    assert attach_contract_summaries(rows)[0]["contract"] == {
+        "payments": 3, "total": Decimal("1500"), "open": 2, "open_status": "contracted"}
+
+
+def test_a_fully_received_contract_has_nothing_left_to_move():
+    rows = [_payment(1, "collected"), _payment(2, "collected"), _payment(3, "collected")]
+    assert attach_contract_summaries(rows)[0]["contract"]["open"] == 0
+
+
+def test_a_cancelled_remainder_can_be_taken_back_so_it_reports_cancelled():
+    rows = [_payment(1, "collected"), _payment(2, "cancelled"), _payment(3, "cancelled")]
+    assert attach_contract_summaries(rows)[0]["contract"]["open_status"] == "cancelled"
+
+
+def test_two_contracts_in_one_list_are_summarised_separately():
+    rows = [_payment(1, "booked", series="a"), _payment(2, "booked", series="a", total=2),
+            _payment(1, "expected", series="b", amount="100", total=2), _payment(2, "expected", series="b", amount="100", total=2)]
+    out = attach_contract_summaries(rows)
+    assert out[0]["contract"]["open_status"] == "booked" and out[2]["contract"]["open_status"] == "expected"
+    assert out[2]["contract"]["total"] == Decimal("200")
+
+
+def test_the_summary_is_attached_even_when_the_list_starts_mid_contract():
+    rows = [_payment(2, "booked"), _payment(3, "booked")]              # payment 1 is not in this list
+    assert attach_contract_summaries(rows)[0]["contract"]["open"] == 2

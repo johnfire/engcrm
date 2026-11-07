@@ -6,6 +6,21 @@
 {% from 'partials/date_field.html' import date_field with context %}
 
 {% macro sale_item(sale, deal_id, page, show_offer=False) -%}
+{%- if sale.contract and sale.contract.open %}
+<li class="sale-contract">
+  <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <strong>{{ t('sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}</strong>
+    <label>{{ t('sale.contractMove') }}
+    <select name="status">
+      {% for s in sale_statuses if s != 'collected' %}
+      <option value="{{ s }}" {% if s == sale.contract.open_status %}selected{% endif %}>{{ t('sale.status.' ~ s) }}</option>
+      {% endfor %}
+    </select></label>
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+</li>
+{%- endif %}
 <li class="sale sale--{{ sale.status }}">
   <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}
   <span class="badge badge-sale-{{ sale.status }}">{{ t('sale.status.' ~ sale.status) }}</span>
@@ -26,18 +41,6 @@
     {{ date_field('collected_on', None, label=t('sale.collectedOnLabel')) }}
     <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
   </form>
-  {%- if sale.series_id and sale.series_part == 1 %}
-  <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move sale__contract">
-    <input type="hidden" name="next" value="{{ page }}" />
-    <label>{{ t('sale.contractMove') }}
-    <select name="status">
-      {% for s in sale_statuses if s != 'collected' %}
-      <option value="{{ s }}" {% if s == sale.status %}selected{% endif %}>{{ t('sale.status.' ~ s) }}</option>
-      {% endfor %}
-    </select></label>
-    <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
-  </form>
-  {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
         data-confirm="{{ t('sales.deleteConfirm') }}">
     <input type="hidden" name="next" value="{{ page }}" />
