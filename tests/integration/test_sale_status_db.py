@@ -56,7 +56,8 @@ def test_booked_money_is_pipeline_not_won(firm):
     stats = _stats(firm)
     assert stats["current"]["won_eur"] == Decimal("0") and stats["current"]["sales"] == 0
     assert stats["sales"] == []
-    assert stats["pipeline"] == {"booked": {"eur": Decimal("2400"), "count": 1},
+    assert stats["pipeline"] == {"expected": {"eur": Decimal("0"), "count": 0},
+                                 "booked": {"eur": Decimal("2400"), "count": 1},
                                  "contracted": {"eur": Decimal("1000"), "count": 1}}
     assert deal_money([firm["deal"]])[firm["deal"]]["sales_total"] == Decimal("0")
     assert deal_money([firm["deal"]])[firm["deal"]]["pipeline_total"] == Decimal("3400")
@@ -178,3 +179,26 @@ def get_sales_for_person(deal_id: int) -> int:
         cursor = connection.cursor()
         cursor.execute("SELECT id FROM sales WHERE deal_id = %s", (deal_id,))
         return cursor.fetchone()["id"]
+
+
+def test_a_sale_can_start_as_an_expected_value_before_anything_is_booked(firm):
+    from gcrm.sale_status import SALE_STATUSES
+    assert SALE_STATUSES == ("expected", "booked", "contracted", "collected", "cancelled")
+    sale = add_deal_sale(firm["deal"], "5000", date(2026, 11, 8), "Maybe a course", firm["workspace"], status="expected")
+    assert _row(sale)["status"] == "expected" and _row(sale)["collected_on"] is None
+    stats = _stats(firm)
+    assert stats["pipeline"]["expected"] == {"eur": Decimal("5000"), "count": 1}
+    assert stats["pipeline"]["booked"]["eur"] == Decimal("0")      # a hope is not firm pipeline
+    assert stats["current"]["won_eur"] == Decimal("0")
+    money = deal_money([firm["deal"]])[firm["deal"]]
+    assert (money["expected_total"], money["pipeline_total"], money["sales_total"]) == (Decimal("5000"), Decimal("0"), Decimal("0"))
+
+
+def test_an_expected_sale_moves_along_the_whole_way(firm):
+    sale = add_deal_sale(firm["deal"], "800", date(2026, 11, 8), "", firm["workspace"], status="expected")
+    for status in ("booked", "contracted", "collected"):
+        assert set_sale_status(firm["deal"], sale, status, collected_on=date(2026, 11, 20), workspace_id=firm["workspace"])
+        assert _row(sale)["status"] == status
+    assert _stats(firm)["current"]["won_eur"] == Decimal("800")
+    assert set_sale_status(firm["deal"], sale, "expected", workspace_id=firm["workspace"])   # a slip can be undone
+    assert _row(sale)["collected_on"] is None

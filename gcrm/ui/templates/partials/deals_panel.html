@@ -101,6 +101,9 @@
         {% if money.pipeline_total %}
         <p class="small">{{ t('deals.pipelineTotal', amount=money.pipeline_total | eur) }}</p>
         {% endif %}
+        {% if money.expected_total %}
+        <p class="small">{{ t('deals.expectedTotal', amount=money.expected_total | eur) }}</p>
+        {% endif %}
         {# an organization records its sales in its own Sales card; a person (a consultant you sell to) here #}
         {% if deal_owner == 'person' %}
         <details class="deal-card__sales" {% if money.sales %}open{% endif %}>

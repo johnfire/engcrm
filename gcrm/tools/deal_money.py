@@ -14,7 +14,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status, collected_day
+from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.deal_records import get_deal
 
@@ -153,10 +153,10 @@ def delete_subscription(deal_id: int, subscription_id: int, workspace_id: int | 
 
 def deal_money(deal_ids: list[int], today: date | None = None) -> dict[int, dict]:
     """Per deal: one-off sales {rows, sales_total (collected only), pipeline_total
-    (booked and contracted)} and subscriptions {rows, running} — `running` is the
+    (booked and contracted), expected_total} and subscriptions {rows, running} — `running` is the
     row in force today, or None."""
     today = today or date.today()
-    money = {deal_id: {"sales_total": Decimal("0"), "pipeline_total": Decimal("0"), "sales": [], "subscriptions": [], "running": None}
+    money = {deal_id: {"sales_total": Decimal("0"), "pipeline_total": Decimal("0"), "expected_total": Decimal("0"), "sales": [], "subscriptions": [], "running": None}
              for deal_id in deal_ids}
     if not deal_ids:
         return money
@@ -172,8 +172,10 @@ def deal_money(deal_ids: list[int], today: date | None = None) -> dict[int, dict
             entry["sales"].append(serialize_row(dict(row)))
             if row["status"] == "collected":
                 entry["sales_total"] += row["amount_eur"]
-            elif row["status"] in PIPELINE_SALE_STATUSES:
+            elif row["status"] in FIRM_PIPELINE_STATUSES:
                 entry["pipeline_total"] += row["amount_eur"]
+            elif row["status"] == "expected":
+                entry["expected_total"] += row["amount_eur"]
         cur.execute(
             "SELECT id, deal_id, amount_eur_month, started_on, ended_on, note FROM subscriptions "
             "WHERE deal_id = ANY(%s) AND deleted_at IS NULL ORDER BY started_on DESC, id DESC",

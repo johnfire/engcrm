@@ -118,3 +118,19 @@ it("does not offer to move a sale to the status it already has", () => {
   expect(screen.queryByLabelText("Move to Booked")).toBeNull();
   expect(screen.getByLabelText("Move to Cancelled")).toBeTruthy();
 });
+
+it("can record a sale as merely expected, the first step before booked", async () => {
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit />);
+  await waitFor(() => expect(screen.getByLabelText("Amount (€)")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Amount (€)"), "5000");
+  fireEvent.press(screen.getByLabelText("Expected"));
+  fireEvent.press(screen.getByText("Record sale"));
+  await waitFor(() =>
+    expect(mockRecordSale).toHaveBeenCalledWith(7, "5000", expect.any(String), "", "expected", null),
+  );
+});
+
+it("lists the statuses in the order a sale moves through them", () => {
+  const { SALE_STATUSES } = jest.requireActual("../../services/saleStatus");
+  expect(SALE_STATUSES).toEqual(["expected", "booked", "contracted", "collected", "cancelled"]);
+});

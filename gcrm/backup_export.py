@@ -98,7 +98,7 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   people.csv          people, with their organization when they have one
   activities.csv      calls, visits, emails and notes (kind = organization or person)
   deals.csv           what you pitch to each organization or person, and where it stands
-  sales.csv           one-off sales; status is booked, contracted, collected or cancelled
+  sales.csv           one-off sales; status is expected, booked, contracted, collected or cancelled
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
   manifest.json       when this was made and how many rows each file holds

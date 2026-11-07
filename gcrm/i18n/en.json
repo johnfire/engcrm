@@ -1049,5 +1049,8 @@
   "backup.saved": "Backup schedule saved.",
   "backup.sent": "Backup sent by email.",
   "backup.sentLink": "The backup is too big to attach; an email with a download link was sent.",
-  "backup.failed": "The backup could not be sent. Check the last result below."
+  "backup.failed": "The backup could not be sent. Check the last result below.",
+  "sale.status.expected": "Expected",
+  "deals.expectedTotal": "Expected, not booked yet: {{amount}}",
+  "statistics.salesExpected": "{{expected}} expected"
 }

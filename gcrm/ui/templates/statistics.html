@@ -48,7 +48,8 @@
     <strong class="stat-tile__value">{{ cur.won_eur | eur }}</strong>{{ delta(cur.won_eur, prev.won_eur, money=true) }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.salesPipeline') }}</span>
     <strong class="stat-tile__value">{{ (stats.pipeline.booked.eur + stats.pipeline.contracted.eur) | eur }}</strong>
-    <span class="stat-delta">{{ t('statistics.salesPipelineSplit', booked=stats.pipeline.booked.eur | eur, contracted=stats.pipeline.contracted.eur | eur) }}</span></div>
+    <span class="stat-delta">{{ t('statistics.salesPipelineSplit', booked=stats.pipeline.booked.eur | eur, contracted=stats.pipeline.contracted.eur | eur) }}</span>
+    {% if stats.pipeline.expected.count %}<span class="stat-delta">{{ t('statistics.salesExpected', expected=stats.pipeline.expected.eur | eur) }}</span>{% endif %}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.mrrNow') }}</span>
     <strong class="stat-tile__value">{{ stats.mrr_now | eur }}</strong>
     <span class="stat-delta">{{ t('statistics.subscribersNow', count=stats.subscribers_now) }}</span></div>

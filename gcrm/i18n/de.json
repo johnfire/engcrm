@@ -1049,5 +1049,8 @@
   "backup.saved": "Sicherungsplan gespeichert.",
   "backup.sent": "Sicherung per E-Mail gesendet.",
   "backup.sentLink": "Die Sicherung ist zu groß für einen Anhang; eine E-Mail mit Download-Link wurde gesendet.",
-  "backup.failed": "Die Sicherung konnte nicht gesendet werden. Das letzte Ergebnis steht unten."
+  "backup.failed": "Die Sicherung konnte nicht gesendet werden. Das letzte Ergebnis steht unten.",
+  "sale.status.expected": "Erwartet",
+  "deals.expectedTotal": "Erwartet, noch nicht gebucht: {{amount}}",
+  "statistics.salesExpected": "{{expected}} erwartet"
 }

@@ -1,6 +1,7 @@
-"""The life of a sale. Only a collected sale is money won; booked and contracted
-ones are the pipeline, and a cancelled one is kept so you can see what fell through.
+"""The life of a sale. Only a collected sale is money won; expected, booked and
+contracted ones are the pipeline, and a cancelled one is kept so you can see what fell through.
 
+expected    a sale you hope for: not booked yet
 booked      agreed, nothing in writing yet
 contracted  a written contract exists
 collected   the money is in
@@ -8,8 +9,9 @@ cancelled   it fell through
 """
 from datetime import date
 
-SALE_STATUSES = ("booked", "contracted", "collected", "cancelled")
-PIPELINE_SALE_STATUSES = ("booked", "contracted")
+SALE_STATUSES = ("expected", "booked", "contracted", "collected", "cancelled")
+FIRM_PIPELINE_STATUSES = ("booked", "contracted")  # agreed, not yet paid
+PIPELINE_SALE_STATUSES = ("expected",) + FIRM_PIPELINE_STATUSES  # everything still open
 DEFAULT_SALE_STATUS = "collected"  # what a sale was before statuses existed
 
 

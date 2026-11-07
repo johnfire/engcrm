@@ -1436,6 +1436,7 @@ main.statistics-page { max-width: none; }
 .record-id { color: var(--muted); font-size: 0.75em; font-weight: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* A sale's status: only collected is money won; booked and contracted are the pipeline. */
+.badge-sale-expected { border: 1px dashed var(--muted); color: var(--muted); }
 .badge-sale-booked { border: 1px solid var(--accent); color: var(--accent); }
 .badge-sale-contracted { border: 1px solid #ffeb3b; color: #ffeb3b; }
 .badge-sale-collected { background: var(--success); color: var(--bg); }

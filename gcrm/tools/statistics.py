@@ -369,7 +369,7 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
 
         cur.execute(
             "SELECT status, COALESCE(SUM(amount_eur), 0) AS eur, COUNT(*) AS n FROM sales "
-            "WHERE workspace_id = %s AND deleted_at IS NULL AND status IN ('booked', 'contracted') "
+            "WHERE workspace_id = %s AND deleted_at IS NULL AND status IN ('expected', 'booked', 'contracted') "
             f"{_sales_offer(workspace_id, offer)} GROUP BY status",
             (workspace_id,),
         )
