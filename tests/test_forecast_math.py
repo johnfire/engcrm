@@ -33,13 +33,34 @@ def test_months_inside_a_period():
     assert len(months_of("year", date(2026, 1, 1))) == 12 and months_of("year", date(2026, 1, 1))[-1] == date(2026, 12, 1)
 
 
-def test_the_periods_shown_run_from_a_little_back_to_well_ahead_and_include_today():
+def test_months_run_from_the_start_of_this_year_to_the_end_of_next_year():
     months = periods_around("month", date(2026, 11, 17))
-    assert months[0] == date(2026, 9, 1) and months[-1] == date(2027, 8, 1) and date(2026, 11, 1) in months
-    quarters = periods_around("quarter", date(2026, 11, 17))
-    assert date(2026, 10, 1) in quarters and quarters == sorted(quarters) and len(quarters) == 8
-    years = periods_around("year", date(2026, 11, 17))
-    assert years[0] == date(2025, 1, 1) and date(2026, 1, 1) in years and len(years) == 5
+    assert months[0] == date(2026, 1, 1) and months[-1] == date(2027, 12, 1) and len(months) == 24
+    assert months == sorted(months) and date(2026, 11, 1) in months
+
+
+def test_a_business_that_started_this_year_shows_only_its_own_months_of_this_year_then_all_of_next_year():
+    months = periods_around("month", date(2026, 11, 17), first_month=date(2026, 10, 1))
+    assert months[0] == date(2026, 10, 1) and months[-1] == date(2027, 12, 1) and len(months) == 15
+    assert months[:3] == [date(2026, 10, 1), date(2026, 11, 1), date(2026, 12, 1)]
+
+
+def test_a_business_older_than_this_year_still_starts_at_january():
+    months = periods_around("month", date(2027, 3, 10), first_month=date(2026, 10, 1))
+    assert months[0] == date(2027, 1, 1) and months[-1] == date(2028, 12, 1) and len(months) == 24
+
+
+def test_quarters_follow_the_same_window():
+    assert periods_around("quarter", date(2026, 11, 17)) == [
+        date(2026, 1, 1), date(2026, 4, 1), date(2026, 7, 1), date(2026, 10, 1),
+        date(2027, 1, 1), date(2027, 4, 1), date(2027, 7, 1), date(2027, 10, 1)]
+    assert periods_around("quarter", date(2026, 11, 17), first_month=date(2026, 10, 1)) == [
+        date(2026, 10, 1), date(2027, 1, 1), date(2027, 4, 1), date(2027, 7, 1), date(2027, 10, 1)]
+
+
+def test_years_are_this_year_and_next():
+    assert periods_around("year", date(2026, 11, 17)) == [date(2026, 1, 1), date(2027, 1, 1)]
+    assert periods_around("year", date(2027, 3, 10), first_month=date(2026, 10, 1)) == [date(2027, 1, 1), date(2028, 1, 1)]
 
 
 def test_unknown_granularity_is_refused():

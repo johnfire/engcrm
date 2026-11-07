@@ -179,3 +179,11 @@ def test_the_page_leaves_out_months_before_the_business_started(world):
     page = admin.get("/forecast?lang=en").text
     table = page[page.index("<tbody>"):page.index("</tbody>")]
     assert "09.2026" not in table and "10.2026" in table
+
+
+def test_the_months_view_runs_through_the_end_of_next_year(world):
+    page = _browser("owner@first.example").get("/forecast?lang=en").text
+    table = page[page.index("<tbody>"):page.index("</tbody>")]
+    year = date.today().year
+    assert f"12.{year + 1}" in table and f"01.{year}" in table
+    assert f"01.{year + 2}" not in table

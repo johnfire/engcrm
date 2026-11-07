@@ -91,14 +91,14 @@ def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
 
 
 def get_forecast(workspace_id: int, granularity: str, today: date | None = None, offer: str | None = None) -> dict:
-    """The periods to show (a little history, this one, the ones ahead), the tiles (this month,
+    """The periods to show (this year from its first month in business, through the end of next year), the tiles (this month,
     next month, the month after, this and next quarter, this and next year — the same whichever
     view is chosen), the money with no due day, and the plan. Run inside the workspace's scope."""
     today = today or date.today()
     plan = get_plan()
     first_month = plan["start_month"]
     # A period that ended before the business started has nothing to show: leave it out.
-    starts = [s for s in periods_around(granularity, today)
+    starts = [s for s in periods_around(granularity, today, first_month)
               if first_month is None or period_end(granularity, s) >= first_month]
     tile_starts = [(key, g, shift_months(period_start(g, today), ahead * _MONTHS_LONG[g])) for key, g, ahead in TILES]
     needed = [(s, period_end(granularity, s)) for s in starts] + [(s, period_end(g, s)) for _, g, s in tile_starts]

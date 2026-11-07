@@ -14,8 +14,6 @@ from gcrm.sale_series import shift_months
 
 GRANULARITIES = ("month", "quarter", "year")
 MAX_RECEIPTS = 120
-# (periods back, periods in all) for each view: enough history to see, enough ahead to plan
-_WINDOW = {"month": (2, 12), "quarter": (2, 8), "year": (1, 5)}
 _ZERO = Decimal("0")
 
 
@@ -51,13 +49,23 @@ def months_of(granularity: str, start: date) -> list[date]:
     return [shift_months(start, step) for step in range(_months_long(granularity))]
 
 
-def periods_around(granularity: str, today: date) -> list[date]:
-    """The periods to show, oldest first: a little history, this period, and the ones ahead."""
+def periods_around(granularity: str, today: date, first_month: date | None = None) -> list[date]:
+    """The periods to show, oldest first: this year from its first month in business (January,
+    or `first_month` when the business started later this year) through the end of next year.
+    Years: this year and next."""
     _check(granularity)
-    back, total = _WINDOW[granularity]
-    this = period_start(granularity, today)
-    first = shift_months(this, -back * _months_long(granularity))
-    return [shift_months(first, step * _months_long(granularity)) for step in range(total)]
+    this_year = date(today.year, 1, 1)
+    first = this_year if first_month is None else max(this_year, first_month.replace(day=1))
+    end_of_window = date(today.year + 1, 12, 1)
+    if granularity == "year":
+        return [this_year, date(today.year + 1, 1, 1)]
+    start = period_start(granularity, first)
+    step = _months_long(granularity)
+    periods = []
+    while start <= end_of_window:
+        periods.append(start)
+        start = shift_months(start, step)
+    return periods
 
 
 def coverage_months(covers_from: date, payments: int) -> list[date]:
