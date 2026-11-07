@@ -107,6 +107,14 @@ services:
       BACKUP_KEEP_MONTHS: 3
     volumes:
       - ./backups:/backups
+    # The image's own check runs every 5 minutes with no start period, so the deploy's
+    # `up --wait --wait-timeout 180` could never see it healthy. Same probe, checked sooner.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f \"http://localhost:$$HEALTHCHECK_PORT/\" || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
     depends_on:
       db:
         condition: service_healthy

@@ -37,3 +37,19 @@ def test_changes_to_deployment_inputs_trigger_the_release_checks():
     triggers = workflow.get("on", workflow.get(True))
     assert "infra/**" in triggers["push"]["paths"]
     assert "infra/**" in triggers["pull_request"]["paths"]
+
+
+def test_every_service_the_deploy_waits_for_can_become_healthy_inside_the_wait():
+    """`docker compose up --wait --wait-timeout 180` fails the deploy if a service is
+    still 'starting' after 180s. The backup image's own check runs every 5 minutes, which
+    can never pass in time, so the compose file must set a fast one."""
+    workflow = Path(".github/workflows/backend.yml").read_text()
+    wait = int(workflow.split("--wait-timeout ")[1].split()[0])
+    waited_for = workflow.split("--wait-timeout ")[1].split("\n")[0].split()[1:]
+    services = yaml.safe_load(Path("docker-compose.yml").read_text())["services"]
+    for name in waited_for:
+        check = services[name].get("healthcheck")
+        assert check, f"{name} needs its own healthcheck: the image's default can be slower than the deploy wait"
+        seconds = lambda text: int(str(text).rstrip("s"))  # noqa: E731
+        first_pass = seconds(check.get("start_period", "0s")) + seconds(check["interval"]) + seconds(check["timeout"])
+        assert first_pass * 2 < wait, f"{name} may need {first_pass}s to be healthy; the deploy waits {wait}s"
