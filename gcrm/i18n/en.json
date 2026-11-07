@@ -1013,7 +1013,7 @@
   "sale.status.cancelled": "Cancelled",
   "sale.expectedOn": "expected {{date}}",
   "sale.collectedOn": "collected {{date}}",
-  "sale.expectedOnLabel": "Expected on (optional)",
+  "sale.expectedOnLabel": "Expected on, or first payment due (needed for several payments)",
   "sale.collectedOnLabel": "Day the money came in (blank = today)",
   "deals.pipelineTotal": "Booked, not collected yet: {{amount}}",
   "statistics.salesPipeline": "Sales pipeline",
@@ -1059,5 +1059,8 @@
   "revenue.salesCount_one": "{{count}} sale",
   "revenue.salesCount_other": "{{count}} sales",
   "revenue.salesCount": "{{count}} sales",
-  "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled."
+  "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled.",
+  "sale.paymentOf": "payment {{part}} of {{total}}",
+  "sale.contractMove": "Whole contract",
+  "sale.monthsLabel": "Paid in how many monthly payments (1 = a single payment)"
 }

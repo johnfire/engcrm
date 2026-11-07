@@ -134,3 +134,9 @@ it("lists the statuses in the order a sale moves through them", () => {
   const { SALE_STATUSES } = jest.requireActual("../../services/saleStatus");
   expect(SALE_STATUSES).toEqual(["expected", "booked", "contracted", "collected", "cancelled"]);
 });
+
+it("says which payment of a contract a sale is", () => {
+  const payment = { ...BOOKED, id: 7, series_id: "6f1c2f1e", series_part: 2, series_total: 4, expected_on: "2027-03-01" };
+  const screen = render(<SalesCard organizationId={42} sales={[payment]} canEdit={false} />);
+  expect(screen.getByText("Booked · payment 2 of 4 · expected 01.03.2027")).toBeTruthy();
+});

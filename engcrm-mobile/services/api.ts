@@ -584,6 +584,10 @@ export interface Sale {
   status?: SaleStatus; // older servers send none: collected
   expected_on?: string | null;
   collected_on?: string | null;
+  /** a contract paid in monthly payments: this is payment series_part of series_total */
+  series_id?: string | null;
+  series_part?: number | null;
+  series_total?: number | null;
 }
 
 /** Delete a one-off sale recorded by mistake. Admin only. */

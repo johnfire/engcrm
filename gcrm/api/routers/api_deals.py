@@ -1,5 +1,6 @@
 """Mobile endpoints for offers and deals (JSON, JWT) — the same operations as
 the web Deals panel (gcrm/api/routers/deals.py), for the phone."""
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -15,6 +16,7 @@ from gcrm.tools.deal_money import (
     deal_money,
     end_subscription,
     set_sale_status,
+    set_series_status,
     start_subscription,
 )
 from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
@@ -157,7 +159,8 @@ class Sale(BaseModel):
     won_on: date
     description: str = ""
     status: str = "collected"  # booked | contracted | collected | cancelled
-    expected_on: date | None = None
+    expected_on: date | None = None  # when it is due; with months, the first payment's day
+    months: int = 1  # 2 to 60: a contract paid in that many monthly payments
 
 
 @router.post("/deals/{deal_id}/sales", status_code=201)
@@ -166,7 +169,7 @@ def record_deal_sale(deal_id: int, body: Sale, _role: str = Depends(require_jwt_
     """A one-off sale on an organization's deal."""
     try:
         return {"id": add_deal_sale(deal_id, body.amount_eur, body.won_on, body.description, _workspace(payload),
-                                     status=body.status, expected_on=body.expected_on)}
+                                     status=body.status, expected_on=body.expected_on, months=body.months)}
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
@@ -191,6 +194,25 @@ def move_deal_sale(deal_id: int, sale_id: int, body: SaleMove, _role: str = Depe
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     return {"id": sale_id, "status": body.status}
+
+
+class SeriesMove(BaseModel):
+    status: str
+
+
+@router.patch("/deals/{deal_id}/series/{series_id}")
+def move_deal_series(deal_id: int, series_id: uuid.UUID, body: SeriesMove, _role: str = Depends(require_jwt_admin),
+                     payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Move a contract's payments that are not yet received to another status (or cancel them)."""
+    try:
+        changed = set_series_status(deal_id, str(series_id), body.status, workspace_id=_workspace(payload))
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    if not changed:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    return {"changed": changed, "status": body.status}
 
 
 class SubscriptionStart(BaseModel):

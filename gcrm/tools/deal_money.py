@@ -10,10 +10,12 @@ months keep their real amount.
 Subscription revenue is *calculated* from these rows (€/month × the days it ran
 ÷ the days in that month), never checked against payments.
 """
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db, serialize_row
+from gcrm.sale_series import due_dates, split_amount
 from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.deal_records import get_deal
@@ -28,26 +30,77 @@ def _money(amount) -> Decimal:
 
 # --- One-off sales -----------------------------------------------------------
 
+def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, won_on: date, description: str,
+                         status: str, expected_on: date | None, collected_on: date | None,
+                         months: int = 1) -> list[int]:
+    """Insert one sale (months = 1) or a contract's monthly payments (months 2 to 60) on a
+    deal, inside the caller's transaction, and return the new ids in payment order. A
+    schedule needs the first due day, and starts as expected, booked or contracted: each
+    payment is marked received when it arrives. Nothing is inserted when anything is refused."""
+    text = (description or "").strip()[:500] or None
+    if months == 1:
+        parts, dues, series = [total], [expected_on], None
+        collected = [collected_day(status, collected_on, won_on)]
+    else:
+        if status == "collected":
+            raise ValueError("a payment schedule starts as expected, booked or contracted; "
+                             "mark each payment received as it arrives")
+        if expected_on is None:
+            raise ValueError("a payment schedule needs the day the first payment is due")
+        dues, parts = due_dates(expected_on, months), split_amount(total, months)
+        series, collected = str(uuid.uuid4()), [None] * months
+    ids = []
+    for part, (amount, due, got) in enumerate(zip(parts, dues, collected), start=1):
+        cur.execute(
+            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
+            "collected_on, series_id, series_part, series_total) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s) RETURNING id",
+            (workspace_id, deal_id, amount, won_on, text, status, due, got, series,
+             part if series else None, months if series else None),
+        )
+        ids.append(cur.fetchone()["id"])
+    return ids
+
+
 def add_deal_sale(deal_id: int, amount_eur, won_on: date, description: str = "",
                   workspace_id: int | None = None, status: str | None = None,
-                  expected_on: date | None = None, collected_on: date | None = None) -> int:
-    """Record a one-off sale on a deal of an organization or person. `status`
-    defaults to collected (what every sale was before statuses). Raises
-    DealNotFound, or ValueError for an amount not above 0 or an unknown status."""
+                  expected_on: date | None = None, collected_on: date | None = None,
+                  months: int = 1) -> int:
+    """Record a sale on a deal of an organization or person, or — with `months` 2 to 60 —
+    a contract paid in that many monthly payments, the first due on `expected_on`. `status`
+    defaults to collected (what every sale was before statuses). Returns the (first) sale's
+    id. Raises DealNotFound, or ValueError for an amount not above 0, an unknown status or a
+    schedule that cannot be made."""
     amount = _money(amount_eur)
     status = checked_sale_status(status)
-    collected = collected_day(status, collected_on, won_on)
     with db() as conn:
         cur = conn.cursor()
         get_deal(cur, deal_id, workspace_id)
-        cur.execute(
-            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
-            "collected_on) SELECT workspace_id, id, %s, %s, %s, %s, %s, %s FROM deals WHERE id = %s RETURNING id",
-            (amount, won_on, (description or "").strip()[:500] or None, status, expected_on, collected, deal_id),
-        )
-        sale_id = cur.fetchone()["id"]
-    log_audit(None, None, "sale.added", f"deal:{deal_id}", f"{amount} EUR on {won_on} ({status})")
-    return sale_id
+        cur.execute("SELECT workspace_id FROM deals WHERE id = %s", (deal_id,))
+        ids = insert_sale_payments(cur, cur.fetchone()["workspace_id"], deal_id, amount, won_on, description, status,
+                                   expected_on, collected_on, months)
+    log_audit(None, None, "sale.added", f"deal:{deal_id}",
+              f"{amount} EUR on {won_on} ({status}" + (f", {months} payments)" if months > 1 else ")"))
+    return ids[0]
+
+
+def set_series_status(deal_id: int, series_id: str, status: str, workspace_id: int | None = None) -> int:
+    """Move a contract's payments that are not yet received to `status` (expected, booked,
+    contracted, or cancelled — and back again, to undo a slip). Received payments stay
+    received. Returns how many payments changed; 0 when this deal has no such contract.
+    Raises DealNotFound, or ValueError for an unknown status or for collected."""
+    status = checked_sale_status(status)
+    if status == "collected":
+        raise ValueError("mark each payment received as it arrives, not the whole contract at once")
+    with db() as conn:
+        cur = conn.cursor()
+        get_deal(cur, deal_id, workspace_id)
+        cur.execute("UPDATE sales SET status = %s, collected_on = NULL WHERE deal_id = %s AND series_id = %s::uuid "
+                    "AND deleted_at IS NULL AND status <> 'collected'", (status, deal_id, str(series_id)))
+        changed = cur.rowcount
+    if changed:
+        log_audit(None, None, "sale.series_status", f"deal:{deal_id}", f"{series_id} -> {status} ({changed})")
+    return changed
 
 
 def set_sale_status(deal_id: int, sale_id: int, status: str, collected_on: date | None = None,
@@ -163,8 +216,10 @@ def deal_money(deal_ids: list[int], today: date | None = None) -> dict[int, dict
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, deal_id, amount_eur, won_on, description, status, expected_on, collected_on FROM sales "
-            "WHERE deal_id = ANY(%s) AND deleted_at IS NULL ORDER BY won_on DESC, id DESC",
+            "SELECT id, deal_id, amount_eur, won_on, description, status, expected_on, collected_on, "
+            "series_id::text AS series_id, series_part, series_total FROM sales "
+            "WHERE deal_id = ANY(%s) AND deleted_at IS NULL "
+            "ORDER BY won_on DESC, COALESCE(series_id::text, ''), series_part, id DESC",
             (list(deal_ids),),
         )
         for row in cur.fetchall():

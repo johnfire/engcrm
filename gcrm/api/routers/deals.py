@@ -3,6 +3,7 @@ along, name the contact person, set its next step, stop pitching it.
 
 Plain forms that come back to the page they were sent from, so the stage and
 status selects can submit themselves the moment they are picked."""
+import uuid
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -21,6 +22,7 @@ from gcrm.tools.deal_money import (
     delete_subscription,
     end_subscription,
     set_sale_status,
+    set_series_status,
     start_subscription,
 )
 from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
@@ -154,15 +156,18 @@ def deal_sale_add(
     description: str = Form(""),
     status: str = Form("booked"),
     expected_on: str = Form(""),
+    months: int = Form(1),
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Record a one-off sale on the deal: booked, contracted or already collected."""
+    """Record a sale on the deal — booked, contracted or already collected — or, with
+    `months` of 2 or more, a contract paid in that many monthly payments, the first due on
+    `expected_on`."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip())
         add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
                       workspace_id=request.session.get("workspace_id"), status=status,
-                      expected_on=parse_day(expected_on))
+                      expected_on=parse_day(expected_on), months=months)
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except (InvalidOperation, ValueError) as error:
@@ -186,6 +191,31 @@ def deal_sale_status(
         if not set_sale_status(deal_id, sale_id, status, collected_on=parse_day(collected_on),
                                workspace_id=request.session.get("workspace_id")):
             raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/series/{series_id}/status")
+def deal_series_status(
+    request: Request,
+    deal_id: int,
+    series_id: str,
+    status: str = Form(...),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Move every payment of a contract that is not yet received (booked → contracted, or
+    cancelled, or back). Received payments stay received."""
+    try:
+        series = str(uuid.UUID(series_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    try:
+        if not set_series_status(deal_id, series, status, request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Contract not found")
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:

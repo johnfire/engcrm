@@ -10,9 +10,10 @@ from decimal import Decimal
 from gcrm.activity_types import ACTIVITY_TYPES, DEFAULT_MINUTES, NOT_ACTIVITIES, type_case_sql
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
-from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status, collected_day
+from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, offer_id_sql
+from gcrm.tools.deal_money import insert_sale_payments
 
 PERIODS = ("week", "month", "quarter", "year")
 WORKING_STAGES = ("suspect", "nibble", "prospect", "opportunity")
@@ -81,30 +82,32 @@ def set_minute_defaults(workspace_id: int, minutes: dict[str, int]) -> None:
 
 def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str,
              deal_id: int | None = None, status: str | None = None, expected_on: date | None = None,
-             collected_on: date | None = None) -> int | None:
+             collected_on: date | None = None, months: int = 1) -> int | None:
     """Record a sale on an organization of this workspace, for one of its deals
-    (`deal_id`; its Consulting deal when not given). `status` defaults to
-    collected. None if there is no such organization, or no such live deal of it."""
+    (`deal_id`; its Consulting deal when not given), or — with `months` 2 to 60 — a contract
+    paid in that many monthly payments, the first due on `expected_on`. `status` defaults to
+    collected. Returns the (first) sale's id; None if there is no such organization, or no such
+    live deal of it. Raises ValueError for an amount not above 0, an unknown status or a
+    schedule that cannot be made."""
     if amount_eur <= 0:
         raise ValueError("amount must be more than 0")
     status = checked_sale_status(status)
-    collected = collected_day(status, collected_on, won_on)
     which = "x.id = %s" if deal_id is not None else f"x.offer_id = {offer_id_sql('c.workspace_id', CONSULTING)}"
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
-            "collected_on) SELECT %s, x.id, %s, %s, %s, %s, %s, %s FROM contacts c JOIN deals x ON x.contact_id = c.id "
-            f"WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL AND x.deleted_at IS NULL "
-            f"AND {which} RETURNING id",
-            [workspace_id, amount_eur, won_on, description.strip() or None, status, expected_on, collected,
-             contact_id, workspace_id,
-             *([deal_id] if deal_id is not None else [])],
+            "SELECT x.id FROM contacts c JOIN deals x ON x.contact_id = c.id "
+            "WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL AND x.deleted_at IS NULL "
+            f"AND {which}",
+            [contact_id, workspace_id, *([deal_id] if deal_id is not None else [])],
         )
-        row = cur.fetchone()
-    if row:
-        log_audit(None, None, "sale.added", f"contact:{contact_id}", f"{amount_eur} EUR on {won_on}")
-    return row["id"] if row else None
+        deal = cur.fetchone()
+        if deal is None:
+            return None
+        ids = insert_sale_payments(cur, workspace_id, deal["id"], Decimal(amount_eur), won_on,
+                                   description, status, expected_on, collected_on, months)
+    log_audit(None, None, "sale.added", f"contact:{contact_id}", f"{amount_eur} EUR on {won_on}")
+    return ids[0]
 
 
 def get_sales(contact_id: int) -> list[dict]:
@@ -112,9 +115,10 @@ def get_sales(contact_id: int) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             "SELECT s.id, s.deal_id, s.amount_eur, s.won_on, s.description, s.status, s.expected_on, s.collected_on, "
-            "o.name AS offer FROM sales s "
+            "s.series_id::text AS series_id, s.series_part, s.series_total, o.name AS offer FROM sales s "
             "JOIN deals d ON d.id = s.deal_id JOIN offers o ON o.id = d.offer_id "
-            "WHERE d.contact_id = %s AND s.deleted_at IS NULL ORDER BY s.won_on DESC, s.id DESC",
+            "WHERE d.contact_id = %s AND s.deleted_at IS NULL "
+            "ORDER BY s.won_on DESC, COALESCE(s.series_id::text, ''), s.series_part, s.id DESC",
             (contact_id,),
         )
         return [serialize_row(dict(row)) for row in cur.fetchall()]

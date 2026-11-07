@@ -157,19 +157,23 @@ def record_sale(
     deal_id: int | None = Form(None),
     status: str = Form("collected"),
     expected_on: str = Form(""),
+    months: int = Form(1),
     _admin: str = Depends(require_admin),
 ):
-    """Record a one-off sale for one of the organization's deals (Consulting's
-    when the form names none), booked, contracted or already collected."""
+    """Record a sale for one of the organization's deals (Consulting's when the form names
+    none), booked, contracted or already collected — or, with `months` of 2 or more, a
+    contract paid in that many monthly payments, the first due on the expected day."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
         when = parse_day(won_on)
         if when is None:
             raise ValueError("a sale needs its day")
         sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id,
-                           status=status, expected_on=parse_day(expected_on))
-    except (InvalidOperation, ValueError):
+                           status=status, expected_on=parse_day(expected_on), months=months)
+    except InvalidOperation:
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter an amount above 0 and a date")
     if sale_id is None:
         raise HTTPException(status_code=404, detail="Organization not found")
     return local_redirect(f"/organizations/{contact_id}", saved="1")

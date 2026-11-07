@@ -1013,7 +1013,7 @@
   "sale.status.cancelled": "Storniert",
   "sale.expectedOn": "erwartet {{date}}",
   "sale.collectedOn": "bezahlt {{date}}",
-  "sale.expectedOnLabel": "Erwartet am (optional)",
+  "sale.expectedOnLabel": "Erwartet am bzw. erste Rate fällig (bei mehreren Raten nötig)",
   "sale.collectedOnLabel": "Tag des Geldeingangs (leer = heute)",
   "deals.pipelineTotal": "Gebucht, noch nicht bezahlt: {{amount}}",
   "statistics.salesPipeline": "Verkaufs-Pipeline",
@@ -1059,5 +1059,8 @@
   "revenue.salesCount_one": "{{count}} Verkauf",
   "revenue.salesCount_other": "{{count}} Verkäufe",
   "revenue.salesCount": "{{count}} Verkäufe",
-  "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert."
+  "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert.",
+  "sale.paymentOf": "Rate {{part}} von {{total}}",
+  "sale.contractMove": "Ganzer Vertrag",
+  "sale.monthsLabel": "In wie vielen Monatsraten (1 = eine Zahlung)"
 }

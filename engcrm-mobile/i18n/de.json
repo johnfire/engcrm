@@ -780,5 +780,6 @@
   "sale.collectedOn": "bezahlt {{date}}",
   "sale.expectedOnLabel": "Erwartet am (optional)",
   "sale.moveTo": "Verschieben nach",
-  "sale.status.expected": "Erwartet"
+  "sale.status.expected": "Erwartet",
+  "sale.paymentOf": "Rate {{part}} von {{total}}"
 }

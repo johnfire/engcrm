@@ -9,6 +9,7 @@
 <li class="sale sale--{{ sale.status }}">
   <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}
   <span class="badge badge-sale-{{ sale.status }}">{{ t('sale.status.' ~ sale.status) }}</span>
+  {%- if sale.series_id %} <span class="muted small">· {{ t('sale.paymentOf', part=sale.series_part, total=sale.series_total) }}</span>{% endif %}
   {%- if sale.offer and show_offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}
   {%- if sale.description %} · {{ sale.description }}{% endif %}
   {%- if sale.status in ('booked', 'contracted') and sale.expected_on %}
@@ -25,6 +26,18 @@
     {{ date_field('collected_on', None, label=t('sale.collectedOnLabel')) }}
     <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
   </form>
+  {%- if sale.series_id and sale.series_part == 1 %}
+  <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move sale__contract">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <label>{{ t('sale.contractMove') }}
+    <select name="status">
+      {% for s in sale_statuses if s != 'collected' %}
+      <option value="{{ s }}" {% if s == sale.status %}selected{% endif %}>{{ t('sale.status.' ~ s) }}</option>
+      {% endfor %}
+    </select></label>
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+  {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
         data-confirm="{{ t('sales.deleteConfirm') }}">
     <input type="hidden" name="next" value="{{ page }}" />
@@ -43,5 +56,8 @@
 </label>
 <label>{{ t('sale.expectedOnLabel') }}
   {{ date_field('expected_on', None) }}
+</label>
+<label>{{ t('sale.monthsLabel') }}
+  <input type="number" name="months" value="1" min="1" max="60" inputmode="numeric" />
 </label>
 {%- endmacro %}
