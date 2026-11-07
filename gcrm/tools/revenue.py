@@ -14,17 +14,24 @@ from gcrm.tools.db_deals import offer_id_sql
 TOTAL_STATUSES = ("expected", "booked", "contracted", "collected")
 
 
-def revenue_sum_sql(owner_alias: str, statuses: tuple[str, ...], offer: str | None) -> str:
-    """A scalar subquery: the € of this organization's (`owner_alias`.id) live sales in the
-    given statuses, 0 when none — limited to one offer's deals when `offer` is given.
-    Statuses are checked against the fixed list, so nothing typed ever reaches the SQL."""
+OWNER_COLUMNS = {"organization": "contact_id", "person": "person_id"}
+
+
+def revenue_sum_sql(owner_alias: str, statuses: tuple[str, ...], offer: str | None,
+                    owner_column: str = "contact_id") -> str:
+    """A scalar subquery: the € of this organization's (or person's, with owner_column
+    "person_id") live sales in the given statuses, 0 when none — `owner_alias`.id is the owner.
+    Limited to one offer's deals when `offer` is given. Statuses and the column are checked
+    against fixed lists, so nothing typed ever reaches the SQL."""
     unknown = set(statuses) - set(SALE_STATUSES)
     if unknown:
         raise ValueError(f"unknown sale status {sorted(unknown)}")
+    if owner_column not in OWNER_COLUMNS.values():
+        raise ValueError(f"unknown owner column {owner_column!r}")
     listed = ", ".join(f"'{status}'" for status in statuses)
     only = f" AND d.offer_id = {offer_id_sql(f'{owner_alias}.workspace_id', offer)}" if offer else ""
     return ("(SELECT COALESCE(SUM(s.amount_eur), 0) FROM sales s JOIN deals d ON d.id = s.deal_id "
-            f"WHERE d.contact_id = {owner_alias}.id AND s.deleted_at IS NULL AND d.deleted_at IS NULL "
+            f"WHERE d.{owner_column} = {owner_alias}.id AND s.deleted_at IS NULL AND d.deleted_at IS NULL "
             f"AND s.status IN ({listed}){only})")
 
 
@@ -64,3 +71,28 @@ def business_revenue(workspace_id: int | None, offer: str | None = None) -> dict
                        "count": found[status]["n"] if status in found else 0} for status in SALE_STATUSES}
     totals["total"] = sum((totals[status]["eur"] for status in TOTAL_STATUSES), Decimal("0"))
     return totals
+
+
+def total_value_sql(owner_alias: str, owner_column: str, offer: str | None) -> str:
+    """TV: a scalar subquery with everything the owner is worth in sales that has not fallen
+    through — expected + booked + contracted + collected."""
+    return revenue_sum_sql(owner_alias, TOTAL_STATUSES, offer, owner_column)
+
+
+def owner_total_value(owner: str, owner_id: int) -> dict:
+    """{status: €, "total": €} for one organization or person (every offer), run inside the
+    workspace's scope: another workspace's record simply has no sales to add up."""
+    if owner not in OWNER_COLUMNS:
+        raise ValueError(f"unknown owner {owner!r}")
+    column = OWNER_COLUMNS[owner]
+    with db() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT s.status, COALESCE(SUM(s.amount_eur), 0) AS eur FROM sales s JOIN deals d ON d.id = s.deal_id "
+            f"WHERE d.{column} = %s AND s.deleted_at IS NULL AND d.deleted_at IS NULL GROUP BY s.status",
+            (owner_id,),
+        )
+        found = {row["status"]: Decimal(row["eur"]) for row in cur.fetchall()}
+    result = {status: found.get(status, Decimal("0")) for status in SALE_STATUSES}
+    result["total"] = sum((result[status] for status in TOTAL_STATUSES), Decimal("0"))
+    return result

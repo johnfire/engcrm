@@ -143,3 +143,30 @@ def test_the_page_groups_a_contract_and_the_form_asks_for_the_months(firm):
     refused = browser.post(f"/organizations/{firm['contact']}/sales", follow_redirects=False, data={
         "amount_eur": "1200", "won_on": "08.11.2026", "status": "booked", "months": "3"})
     assert refused.status_code == 400 and "first payment" in refused.text
+
+
+def test_the_organization_form_makes_monthly_payments_of_the_typed_amount_or_one_single_sale(firm):
+    from fastapi.testclient import TestClient
+
+    import gcrm.api.main as main
+    from gcrm.api.security import hash_password
+    with db() as connection:
+        connection.cursor().execute(
+            "INSERT INTO users (email, name, password_hash, role, workspace_id, is_active) "
+            "VALUES ('owner2@vhs.example', 'owner2', %s, 'admin', %s, TRUE)",
+            (hash_password("a-long-test-password-1"), firm["workspace"]))
+    browser = TestClient(main.app)
+    assert browser.post("/login", data={"email": "owner2@vhs.example", "password": "a-long-test-password-1"},
+                        follow_redirects=False).status_code in (302, 303)
+    path = f"/organizations/{firm['contact']}/sales"
+    base = {"won_on": "08.11.2026", "status": "booked", "expected_on": "01.03.2027"}
+    assert browser.post(path, data={**base, "amount_eur": "500", "schedule": "monthly", "months": "3"},
+                        follow_redirects=False).status_code == 303
+    rows = _rows(firm["deal"])
+    assert [r["amount_eur"] for r in rows] == [Decimal("500.00")] * 3          # 500 per month, not 500 in all
+    assert [r["expected_on"] for r in rows] == [date(2027, 3, 1), date(2027, 4, 1), date(2027, 5, 1)]
+    assert browser.post(path, data={**base, "amount_eur": "800", "schedule": "one", "months": "9"},
+                        follow_redirects=False).status_code == 303
+    assert len(_rows(firm["deal"])) == 4 and _rows(firm["deal"])[0]["series_id"] is None          # one plain sale, the months box ignored
+    page = browser.get(f"/organizations/{firm['contact']}?lang=en").text
+    assert 'name="schedule"' in page and "One-time payment" in page and "Paid monthly" in page

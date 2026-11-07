@@ -57,7 +57,13 @@
 <label>{{ t('sale.expectedOnLabel') }}
   {{ date_field('expected_on', None) }}
 </label>
-<label>{{ t('sale.monthsLabel') }}
-  <input type="number" name="months" value="1" min="1" max="60" inputmode="numeric" />
-</label>
+<fieldset class="sale-kind">
+  <legend>{{ t('sale.kind') }}</legend>
+  <label class="flag-check"><input type="radio" name="schedule" value="one" checked /> {{ t('sale.kindOne') }}</label>
+  <label class="flag-check"><input type="radio" name="schedule" value="monthly" /> {{ t('sale.kindMonthly') }}</label>
+  <label>{{ t('sale.monthsLabel') }}
+    <input type="number" name="months" value="2" min="2" max="60" inputmode="numeric" />
+  </label>
+  <p class="muted small">{{ t('sale.kindHint') }}</p>
+</fieldset>
 {%- endmacro %}

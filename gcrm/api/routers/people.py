@@ -61,6 +61,7 @@ from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.email_extract import extract_person_from_email
 from gcrm.tools.privacy_retention import erase_person
+from gcrm.tools.revenue import owner_total_value
 from gcrm.tools.transcribe import transcribe
 from gcrm.tools.web_person_capture import (
     ExistingPerson,
@@ -639,9 +640,16 @@ def person_detail(
     person = get_person(person_id, request.session.get("user_id"))
     if person is None:
         raise HTTPException(status_code=404, detail="Person not found")
+    # Total value is a bonus at the top of this page: if it can't be read, the page still renders.
+    try:
+        total_value = owner_total_value("person", person_id)
+    except Exception:
+        logger.exception("total value lookup failed for person %s", person_id)
+        total_value = None
     return templates.TemplateResponse("person_detail.html", {
         "request": request,
         "person": person,
+        "total_value": total_value,
         "saved": saved,
         "interactions": get_person_interactions(person_id),
         "mail_sender_options": MAIL_SENDER_OPTIONS,

@@ -25,6 +25,7 @@ from gcrm.dates import parse_day
 from gcrm.db.connection import db
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sale_series import contract_from_form
 from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.statistics import (
@@ -157,14 +158,16 @@ def record_sale(
     deal_id: int | None = Form(None),
     status: str = Form("collected"),
     expected_on: str = Form(""),
+    schedule: str = Form(""),
     months: int = Form(1),
     _admin: str = Depends(require_admin),
 ):
     """Record a sale for one of the organization's deals (Consulting's when the form names
-    none), booked, contracted or already collected — or, with `months` of 2 or more, a
-    contract paid in that many monthly payments, the first due on the expected day."""
+    none), booked, contracted or already collected. `schedule` is "one" (a single payment) or
+    "monthly" (the amount is per month, for `months` months, the first due on the expected day)."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
+        amount, months = contract_from_form(amount, schedule, months)
         when = parse_day(won_on)
         if when is None:
             raise ValueError("a sale needs its day")

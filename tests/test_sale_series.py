@@ -45,3 +45,19 @@ def test_the_year_rolls_over():
 def test_only_two_to_the_maximum_months_make_a_schedule(months):
     with pytest.raises(ValueError):
         due_dates(date(2027, 1, 1), months)
+
+
+from gcrm.sale_series import contract_from_form  # noqa: E402
+
+
+def test_the_form_choice_decides_whether_the_amount_is_the_whole_or_per_month():
+    assert contract_from_form(Decimal("500"), "one", 9) == (Decimal("500"), 1)
+    assert contract_from_form(Decimal("500"), "monthly", 6) == (Decimal("3000"), 6)
+    assert contract_from_form(Decimal("2400"), "", 4) == (Decimal("2400"), 4)       # an older form: the total, split
+    assert contract_from_form(Decimal("2400"), "", 1) == (Decimal("2400"), 1)
+
+
+@pytest.mark.parametrize("schedule,months", [("monthly", 1), ("monthly", 61), ("weekly", 3), ("", 0)])
+def test_the_form_choice_refuses_nonsense(schedule, months):
+    with pytest.raises(ValueError):
+        contract_from_form(Decimal("500"), schedule, months)

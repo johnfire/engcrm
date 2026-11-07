@@ -1013,7 +1013,7 @@
   "sale.status.cancelled": "Cancelled",
   "sale.expectedOn": "expected {{date}}",
   "sale.collectedOn": "collected {{date}}",
-  "sale.expectedOnLabel": "Expected on, or first payment due (needed for several payments)",
+  "sale.expectedOnLabel": "Expected on, or first payment due (needed for monthly payments)",
   "sale.collectedOnLabel": "Day the money came in (blank = today)",
   "deals.pipelineTotal": "Booked, not collected yet: {{amount}}",
   "statistics.salesPipeline": "Sales pipeline",
@@ -1062,7 +1062,7 @@
   "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled.",
   "sale.paymentOf": "payment {{part}} of {{total}}",
   "sale.contractMove": "Whole contract",
-  "sale.monthsLabel": "Paid in how many monthly payments (1 = a single payment)",
+  "sale.monthsLabel": "If monthly: for how many months",
   "nav.forecast": "Forecast",
   "forecast.title": "Forecast",
   "forecast.hint": "What is coming in and when, by due day. Received money sits in the month it arrived.",
@@ -1106,5 +1106,13 @@
   "forecast.tile.this_quarter": "This quarter",
   "forecast.tile.next_quarter": "Next quarter",
   "forecast.tile.this_year": "This year",
-  "forecast.tile.next_year": "Next year"
+  "forecast.tile.next_year": "Next year",
+  "contactFeed.totalValue": "TV",
+  "contactFeed.totalValueHint": "Total value: expected + booked + contracted + collected (not cancelled)",
+  "totalValue.label": "Total value",
+  "totalValue.hint": "Everything expected, booked, contracted or collected; cancelled sales are left out",
+  "sale.kind": "One payment or monthly?",
+  "sale.kindOne": "One-time payment",
+  "sale.kindMonthly": "Paid monthly",
+  "sale.kindHint": "One-time: the amount is the whole payment. Monthly: the amount is per month, so you enter it once and each month becomes its own payment, starting on the day above."
 }

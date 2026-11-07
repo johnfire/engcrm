@@ -32,7 +32,7 @@
 {% endif %}
 {% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 {% set active_sort = filters.sort %}
-{% set active_dir = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value') else 'asc') %}
+{% set active_dir = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
 {% set filter_values = dict(q=filters.search, kind=filters.kind, stage=filters.stage, offer=active_offer or 'all') %}
 {% set sort_values = dict(sort=active_sort, dir=active_dir) %}
 {% set reset_filter_values = dict(q='', kind='', stage='', offer='all', sort=active_sort, dir=active_dir) %}
@@ -67,7 +67,7 @@
     {% endfor %}
   </select>
   <select name="dir" aria-label="{{ t('common.sortBy') }}: {{ t('common.sortAsc') }} / {{ t('common.sortDesc') }}">
-    {% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value') else 'asc') %}
+    {% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
     <option value="asc" {% if direction == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
     <option value="desc" {% if direction == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
   </select>
@@ -77,7 +77,7 @@
 </div>
 </div>
 {% macro sort_th(key, label, first_dir='asc') %}
-{% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value') else 'asc') %}
+{% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
 {% set active = filters.sort == key %}
 {% set next_dir = ('asc' if direction == 'desc' else 'desc') if active else first_dir %}
 {% set link = request.url.include_query_params(sort=key, dir=next_dir, page=1) %}
@@ -88,7 +88,7 @@
     <thead><tr>
       {{ sort_th('kind', t('contactFeed.kind')) }}{{ sort_th('name', t('contactFeed.name')) }}
       <th scope="col">{{ t('contactFeed.details') }}</th>{{ sort_th('city', t('contactFeed.city')) }}
-      {{ sort_th('priority', t('contactFeed.priority')) }}{{ sort_th('long_term_value', t('contactFeed.longTerm'), 'desc') }}{{ sort_th('short_term_value', t('contactFeed.shortTerm'), 'desc') }}
+      {{ sort_th('total_value', t('contactFeed.totalValue'), 'desc') }}{{ sort_th('priority', t('contactFeed.priority')) }}{{ sort_th('long_term_value', t('contactFeed.longTerm'), 'desc') }}{{ sort_th('short_term_value', t('contactFeed.shortTerm'), 'desc') }}
       {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}{{ sort_th('next_contact', t('contactFeed.next_contact')) }}
       {{ sort_th('last_contact', t('contactFeed.last_contact'), 'desc') }}
     </tr></thead>
@@ -111,6 +111,7 @@
           </details>{% endif %}
         </td>
         <td>{{ contact.city or '—' }}</td>
+        <td class="num revenue-col" title="{{ t('contactFeed.totalValueHint') }}">{% if contact.total_value and contact.total_value|float %}{{ contact.total_value | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
         <td>{% if contact.priority is not none %}<span class="personal-priority-badge tone-{{ priority_tone[contact.priority] }}">P{{ contact.priority }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         {%- for field in ['long_term_value', 'short_term_value'] %}
         <td>{% if contact[field] is not none %}<span class="personal-priority-badge tone-{{ value_tone[contact[field]] }}" title="{{ t('valueRating.level' ~ contact[field]) }}">{{ t('valueRating.abbr' ~ contact[field]) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
@@ -126,7 +127,7 @@
           {% endif %}
         </td>
       </tr>
-      {% else %}<tr><td colspan="10" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="11" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

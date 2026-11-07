@@ -14,6 +14,7 @@ SORT_COLUMNS = {
     "kind": "kind",
     "pipeline_stage": "stage_sort_key",
     "next_contact": "next_contact",
+    "total_value": "total_value",
     "priority": "rating.priority",
     "short_term_value": "rating.short_term_value",
     "long_term_value": "rating.long_term_value",
@@ -21,7 +22,7 @@ SORT_COLUMNS = {
 
 # Sorts that start high-to-low: newest contact first, highest value first.
 # (Priority starts ascending: 1 is the best.)
-DESCENDING_SORTS = ("last_contact", "newest", "short_term_value", "long_term_value")
+DESCENDING_SORTS = ("last_contact", "newest", "short_term_value", "long_term_value", "total_value")
 
 
 def validate_feed_filters(kind: str, stage: str, sort: str) -> None:

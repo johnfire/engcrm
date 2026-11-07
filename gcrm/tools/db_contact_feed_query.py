@@ -9,6 +9,7 @@ from gcrm.tools.db_deals import (
     organization_deal_join,
     person_deal_join,
 )
+from gcrm.tools.revenue import total_value_sql
 
 
 def _stages_sql(alias: str, column: str, offer: str | None) -> str:
@@ -65,6 +66,7 @@ WITH my_ratings AS (
            {_next_step_sql("person", "person_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("person", "person_id", offer, "next_step")} AS next_contact_step,
            {_contacted_sql("person", "person_id")} AS contacted,
+           {total_value_sql("person", "person_id", offer)} AS total_value,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
              WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
       FROM people person
@@ -90,6 +92,7 @@ WITH my_ratings AS (
            {_next_step_sql("organization", "contact_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("organization", "contact_id", offer, "next_step")} AS next_contact_step,
            {_contacted_sql("organization", "contact_id")} AS contacted,
+           {total_value_sql("organization", "contact_id", offer)} AS total_value,
            linked.people, linked.searchable_people,
            direct.last_contact AS direct_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
@@ -104,7 +107,7 @@ WITH my_ratings AS (
 ), contact_feed AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
            city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, next_contact, next_contact_step,
-           created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
+           total_value, created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
            contacted OR people IS NOT NULL AS contacted,
            COALESCE(people, '[]'::jsonb) AS people, searchable_people,
            CASE WHEN person_contact IS NULL OR direct_contact >= person_contact
@@ -117,13 +120,13 @@ WITH my_ratings AS (
     UNION ALL
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
            person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
-           person.next_contact, person.next_contact_step, person.created_at, person.workspace_id, person.last_contact,
+           person.next_contact, person.next_contact_step, person.total_value, person.created_at, person.workspace_id, person.last_contact,
            person.contacted,
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL
 )
 SELECT id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
-       next_contact, next_contact_step, created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
+       next_contact, next_contact_step, total_value, created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
        rating.priority, rating.short_term_value, rating.long_term_value
 FROM contact_feed
 LEFT JOIN my_ratings rating ON rating.rated_kind = contact_feed.kind AND rating.rated_id = contact_feed.id

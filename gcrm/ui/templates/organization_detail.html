@@ -10,6 +10,11 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     %}{% if organization.distance_km is not none %} · {{ organization.distance_km|round|int }} {{ t('common.distanceKm') }}{% endif %}</span
   >
 </div>
+{% if total_value is defined and total_value %}
+<p class="total-value" title="{{ t('totalValue.hint') }}"><strong>{{ t('totalValue.label') }}: {{ total_value.total | eur }}</strong>
+  <span class="muted small">· {{ t('sale.status.collected') }} {{ total_value.collected | eur }} · {{ t('sale.status.contracted') }} {{ total_value.contracted | eur }} ·
+  {{ t('sale.status.booked') }} {{ total_value.booked | eur }} · {{ t('sale.status.expected') }} {{ total_value.expected | eur }}</span></p>
+{% endif %}
 
 <p class="muted">{{ t('personDetail.source') }}: {{ t(source_label_key(organization.source)) }}</p>
 

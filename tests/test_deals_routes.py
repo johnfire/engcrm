@@ -340,3 +340,36 @@ class TestPaymentSchedules:
         assert moved.status_code == 200 and moved.json()["changed"] == 3 and move.call_args.args[2] == "cancelled"
         assert client.patch("/api/deals/9/series/6f1c2f1e-0a5b-4b7e-9a39-0c1f2d3e4a5b", headers=VIEWER,
                             json={"status": "cancelled"}).status_code == 403
+
+
+class TestOneTimeOrMonthly:
+    """The Sales form asks "one-time or monthly"; for monthly the amount typed is per month."""
+
+    def test_monthly_means_the_amount_is_per_month_and_the_contract_is_amount_times_months(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "status": "booked",
+                                    "expected_on": "01.02.2027", "schedule": "monthly", "months": "6"})
+        assert add.call_args.args[1] == Decimal("3000") and add.call_args.kwargs["months"] == 6
+
+    def test_one_time_ignores_the_months_box(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "schedule": "one", "months": "6"})
+        assert add.call_args.args[1] == Decimal("500") and add.call_args.kwargs["months"] == 1
+
+    def test_an_older_form_without_the_choice_still_means_the_total_split_over_months(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            post("/deals/9/sales", {"amount_eur": "2400", "won_on": "2026-11-08", "expected_on": "01.02.2027", "months": "4"})
+        assert add.call_args.args[1] == Decimal("2400") and add.call_args.kwargs["months"] == 4
+
+    @pytest.mark.parametrize("months", ["1", "0", "61", "-2"])
+    def test_monthly_needs_two_to_sixty_months(self, admin_web, months):
+        with patch("gcrm.api.routers.deals.add_deal_sale") as add:
+            response = post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "schedule": "monthly",
+                                               "expected_on": "01.02.2027", "months": months})
+        assert response.status_code == 400
+        add.assert_not_called()
+
+    def test_an_unknown_choice_is_refused(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale") as add:
+            assert post("/deals/9/sales", {"amount_eur": "5", "won_on": "2026-11-08", "schedule": "weekly"}).status_code == 400
+        add.assert_not_called()

@@ -1013,7 +1013,7 @@
   "sale.status.cancelled": "Storniert",
   "sale.expectedOn": "erwartet {{date}}",
   "sale.collectedOn": "bezahlt {{date}}",
-  "sale.expectedOnLabel": "Erwartet am bzw. erste Rate fällig (bei mehreren Raten nötig)",
+  "sale.expectedOnLabel": "Erwartet am bzw. erste Rate fällig (bei monatlicher Zahlung nötig)",
   "sale.collectedOnLabel": "Tag des Geldeingangs (leer = heute)",
   "deals.pipelineTotal": "Gebucht, noch nicht bezahlt: {{amount}}",
   "statistics.salesPipeline": "Verkaufs-Pipeline",
@@ -1062,7 +1062,7 @@
   "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert.",
   "sale.paymentOf": "Rate {{part}} von {{total}}",
   "sale.contractMove": "Ganzer Vertrag",
-  "sale.monthsLabel": "In wie vielen Monatsraten (1 = eine Zahlung)",
+  "sale.monthsLabel": "Wenn monatlich: für wie viele Monate",
   "nav.forecast": "Prognose",
   "forecast.title": "Prognose",
   "forecast.hint": "Was wann hereinkommt, nach Fälligkeitstag. Erhaltenes Geld steht im Monat des Eingangs.",
@@ -1106,5 +1106,13 @@
   "forecast.tile.this_quarter": "Dieses Quartal",
   "forecast.tile.next_quarter": "Nächstes Quartal",
   "forecast.tile.this_year": "Dieses Jahr",
-  "forecast.tile.next_year": "Nächstes Jahr"
+  "forecast.tile.next_year": "Nächstes Jahr",
+  "contactFeed.totalValue": "GW",
+  "contactFeed.totalValueHint": "Gesamtwert: erwartet + gebucht + vertraglich + bezahlt (ohne storniert)",
+  "totalValue.label": "Gesamtwert",
+  "totalValue.hint": "Alles Erwartete, Gebuchte, Vertragliche oder Bezahlte; stornierte Verkäufe fehlen",
+  "sale.kind": "Einmalig oder monatlich?",
+  "sale.kindOne": "Einmalzahlung",
+  "sale.kindMonthly": "Monatlich bezahlt",
+  "sale.kindHint": "Einmalig: der Betrag ist die ganze Zahlung. Monatlich: der Betrag gilt pro Monat; Sie geben ihn einmal ein, und jeder Monat wird eine eigene Zahlung, beginnend am oben genannten Tag."
 }

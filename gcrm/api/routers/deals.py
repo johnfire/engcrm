@@ -13,6 +13,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.dates import parse_day
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
+from gcrm.sale_series import contract_from_form
 from gcrm.sale_status import SALE_STATUSES
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import (
@@ -156,15 +157,16 @@ def deal_sale_add(
     description: str = Form(""),
     status: str = Form("booked"),
     expected_on: str = Form(""),
+    schedule: str = Form(""),
     months: int = Form(1),
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Record a sale on the deal — booked, contracted or already collected — or, with
-    `months` of 2 or more, a contract paid in that many monthly payments, the first due on
-    `expected_on`."""
+    """Record a sale on the deal — booked, contracted or already collected. `schedule` is
+    "one" (a single payment) or "monthly" (the amount is per month, for `months` months, the
+    first due on `expected_on`)."""
     try:
-        amount = Decimal(amount_eur.replace(",", ".").strip())
+        amount, months = contract_from_form(Decimal(amount_eur.replace(",", ".").strip()), schedule, months)
         add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
                       workspace_id=request.session.get("workspace_id"), status=status,
                       expected_on=parse_day(expected_on), months=months)

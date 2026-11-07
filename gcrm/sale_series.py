@@ -43,3 +43,17 @@ def due_dates(first: date, months: int) -> list[date]:
     month's last day: 31 January, 28 February, 31 March...)."""
     check_months(months)
     return [shift_months(first, step) for step in range(months)]
+
+
+def contract_from_form(amount: Decimal, schedule: str, months: int) -> tuple[Decimal, int]:
+    """(total, number of payments) for what the Sales form sent. "one": a single payment of
+    the amount (the months box is ignored). "monthly": the amount is *per month*, so the
+    contract is amount × months, in 2 to 60 payments. Blank (an older form): the amount is
+    the total, split over `months` payments (1 = a single payment). Raises ValueError."""
+    if schedule == "one":
+        return amount, 1
+    if schedule == "monthly":
+        return amount * check_months(months), months
+    if schedule == "":
+        return amount, 1 if months == 1 else check_months(months)
+    raise ValueError("choose a one-time payment or monthly payments")

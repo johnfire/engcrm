@@ -36,7 +36,12 @@ from gcrm.tools.db_personal_priorities import set_organization_rating, set_perso
 from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.map_pins import pins_for_contact
 from gcrm.tools.privacy_retention import erase_organization
-from gcrm.tools.revenue import business_revenue, revenue_columns_sql, revenue_sort_sql
+from gcrm.tools.revenue import (
+    business_revenue,
+    owner_total_value,
+    revenue_columns_sql,
+    revenue_sort_sql,
+)
 from gcrm.tools.statistics import get_sales
 
 logger = logging.getLogger(__name__)
@@ -477,9 +482,16 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
         logger.exception("map pins lookup failed for contact %s", contact_id)
         map_pins = []
     visit_summary = _safe_visit_summary(contact_id)
+    # Total value is a bonus at the top of this page: if it can't be read, the page still renders.
+    try:
+        total_value = owner_total_value("organization", contact_id)
+    except Exception:
+        logger.exception("total value lookup failed for contact %s", contact_id)
+        total_value = None
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
+        "total_value": total_value,
         "interactions": interactions,
         "sales": sales,
         "map_pins": map_pins,
