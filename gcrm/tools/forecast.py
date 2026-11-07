@@ -69,7 +69,7 @@ def _monthly_money(workspace_id: int, first: date, last: date, offer: str | None
     return months, undated, undated_count
 
 
-def _period(granularity: str, start: date, money: dict, targets: dict, has_plan: bool) -> dict:
+def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
     months = months_of(granularity, start)
     sums = _blank()
     for month in months:
@@ -77,11 +77,13 @@ def _period(granularity: str, start: date, money: dict, targets: dict, has_plan:
             sums[status] += euros
     secured = sums["collected"] + sums["contracted"] + sums["booked"]
     total = secured + sums["expected"]
-    target = sum((targets[m]["target"] for m in months), _ZERO) if has_plan else None
+    counted = [targets[m]["target"] for m in months if targets[m]["target"] is not None]
+    target = sum(counted, _ZERO) if counted else None            # months before the business started count for nothing
     return {
         "start": start, "end": period_end(granularity, start), **sums,
         "secured": secured, "total": total, "target": target,
         "possible_income": sum((targets[m]["possible"] for m in months), _ZERO),
+        "covered": sum((targets[m]["covered"] for m in months), _ZERO),
         "gap_secured": None if target is None else target - secured,
         "gap_total": None if target is None else target - total,
     }
@@ -97,14 +99,13 @@ def get_forecast(workspace_id: int, granularity: str, today: date | None = None,
     needed = [(s, period_end(granularity, s)) for s in starts] + [(s, period_end(g, s)) for _, g, s in tile_starts]
     first, last = min(a for a, _ in needed), max(b for _, b in needed)
     plan = get_plan()
-    has_plan = plan["monthly_need"] is not None
     all_months = []
     for g, s in [(granularity, s) for s in starts] + [(g, s) for _, g, s in tile_starts]:
         all_months += months_of(g, s)
-    targets = month_targets(plan["monthly_need"], plan["other_income"], sorted(set(all_months)))
+    targets = month_targets(plan["monthly_need"], plan["other_income"], sorted(set(all_months)), plan["start_month"])
     money, undated, undated_count = _monthly_money(workspace_id, first, last, offer)
-    periods = [_period(granularity, s, money, targets, has_plan) for s in starts]
-    tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets, has_plan)} for key, g, s in tile_starts]
+    periods = [_period(granularity, s, money, targets) for s in starts]
+    tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets)} for key, g, s in tile_starts]
     undated_secured = undated["contracted"] + undated["booked"]
     return {
         "granularity": granularity, "today": today, "periods": periods, "tiles": tiles, "plan": plan,

@@ -86,9 +86,9 @@ FILES: dict[str, str] = {
          WHERE s.workspace_id = %(ws)s AND s.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY s.id""",
     "income_plan.csv": """
-        SELECT monthly_need, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
+        SELECT monthly_need, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
     "other_income.csv": """
-        SELECT id, label, amount_eur, first_received_on, payments, confirmed, created_at
+        SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed, created_at
           FROM other_income WHERE workspace_id = %(ws)s AND deleted_at IS NULL ORDER BY id""",
     "offers.csv": """
         SELECT id, slug, name, website, revenue_kind, sort_order, archived_at
@@ -110,8 +110,8 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
                       payments_in_contract); expected_on is the day that payment is due
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
-  income_plan.csv     the income you need per month from sales (the forecast's target)
-  other_income.csv    other income that covers part of it, and whether it is confirmed
+  income_plan.csv     the income you need per month from sales, and the first month it applies from
+  other_income.csv    other income that covers part of it: the months it covers, and whether it is confirmed
   manifest.json       when this was made and how many rows each file holds
 
 Every row has a stable `id`. Related rows carry the id and the name, e.g. people.csv has

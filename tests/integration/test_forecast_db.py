@@ -16,6 +16,7 @@ from gcrm.tools.income_plan import (
     get_plan,
     save_monthly_need,
     set_other_income_confirmed,
+    update_other_income,
 )
 from gcrm.workspace_context import workspace_scope
 
@@ -190,3 +191,64 @@ def test_nonsense_other_income_is_refused(world, args):
 def test_a_negative_need_is_refused(world):
     with workspace_scope(world["first"]), pytest.raises(ValueError):
         save_monthly_need(D("-1"))
+
+
+def test_support_paid_a_month_later_still_lowers_the_months_it_covers(world):
+    with workspace_scope(world["first"]):
+        # first payment arrives 1 Nov but it is for October: October to March are covered
+        add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True, covers_from=date(2026, 10, 1))
+    f = _forecast(world)
+    assert _period(f, date(2026, 10, 1))["target"] == D("3500") and _period(f, date(2026, 10, 1))["covered"] == D("1500")
+    assert _period(f, date(2027, 3, 1))["target"] == D("3500")
+    assert _period(f, date(2027, 4, 1))["target"] == D("5000") and _period(f, date(2027, 4, 1))["covered"] == D("0")
+
+
+def test_without_a_covers_from_the_income_covers_the_month_of_its_first_payment(world):
+    with workspace_scope(world["first"]):
+        add_other_income("Support payment", D("1500"), date(2026, 11, 20), 2, True)
+        line = get_plan()["other_income"][0]
+    assert line["covers_from"] == date(2026, 11, 1)
+    assert _period(_forecast(world), date(2026, 11, 1))["covered"] == D("1500")
+
+
+def test_nothing_before_the_first_month_of_the_business_has_a_target(world):
+    with workspace_scope(world["first"]):
+        save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
+    f = _forecast(world)
+    assert _period(f, date(2026, 9, 1))["target"] is None and _period(f, date(2026, 9, 1))["gap_secured"] is None
+    assert _period(f, date(2026, 10, 1))["target"] == D("5000")
+    q3 = _period(_forecast(world, "quarter"), date(2026, 7, 1))
+    assert q3["target"] is None                                           # no month of that quarter was in business
+    year = _period(_forecast(world, "year"), date(2026, 1, 1))
+    assert year["target"] == D("5000") * 3                                # October, November, December 2026 only
+
+
+def test_a_quarter_that_starts_before_the_business_counts_only_the_months_in_business(world):
+    with workspace_scope(world["first"]):
+        save_monthly_need(D("5000"), start_month=date(2026, 11, 1))
+    q4 = _period(_forecast(world, "quarter"), date(2026, 10, 1))
+    assert q4["target"] == D("5000") * 2                                  # November and December
+
+
+def test_other_income_shows_even_when_no_monthly_need_has_been_entered(world):
+    with workspace_scope(world["second"]):
+        add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True, covers_from=date(2026, 10, 1))
+        f = get_forecast(world["second"], "month", TODAY, None)
+    nov = _period(f, date(2026, 11, 1))
+    assert nov["target"] is None and nov["covered"] == D("1500")           # the target needs a need, the income does not
+
+
+def test_an_income_line_can_be_edited_and_only_by_its_own_workspace(world):
+    with workspace_scope(world["first"]):
+        line = add_other_income("Support", D("1000"), date(2026, 11, 1), 3, False)
+        assert update_other_income(line, "Support payment", D("1500"), date(2026, 11, 1), 6, True, date(2026, 10, 1))
+        edited = get_plan()["other_income"][0]
+    assert (edited["label"], edited["amount_eur"], edited["payments"], edited["confirmed"], edited["covers_from"]) == \
+        ("Support payment", D("1500.00"), 6, True, date(2026, 10, 1))
+    with workspace_scope(world["second"]):
+        assert not update_other_income(line, "Hijacked", D("1"), date(2026, 11, 1), 1, True, None)
+    with workspace_scope(world["first"]):
+        assert get_plan()["other_income"][0]["label"] == "Support payment"
+        with pytest.raises(ValueError):
+            update_other_income(line, "", D("1"), date(2026, 11, 1), 1, True, None)
+        assert not update_other_income(999999, "x", D("1"), date(2026, 11, 1), 1, True, None)

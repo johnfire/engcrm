@@ -1,9 +1,10 @@
 """Periods and monthly targets for the forecast: pure date and money arithmetic.
 
 A target is *per month* and a quarter's or year's target is the sum of its months. A month's
-target is the income needed per month minus the confirmed other income that arrives in that
-month (cash basis, like the sales). Unconfirmed other income is "possible": shown, never
-subtracted. Nothing here touches the database.
+target is the income needed per month minus the confirmed other income that *covers* that month
+(support paid in arrears for October covers October, though it arrives in November). Months
+before the business started have no target. Unconfirmed other income is "possible": shown,
+never subtracted. Nothing here touches the database.
 """
 import calendar
 from datetime import date
@@ -59,27 +60,32 @@ def periods_around(granularity: str, today: date) -> list[date]:
     return [shift_months(first, step * _months_long(granularity)) for step in range(total)]
 
 
-def receipt_dates(first_received_on: date, payments: int) -> list[date]:
-    """When a line of other income arrives: the first day, then monthly, `payments` times."""
+def coverage_months(covers_from: date, payments: int) -> list[date]:
+    """The months a line of other income covers: `payments` consecutive months, the first being
+    the month of `covers_from` (any day in it will do)."""
     if not isinstance(payments, int) or not 1 <= payments <= MAX_RECEIPTS:
         raise ValueError(f"other income has 1 to {MAX_RECEIPTS} payments")
-    return [shift_months(first_received_on, step) for step in range(payments)]
+    first = covers_from.replace(day=1)
+    return [shift_months(first, step) for step in range(payments)]
 
 
-def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[date]) -> dict[date, dict]:
-    """{month: {"target", "possible"}} for each month in `months`. `target` is the need minus the
-    confirmed other income arriving that month, never below 0 (None with no plan); `possible`
-    is the unconfirmed other income arriving that month. A line is {amount_eur,
-    first_received_on, payments, confirmed}."""
+def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[date],
+                  start_month: date | None = None) -> dict[date, dict]:
+    """{month: {"target", "possible", "covered"}} for each month in `months`. `covered` is the
+    confirmed other income covering that month and `possible` the unconfirmed. `target` is the
+    need minus `covered`, never below 0; it is None with no need entered, and for months before
+    `start_month`. A line is {amount_eur, covers_from, payments, confirmed}."""
     confirmed: dict[date, Decimal] = {}
     possible: dict[date, Decimal] = {}
     for line in lines:
         bucket = confirmed if line["confirmed"] else possible
-        for received in receipt_dates(line["first_received_on"], line["payments"]):
-            month = received.replace(day=1)
+        for month in coverage_months(line["covers_from"], line["payments"]):
             bucket[month] = bucket.get(month, _ZERO) + Decimal(line["amount_eur"])
+    first = start_month.replace(day=1) if start_month else None
     result = {}
     for month in months:
-        target = None if monthly_need is None else max(_ZERO, Decimal(monthly_need) - confirmed.get(month, _ZERO))
-        result[month] = {"target": target, "possible": possible.get(month, _ZERO)}
+        covered = confirmed.get(month, _ZERO)
+        in_business = first is None or month >= first
+        target = None if (monthly_need is None or not in_business) else max(_ZERO, Decimal(monthly_need) - covered)
+        result[month] = {"target": target, "possible": possible.get(month, _ZERO), "covered": covered}
     return result

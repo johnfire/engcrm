@@ -24,6 +24,7 @@ from gcrm.tools.income_plan import (
     delete_other_income,
     save_monthly_need,
     set_other_income_confirmed,
+    update_other_income,
 )
 from gcrm.workspace_context import workspace_scope
 
@@ -64,37 +65,76 @@ def _back(view: str):
 
 
 @router.post("/forecast/need", dependencies=[Depends(require_admin)])
-def save_need(request: Request, monthly_need: str = Form(...), view: str = Form("month")):
-    """Set the income needed per month from sales."""
+def save_need(request: Request, monthly_need: str = Form(...), start_month: str = Form(""),
+              view: str = Form("month")):
+    """Set the income needed per month from sales, and the first month it applies to (blank:
+    every month)."""
     try:
         amount = Decimal(monthly_need.replace(",", ".").strip())
+        first = parse_day(start_month) if start_month.strip() else None
+        if start_month.strip() and first is None:
+            raise ValueError("enter the first month like 01.10.2026")
         with workspace_scope(session_workspace_id(request)):
-            save_monthly_need(amount)
+            save_monthly_need(amount, first)
     except (InvalidOperation, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error) or "Enter the amount you need per month")
     return _back(view)
 
 
+def _income_fields(label: str, amount_eur: str, first_received_on: str, covers_from: str):
+    """(label, amount, first payment day, first covered month or None) from an income form."""
+    day = parse_day(first_received_on)
+    if day is None:
+        raise ValueError("enter the day the first payment arrives, like 01.12.2026")
+    covers = parse_day(covers_from) if covers_from.strip() else None
+    if covers_from.strip() and covers is None:
+        raise ValueError("enter the first month it covers, like 01.10.2026")
+    return label, Decimal(amount_eur.replace(",", ".").strip()), day, covers
+
+
 @router.post("/forecast/other-income", dependencies=[Depends(require_admin)])
 def add_income(
     request: Request,
-    label: str = Form(...),
+    label: str = Form(""),
     amount_eur: str = Form(...),
     first_received_on: str = Form(...),
+    covers_from: str = Form(""),
     payments: int = Form(1),
     confirmed: str = Form(""),
     view: str = Form("month"),
 ):
-    """Add other income: an amount arriving on a day, then monthly, so many times."""
+    """Add other income: an amount a month, so many months, the first paid on a day and covering
+    the months from `covers_from` (blank: the month of the first payment)."""
     try:
-        day = parse_day(first_received_on)
-        if day is None:
-            raise ValueError("enter the day the first payment arrives, like 01.12.2026")
-        amount = Decimal(amount_eur.replace(",", ".").strip())
+        name, amount, day, covers = _income_fields(label, amount_eur, first_received_on, covers_from)
         with workspace_scope(session_workspace_id(request)):
-            add_other_income(label, amount, day, payments, confirmed == "1")
+            add_other_income(name, amount, day, payments, confirmed == "1", covers)
     except (InvalidOperation, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error) or "Check the amount and the dates")
+    return _back(view)
+
+
+@router.post("/forecast/other-income/{line_id}/edit", dependencies=[Depends(require_admin)])
+def edit_income(
+    request: Request,
+    line_id: int,
+    label: str = Form(""),
+    amount_eur: str = Form(...),
+    first_received_on: str = Form(...),
+    covers_from: str = Form(""),
+    payments: int = Form(1),
+    confirmed: str = Form(""),
+    view: str = Form("month"),
+):
+    """Change a line of other income."""
+    try:
+        name, amount, day, covers = _income_fields(label, amount_eur, first_received_on, covers_from)
+        with workspace_scope(session_workspace_id(request)):
+            changed = update_other_income(line_id, name, amount, day, payments, confirmed == "1", covers)
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Check the amount and the dates")
+    if not changed:
+        raise HTTPException(status_code=404, detail="Not found")
     return _back(view)
 
 

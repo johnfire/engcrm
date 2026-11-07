@@ -55,6 +55,7 @@
       <th class="num">{{ t('sale.status.expected') }}</th>
       <th class="num">{{ t('forecast.secured') }}</th>
       <th class="num">{{ t('forecast.total') }}</th>
+      <th class="num" title="{{ t('forecast.otherIncomeHint') }}">{{ t('forecast.otherIncomeCol') }}</th>
       <th class="num">{{ t('forecast.target') }}</th>
       <th class="num">{{ t('forecast.missing') }}</th>
     </tr></thead>
@@ -68,8 +69,9 @@
         {% endfor %}
         <td class="num"><strong>{{ p.secured | eur }}</strong></td>
         <td class="num">{{ p.total | eur }}</td>
-        <td class="num">{% if p.target is not none %}{{ p.target | eur }}{% else %}<span class="muted">—</span>{% endif %}
+        <td class="num">{% if p.covered %}{{ p.covered | eur }}{% else %}<span class="muted">·</span>{% endif %}
           {% if p.possible_income %}<span class="muted small" title="{{ t('forecast.possibleHint') }}"> +{{ p.possible_income | eur }}?</span>{% endif %}</td>
+        <td class="num">{% if p.target is not none %}{{ p.target | eur }}{% else %}<span class="muted">—</span>{% endif %}</td>
         <td class="num {{ 'forecast-short' if p.gap_secured is not none and p.gap_secured > 0 else 'forecast-ok' if p.gap_secured is not none }}">
           {% if p.gap_secured is none %}<span class="muted">—</span>{% elif p.gap_secured > 0 %}{{ p.gap_secured | eur }}{% else %}✓{% endif %}</td>
       </tr>
@@ -93,10 +95,13 @@
       <input type="text" name="monthly_need" inputmode="decimal" required
              value="{{ forecast.plan.monthly_need if forecast.plan.monthly_need is not none else '' }}" />
     </label>
+    <label>{{ t('forecast.startMonth') }}
+      {{ date_field('start_month', forecast.plan.start_month) }}
+    </label>
     <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
   </form>
   {% elif forecast.plan.monthly_need is not none %}
-  <p>{{ t('forecast.monthlyNeed') }}: <strong>{{ forecast.plan.monthly_need | eur }}</strong></p>
+  <p>{{ t('forecast.monthlyNeed') }}: <strong>{{ forecast.plan.monthly_need | eur }}</strong>{% if forecast.plan.start_month %} · {{ t('forecast.startMonthShown', date=forecast.plan.start_month|dmy) }}{% endif %}</p>
   {% endif %}
 
   <h3>{{ t('forecast.otherIncome') }}</h3>
@@ -104,7 +109,7 @@
   <ul class="sales-list">
     {% for line in forecast.plan.other_income %}
     <li>
-      <strong>{{ line.label }}</strong> · {{ line.amount_eur | eur }} · {{ t('forecast.otherPayments', count=line.payments, date=line.first_received_on|dmy) }}
+      <strong>{{ line.label }}</strong> · {{ line.amount_eur | eur }} · {{ t('forecast.otherCovers', count=line.payments, date=line.covers_from|dmy) }} · {{ t('forecast.firstPaid', date=line.first_received_on|dmy) }}
       <span class="badge {{ 'badge-sale-collected' if line.confirmed else 'badge-sale-expected' }}">{{ t('forecast.confirmed') if line.confirmed else t('forecast.possible') }}</span>
       {% if is_admin %}
       <form method="post" action="/forecast/other-income/{{ line.id }}/confirmed" style="display:inline">
@@ -117,6 +122,19 @@
         <input type="hidden" name="view" value="{{ view }}" />
         <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
       </form>
+      <details class="forecast-edit">
+        <summary>{{ t('forecast.edit') }}</summary>
+        <form method="post" action="/forecast/other-income/{{ line.id }}/edit" class="record-form">
+          <input type="hidden" name="view" value="{{ view }}" />
+          <label>{{ t('forecast.incomeName') }} <input type="text" name="label" required maxlength="200" value="{{ line.label }}" /></label>
+          <label>{{ t('forecast.incomeAmount') }} <input type="text" name="amount_eur" inputmode="decimal" required value="{{ line.amount_eur }}" /></label>
+          <label>{{ t('forecast.firstReceived') }} {{ date_field('first_received_on', line.first_received_on, required=True) }}</label>
+          <label>{{ t('forecast.coversFrom') }} {{ date_field('covers_from', line.covers_from) }}</label>
+          <label>{{ t('forecast.incomePayments') }} <input type="number" name="payments" value="{{ line.payments }}" min="1" max="120" required /></label>
+          <label class="flag-check"><input type="checkbox" name="confirmed" value="1" {% if line.confirmed %}checked{% endif %} /> {{ t('forecast.confirmed') }}</label>
+          <button type="submit" class="btn-primary">{{ t('forecast.saveChanges') }}</button>
+        </form>
+      </details>
       {% endif %}
     </li>
     {% endfor %}
@@ -128,6 +146,7 @@
     <label>{{ t('forecast.incomeName') }} <input type="text" name="label" required maxlength="200" /></label>
     <label>{{ t('forecast.incomeAmount') }} <input type="text" name="amount_eur" inputmode="decimal" required /></label>
     <label>{{ t('forecast.firstReceived') }} {{ date_field('first_received_on', None, required=True) }}</label>
+    <label>{{ t('forecast.coversFrom') }} {{ date_field('covers_from', None) }}</label>
     <label>{{ t('forecast.incomePayments') }} <input type="number" name="payments" value="1" min="1" max="120" required /></label>
     <label class="flag-check"><input type="checkbox" name="confirmed" value="1" checked /> {{ t('forecast.confirmed') }}</label>
     <button type="submit" class="btn-primary">{{ t('forecast.addIncome') }}</button>

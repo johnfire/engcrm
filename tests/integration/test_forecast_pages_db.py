@@ -117,3 +117,36 @@ def test_another_workspace_sees_none_of_this_workspaces_money_or_plan(world):
     page = _browser("owner@second.example").get("/forecast?lang=en").text.replace("\xa0", " ")
     assert "Private support" not in page and "1.234" not in page      # the other workspace's plan
     assert "600,00 €" not in page and "600 €" not in page             # nor its contract payments
+
+
+def test_the_plan_form_takes_the_first_month_and_income_lines_take_the_month_they_cover(world):
+    admin = _browser("owner@first.example")
+    assert admin.post("/forecast/need", data={"monthly_need": "5000", "start_month": "01.10.2026", "view": "month"},
+                      follow_redirects=False).status_code == 303
+    assert admin.post("/forecast/other-income", follow_redirects=False, data={
+        "label": "Support payment", "amount_eur": "1500", "first_received_on": "01.11.2026", "covers_from": "01.10.2026",
+        "payments": "6", "confirmed": "1", "view": "month"}).status_code == 303
+    with workspace_scope(world["first"]):
+        plan = get_plan()
+    assert plan["start_month"] == date(2026, 10, 1) and plan["other_income"][0]["covers_from"] == date(2026, 10, 1)
+    page = admin.get("/forecast?lang=en").text.replace("\xa0", " ")
+    assert "Other income" in page and "1.500" in page
+
+
+def test_an_income_line_can_be_edited_from_the_page(world):
+    with workspace_scope(world["first"]):
+        line = add_other_income("Support", Decimal("1000"), date(2026, 11, 1), 3, False)
+    admin = _browser("owner@first.example")
+    page = admin.get("/forecast?lang=en").text
+    assert f'/forecast/other-income/{line}/edit' in page
+    assert admin.post(f"/forecast/other-income/{line}/edit", follow_redirects=False, data={
+        "label": "Support payment", "amount_eur": "1500", "first_received_on": "01.11.2026", "covers_from": "01.10.2026",
+        "payments": "6", "confirmed": "1", "view": "month"}).status_code == 303
+    with workspace_scope(world["first"]):
+        edited = get_plan()["other_income"][0]
+    assert (edited["label"], edited["amount_eur"], edited["covers_from"]) == ("Support payment", Decimal("1500.00"), date(2026, 10, 1))
+    stranger = _browser("owner@second.example")
+    assert stranger.post(f"/forecast/other-income/{line}/edit", follow_redirects=False, data={
+        "label": "Hijacked", "amount_eur": "1", "first_received_on": "01.11.2026", "payments": "1"}).status_code == 404
+    assert admin.post(f"/forecast/other-income/{line}/edit", follow_redirects=False, data={
+        "label": "", "amount_eur": "1", "first_received_on": "01.11.2026", "payments": "1"}).status_code == 400
