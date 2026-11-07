@@ -1070,9 +1070,6 @@
   "forecast.view.month": "Months",
   "forecast.view.quarter": "Quarters",
   "forecast.view.year": "Years",
-  "forecast.thisMonth": "This month",
-  "forecast.thisQuarter": "This quarter",
-  "forecast.thisYear": "This year",
   "forecast.ofTarget": "of {{target}} target",
   "forecast.stillMissing": "{{amount}} still missing",
   "forecast.targetMet": "target met, {{amount}} over",
@@ -1102,5 +1099,12 @@
   "forecast.incomeAmount": "Amount per payment (€)",
   "forecast.firstReceived": "First payment arrives",
   "forecast.incomePayments": "Number of monthly payments",
-  "forecast.addIncome": "Add income"
+  "forecast.addIncome": "Add income",
+  "forecast.tile.this_month": "This month",
+  "forecast.tile.next_month": "Next month",
+  "forecast.tile.month_after": "The month after",
+  "forecast.tile.this_quarter": "This quarter",
+  "forecast.tile.next_quarter": "Next quarter",
+  "forecast.tile.this_year": "This year",
+  "forecast.tile.next_year": "Next year"
 }

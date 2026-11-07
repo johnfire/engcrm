@@ -51,7 +51,7 @@ def forecast_page(
     with workspace_scope(workspace_id):
         forecast = get_forecast(workspace_id, view, date.today(), active_offer)
     labels = {p["start"]: period_label(view, p["start"]) for p in forecast["periods"]}
-    tile_labels = {g: period_label(g, t["start"]) for g, t in forecast["tiles"].items()}
+    tile_labels = {t["key"]: period_label(t["granularity"], t["start"]) for t in forecast["tiles"]}
     return templates.TemplateResponse("forecast.html", {
         "request": request, "forecast": forecast, "view": view, "views": GRANULARITIES, "labels": labels,
         "tile_labels": tile_labels, "offers": offers, "active_offer": active_offer, "today": date.today().isoformat(),

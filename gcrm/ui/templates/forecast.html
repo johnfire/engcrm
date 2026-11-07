@@ -39,9 +39,9 @@
 </form>
 
 <div class="stat-grid forecast-tiles">
-  {{ tile(t('forecast.thisMonth'), forecast.tiles.month, tile_labels.month) }}
-  {{ tile(t('forecast.thisQuarter'), forecast.tiles.quarter, tile_labels.quarter) }}
-  {{ tile(t('forecast.thisYear'), forecast.tiles.year, tile_labels.year) }}
+  {% for tl in forecast.tiles %}
+  {{ tile(t('forecast.tile.' ~ tl.key), tl, tile_labels[tl.key]) }}
+  {% endfor %}
 </div>
 
 <section class="detail-section">

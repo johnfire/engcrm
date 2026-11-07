@@ -54,7 +54,8 @@ def world(clean_database, monkeypatch):
 def test_the_page_shows_tiles_and_a_row_per_period_in_each_view(world):
     page = _browser("owner@first.example")
     month = page.get("/forecast?lang=en").text
-    for text in ("This month", "This quarter", "This year", "Months", "Quarters", "Years"):
+    for text in ("This month", "Next month", "The month after", "This quarter", "Next quarter",
+                 "This year", "Next year", "Months", "Quarters", "Years"):
         assert text in month
     assert "02.2027" in month and "600" in month
     assert "Q1 2027" in page.get("/forecast?view=quarter&lang=en").text

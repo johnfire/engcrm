@@ -21,12 +21,18 @@ from gcrm.forecast_math import (
     period_end,
     period_start,
     periods_around,
+    shift_months,
 )
 from gcrm.sale_status import SALE_STATUSES
 from gcrm.tools.db_deals import offer_id_sql
 from gcrm.tools.income_plan import get_plan
 
 _ZERO = Decimal("0")
+# The tiles above the table, in order: (key, granularity, how many periods after the current one).
+TILES = (("this_month", "month", 0), ("next_month", "month", 1), ("month_after", "month", 2),
+         ("this_quarter", "quarter", 0), ("next_quarter", "quarter", 1),
+         ("this_year", "year", 0), ("next_year", "year", 1))
+_MONTHS_LONG = {"month": 1, "quarter": 3, "year": 12}
 _MONEY = tuple(status for status in SALE_STATUSES if status != "cancelled")
 
 
@@ -82,23 +88,23 @@ def _period(granularity: str, start: date, money: dict, targets: dict, has_plan:
 
 
 def get_forecast(workspace_id: int, granularity: str, today: date | None = None, offer: str | None = None) -> dict:
-    """The periods to show (a little history, this one, the ones ahead), the this-month /
-    this-quarter / this-year tiles, the money with no due day, and the plan. Run inside the
-    workspace's scope."""
+    """The periods to show (a little history, this one, the ones ahead), the tiles (this month,
+    next month, the month after, this and next quarter, this and next year — the same whichever
+    view is chosen), the money with no due day, and the plan. Run inside the workspace's scope."""
     today = today or date.today()
     starts = periods_around(granularity, today)
-    tile_starts = {g: period_start(g, today) for g in ("month", "quarter", "year")}
-    needed = [(s, period_end(granularity, s)) for s in starts] + [(s, period_end(g, s)) for g, s in tile_starts.items()]
+    tile_starts = [(key, g, shift_months(period_start(g, today), ahead * _MONTHS_LONG[g])) for key, g, ahead in TILES]
+    needed = [(s, period_end(granularity, s)) for s in starts] + [(s, period_end(g, s)) for _, g, s in tile_starts]
     first, last = min(a for a, _ in needed), max(b for _, b in needed)
     plan = get_plan()
     has_plan = plan["monthly_need"] is not None
     all_months = []
-    for g, s in [(granularity, s) for s in starts] + list(tile_starts.items()):
+    for g, s in [(granularity, s) for s in starts] + [(g, s) for _, g, s in tile_starts]:
         all_months += months_of(g, s)
     targets = month_targets(plan["monthly_need"], plan["other_income"], sorted(set(all_months)))
     money, undated, undated_count = _monthly_money(workspace_id, first, last, offer)
     periods = [_period(granularity, s, money, targets, has_plan) for s in starts]
-    tiles = {g: _period(g, s, money, targets, has_plan) for g, s in tile_starts.items()}
+    tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets, has_plan)} for key, g, s in tile_starts]
     undated_secured = undated["contracted"] + undated["booked"]
     return {
         "granularity": granularity, "today": today, "periods": periods, "tiles": tiles, "plan": plan,

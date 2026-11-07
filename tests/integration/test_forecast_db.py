@@ -121,11 +121,34 @@ def test_the_quarter_and_year_views_sum_their_months_and_their_targets(world):
     assert year["target"] == D("5000") * 10 + D("3500") * 2           # Jan-Oct 5000 each, Nov and Dec 3500
 
 
-def test_the_tiles_are_this_month_this_quarter_and_this_year(world):
-    tiles = _forecast(world)["tiles"]
-    assert tiles["month"]["start"] == date(2026, 11, 1)
-    assert tiles["quarter"]["start"] == date(2026, 10, 1) and tiles["year"]["start"] == date(2026, 1, 1)
-    assert tiles["quarter"]["collected"] == D("600") and tiles["year"]["secured"] == D("900") and tiles["quarter"]["secured"] == D("900")
+def test_the_tiles_look_at_this_and_the_next_periods(world):
+    tiles = {t["key"]: t for t in _forecast(world)["tiles"]}
+    assert list(tiles) == ["this_month", "next_month", "month_after", "this_quarter", "next_quarter",
+                           "this_year", "next_year"]
+    assert [tiles[k]["start"] for k in tiles] == [
+        date(2026, 11, 1), date(2026, 12, 1), date(2027, 1, 1), date(2026, 10, 1), date(2027, 1, 1),
+        date(2026, 1, 1), date(2027, 1, 1)]
+    assert [tiles[k]["granularity"] for k in tiles] == ["month"] * 3 + ["quarter"] * 2 + ["year"] * 2
+    assert tiles["this_month"]["collected"] == D("600") and tiles["this_month"]["contracted"] == D("300")
+    assert tiles["next_month"]["total"] == D("0") and tiles["month_after"]["total"] == D("0")    # the cancelled one is nowhere
+    assert (tiles["this_quarter"]["collected"], tiles["this_quarter"]["secured"]) == (D("600"), D("900"))
+    assert tiles["next_quarter"]["booked"] == D("1200.00")                    # February and March payments
+    assert (tiles["this_year"]["secured"], tiles["this_year"]["total"]) == (D("900"), D("900"))
+    assert (tiles["next_year"]["booked"], tiles["next_year"]["expected"]) == (D("2400.00"), D("1000"))
+    assert tiles["next_year"]["total"] == D("3400.00")
+
+
+def test_the_tiles_do_not_change_with_the_view(world):
+    keys = lambda view: [(t["key"], t["start"], t["total"]) for t in _forecast(world, view)["tiles"]]   # noqa: E731
+    assert keys("month") == keys("quarter") == keys("year")
+
+
+def test_next_years_tiles_carry_next_years_targets(world):
+    with workspace_scope(world["first"]):
+        add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True)     # arrives Nov..Apr
+    tiles = {t["key"]: t for t in _forecast(world)["tiles"]}
+    assert tiles["next_year"]["target"] == D("5000") * 8 + D("3500") * 4             # Jan-Apr 2027 reduced, May-Dec full
+    assert tiles["next_month"]["target"] == D("3500") and tiles["month_after"]["target"] == D("3500")
 
 
 def test_no_plan_means_no_target_but_the_money_still_shows(world):
