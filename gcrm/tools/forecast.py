@@ -5,9 +5,9 @@ Each sale row (a one-off, or one payment of a contract) sits in the month of its
 money is left out. Money with no due day is reported apart as "undated" instead of vanishing.
 
   collected   received      contracted  a written contract exists   booked    agreed
-  expected    a hope        secured = collected + contracted + booked (sales)
+  expected    a hope        subtotal = collected + contracted + booked + expected (the sales)
   other income = confirmed income from the plan that covers the period (counts toward the target)
-  total = secured + expected + other income
+  total (the grand total) = subtotal + other income
 
 The target is the income plan's monthly need (gcrm/tools/income_plan.py), the same every month,
 summed for a quarter or year; "still missing" is target minus total. Nothing here weights money by likelihood: it is what it is.
@@ -76,14 +76,14 @@ def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
     for month in months:
         for status, euros in money.get(month, {}).items():
             sums[status] += euros
-    secured = sums["collected"] + sums["contracted"] + sums["booked"]
+    subtotal = sums["collected"] + sums["contracted"] + sums["booked"] + sums["expected"]
     covered = sum((targets[m]["covered"] for m in months), _ZERO)
-    total = secured + sums["expected"] + covered
+    total = subtotal + covered
     counted = [targets[m]["target"] for m in months if targets[m]["target"] is not None]
     target = sum(counted, _ZERO) if counted else None            # months before the business started count for nothing
     return {
         "start": start, "end": period_end(granularity, start), **sums,
-        "secured": secured, "total": total, "target": target,
+        "subtotal": subtotal, "total": total, "target": target,
         "possible_income": sum((targets[m]["possible"] for m in months), _ZERO),
         "covered": covered,
         "gap_total": None if target is None else target - total,
@@ -107,9 +107,8 @@ def get_forecast(workspace_id: int, granularity: str, today: date | None = None,
     money, undated, undated_count = _monthly_money(workspace_id, first, last, offer)
     periods = [_period(granularity, s, money, targets) for s in starts]
     tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets)} for key, g, s in tile_starts]
-    undated_secured = undated["contracted"] + undated["booked"]
     return {
         "granularity": granularity, "today": today, "periods": periods, "tiles": tiles, "plan": plan,
-        "undated": {**undated, "secured": undated_secured, "total": undated_secured + undated["expected"],
+        "undated": {**undated, "total": undated["contracted"] + undated["booked"] + undated["expected"],
                     "count": undated_count},
     }

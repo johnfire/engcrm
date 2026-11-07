@@ -16,8 +16,7 @@
   </p>
   {% endif %}
   <p class="muted small">
-    {{ t('forecast.secured') }} {{ p.secured | eur }} · {{ t('forecast.otherIncomeCol') }} {{ p.covered | eur }} ·
-    {{ t('sale.status.expected') }} {{ p.expected | eur }}
+    {{ t('forecast.subtotal') }} {{ p.subtotal | eur }} · {{ t('forecast.otherIncomeCol') }} {{ p.covered | eur }}
   </p>
 </section>
 {% endmacro %}
@@ -52,7 +51,7 @@
       <th class="num">{{ t('sale.status.contracted') }}</th>
       <th class="num">{{ t('sale.status.booked') }}</th>
       <th class="num">{{ t('sale.status.expected') }}</th>
-      <th class="num">{{ t('forecast.secured') }}</th>
+      <th class="num">{{ t('forecast.subtotal') }}</th>
       <th class="num" title="{{ t('forecast.otherIncomeHint') }}">{{ t('forecast.otherIncomeCol') }}</th>
       <th class="num">{{ t('forecast.total') }}</th>
       <th class="num">{{ t('forecast.target') }}</th>
@@ -66,7 +65,7 @@
         {% for key in ['collected', 'contracted', 'booked', 'expected'] %}
         <td class="num">{% if p[key] %}{{ p[key] | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
         {% endfor %}
-        <td class="num"><strong>{{ p.secured | eur }}</strong></td>
+        <td class="num">{{ p.subtotal | eur }}</td>
         <td class="num">{% if p.covered %}{{ p.covered | eur }}{% else %}<span class="muted">·</span>{% endif %}
           {% if p.possible_income %}<span class="muted small" title="{{ t('forecast.possibleHint') }}"> +{{ p.possible_income | eur }}?</span>{% endif %}</td>
         <td class="num"><strong>{{ p.total | eur }}</strong></td>

@@ -91,11 +91,13 @@ def test_money_with_no_due_day_is_kept_apart_and_never_lost(world):
     assert (undated["booked"], undated["count"], undated["total"]) == (D("700"), 1, D("700"))
 
 
-def test_secured_is_collected_plus_contracted_plus_booked_and_total_adds_expected(world):
+def test_the_subtotal_adds_the_four_sales_columns_and_there_is_no_secured_figure(world):
     june = _period(_forecast(world), date(2027, 6, 1))
-    assert (june["secured"], june["total"]) == (D("0"), D("1000"))
+    assert (june["expected"], june["subtotal"], june["total"]) == (D("1000"), D("1000"), D("1000"))
     nov = _period(_forecast(world), date(2026, 11, 1))
-    assert (nov["secured"], nov["total"]) == (D("900"), D("900"))
+    assert nov["subtotal"] == nov["collected"] + nov["contracted"] + nov["booked"] + nov["expected"] == D("900")
+    assert nov["total"] == nov["subtotal"] + nov["covered"] == D("900")      # no other income here, so the grand total equals it
+    assert "secured" not in nov
 
 
 def test_other_income_is_part_of_the_total_and_the_target_is_the_plain_need(world):
@@ -104,7 +106,8 @@ def test_other_income_is_part_of_the_total_and_the_target_is_the_plain_need(worl
         add_other_income("Possible follow-on", D("300"), date(2026, 11, 1), 2, False)
     nov = _period(_forecast(world), date(2026, 11, 1))
     assert nov["covered"] == D("1500") and nov["possible_income"] == D("300")
-    assert nov["total"] == D("600") + D("300") + D("1500")            # collected + contracted + other income; the possible 300 is not counted
+    assert nov["subtotal"] == D("900")                                # collected 600 + contracted 300: sales only
+    assert nov["total"] == nov["subtotal"] + D("1500")                # the grand total adds the other income; the possible 300 is not counted
     assert nov["target"] == D("5000")                                 # the need, the same every month
     assert nov["gap_total"] == nov["target"] - nov["total"] == D("2600")
     dec = _period(_forecast(world), date(2026, 12, 1))
@@ -147,9 +150,9 @@ def test_the_tiles_look_at_this_and_the_next_periods(world):
     assert [tiles[k]["granularity"] for k in tiles] == ["month"] * 3 + ["quarter"] * 2 + ["year"] * 2
     assert tiles["this_month"]["collected"] == D("600") and tiles["this_month"]["contracted"] == D("300")
     assert tiles["next_month"]["total"] == D("0") and tiles["month_after"]["total"] == D("0")    # the cancelled one is nowhere
-    assert (tiles["this_quarter"]["collected"], tiles["this_quarter"]["secured"]) == (D("600"), D("900"))
+    assert (tiles["this_quarter"]["collected"], tiles["this_quarter"]["subtotal"]) == (D("600"), D("900"))
     assert tiles["next_quarter"]["booked"] == D("1200.00")                    # February and March payments
-    assert (tiles["this_year"]["secured"], tiles["this_year"]["total"]) == (D("900"), D("900"))
+    assert (tiles["this_year"]["subtotal"], tiles["this_year"]["total"]) == (D("900"), D("900"))
     assert (tiles["next_year"]["booked"], tiles["next_year"]["expected"]) == (D("2400.00"), D("1000"))
     assert tiles["next_year"]["total"] == D("3400.00")
 

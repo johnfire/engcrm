@@ -160,6 +160,12 @@ def test_other_income_sits_left_of_total_and_is_part_of_it(world):
         "confirmed": "1", "view": "month"})
     page = admin.get("/forecast?lang=en").text
     header = page[page.index("<thead>"):page.index("</thead>")]
-    order = [header.index(label) for label in ("Collected", "Contracted", "Booked", "Expected", "Secured",
-                                              "Other income", "Total", "Target", "Still missing")]
-    assert order == sorted(order), "columns must run Collected, Contracted, Booked, Expected, Secured, Other income, Total, Target, Still missing"
+    order = [header.index(label) for label in ("Collected", "Contracted", "Booked", "Expected", "Subtotal",
+                                              "Other income", "Grand total", "Target", "Still missing")]
+    assert order == sorted(order), "columns must run Collected, Contracted, Booked, Expected, Subtotal, Other income, Grand total, Target, Still missing"
+
+
+def test_the_page_has_no_secured_column_and_calls_the_last_sum_the_grand_total(world):
+    page = _browser("owner@first.example").get("/forecast?lang=en").text
+    assert "Secured" not in page and "secured" not in page
+    assert "Subtotal" in page and "Grand total" in page
