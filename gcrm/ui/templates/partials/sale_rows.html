@@ -1,0 +1,47 @@
+{# One-off sales and their life: booked → contracted → collected, or cancelled.
+   Only collected ones are money won (see gcrm/sale_status.py).
+   sale_item: a sale with its status and the form that moves it along;
+   sale_form: the form that records one. Both post to the deal's routes and come
+   back to `page`. Needs `sale_statuses` and `today` in the context. #}
+{% from 'partials/date_field.html' import date_field with context %}
+
+{% macro sale_item(sale, deal_id, page, show_offer=False) -%}
+<li class="sale sale--{{ sale.status }}">
+  <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}
+  <span class="badge badge-sale-{{ sale.status }}">{{ t('sale.status.' ~ sale.status) }}</span>
+  {%- if sale.offer and show_offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}
+  {%- if sale.description %} · {{ sale.description }}{% endif %}
+  {%- if sale.status in ('booked', 'contracted') and sale.expected_on %}
+  <span class="muted small">· {{ t('sale.expectedOn', date=sale.expected_on|dmy) }}</span>{% endif %}
+  {%- if sale.status == 'collected' and sale.collected_on %}
+  <span class="muted small">· {{ t('sale.collectedOn', date=sale.collected_on|dmy) }}</span>{% endif %}
+  <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/status" class="sale__move">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <select name="status" aria-label="{{ t('sale.status.label') }}">
+      {% for s in sale_statuses %}
+      <option value="{{ s }}" {% if s == sale.status %}selected{% endif %}>{{ t('sale.status.' ~ s) }}</option>
+      {% endfor %}
+    </select>
+    {{ date_field('collected_on', None, label=t('sale.collectedOnLabel')) }}
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+  <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
+        data-confirm="{{ t('sales.deleteConfirm') }}">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
+  </form>
+</li>
+{%- endmacro %}
+
+{% macro sale_fields() -%}
+<label>{{ t('sale.status.label') }}
+  <select name="status">
+    {% for s in sale_statuses %}
+    <option value="{{ s }}" {% if s == 'booked' %}selected{% endif %}>{{ t('sale.status.' ~ s) }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>{{ t('sale.expectedOnLabel') }}
+  {{ date_field('expected_on', None) }}
+</label>
+{%- endmacro %}

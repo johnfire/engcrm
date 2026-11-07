@@ -12,11 +12,15 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.dates import parse_day
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
+from gcrm.sale_status import SALE_STATUSES
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import (
+    add_deal_sale,
     deal_money,
+    delete_deal_sale,
     delete_subscription,
     end_subscription,
+    set_sale_status,
     start_subscription,
 )
 from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
@@ -141,6 +145,66 @@ def deal_remove(request: Request, deal_id: int, next: str = Form(""), _admin: st
     return _back(next, "/organizations/")
 
 
+@router.post("/{deal_id}/sales")
+def deal_sale_add(
+    request: Request,
+    deal_id: int,
+    amount_eur: str = Form(...),
+    won_on: str = Form(...),
+    description: str = Form(""),
+    status: str = Form("booked"),
+    expected_on: str = Form(""),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Record a one-off sale on the deal: booked, contracted or already collected."""
+    try:
+        amount = Decimal(amount_eur.replace(",", ".").strip())
+        add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
+                      workspace_id=request.session.get("workspace_id"), status=status,
+                      expected_on=parse_day(expected_on))
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter an amount above 0 and a date")
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/sales/{sale_id}/status")
+def deal_sale_status(
+    request: Request,
+    deal_id: int,
+    sale_id: int,
+    status: str = Form(...),
+    collected_on: str = Form(""),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Move a sale along: booked → contracted → collected (the day the money came
+    in; today when blank), or cancelled."""
+    try:
+        if not set_sale_status(deal_id, sale_id, status, collected_on=parse_day(collected_on),
+                               workspace_id=request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/sales/{sale_id}/delete")
+def deal_sale_delete(request: Request, deal_id: int, sale_id: int, next: str = Form(""),
+                     _admin: str = Depends(require_admin)):
+    """Remove a sale recorded by mistake."""
+    try:
+        if not delete_deal_sale(deal_id, sale_id, request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return _back(next, "/organizations/")
+
+
 @router.post("/{deal_id}/subscription")
 def deal_subscription_start(
     request: Request,
@@ -216,5 +280,6 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
         "deal_money": deal_money([deal["id"] for deal in deals]),
         "pipeline_stages": PIPELINE_STAGES,
         "statuses": STATUSES,
+        "sale_statuses": SALE_STATUSES,
         "today": date.today().isoformat(),
     }

@@ -1005,5 +1005,18 @@
   "mfa.disable": "Disable two-factor authentication",
   "mfa.regenerate": "Replace recovery codes",
   "mfa.replaceWarning": "This immediately invalidates all previous recovery codes. You will receive ten new codes.",
-  "mfa.disableWarning": "This removes the second factor from your account. Confirm with your current password and an unused code."
+  "mfa.disableWarning": "This removes the second factor from your account. Confirm with your current password and an unused code.",
+  "sale.status.label": "Status",
+  "sale.status.booked": "Booked",
+  "sale.status.contracted": "Contracted",
+  "sale.status.collected": "Collected",
+  "sale.status.cancelled": "Cancelled",
+  "sale.expectedOn": "expected {{date}}",
+  "sale.collectedOn": "collected {{date}}",
+  "sale.expectedOnLabel": "Expected on (optional)",
+  "sale.collectedOnLabel": "Day the money came in (blank = today)",
+  "deals.pipelineTotal": "Booked, not collected yet: {{amount}}",
+  "statistics.salesPipeline": "Sales pipeline",
+  "statistics.salesPipelineSplit": "{{booked}} booked · {{contracted}} contracted",
+  "statistics.collectedOnly": "Only collected sales count here; booked and contracted ones are the pipeline."
 }

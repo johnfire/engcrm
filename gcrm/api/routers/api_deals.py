@@ -10,7 +10,13 @@ from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
 from gcrm.api.routers.api_organizations import _personal_identity
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.db_offers import list_offers
-from gcrm.tools.deal_money import add_deal_sale, deal_money, end_subscription, start_subscription
+from gcrm.tools.deal_money import (
+    add_deal_sale,
+    deal_money,
+    end_subscription,
+    set_sale_status,
+    start_subscription,
+)
 from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
 from gcrm.tools.deal_records import (
     DealNotFound,
@@ -150,6 +156,8 @@ class Sale(BaseModel):
     amount_eur: Decimal
     won_on: date
     description: str = ""
+    status: str = "collected"  # booked | contracted | collected | cancelled
+    expected_on: date | None = None
 
 
 @router.post("/deals/{deal_id}/sales", status_code=201)
@@ -157,11 +165,32 @@ def record_deal_sale(deal_id: int, body: Sale, _role: str = Depends(require_jwt_
                      payload: dict = Depends(require_jwt_payload)) -> dict:
     """A one-off sale on an organization's deal."""
     try:
-        return {"id": add_deal_sale(deal_id, body.amount_eur, body.won_on, body.description, _workspace(payload))}
+        return {"id": add_deal_sale(deal_id, body.amount_eur, body.won_on, body.description, _workspace(payload),
+                                     status=body.status, expected_on=body.expected_on)}
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+class SaleMove(BaseModel):
+    status: str
+    collected_on: date | None = None  # the day the money came in; today when left out
+
+
+@router.patch("/deals/{deal_id}/sales/{sale_id}")
+def move_deal_sale(deal_id: int, sale_id: int, body: SaleMove, _role: str = Depends(require_jwt_admin),
+                   payload: dict = Depends(require_jwt_payload)) -> dict:
+    """Move a sale along: booked → contracted → collected, or cancelled."""
+    try:
+        if not set_sale_status(deal_id, sale_id, body.status, collected_on=body.collected_on,
+                               workspace_id=_workspace(payload)):
+            raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return {"id": sale_id, "status": body.status}
 
 
 class SubscriptionStart(BaseModel):

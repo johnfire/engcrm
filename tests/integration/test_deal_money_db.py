@@ -87,15 +87,17 @@ def test_statistics_split_one_off_sales_and_subscriptions_by_offer(school):
     assert everything["won_eur"] == Decimal("2410.00")
 
 
-def test_sales_belong_to_an_organizations_deal(school):
+def test_sales_belong_to_a_deal_of_an_organization_or_a_person(school):
     sale = add_sale(school["workspace"], school["contact_id"], Decimal("500"), date(2026, 10, 5), "Setup",
                     deal_id=school["learnwohl"])
     assert sale is not None
     assert deal_money([school["learnwohl"]])[school["learnwohl"]]["sales_total"] == Decimal("500")
     loner = save_person("Solo Teacher", source="test_fixture")
     own = add_deal("person", loner, school_offer_id("learnwohl"))
-    with pytest.raises(ValueError):
-        add_deal_sale(own, "100", date(2026, 10, 5))  # a person buys by subscription
+    # since migration 083 a person (a consultant you sell to) can have one-off sales too
+    person_sale = add_deal_sale(own, "100", date(2026, 10, 5))
+    assert deal_money([own])[own]["sales_total"] == Decimal("100")
+    assert person_sale is not None
     start_subscription(own, "19", date(2026, 10, 1))
     assert deal_money([own], today=date(2026, 10, 10))[own]["running"]["amount_eur_month"] == Decimal("19.00")
 

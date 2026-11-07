@@ -234,3 +234,62 @@ class TestSubscriptionRoutes:
                                json={"amount_eur": "100", "won_on": "2026-10-05"}).status_code == 400
         assert client.post("/api/deals/9/subscription", headers=VIEWER,
                            json={"amount_eur_month": "19", "started_on": "2026-10-01"}).status_code == 403
+
+
+class TestSaleStatus:
+    """A sale is booked, contracted, collected or cancelled; the web forms and the phone say which."""
+
+    def test_the_deal_card_records_a_sale_with_its_status_and_expected_day(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            response = post("/deals/9/sales", {"amount_eur": "2400,50", "won_on": "2026-11-03",
+                                                "description": "AI course", "status": "booked",
+                                                "expected_on": "20.01.2027", "next": "/people/4"})
+        assert response.headers["location"] == "/people/4"
+        args, kwargs = add.call_args
+        assert args[:4] == (9, Decimal("2400.50"), date(2026, 11, 3), "AI course")
+        assert kwargs["status"] == "booked" and kwargs["expected_on"] == date(2027, 1, 20)
+
+    def test_a_blank_expected_day_is_none_and_nonsense_is_refused(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            post("/deals/9/sales", {"amount_eur": "100", "won_on": "2026-11-03", "status": "booked",
+                                    "expected_on": ""})
+        assert add.call_args.kwargs["expected_on"] is None
+        assert post("/deals/9/sales", {"amount_eur": "lots", "won_on": "2026-11-03"}).status_code == 400
+        with patch("gcrm.api.routers.deals.add_deal_sale", side_effect=ValueError("unknown sale status")):
+            assert post("/deals/9/sales", {"amount_eur": "1", "won_on": "2026-11-03",
+                                            "status": "paid"}).status_code == 400
+
+    def test_moving_a_sale_along_passes_the_day_the_money_came_in(self, admin_web):
+        with patch("gcrm.api.routers.deals.set_sale_status", return_value=True) as move:
+            response = post("/deals/9/sales/5/status", {"status": "collected", "collected_on": "12.11.2026",
+                                                         "next": "/organizations/4"})
+        assert response.headers["location"] == "/organizations/4"
+        assert move.call_args.args[:3] == (9, 5, "collected")
+        assert move.call_args.kwargs["collected_on"] == date(2026, 11, 12)
+        with patch("gcrm.api.routers.deals.set_sale_status", return_value=False):
+            assert post("/deals/9/sales/5/status", {"status": "cancelled"}).status_code == 404
+        with patch("gcrm.api.routers.deals.set_sale_status", side_effect=ValueError("bad")):
+            assert post("/deals/9/sales/5/status", {"status": "paid"}).status_code == 400
+
+    def test_a_sale_can_be_deleted_from_the_deal_card(self, admin_web):
+        with patch("gcrm.api.routers.deals.delete_deal_sale", return_value=True):
+            assert post("/deals/9/sales/5/delete", {"next": "/people/4"}).headers["location"] == "/people/4"
+        with patch("gcrm.api.routers.deals.delete_deal_sale", return_value=False):
+            assert post("/deals/9/sales/5/delete", {}).status_code == 404
+
+    def test_the_phone_sends_a_status_and_moves_sales_along(self):
+        with patch("gcrm.api.routers.api_deals.add_deal_sale", return_value=3) as add:
+            response = client.post("/api/deals/9/sales", headers=ADMIN, json={
+                "amount_eur": "100", "won_on": "2026-11-05", "status": "booked", "expected_on": "2027-01-20"})
+        assert response.status_code == 201
+        assert add.call_args.kwargs["status"] == "booked" and add.call_args.kwargs["expected_on"] == date(2027, 1, 20)
+        with patch("gcrm.api.routers.api_deals.set_sale_status", return_value=True) as move:
+            moved = client.patch("/api/deals/9/sales/3", headers=ADMIN,
+                                 json={"status": "collected", "collected_on": "2026-11-12"})
+        assert moved.status_code == 200 and move.call_args.args[:3] == (9, 3, "collected")
+        assert move.call_args.kwargs["collected_on"] == date(2026, 11, 12)
+        assert client.patch("/api/deals/9/sales/3", headers=VIEWER, json={"status": "collected"}).status_code == 403
+        with patch("gcrm.api.routers.api_deals.set_sale_status", return_value=False):
+            assert client.patch("/api/deals/9/sales/3", headers=ADMIN, json={"status": "booked"}).status_code == 404
+        with patch("gcrm.api.routers.api_deals.set_sale_status", side_effect=ValueError("unknown")):
+            assert client.patch("/api/deals/9/sales/3", headers=ADMIN, json={"status": "x"}).status_code == 400

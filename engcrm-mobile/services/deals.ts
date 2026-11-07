@@ -8,6 +8,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { client } from "./api";
+import { SaleStatus } from "./saleStatus";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
 
 export interface Offer {
@@ -28,7 +29,11 @@ export interface Subscription {
 
 export interface DealMoney {
   sales_total: string;
-  sales: { id: number; amount_eur: string; won_on: string; description: string | null }[];
+  /** booked and contracted sales: not money won yet */
+  pipeline_total?: string;
+  sales: { id: number; amount_eur: string; won_on: string; description: string | null; status: SaleStatus;
+    expected_on: string | null; collected_on: string | null }[];
+  /** collected sales only */
   subscriptions: Subscription[];
   running: Subscription | null;
 }
@@ -106,9 +111,33 @@ export async function removeDeal(id: number): Promise<void> {
   await client.delete(`/api/deals/${id}`);
 }
 
-/** Record a one-off sale on an organization's deal; `wonOn` is YYYY-MM-DD. */
-export async function recordSale(dealId: number, amountEur: string, wonOn: string, description: string): Promise<void> {
-  await client.post(`/api/deals/${dealId}/sales`, { amount_eur: amountEur, won_on: wonOn, description });
+/** Record a one-off sale on a deal; `wonOn` and `expectedOn` are YYYY-MM-DD. */
+export async function recordSale(
+  dealId: number,
+  amountEur: string,
+  wonOn: string,
+  description: string,
+  status: SaleStatus = "collected",
+  expectedOn: string | null = null,
+): Promise<void> {
+  await client.post(`/api/deals/${dealId}/sales`, {
+    amount_eur: amountEur,
+    won_on: wonOn,
+    description,
+    status,
+    expected_on: expectedOn,
+  });
+}
+
+/** Move a sale along: booked → contracted → collected (`collectedOn` is the day the
+ *  money came in, today when left out), or cancelled. */
+export async function changeSaleStatus(
+  dealId: number,
+  saleId: number,
+  status: SaleStatus,
+  collectedOn?: string,
+): Promise<void> {
+  await client.patch(`/api/deals/${dealId}/sales/${saleId}`, { status, collected_on: collectedOn ?? null });
 }
 
 /** Start the deal's subscription, or change its price from `startedOn`. */

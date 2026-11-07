@@ -1,6 +1,7 @@
 {% extends "base.html" %} {% block title %}{{ organization.name }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}organization-detail-page{% endblock %} {% block content %}
 {% from 'partials/date_field.html' import date_field with context %}
+{% from 'partials/sale_rows.html' import sale_item, sale_fields with context %}
 {% from 'partials/judgments.html' import judgment_fields, judgment_labels, judgment_text with context %}
 <div class="page-header">
   <h1>{{ organization.name }} <span class="record-id">#{{ organization.id }}</span></h1>
@@ -382,13 +383,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     {% if sales %}
     <ul class="sales-list">
       {% for sale in sales %}
-      <li>
-        <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}{% if sale.offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}{% if sale.description %} · {{ sale.description }}{% endif %}
-        <form method="post" action="/organizations/{{ organization.id }}/sales/{{ sale.id }}/delete" style="display:inline"
-              data-confirm="{{ t('sales.deleteConfirm') }}">
-          <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
-        </form>
-      </li>
+      {{ sale_item(sale, sale.deal_id, '/organizations/' ~ organization.id, show_offer=True) }}
       {% endfor %}
     </ul>
     {% else %}
@@ -408,6 +403,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         </select>
       </label>
       {% endif %}
+      {{ sale_fields() }}
       <label class="record-form__wide">{{ t('sales.description') }}
         <input type="text" name="description" maxlength="500" placeholder="{{ t('sales.descriptionPlaceholder') }}" />
       </label>

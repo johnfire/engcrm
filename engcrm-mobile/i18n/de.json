@@ -770,5 +770,14 @@
   "mfa.title": "Zwei-Faktor-Authentifizierung",
   "mfa.manage": "Auf der Website verwalten",
   "mfa.loginCode": "Authenticator- oder Wiederherstellungscode",
-  "mfa.loginHint": "Wenn die Zwei-Faktor-Authentifizierung aktiviert ist, einen Code eingeben. Andernfalls leer lassen."
+  "mfa.loginHint": "Wenn die Zwei-Faktor-Authentifizierung aktiviert ist, einen Code eingeben. Andernfalls leer lassen.",
+  "sale.status.label": "Status",
+  "sale.status.booked": "Gebucht",
+  "sale.status.contracted": "Vertrag liegt vor",
+  "sale.status.collected": "Bezahlt",
+  "sale.status.cancelled": "Storniert",
+  "sale.expectedOn": "erwartet {{date}}",
+  "sale.collectedOn": "bezahlt {{date}}",
+  "sale.expectedOnLabel": "Erwartet am (optional)",
+  "sale.moveTo": "Verschieben nach"
 }

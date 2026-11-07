@@ -1005,5 +1005,18 @@
   "mfa.disable": "Zwei-Faktor-Authentifizierung deaktivieren",
   "mfa.regenerate": "Wiederherstellungscodes ersetzen",
   "mfa.replaceWarning": "Alle bisherigen Wiederherstellungscodes werden sofort ungültig. Es werden zehn neue Codes ausgegeben.",
-  "mfa.disableWarning": "Der zweite Faktor wird vom Konto entfernt. Mit dem aktuellen Passwort und einem unbenutzten Code bestätigen."
+  "mfa.disableWarning": "Der zweite Faktor wird vom Konto entfernt. Mit dem aktuellen Passwort und einem unbenutzten Code bestätigen.",
+  "sale.status.label": "Status",
+  "sale.status.booked": "Gebucht",
+  "sale.status.contracted": "Vertrag liegt vor",
+  "sale.status.collected": "Bezahlt",
+  "sale.status.cancelled": "Storniert",
+  "sale.expectedOn": "erwartet {{date}}",
+  "sale.collectedOn": "bezahlt {{date}}",
+  "sale.expectedOnLabel": "Erwartet am (optional)",
+  "sale.collectedOnLabel": "Tag des Geldeingangs (leer = heute)",
+  "deals.pipelineTotal": "Gebucht, noch nicht bezahlt: {{amount}}",
+  "statistics.salesPipeline": "Verkaufs-Pipeline",
+  "statistics.salesPipelineSplit": "{{booked}} gebucht · {{contracted}} vertraglich",
+  "statistics.collectedOnly": "Hier zählen nur bezahlte Verkäufe; gebuchte und vertraglich zugesagte sind die Pipeline."
 }

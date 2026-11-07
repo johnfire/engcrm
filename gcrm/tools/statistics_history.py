@@ -154,8 +154,9 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None, offer:
         effort = {row["b"]: row for row in cur.fetchall()}
         sales_offer = f" AND deal_id IN (SELECT id FROM deals WHERE offer_id = {offer_id})" if offer else ""
         cur.execute(
-            f"SELECT date_trunc('{trunc}', won_on)::date AS b, SUM(amount_eur) AS won FROM sales "
-            f"WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s{sales_offer} GROUP BY 1",
+            f"SELECT date_trunc('{trunc}', collected_on)::date AS b, SUM(amount_eur) AS won FROM sales "
+            "WHERE workspace_id = %s AND deleted_at IS NULL AND status = 'collected' "
+            f"AND collected_on BETWEEN %s AND %s{sales_offer} GROUP BY 1",
             (workspace_id, first, today),
         )
         won = {row["b"]: Decimal(row["won"]) for row in cur.fetchall()}

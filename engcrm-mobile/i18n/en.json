@@ -770,5 +770,14 @@
   "mfa.title": "Two-factor authentication",
   "mfa.manage": "Manage on the website",
   "mfa.loginCode": "Authenticator or recovery code",
-  "mfa.loginHint": "If two-factor authentication is enabled, enter a code. Otherwise leave this blank."
+  "mfa.loginHint": "If two-factor authentication is enabled, enter a code. Otherwise leave this blank.",
+  "sale.status.label": "Status",
+  "sale.status.booked": "Booked",
+  "sale.status.contracted": "Contracted",
+  "sale.status.collected": "Collected",
+  "sale.status.cancelled": "Cancelled",
+  "sale.expectedOn": "expected {{date}}",
+  "sale.collectedOn": "collected {{date}}",
+  "sale.expectedOnLabel": "Expected on (optional)",
+  "sale.moveTo": "Move to"
 }

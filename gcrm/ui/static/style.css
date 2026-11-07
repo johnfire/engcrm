@@ -1434,3 +1434,11 @@ main.statistics-page { max-width: none; }
 
 /* Database id next to an organization's or person's name, to tell duplicates apart. */
 .record-id { color: var(--muted); font-size: 0.75em; font-weight: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* A sale's status: only collected is money won; booked and contracted are the pipeline. */
+.badge-sale-booked { border: 1px solid var(--accent); color: var(--accent); }
+.badge-sale-contracted { border: 1px solid #ffeb3b; color: #ffeb3b; }
+.badge-sale-collected { background: var(--success); color: var(--bg); }
+.badge-sale-cancelled { border: 1px solid var(--muted); color: var(--muted); text-decoration: line-through; }
+.sale--cancelled { opacity: 0.6; }
+.sale__move { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.2rem 0.5rem 0.2rem 0; }

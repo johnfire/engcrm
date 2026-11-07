@@ -1,6 +1,7 @@
 import axios from "axios";
 import { router } from "expo-router";
 import { clearToken, getSession } from "./auth";
+import { SaleStatus } from "./saleStatus";
 import { Server, serverForEmail } from "./reviewer-routing";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
 import type { DealChip } from "./deals";
@@ -574,10 +575,15 @@ export interface OrganizationDetail extends Organization {
 
 export interface Sale {
   id: number;
+  deal_id: number;
   amount_eur: string;
   won_on: string; // YYYY-MM-DD
   description: string | null;
   offer: string; // the offer's name
+  /** Only a collected sale is money won; booked and contracted ones are the pipeline. */
+  status?: SaleStatus; // older servers send none: collected
+  expected_on?: string | null;
+  collected_on?: string | null;
 }
 
 /** Delete a one-off sale recorded by mistake. Admin only. */

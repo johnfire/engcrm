@@ -10,6 +10,7 @@ from decimal import Decimal
 from gcrm.activity_types import ACTIVITY_TYPES, DEFAULT_MINUTES, NOT_ACTIVITIES, type_case_sql
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, offer_id_sql
 
@@ -79,21 +80,25 @@ def set_minute_defaults(workspace_id: int, minutes: dict[str, int]) -> None:
 # --- Sales ---------------------------------------------------------------------
 
 def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str,
-             deal_id: int | None = None) -> int | None:
+             deal_id: int | None = None, status: str | None = None, expected_on: date | None = None,
+             collected_on: date | None = None) -> int | None:
     """Record a sale on an organization of this workspace, for one of its deals
-    (`deal_id`; its Consulting deal when not given). None if there is no such
-    organization, or no such live deal of it."""
+    (`deal_id`; its Consulting deal when not given). `status` defaults to
+    collected. None if there is no such organization, or no such live deal of it."""
     if amount_eur <= 0:
         raise ValueError("amount must be more than 0")
+    status = checked_sale_status(status)
+    collected = collected_day(status, collected_on, won_on)
     which = "x.id = %s" if deal_id is not None else f"x.offer_id = {offer_id_sql('c.workspace_id', CONSULTING)}"
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description) "
-            "SELECT %s, x.id, %s, %s, %s FROM contacts c JOIN deals x ON x.contact_id = c.id "
+            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
+            "collected_on) SELECT %s, x.id, %s, %s, %s, %s, %s, %s FROM contacts c JOIN deals x ON x.contact_id = c.id "
             f"WHERE c.id = %s AND c.workspace_id = %s AND c.deleted_at IS NULL AND x.deleted_at IS NULL "
             f"AND {which} RETURNING id",
-            [workspace_id, amount_eur, won_on, description.strip() or None, contact_id, workspace_id,
+            [workspace_id, amount_eur, won_on, description.strip() or None, status, expected_on, collected,
+             contact_id, workspace_id,
              *([deal_id] if deal_id is not None else [])],
         )
         row = cur.fetchone()
@@ -106,7 +111,8 @@ def get_sales(contact_id: int) -> list[dict]:
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT s.id, s.amount_eur, s.won_on, s.description, o.name AS offer FROM sales s "
+            "SELECT s.id, s.deal_id, s.amount_eur, s.won_on, s.description, s.status, s.expected_on, s.collected_on, "
+            "o.name AS offer FROM sales s "
             "JOIN deals d ON d.id = s.deal_id JOIN offers o ON o.id = d.offer_id "
             "WHERE d.contact_id = %s AND s.deleted_at IS NULL ORDER BY s.won_on DESC, s.id DESC",
             (contact_id,),
@@ -242,7 +248,8 @@ def _summary(cur, acts_sql: str, acts_params: list, workspace_id: int, start: da
                      "estimated": by_kind.get(kind, {}).get("estimated", 0)} for kind in ACTIVITY_TYPES}
     cur.execute(
         "SELECT COALESCE(SUM(amount_eur), 0) AS won, COUNT(*) AS sales FROM sales "
-        f"WHERE workspace_id = %s AND deleted_at IS NULL AND won_on BETWEEN %s AND %s{_sales_offer(workspace_id, offer)}",
+        "WHERE workspace_id = %s AND deleted_at IS NULL AND status = 'collected' "
+        f"AND collected_on BETWEEN %s AND %s{_sales_offer(workspace_id, offer)}",
         (workspace_id, start, end),
     )
     money = cur.fetchone()
@@ -361,14 +368,28 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         stuck = [serialize_row(dict(row)) for row in cur.fetchall()]
 
         cur.execute(
+            "SELECT status, COALESCE(SUM(amount_eur), 0) AS eur, COUNT(*) AS n FROM sales "
+            "WHERE workspace_id = %s AND deleted_at IS NULL AND status IN ('booked', 'contracted') "
+            f"{_sales_offer(workspace_id, offer)} GROUP BY status",
+            (workspace_id,),
+        )
+        open_sales = {row["status"]: row for row in cur.fetchall()}
+        pipeline = {status: {"eur": Decimal(open_sales[status]["eur"]) if status in open_sales else Decimal("0"),
+                             "count": open_sales[status]["n"] if status in open_sales else 0}
+                    for status in PIPELINE_SALE_STATUSES}
+
+        cur.execute(
             f"""WITH {acts_sql},
             s AS (
-                SELECT s.id, x.contact_id, s.amount_eur, s.won_on, s.description, c.name AS organization,
-                       c.created_at::date AS added_on, o.name AS offer,
-                       LAG(s.won_on) OVER (PARTITION BY x.contact_id ORDER BY s.won_on, s.id) AS previous_won
-                  FROM sales s JOIN deals x ON x.id = s.deal_id JOIN contacts c ON c.id = x.contact_id
+                SELECT s.id, x.contact_id, s.amount_eur, s.collected_on AS won_on, s.description,
+                       COALESCE(c.name, p.name) AS organization,
+                       COALESCE(c.created_at, p.created_at)::date AS added_on, o.name AS offer,
+                       LAG(s.collected_on) OVER (PARTITION BY COALESCE(x.contact_id, -x.person_id)
+                                                 ORDER BY s.collected_on, s.id) AS previous_won
+                  FROM sales s JOIN deals x ON x.id = s.deal_id
+                  LEFT JOIN contacts c ON c.id = x.contact_id LEFT JOIN people p ON p.id = x.person_id
                   JOIN offers o ON o.id = x.offer_id
-                 WHERE s.workspace_id = %s AND s.deleted_at IS NULL{_sales_offer(workspace_id, offer, "s.deal_id")}
+                 WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND s.status = 'collected'{_sales_offer(workspace_id, offer, "s.deal_id")}
             )
             SELECT s.*,
                    LEAST((SELECT MIN(day) FROM acts a WHERE a.contact_id = s.contact_id), s.added_on) AS first_contact,
@@ -393,6 +414,6 @@ def get_statistics(workspace_id: int, start: date, end: date, today: date | None
         "start": start, "end": end, "previous_start": prev_start, "previous_end": prev_end,
         "current": current, "previous": previous, "weeks": weeks, "new_by_source": new_by_source,
         "stages_now": stages_now, "stuck": stuck, "stuck_after_days": STUCK_AFTER_DAYS,
-        "sales": sales, "defaults": defaults, "offer": offer,
+        "sales": sales, "pipeline": pipeline, "defaults": defaults, "offer": offer,
         "mrr_now": recurring["mrr"], "subscribers_now": recurring["subscribers"],
     }

@@ -7,22 +7,26 @@ jest.mock("../../services/api", () => ({
 }));
 const mockFetchDeals = jest.fn();
 const mockRecordSale = jest.fn();
+const mockChangeStatus = jest.fn();
 jest.mock("../../services/deals", () => ({
   fetchDeals: (...a: any[]) => mockFetchDeals(...a),
   recordSale: (...a: any[]) => mockRecordSale(...a),
+  changeSaleStatus: (...a: any[]) => mockChangeStatus(...a),
 }));
 
 import { SalesCard } from "../../components/SalesCard";
 import { onChanged, organizationKey } from "../../services/refreshBus";
 
 const DEAL = (id: number, offer_name: string) => ({ id, offer_name, offer_slug: offer_name.toLowerCase() });
-const SALE = { id: 5, amount_eur: "2400.00", won_on: "2026-10-28", description: "Painting", offer: "Art" };
+const SALE = { id: 5, deal_id: 8, amount_eur: "2400.00", won_on: "2026-10-28", description: "Painting", offer: "Art" };
+const BOOKED = { ...SALE, id: 6, status: "booked" as const, expected_on: "2027-01-20", description: "AI course" };
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockFetchDeals.mockResolvedValue([DEAL(7, "Consulting"), DEAL(8, "Art")]);
   mockRecordSale.mockResolvedValue(undefined);
   mockDeleteSale.mockResolvedValue(undefined);
+  mockChangeStatus.mockResolvedValue(undefined);
 });
 
 it("lists the sales as the web does", () => {
@@ -48,7 +52,9 @@ it("records a sale on the chosen deal and refreshes the organization", async () 
   fireEvent.changeText(screen.getByLabelText("Date won"), "27.10.2026");
   fireEvent.changeText(screen.getByLabelText("What"), " Print series ");
   fireEvent.press(screen.getByText("Record sale"));
-  await waitFor(() => expect(mockRecordSale).toHaveBeenCalledWith(8, "1200.50", "2026-10-27", "Print series"));
+  await waitFor(() =>
+    expect(mockRecordSale).toHaveBeenCalledWith(8, "1200.50", "2026-10-27", "Print series", "booked", null),
+  );
   await waitFor(() => expect(changed).toHaveBeenCalled());
   off();
 });
@@ -77,4 +83,38 @@ it("deletes a sale after asking", async () => {
   confirm.onPress!();
   await waitFor(() => expect(mockDeleteSale).toHaveBeenCalledWith(42, 5));
   alert.mockRestore();
+});
+
+it("shows each sale's status, and a sale without one as collected", () => {
+  const screen = render(<SalesCard organizationId={42} sales={[SALE, BOOKED]} canEdit={false} />);
+  expect(screen.getByText("Collected")).toBeTruthy(); // an older server sends no status
+  expect(screen.getByText("Booked · expected 20.01.2027")).toBeTruthy();
+});
+
+it("records a new sale as booked unless another status is picked, with the expected day", async () => {
+  const screen = render(<SalesCard organizationId={42} sales={[]} canEdit />);
+  await waitFor(() => expect(screen.getByLabelText("Amount (€)")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Amount (€)"), "900");
+  fireEvent.press(screen.getByLabelText("Contracted"));
+  fireEvent.changeText(screen.getByLabelText("Expected on (optional)"), "20.01.2027");
+  fireEvent.press(screen.getByText("Record sale"));
+  await waitFor(() =>
+    expect(mockRecordSale).toHaveBeenCalledWith(7, "900", expect.any(String), "", "contracted", "2027-01-20"),
+  );
+});
+
+it("moves a sale along and refreshes", async () => {
+  const changed = jest.fn();
+  const off = onChanged(organizationKey(42), changed);
+  const screen = render(<SalesCard organizationId={42} sales={[BOOKED]} canEdit />);
+  fireEvent.press(screen.getByLabelText("Move to Collected"));
+  await waitFor(() => expect(mockChangeStatus).toHaveBeenCalledWith(8, 6, "collected"));
+  await waitFor(() => expect(changed).toHaveBeenCalled());
+  off();
+});
+
+it("does not offer to move a sale to the status it already has", () => {
+  const screen = render(<SalesCard organizationId={42} sales={[BOOKED]} canEdit />);
+  expect(screen.queryByLabelText("Move to Booked")).toBeNull();
+  expect(screen.getByLabelText("Move to Cancelled")).toBeTruthy();
 });

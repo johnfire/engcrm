@@ -6,6 +6,7 @@
    Like the rest of the page, the forms are shown to everyone and the server
    refuses changes from anyone but an admin. #}
 {% from 'partials/date_field.html' import date_field with context %}
+{% from 'partials/sale_rows.html' import sale_item, sale_fields with context %}
 <section class="detail-section deals" id="deals">
   <h2>{{ t('deals.title') }}</h2>
   {% if not deals %}<p class="muted">{{ t('deals.none') }}</p>{% endif %}
@@ -96,6 +97,34 @@
         {% endif %}
         {% if money.sales_total %}
         <p class="small">{{ t('deals.oneOffTotal', amount=money.sales_total | eur, count=money.sales | length) }}</p>
+        {% endif %}
+        {% if money.pipeline_total %}
+        <p class="small">{{ t('deals.pipelineTotal', amount=money.pipeline_total | eur) }}</p>
+        {% endif %}
+        {# an organization records its sales in its own Sales card; a person (a consultant you sell to) here #}
+        {% if deal_owner == 'person' %}
+        <details class="deal-card__sales" {% if money.sales %}open{% endif %}>
+          <summary>{{ t('sales.title') }}</summary>
+          {% if money.sales %}
+          <ul class="sales-list">
+            {% for sale in money.sales %}{{ sale_item(sale, deal.id, deal_page) }}{% endfor %}
+          </ul>
+          {% endif %}
+          <form method="post" action="/deals/{{ deal.id }}/sales" class="record-form">
+            <input type="hidden" name="next" value="{{ deal_page }}" />
+            <label>{{ t('sales.amount') }}
+              <input type="text" name="amount_eur" inputmode="decimal" required placeholder="2400" />
+            </label>
+            <label>{{ t('sales.wonOn') }}
+              {{ date_field('won_on', today, required=True) }}
+            </label>
+            {{ sale_fields() }}
+            <label class="record-form__wide">{{ t('sales.description') }}
+              <input type="text" name="description" maxlength="500" placeholder="{{ t('sales.descriptionPlaceholder') }}" />
+            </label>
+            <button type="submit" class="btn-primary">{{ t('sales.record') }}</button>
+          </form>
+        </details>
         {% endif %}
         <details class="deal-card__subscription" {% if deal.revenue_kind == 'subscription' and not money.subscriptions %}open{% endif %}>
           <summary>{{ t('subscription.title') }}</summary>

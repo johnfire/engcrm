@@ -155,16 +155,19 @@ def record_sale(
     won_on: str = Form(...),
     description: str = Form(""),
     deal_id: int | None = Form(None),
+    status: str = Form("collected"),
+    expected_on: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     """Record a one-off sale for one of the organization's deals (Consulting's
-    when the form names none)."""
+    when the form names none), booked, contracted or already collected."""
     try:
         amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
         when = parse_day(won_on)
         if when is None:
             raise ValueError("a sale needs its day")
-        sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id)
+        sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id,
+                           status=status, expected_on=parse_day(expected_on))
     except (InvalidOperation, ValueError):
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
     if sale_id is None:
