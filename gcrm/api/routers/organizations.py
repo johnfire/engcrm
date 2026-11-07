@@ -36,6 +36,7 @@ from gcrm.tools.db_personal_priorities import set_organization_rating, set_perso
 from gcrm.tools.db_personal_ratings import VALUE_HORIZONS
 from gcrm.tools.map_pins import pins_for_contact
 from gcrm.tools.privacy_retention import erase_organization
+from gcrm.tools.revenue import business_revenue, revenue_columns_sql, revenue_sort_sql
 from gcrm.tools.statistics import get_sales
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,8 @@ def _sort_column(sort: str, offer: str | None) -> str:
     offer's, in offer order)."""
     if sort in ("status", "pipeline_stage"):
         return deal_sort_sql("c", "contact_id", offer, sort)
+    if sort in ("revenue_collected", "revenue_total"):
+        return revenue_sort_sql("c", sort, offer)
     return SORT_COLUMNS.get(sort, "c.created_at")
 
 
@@ -168,6 +171,7 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
             SELECT
                 c.id, c.name, c.city, c.country, c.type,
                 {deals_json_sql("c", "contact_id", offer)} AS deals,
+                {revenue_columns_sql("c", offer)},
                 c.do_not_contact, c.email_bounced, c.research_exhausted,
                 c.email, c.website, c.fit_score, c.notes, c.flagged, c.starred,
                 c.created_at, cup.priority AS personal_priority,
@@ -241,10 +245,17 @@ def organization_list(
     )
 
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    # The whole-business revenue is a bonus on this page: if it can't be read, the list still renders.
+    try:
+        business = business_revenue(workspace_id, active_offer)
+    except Exception:
+        logger.exception("business revenue lookup failed")
+        business = None
 
     return templates.TemplateResponse("organizations.html", {
         "request": request,
         "organizations": organizations,
+        "business_revenue": business,
         "status_counts": status_counts,
         "stage_counts": stage_counts,
         "pipeline_stages": PIPELINE_STAGES,

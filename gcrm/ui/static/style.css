@@ -1443,3 +1443,19 @@ main.statistics-page { max-width: none; }
 .badge-sale-cancelled { border: 1px solid var(--muted); color: var(--muted); text-decoration: line-through; }
 .sale--cancelled { opacity: 0.6; }
 .sale__move { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.2rem 0.5rem 0.2rem 0; }
+
+/* Revenue by sale status: the strip above the organizations list and its columns. */
+.revenue-strip { margin: 0 0 1rem; }
+.revenue-tiles { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.revenue-tile { display: flex; flex-direction: column; min-width: 8.5rem; padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border); background: var(--bg); }
+.revenue-tile__label { font-size: 0.75em; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.revenue-tile__value { font-size: 1.15em; font-variant-numeric: tabular-nums; }
+.revenue-tile__count { font-size: 0.75em; color: var(--muted); }
+.revenue-tile--collected { border-color: var(--success); }
+.revenue-tile--cancelled .revenue-tile__value { text-decoration: line-through; color: var(--muted); }
+.revenue-tile--total { border-color: var(--accent); }
+.orgs-table col.c-money { width: 6.2rem; }
+.orgs-table .revenue-col { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.orgs-table .revenue-col--cancelled { color: var(--muted); }
+.orgs-table .revenue-col--total { font-weight: 600; }

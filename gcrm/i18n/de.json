@@ -1052,5 +1052,12 @@
   "backup.failed": "Die Sicherung konnte nicht gesendet werden. Das letzte Ergebnis steht unten.",
   "sale.status.expected": "Erwartet",
   "deals.expectedTotal": "Erwartet, noch nicht gebucht: {{amount}}",
-  "statistics.salesExpected": "{{expected}} erwartet"
+  "statistics.salesExpected": "{{expected}} erwartet",
+  "revenue.business": "Umsatz, gesamtes Geschäft",
+  "revenue.total": "Gesamt",
+  "revenue.totalHint": "ohne storniert",
+  "revenue.salesCount_one": "{{count}} Verkauf",
+  "revenue.salesCount_other": "{{count}} Verkäufe",
+  "revenue.salesCount": "{{count}} Verkäufe",
+  "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert."
 }

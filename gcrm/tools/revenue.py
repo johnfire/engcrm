@@ -1,0 +1,66 @@
+"""Revenue by sale status: per organization (as SQL columns for the list) and for the
+whole business (the strip above it).
+
+Statuses are gcrm/sale_status.py's. "Total" is everything still alive or paid —
+expected + booked + contracted + collected — and leaves cancelled out, because a sale that
+fell through is not revenue; cancelled is shown beside it, never added to it.
+"""
+from decimal import Decimal
+
+from gcrm.db.connection import db
+from gcrm.sale_status import SALE_STATUSES
+from gcrm.tools.db_deals import offer_id_sql
+
+TOTAL_STATUSES = ("expected", "booked", "contracted", "collected")
+
+
+def revenue_sum_sql(owner_alias: str, statuses: tuple[str, ...], offer: str | None) -> str:
+    """A scalar subquery: the € of this organization's (`owner_alias`.id) live sales in the
+    given statuses, 0 when none — limited to one offer's deals when `offer` is given.
+    Statuses are checked against the fixed list, so nothing typed ever reaches the SQL."""
+    unknown = set(statuses) - set(SALE_STATUSES)
+    if unknown:
+        raise ValueError(f"unknown sale status {sorted(unknown)}")
+    listed = ", ".join(f"'{status}'" for status in statuses)
+    only = f" AND d.offer_id = {offer_id_sql(f'{owner_alias}.workspace_id', offer)}" if offer else ""
+    return ("(SELECT COALESCE(SUM(s.amount_eur), 0) FROM sales s JOIN deals d ON d.id = s.deal_id "
+            f"WHERE d.contact_id = {owner_alias}.id AND s.deleted_at IS NULL AND d.deleted_at IS NULL "
+            f"AND s.status IN ({listed}){only})")
+
+
+def revenue_columns_sql(owner_alias: str, offer: str | None) -> str:
+    """The SELECT-list columns rev_expected … rev_cancelled and rev_total for the list."""
+    parts = [f"{revenue_sum_sql(owner_alias, (status,), offer)} AS rev_{status}" for status in SALE_STATUSES]
+    parts.append(f"{revenue_sum_sql(owner_alias, TOTAL_STATUSES, offer)} AS rev_total")
+    return ",\n                ".join(parts)
+
+
+def revenue_sort_sql(owner_alias: str, which: str, offer: str | None) -> str:
+    """ORDER BY expression for 'revenue_collected' or 'revenue_total'."""
+    statuses = ("collected",) if which == "revenue_collected" else TOTAL_STATUSES
+    return revenue_sum_sql(owner_alias, statuses, offer)
+
+
+def business_revenue(workspace_id: int | None, offer: str | None = None) -> dict:
+    """{status: {eur, count}} for every sale of the workspace — organizations' and people's —
+    plus "total" (without cancelled). Deleted owners and sales are left out."""
+    with db() as conn:
+        cur = conn.cursor()
+        if workspace_id is None:
+            cur.execute("SELECT id FROM workspaces WHERE slug = 'default'")
+            workspace_id = cur.fetchone()["id"]
+        only = f" AND d.offer_id = {offer_id_sql('%s', offer)}" if offer else ""
+        params = [workspace_id] + ([workspace_id] if offer else [])
+        cur.execute(
+            "SELECT s.status, COALESCE(SUM(s.amount_eur), 0) AS eur, COUNT(*) AS n "
+            "FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL "
+            "LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id "
+            "WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND COALESCE(c.deleted_at, p.deleted_at) IS NULL"
+            f"{only} GROUP BY s.status",
+            params,
+        )
+        found = {row["status"]: row for row in cur.fetchall()}
+    totals = {status: {"eur": Decimal(found[status]["eur"]) if status in found else Decimal("0"),
+                       "count": found[status]["n"] if status in found else 0} for status in SALE_STATUSES}
+    totals["total"] = sum((totals[status]["eur"] for status in TOTAL_STATUSES), Decimal("0"))
+    return totals

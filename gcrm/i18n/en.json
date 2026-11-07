@@ -1052,5 +1052,12 @@
   "backup.failed": "The backup could not be sent. Check the last result below.",
   "sale.status.expected": "Expected",
   "deals.expectedTotal": "Expected, not booked yet: {{amount}}",
-  "statistics.salesExpected": "{{expected}} expected"
+  "statistics.salesExpected": "{{expected}} expected",
+  "revenue.business": "Revenue, whole business",
+  "revenue.total": "Total",
+  "revenue.totalHint": "without cancelled",
+  "revenue.salesCount_one": "{{count}} sale",
+  "revenue.salesCount_other": "{{count}} sales",
+  "revenue.salesCount": "{{count}} sales",
+  "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled."
 }

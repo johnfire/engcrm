@@ -12,6 +12,26 @@ endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
   <a href="/organizations/reachable" class="btn-secondary">{{ t('reachable.link') }}</a>
 </div>
 
+{% if business_revenue %}
+<section class="revenue-strip" aria-label="{{ t('revenue.business') }}">
+  <h2 class="list-control-title">{{ t('revenue.business') }}{% if active_offer %} · {{ active_offer }}{% endif %}</h2>
+  <div class="revenue-tiles">
+    {% for key in ['expected', 'booked', 'contracted', 'collected', 'cancelled'] %}
+    <div class="revenue-tile revenue-tile--{{ key }}">
+      <span class="revenue-tile__label">{{ t('sale.status.' ~ key) }}</span>
+      <strong class="revenue-tile__value">{{ business_revenue[key].eur | eur }}</strong>
+      <span class="revenue-tile__count">{{ t('revenue.salesCount', count=business_revenue[key].count) }}</span>
+    </div>
+    {% endfor %}
+    <div class="revenue-tile revenue-tile--total">
+      <span class="revenue-tile__label">{{ t('revenue.total') }}</span>
+      <strong class="revenue-tile__value">{{ business_revenue.total | eur }}</strong>
+      <span class="revenue-tile__count">{{ t('revenue.totalHint') }}</span>
+    </div>
+  </div>
+</section>
+{% endif %}
+
 {% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 {% set active_sort = sort %}
 {% set active_dir = dir %}
@@ -153,6 +173,8 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
     <col class="c-type" />
     <col class="c-stage" />
     <col class="c-status" />
+    <col class="c-money" /><col class="c-money" /><col class="c-money" />
+    <col class="c-money" /><col class="c-money" /><col class="c-money" />
     <col class="c-fit" />
     <col class="c-mine" />
     <col class="c-date" />
@@ -173,6 +195,12 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th>{{ sort_link('type', t('common.type')) }}</th>
       <th>{{ sort_link('pipeline_stage', t('common.pipelineStage')) }}</th>
       <th>{{ sort_link('status', t('common.status')) }}</th>
+      <th class="revenue-col" title="{{ t('revenue.columnsHint') }}">{{ t('sale.status.expected') }}</th>
+      <th class="revenue-col">{{ t('sale.status.booked') }}</th>
+      <th class="revenue-col">{{ t('sale.status.contracted') }}</th>
+      <th class="revenue-col">{{ sort_link('revenue_collected', t('sale.status.collected'), 'desc') }}</th>
+      <th class="revenue-col">{{ t('sale.status.cancelled') }}</th>
+      <th class="revenue-col">{{ sort_link('revenue_total', t('revenue.total'), 'desc') }}</th>
       <th>{{ sort_link('fit', t('organizations.colFit')) }}</th>
       <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>
       <th class="nowrap">{{ sort_link('short_term_value', t('valueRating.shortTermShort'), 'desc') }} / {{ sort_link('long_term_value', t('valueRating.longTermShort'), 'desc') }}</th>
@@ -215,6 +243,9 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
         {%- endif %}
         {%- endfor %}
       </td>
+      {%- for key in ['expected', 'booked', 'contracted', 'collected', 'cancelled', 'total'] %}
+      <td class="revenue-col revenue-col--{{ key }}">{% set amount = c['rev_' ~ key] %}{% if amount %}{{ amount | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
+      {%- endfor %}
       <td>
         {% if c.fit_score is not none %}{{ c.fit_score }}{% else %}<span
           class="muted"
