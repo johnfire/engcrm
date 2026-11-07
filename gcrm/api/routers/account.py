@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_admin, require_login
+from gcrm.api.routers.backups import _workspace_id as _backup_workspace_id
+from gcrm.api.routers.backups import backup_context
 from gcrm.api.security import hash_password, verify_password
 from gcrm.api.templates import templates
 from gcrm.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
@@ -18,6 +20,14 @@ from gcrm.workspace_context import set_workspace_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["account"])
+
+
+BACKUP_MESSAGES = {"saved": "backup.saved", "sent": "backup.sent", "link": "backup.sentLink",
+                   "failed": "backup.failed"}
+
+
+def _workspace_of(request: Request) -> int:
+    return _backup_workspace_id(request)
 
 
 def _lang(request: Request) -> str:
@@ -71,11 +81,16 @@ def settings_page(request: Request):
 
 def _settings_response(request: Request, message=None, error=None, status_code: int = 200):
     """Render settings with administrator-only backend controls."""
-    selected_backends = get_ai_backends() if request.session.get("role") == "admin" else None
+    is_admin = request.session.get("role") == "admin"
+    selected_backends = get_ai_backends() if is_admin else None
+    backup = backup_context(_workspace_of(request)) if is_admin else None
+    flag = request.query_params.get("backup")
+    if flag in BACKUP_MESSAGES and message is None and error is None:
+        message = t(BACKUP_MESSAGES[flag], _lang(request))
     return templates.TemplateResponse(
         "settings.html",
         {"request": request, "message": message, "error": error, "selected_backends": selected_backends,
-         "cheap_models": CHEAP_MODELS, "smart_models": SMART_MODELS},
+         "cheap_models": CHEAP_MODELS, "smart_models": SMART_MODELS, "backup": backup},
         status_code=status_code,
     )
 

@@ -44,6 +44,7 @@ from gcrm.api.routers import (
     api_voice,
     approval,
     areas,
+    backups,
     contact_dates,
     contact_feed,
     deals,
@@ -64,6 +65,7 @@ from gcrm.api.routers import (
 from gcrm.audit_context import CorrelationIdFilter, audit_scope
 from gcrm.config import SESSION_COOKIE_SECURE, SESSION_SECRET
 from gcrm.i18n import SUPPORTED_LANGUAGES
+from gcrm.tools.backup_schedule import start_backup_loop
 from gcrm.tools.statistics_history import start_snapshot_loop
 from gcrm.workspace_context import require_workspace_scope, set_workspace_id
 
@@ -79,10 +81,13 @@ except Exception:  # pragma: no cover - logged and survived, never fatal
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Keep the daily pipeline log while the app runs (PIPELINE_SNAPSHOTS=off to
-    skip, e.g. in a one-off container). A failing snapshot is logged, never fatal.
+    skip, e.g. in a one-off container) and send the scheduled data backups
+    (BACKUP_SCHEDULER=off to skip). A failing snapshot or backup is logged, never fatal.
     Also runs the remote MCP's session manager, which /mcp needs."""
     if os.getenv("PIPELINE_SNAPSHOTS", "on") != "off":
         start_snapshot_loop()
+    if os.getenv("BACKUP_SCHEDULER", "on") != "off":
+        start_backup_loop()
     if remote_mcp is None:
         yield
         return
@@ -164,6 +169,7 @@ if remote_mcp is not None:
 app.include_router(auth.router)
 app.include_router(legal.router)
 app.include_router(account.router)
+app.include_router(backups.router)
 app.include_router(two_factor.router)
 app.include_router(approval.router)
 app.include_router(activity.router)

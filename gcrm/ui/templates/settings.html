@@ -25,6 +25,32 @@
 <label>{{ t('settings.writingModel') }} <select name="smart_llm">
 {% for model in smart_models %}<option value="{{ model }}" {% if selected_backends.smart_llm == model %}selected{% endif %}>{{ model }}</option>{% endfor %}
 </select></label><button type="submit">{{ t('common.save') }}</button></form></section>{% endif %}
+{% if backup %}<section class="card" id="backup"><h2>{{ t('backup.title') }}</h2>
+<p>{{ t('backup.hint') }}</p>
+<form method="post" action="/settings/backup" class="record-form">
+<label>{{ t('backup.frequency') }} <select name="frequency">
+{% for f in ['off', 'daily', 'weekly'] %}<option value="{{ f }}" {% if backup.schedule.frequency == f %}selected{% endif %}>{{ t('backup.frequency.' ~ f) }}</option>{% endfor %}
+</select></label>
+<label>{{ t('backup.weekday') }} <select name="weekday">
+{% for d in range(7) %}<option value="{{ d }}" {% if backup.schedule.weekday == d %}selected{% endif %}>{{ t('backup.weekday.' ~ d) }}</option>{% endfor %}
+</select></label>
+<label>{{ t('backup.time') }} <input type="time" name="at_time" value="{{ backup.schedule.at_time.strftime('%H:%M') }}" required></label>
+<label>{{ t('backup.timezone') }} <input name="timezone" list="backup-timezones" value="{{ backup.schedule.timezone }}" required></label>
+<datalist id="backup-timezones">{% for zone in backup.common_timezones %}<option value="{{ zone }}">{% endfor %}{% for zone in backup.all_timezones %}<option value="{{ zone }}">{% endfor %}</datalist>
+<label>{{ t('backup.recipient') }} <select name="recipient_user_id">
+{% for admin in backup.recipients %}<option value="{{ admin.id }}" {% if backup.schedule.recipient_user_id == admin.id or (not backup.schedule.recipient_user_id and admin.id == request.session.get('user_id')) %}selected{% endif %}>{{ admin.name or admin.email }} ({{ admin.email }})</option>{% endfor %}
+</select></label>
+<button type="submit">{{ t('common.save') }}</button></form>
+{% if backup.schedule.frequency != 'off' and backup.schedule.next_run_at %}<p class="muted small">{{ t('backup.next', date=backup.schedule.next_run_at|dmy) }}</p>{% endif %}
+{% if backup.schedule.last_status %}<p class="muted small">{{ t('backup.last.' ~ backup.schedule.last_status) }}{% if backup.schedule.last_run_at %} ({{ backup.schedule.last_run_at|dmy }}){% endif %}{% if backup.schedule.last_error %}: {{ backup.schedule.last_error }}{% endif %}</p>{% endif %}
+<div class="detail-actions">
+<form method="post" action="/settings/backup/send-now" style="display:inline"><button type="submit" class="btn-secondary">{{ t('backup.sendNow') }}</button></form>
+<form method="post" action="/settings/backup/download-now" style="display:inline"><button type="submit" class="btn-secondary">{{ t('backup.downloadNow') }}</button></form>
+</div>
+{% if backup.files %}<h3>{{ t('backup.kept') }}</h3><ul class="sales-list">
+{% for f in backup.files %}<li><a href="/settings/backup/files/{{ f.id }}">{{ f.filename }}</a> · {{ (f.size_bytes / 1024)|round(0)|int }} KB · {{ f.created_at|dmy }}</li>{% endfor %}
+</ul>{% endif %}
+</section>{% endif %}
 <section class="card"><h2>{{ t('settings.sessionHeader') }}</h2>
 <form method="post" action="/logout"><button type="submit">{{ t('settings.logout') }}</button></form>
 </section>{% endblock %}

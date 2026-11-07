@@ -9,6 +9,7 @@ import smtplib
 import ssl
 import time
 from datetime import datetime, timezone
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
@@ -91,6 +92,41 @@ def send_email(to_email: str, subject: str, body: str, from_email: str | None = 
         return True
     except Exception as error:
         logger.error("send_email failed to %s: %s", to_email, error)
+        return False
+
+
+def send_backup_mail(to_email: str, subject: str, body: str, attachment: tuple[str, bytes] | None = None) -> bool:
+    """Send a data-backup email, with the ZIP attached when `attachment` is (filename, bytes).
+    Over STARTTLS only. The message is never filed in the Sent folder: it would put a second
+    copy of the customer's data on the mail server. Returns True once the server took it."""
+    if not EMAIL_ENABLED:
+        logger.warning("send_backup_mail: EMAIL_ENABLED=false — not sending to %s", to_email)
+        return False
+    if not to_email or not body:
+        logger.warning("send_backup_mail: missing recipient or body — skipped")
+        return False
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = MAIL_FROM_EMAIL
+    msg["To"] = to_email
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid()
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+    if attachment is not None:
+        filename, data = attachment
+        part = MIMEApplication(data, _subtype="zip", Name=filename)
+        part.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(part)
+    try:
+        with smtplib.SMTP(MAIL_SMTP_HOST, MAIL_SMTP_PORT) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=_starttls_context(MAIL_SMTP_HOST))
+            smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
+            smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
+        logger.info("send_backup_mail: sent to %s", to_email)
+        return True
+    except Exception as error:
+        logger.error("send_backup_mail failed to %s: %s", to_email, error)
         return False
 
 
