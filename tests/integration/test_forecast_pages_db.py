@@ -169,3 +169,13 @@ def test_the_page_has_no_secured_column_and_calls_the_last_sum_the_grand_total(w
     page = _browser("owner@first.example").get("/forecast?lang=en").text
     assert "Secured" not in page and "secured" not in page
     assert "Subtotal" in page and "Grand total" in page
+
+
+def test_the_page_leaves_out_months_before_the_business_started(world):
+    admin = _browser("owner@first.example")
+    assert "09.2026" in admin.get("/forecast?lang=en").text                          # listed until a first month is set
+    admin.post("/forecast/need", data={"monthly_need": "5000", "start_month": "01.10.2026", "view": "month"},
+               follow_redirects=False)
+    page = admin.get("/forecast?lang=en").text
+    table = page[page.index("<tbody>"):page.index("</tbody>")]
+    assert "09.2026" not in table and "10.2026" in table

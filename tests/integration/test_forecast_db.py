@@ -229,16 +229,28 @@ def test_without_a_covers_from_the_income_covers_the_month_of_its_first_payment(
     assert _period(_forecast(world), date(2026, 11, 1))["covered"] == D("1500")
 
 
-def test_nothing_before_the_first_month_of_the_business_has_a_target(world):
+def test_periods_that_end_before_the_business_started_are_not_listed(world):
     with workspace_scope(world["first"]):
         save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
-    f = _forecast(world)
-    assert _period(f, date(2026, 9, 1))["target"] is None and _period(f, date(2026, 9, 1))["gap_total"] is None
-    assert _period(f, date(2026, 10, 1))["target"] == D("5000")
-    q3 = _period(_forecast(world, "quarter"), date(2026, 7, 1))
-    assert q3["target"] is None                                           # no month of that quarter was in business
+    months = [p["start"] for p in _forecast(world)["periods"]]
+    assert date(2026, 9, 1) not in months and months[0] == date(2026, 10, 1)
+    quarters = [p["start"] for p in _forecast(world, "quarter")["periods"]]
+    assert date(2026, 7, 1) not in quarters and date(2026, 10, 1) in quarters       # Q3 ended before the start
+    years = [p["start"] for p in _forecast(world, "year")["periods"]]
+    assert date(2025, 1, 1) not in years and date(2026, 1, 1) in years              # 2026 includes October to December
+
+
+def test_every_period_is_listed_when_no_first_month_is_set(world):
+    months = [p["start"] for p in _forecast(world)["periods"]]
+    assert date(2026, 9, 1) in months
+
+
+def test_a_period_that_starts_before_the_business_counts_only_its_months_in_business(world):
+    with workspace_scope(world["first"]):
+        save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
     year = _period(_forecast(world, "year"), date(2026, 1, 1))
     assert year["target"] == D("5000") * 3                                # October, November, December 2026 only
+    assert _period(_forecast(world), date(2026, 10, 1))["target"] == D("5000")
 
 
 def test_a_quarter_that_starts_before_the_business_counts_only_the_months_in_business(world):

@@ -95,11 +95,14 @@ def get_forecast(workspace_id: int, granularity: str, today: date | None = None,
     next month, the month after, this and next quarter, this and next year — the same whichever
     view is chosen), the money with no due day, and the plan. Run inside the workspace's scope."""
     today = today or date.today()
-    starts = periods_around(granularity, today)
+    plan = get_plan()
+    first_month = plan["start_month"]
+    # A period that ended before the business started has nothing to show: leave it out.
+    starts = [s for s in periods_around(granularity, today)
+              if first_month is None or period_end(granularity, s) >= first_month]
     tile_starts = [(key, g, shift_months(period_start(g, today), ahead * _MONTHS_LONG[g])) for key, g, ahead in TILES]
     needed = [(s, period_end(granularity, s)) for s in starts] + [(s, period_end(g, s)) for _, g, s in tile_starts]
     first, last = min(a for a, _ in needed), max(b for _, b in needed)
-    plan = get_plan()
     all_months = []
     for g, s in [(granularity, s) for s in starts] + [(g, s) for _, g, s in tile_starts]:
         all_months += months_of(g, s)
