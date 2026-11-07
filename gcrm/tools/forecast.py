@@ -5,11 +5,12 @@ Each sale row (a one-off, or one payment of a contract) sits in the month of its
 money is left out. Money with no due day is reported apart as "undated" instead of vanishing.
 
   collected   received      contracted  a written contract exists   booked    agreed
-  expected    a hope        secured = collected + contracted + booked
-  total = secured + expected
+  expected    a hope        secured = collected + contracted + booked (sales)
+  other income = confirmed income from the plan that covers the period (counts toward the target)
+  total = secured + expected + other income
 
-Targets come from the income plan (gcrm/tools/income_plan.py): per month, summed for a
-quarter or year. Nothing here weights money by likelihood: it is what it is.
+The target is the income plan's monthly need (gcrm/tools/income_plan.py), the same every month,
+summed for a quarter or year; "still missing" is target minus total. Nothing here weights money by likelihood: it is what it is.
 """
 from datetime import date
 from decimal import Decimal
@@ -76,15 +77,15 @@ def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
         for status, euros in money.get(month, {}).items():
             sums[status] += euros
     secured = sums["collected"] + sums["contracted"] + sums["booked"]
-    total = secured + sums["expected"]
+    covered = sum((targets[m]["covered"] for m in months), _ZERO)
+    total = secured + sums["expected"] + covered
     counted = [targets[m]["target"] for m in months if targets[m]["target"] is not None]
     target = sum(counted, _ZERO) if counted else None            # months before the business started count for nothing
     return {
         "start": start, "end": period_end(granularity, start), **sums,
         "secured": secured, "total": total, "target": target,
         "possible_income": sum((targets[m]["possible"] for m in months), _ZERO),
-        "covered": sum((targets[m]["covered"] for m in months), _ZERO),
-        "gap_secured": None if target is None else target - secured,
+        "covered": covered,
         "gap_total": None if target is None else target - total,
     }
 

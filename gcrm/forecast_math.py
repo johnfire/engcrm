@@ -1,10 +1,10 @@
 """Periods and monthly targets for the forecast: pure date and money arithmetic.
 
-A target is *per month* and a quarter's or year's target is the sum of its months. A month's
-target is the income needed per month minus the confirmed other income that *covers* that month
-(support paid in arrears for October covers October, though it arrives in November). Months
-before the business started have no target. Unconfirmed other income is "possible": shown,
-never subtracted. Nothing here touches the database.
+A target is *per month*: the income needed per month, the same every month, and a quarter's or
+year's target is the sum of its months. Other income does not lower it: it counts *toward* it, in
+the months it *covers* (support paid in arrears for October covers October, though it arrives in
+November). Months before the business started have no target. Unconfirmed other income is
+"possible": shown, never counted. Nothing here touches the database.
 """
 import calendar
 from datetime import date
@@ -72,9 +72,10 @@ def coverage_months(covers_from: date, payments: int) -> list[date]:
 def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[date],
                   start_month: date | None = None) -> dict[date, dict]:
     """{month: {"target", "possible", "covered"}} for each month in `months`. `covered` is the
-    confirmed other income covering that month and `possible` the unconfirmed. `target` is the
-    need minus `covered`, never below 0; it is None with no need entered, and for months before
-    `start_month`. A line is {amount_eur, covers_from, payments, confirmed}."""
+    confirmed other income covering that month (it counts toward the target) and `possible` the
+    unconfirmed. `target` is the monthly need itself, the same every month; it is None with no need
+    entered, and for months before `start_month`. A line is {amount_eur, covers_from, payments,
+    confirmed}."""
     confirmed: dict[date, Decimal] = {}
     possible: dict[date, Decimal] = {}
     for line in lines:
@@ -86,6 +87,6 @@ def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[
     for month in months:
         covered = confirmed.get(month, _ZERO)
         in_business = first is None or month >= first
-        target = None if (monthly_need is None or not in_business) else max(_ZERO, Decimal(monthly_need) - covered)
+        target = None if (monthly_need is None or not in_business) else Decimal(monthly_need)
         result[month] = {"target": target, "possible": possible.get(month, _ZERO), "covered": covered}
     return result

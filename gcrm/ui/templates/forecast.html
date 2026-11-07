@@ -7,18 +7,17 @@
 <section class="detail-section forecast-tile">
   <h2>{{ heading }} <span class="muted small">{{ name }}</span></h2>
   <p class="forecast-tile__main">
-    <strong>{{ p.secured | eur }}</strong>
+    <strong>{{ p.total | eur }}</strong>
     {% if p.target is not none %}<span class="muted">{{ t('forecast.ofTarget', target=p.target | eur) }}</span>{% endif %}
   </p>
   {% if p.target is not none %}
-  <p class="small {{ 'forecast-short' if p.gap_secured > 0 else 'forecast-ok' }}">
-    {% if p.gap_secured > 0 %}{{ t('forecast.stillMissing', amount=p.gap_secured | eur) }}{% else %}{{ t('forecast.targetMet', amount=(0 - p.gap_secured) | eur) }}{% endif %}
-    {% if p.expected %} · {{ t('forecast.withExpected', amount=(p.gap_total if p.gap_total > 0 else 0) | eur) }}{% endif %}
+  <p class="small {{ 'forecast-short' if p.gap_total > 0 else 'forecast-ok' }}">
+    {% if p.gap_total > 0 %}{{ t('forecast.stillMissing', amount=p.gap_total | eur) }}{% else %}{{ t('forecast.targetMet', amount=(0 - p.gap_total) | eur) }}{% endif %}
   </p>
   {% endif %}
   <p class="muted small">
-    {{ t('sale.status.collected') }} {{ p.collected | eur }} · {{ t('sale.status.contracted') }} {{ p.contracted | eur }} ·
-    {{ t('sale.status.booked') }} {{ p.booked | eur }} · {{ t('sale.status.expected') }} {{ p.expected | eur }}
+    {{ t('forecast.secured') }} {{ p.secured | eur }} · {{ t('forecast.otherIncomeCol') }} {{ p.covered | eur }} ·
+    {{ t('sale.status.expected') }} {{ p.expected | eur }}
   </p>
 </section>
 {% endmacro %}
@@ -54,8 +53,8 @@
       <th class="num">{{ t('sale.status.booked') }}</th>
       <th class="num">{{ t('sale.status.expected') }}</th>
       <th class="num">{{ t('forecast.secured') }}</th>
-      <th class="num">{{ t('forecast.total') }}</th>
       <th class="num" title="{{ t('forecast.otherIncomeHint') }}">{{ t('forecast.otherIncomeCol') }}</th>
+      <th class="num">{{ t('forecast.total') }}</th>
       <th class="num">{{ t('forecast.target') }}</th>
       <th class="num">{{ t('forecast.missing') }}</th>
     </tr></thead>
@@ -68,12 +67,12 @@
         <td class="num">{% if p[key] %}{{ p[key] | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
         {% endfor %}
         <td class="num"><strong>{{ p.secured | eur }}</strong></td>
-        <td class="num">{{ p.total | eur }}</td>
         <td class="num">{% if p.covered %}{{ p.covered | eur }}{% else %}<span class="muted">·</span>{% endif %}
           {% if p.possible_income %}<span class="muted small" title="{{ t('forecast.possibleHint') }}"> +{{ p.possible_income | eur }}?</span>{% endif %}</td>
+        <td class="num"><strong>{{ p.total | eur }}</strong></td>
         <td class="num">{% if p.target is not none %}{{ p.target | eur }}{% else %}<span class="muted">—</span>{% endif %}</td>
-        <td class="num {{ 'forecast-short' if p.gap_secured is not none and p.gap_secured > 0 else 'forecast-ok' if p.gap_secured is not none }}">
-          {% if p.gap_secured is none %}<span class="muted">—</span>{% elif p.gap_secured > 0 %}{{ p.gap_secured | eur }}{% else %}✓{% endif %}</td>
+        <td class="num {{ 'forecast-short' if p.gap_total is not none and p.gap_total > 0 else 'forecast-ok' if p.gap_total is not none }}">
+          {% if p.gap_total is none %}<span class="muted">—</span>{% elif p.gap_total > 0 %}{{ p.gap_total | eur }}{% else %}✓{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>

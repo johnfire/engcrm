@@ -72,7 +72,7 @@ def test_an_admin_sets_the_plan_and_the_page_shows_targets_and_what_is_missing(w
         "confirmed": "1", "view": "month"}).status_code == 303
     page = admin.get("/forecast?lang=en").text
     assert "Support payment" in page and "Confirmed" in page
-    assert "3.500" in page.replace("\xa0", "") and "still missing" in page
+    assert "5.000" in page.replace("\xa0", "") and "still missing" in page             # the target is the plain need
     with workspace_scope(world["first"]):
         assert get_plan()["monthly_need"] == Decimal("5000.00")
 
@@ -150,3 +150,16 @@ def test_an_income_line_can_be_edited_from_the_page(world):
         "label": "Hijacked", "amount_eur": "1", "first_received_on": "01.11.2026", "payments": "1"}).status_code == 404
     assert admin.post(f"/forecast/other-income/{line}/edit", follow_redirects=False, data={
         "label": "", "amount_eur": "1", "first_received_on": "01.11.2026", "payments": "1"}).status_code == 400
+
+
+def test_other_income_sits_left_of_total_and_is_part_of_it(world):
+    admin = _browser("owner@first.example")
+    admin.post("/forecast/need", data={"monthly_need": "5000", "view": "month"}, follow_redirects=False)
+    admin.post("/forecast/other-income", follow_redirects=False, data={
+        "label": "Support payment", "amount_eur": "1500", "first_received_on": "01.11.2026", "payments": "6",
+        "confirmed": "1", "view": "month"})
+    page = admin.get("/forecast?lang=en").text
+    header = page[page.index("<thead>"):page.index("</thead>")]
+    order = [header.index(label) for label in ("Collected", "Contracted", "Booked", "Expected", "Secured",
+                                              "Other income", "Total", "Target", "Still missing")]
+    assert order == sorted(order), "columns must run Collected, Contracted, Booked, Expected, Secured, Other income, Total, Target, Still missing"

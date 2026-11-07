@@ -65,27 +65,28 @@ LINES = [
 OCT = date(2026, 10, 1)
 
 
-def test_a_months_target_is_the_need_minus_the_confirmed_income_that_covers_it():
+def test_a_months_target_is_the_plain_need_and_the_income_covering_it_is_reported_beside_it():
     months = [date(2026, 10, 1), date(2026, 11, 1), date(2027, 3, 1), date(2027, 4, 1)]
     t = month_targets(D("5000"), LINES, months)
-    assert t[date(2026, 10, 1)] == {"target": D("3500"), "possible": D("0"), "covered": D("1500")}
-    assert t[date(2026, 11, 1)]["target"] == D("3500")
-    assert t[date(2027, 3, 1)]["target"] == D("3500")                 # the sixth and last month covered
+    assert t[date(2026, 10, 1)] == {"target": D("5000"), "possible": D("0"), "covered": D("1500")}
+    assert t[date(2026, 11, 1)] == {"target": D("5000"), "possible": D("0"), "covered": D("1500")}
+    assert t[date(2027, 3, 1)]["covered"] == D("1500")                # the sixth and last month covered
     assert t[date(2027, 4, 1)] == {"target": D("5000"), "possible": D("300"), "covered": D("0")}   # follow-on not confirmed
 
 
-def test_confirming_the_follow_on_lowers_the_target_from_then_on():
+def test_confirming_the_follow_on_makes_it_count_from_then_on():
     confirmed = [LINES[0], {**LINES[1], "confirmed": True}]
     t = month_targets(D("5000"), confirmed, [date(2027, 4, 1), date(2028, 6, 1), date(2028, 7, 1)])
-    assert t[date(2027, 4, 1)]["target"] == D("4700")
-    assert t[date(2028, 6, 1)]["target"] == D("4700")                 # the fifteenth and last month
-    assert t[date(2028, 7, 1)]["target"] == D("5000")                 # over
+    assert (t[date(2027, 4, 1)]["covered"], t[date(2027, 4, 1)]["possible"]) == (D("300"), D("0"))
+    assert t[date(2028, 6, 1)]["covered"] == D("300")                 # the fifteenth and last month
+    assert t[date(2028, 7, 1)]["covered"] == D("0")                   # over
+    assert {m["target"] for m in t.values()} == {D("5000")}           # the target never moves
 
 
 def test_nothing_before_the_first_month_of_the_business_has_a_target():
     t = month_targets(D("5000"), LINES, [date(2026, 9, 1), OCT, date(2026, 11, 1)], start_month=OCT)
     assert t[date(2026, 9, 1)]["target"] is None
-    assert t[OCT]["target"] == D("3500") and t[date(2026, 11, 1)]["target"] == D("3500")
+    assert t[OCT]["target"] == D("5000") and t[date(2026, 11, 1)]["target"] == D("5000")
     assert t[date(2026, 9, 1)]["covered"] == D("0")
 
 
@@ -94,9 +95,9 @@ def test_the_first_month_may_be_given_as_any_day_of_it():
     assert t[date(2026, 9, 1)]["target"] is None and t[OCT]["target"] == D("5000")
 
 
-def test_other_income_never_makes_the_target_negative():
+def test_other_income_bigger_than_the_need_does_not_change_the_target():
     t = month_targets(D("1000"), LINES, [OCT])
-    assert t[OCT]["target"] == D("0")
+    assert t[OCT] == {"target": D("1000"), "possible": D("0"), "covered": D("1500")}
 
 
 def test_without_a_need_there_is_no_target_but_the_income_is_still_reported():

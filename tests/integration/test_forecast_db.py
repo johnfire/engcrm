@@ -98,28 +98,43 @@ def test_secured_is_collected_plus_contracted_plus_booked_and_total_adds_expecte
     assert (nov["secured"], nov["total"]) == (D("900"), D("900"))
 
 
+def test_other_income_is_part_of_the_total_and_the_target_is_the_plain_need(world):
+    with workspace_scope(world["first"]):
+        add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True)
+        add_other_income("Possible follow-on", D("300"), date(2026, 11, 1), 2, False)
+    nov = _period(_forecast(world), date(2026, 11, 1))
+    assert nov["covered"] == D("1500") and nov["possible_income"] == D("300")
+    assert nov["total"] == D("600") + D("300") + D("1500")            # collected + contracted + other income; the possible 300 is not counted
+    assert nov["target"] == D("5000")                                 # the need, the same every month
+    assert nov["gap_total"] == nov["target"] - nov["total"] == D("2600")
+    dec = _period(_forecast(world), date(2026, 12, 1))
+    assert (dec["target"], dec["covered"], dec["total"]) == (D("5000"), D("1500"), D("1500"))
+    may = _period(_forecast(world), date(2027, 5, 1))
+    assert may["covered"] == D("0")                                    # the six months are over
+
+
 def test_targets_come_from_the_plan_and_gaps_say_what_is_still_missing(world):
     with workspace_scope(world["first"]):
         add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True)
         add_other_income("Possible follow-on", D("300"), date(2027, 5, 1), 15, False)
     f = _forecast(world)
     nov = _period(f, date(2026, 11, 1))
-    assert nov["target"] == D("3500") and nov["gap_secured"] == D("2600") and nov["gap_total"] == D("2600")
+    assert nov["target"] == D("5000") and nov["gap_total"] == D("2600")
     may = _period(f, date(2027, 5, 1))
     assert may["target"] == D("5000") and may["possible_income"] == D("300")
-    assert may["gap_secured"] == D("4400")                            # 5000 target - 600 booked
+    assert may["gap_total"] == D("4400")                              # 5000 target - 600 booked
 
 
 def test_the_quarter_and_year_views_sum_their_months_and_their_targets(world):
     with workspace_scope(world["first"]):
         add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True)
     q4 = _period(_forecast(world, "quarter"), date(2026, 10, 1))
-    assert q4["target"] == D("5000") + D("3500") + D("3500")          # Oct, Nov, Dec
+    assert q4["target"] == D("5000") * 3                              # Oct, Nov, Dec: the plain need each month
     q1 = _period(_forecast(world, "quarter"), date(2027, 1, 1))
-    assert q1["booked"] == D("1200.00") and q1["target"] == D("3500") * 3
+    assert q1["booked"] == D("1200.00") and q1["target"] == D("5000") * 3 and q1["covered"] == D("4500")
     year = _period(_forecast(world, "year"), date(2026, 1, 1))
     assert year["collected"] == D("600") and year["contracted"] == D("300")
-    assert year["target"] == D("5000") * 10 + D("3500") * 2           # Jan-Oct 5000 each, Nov and Dec 3500
+    assert year["target"] == D("5000") * 12 and year["covered"] == D("3000")   # the support arrives in Nov and Dec of 2026
 
 
 def test_the_tiles_look_at_this_and_the_next_periods(world):
@@ -148,14 +163,14 @@ def test_next_years_tiles_carry_next_years_targets(world):
     with workspace_scope(world["first"]):
         add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True)     # arrives Nov..Apr
     tiles = {t["key"]: t for t in _forecast(world)["tiles"]}
-    assert tiles["next_year"]["target"] == D("5000") * 8 + D("3500") * 4             # Jan-Apr 2027 reduced, May-Dec full
-    assert tiles["next_month"]["target"] == D("3500") and tiles["month_after"]["target"] == D("3500")
+    assert tiles["next_year"]["target"] == D("5000") * 12 and tiles["next_year"]["covered"] == D("6000")   # Jan-Apr 2027
+    assert tiles["next_month"]["target"] == D("5000") and tiles["next_month"]["covered"] == D("1500")
 
 
 def test_no_plan_means_no_target_but_the_money_still_shows(world):
     with workspace_scope(world["second"]):
         month = _period(get_forecast(world["second"], "month", TODAY, None), date(2026, 11, 1))
-    assert month["target"] is None and month["gap_secured"] is None and month["booked"] == D("99999")
+    assert month["target"] is None and month["gap_total"] is None and month["booked"] == D("99999")
 
 
 def test_another_workspaces_money_and_plan_never_appear(world):
@@ -198,8 +213,8 @@ def test_support_paid_a_month_later_still_lowers_the_months_it_covers(world):
         # first payment arrives 1 Nov but it is for October: October to March are covered
         add_other_income("Support payment", D("1500"), date(2026, 11, 1), 6, True, covers_from=date(2026, 10, 1))
     f = _forecast(world)
-    assert _period(f, date(2026, 10, 1))["target"] == D("3500") and _period(f, date(2026, 10, 1))["covered"] == D("1500")
-    assert _period(f, date(2027, 3, 1))["target"] == D("3500")
+    assert _period(f, date(2026, 10, 1))["target"] == D("5000") and _period(f, date(2026, 10, 1))["covered"] == D("1500")
+    assert _period(f, date(2027, 3, 1))["covered"] == D("1500")
     assert _period(f, date(2027, 4, 1))["target"] == D("5000") and _period(f, date(2027, 4, 1))["covered"] == D("0")
 
 
@@ -215,7 +230,7 @@ def test_nothing_before_the_first_month_of_the_business_has_a_target(world):
     with workspace_scope(world["first"]):
         save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
     f = _forecast(world)
-    assert _period(f, date(2026, 9, 1))["target"] is None and _period(f, date(2026, 9, 1))["gap_secured"] is None
+    assert _period(f, date(2026, 9, 1))["target"] is None and _period(f, date(2026, 9, 1))["gap_total"] is None
     assert _period(f, date(2026, 10, 1))["target"] == D("5000")
     q3 = _period(_forecast(world, "quarter"), date(2026, 7, 1))
     assert q3["target"] is None                                           # no month of that quarter was in business
