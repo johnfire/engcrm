@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ t('forecast.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}statistics-page forecast-page{% endblock %}
+
+{# One tile: how a period stands against its target. #}
+{% macro tile(heading, p, name) %}
+<section class="detail-section forecast-tile">
+  <h2>{{ heading }} <span class="muted small">{{ name }}</span></h2>
+  <p class="forecast-tile__main">
+    <strong>{{ p.secured | eur }}</strong>
+    {% if p.target is not none %}<span class="muted">{{ t('forecast.ofTarget', target=p.target | eur) }}</span>{% endif %}
+  </p>
+  {% if p.target is not none %}
+  <p class="small {{ 'forecast-short' if p.gap_secured > 0 else 'forecast-ok' }}">
+    {% if p.gap_secured > 0 %}{{ t('forecast.stillMissing', amount=p.gap_secured | eur) }}{% else %}{{ t('forecast.targetMet', amount=(0 - p.gap_secured) | eur) }}{% endif %}
+    {% if p.expected %} · {{ t('forecast.withExpected', amount=(p.gap_total if p.gap_total > 0 else 0) | eur) }}{% endif %}
+  </p>
+  {% endif %}
+  <p class="muted small">
+    {{ t('sale.status.collected') }} {{ p.collected | eur }} · {{ t('sale.status.contracted') }} {{ p.contracted | eur }} ·
+    {{ t('sale.status.booked') }} {{ p.booked | eur }} · {{ t('sale.status.expected') }} {{ p.expected | eur }}
+  </p>
+</section>
+{% endmacro %}
+
+{% block content %}
+{% from 'partials/date_field.html' import date_field with context %}
+<div class="page-header">
+  <h1>{{ t('forecast.title') }}</h1>
+  <span class="muted">{{ t('forecast.hint') }}</span>
+</div>
+
+<form method="get" action="/forecast" class="stat-periods" aria-label="{{ t('forecast.view') }}">
+  {% include 'partials/offer_filter.html' %}
+  {% for v in views %}
+  <button type="submit" name="view" value="{{ v }}" class="{{ 'btn-primary' if v == view else 'btn-secondary' }}"
+          {% if v == view %}aria-current="true"{% endif %}>{{ t('forecast.view.' ~ v) }}</button>
+  {% endfor %}
+</form>
+
+<div class="stat-grid forecast-tiles">
+  {{ tile(t('forecast.thisMonth'), forecast.tiles.month, tile_labels.month) }}
+  {{ tile(t('forecast.thisQuarter'), forecast.tiles.quarter, tile_labels.quarter) }}
+  {{ tile(t('forecast.thisYear'), forecast.tiles.year, tile_labels.year) }}
+</div>
+
+<section class="detail-section">
+  <div class="table-scroll">
+  <table class="forecast-table">
+    <thead><tr>
+      <th>{{ t('forecast.period') }}</th>
+      <th class="num">{{ t('sale.status.collected') }}</th>
+      <th class="num">{{ t('sale.status.contracted') }}</th>
+      <th class="num">{{ t('sale.status.booked') }}</th>
+      <th class="num">{{ t('sale.status.expected') }}</th>
+      <th class="num">{{ t('forecast.secured') }}</th>
+      <th class="num">{{ t('forecast.total') }}</th>
+      <th class="num">{{ t('forecast.target') }}</th>
+      <th class="num">{{ t('forecast.missing') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for p in forecast.periods %}
+      {% set current = p.start <= forecast.today <= p.end %}
+      <tr class="{{ 'forecast-now' if current }}{{ ' forecast-past' if p.end < forecast.today }}">
+        <td class="nowrap"><strong>{{ labels[p.start] }}</strong>{% if current %} <span class="badge">{{ t('forecast.now') }}</span>{% endif %}</td>
+        {% for key in ['collected', 'contracted', 'booked', 'expected'] %}
+        <td class="num">{% if p[key] %}{{ p[key] | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
+        {% endfor %}
+        <td class="num"><strong>{{ p.secured | eur }}</strong></td>
+        <td class="num">{{ p.total | eur }}</td>
+        <td class="num">{% if p.target is not none %}{{ p.target | eur }}{% else %}<span class="muted">—</span>{% endif %}
+          {% if p.possible_income %}<span class="muted small" title="{{ t('forecast.possibleHint') }}"> +{{ p.possible_income | eur }}?</span>{% endif %}</td>
+        <td class="num {{ 'forecast-short' if p.gap_secured is not none and p.gap_secured > 0 else 'forecast-ok' if p.gap_secured is not none }}">
+          {% if p.gap_secured is none %}<span class="muted">—</span>{% elif p.gap_secured > 0 %}{{ p.gap_secured | eur }}{% else %}✓{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if forecast.undated.count %}
+  <p class="muted small">{{ t('forecast.undated', amount=forecast.undated.total | eur, count=forecast.undated.count) }}</p>
+  {% endif %}
+  <p class="muted small">{{ t('forecast.legend') }}</p>
+</section>
+
+<section class="detail-section" id="plan">
+  <h2>{{ t('forecast.plan') }}</h2>
+  <p class="muted small">{{ t('forecast.planHint') }}</p>
+  {% if is_admin %}
+  <form method="post" action="/forecast/need" class="record-form">
+    <input type="hidden" name="view" value="{{ view }}" />
+    <label>{{ t('forecast.monthlyNeed') }}
+      <input type="text" name="monthly_need" inputmode="decimal" required
+             value="{{ forecast.plan.monthly_need if forecast.plan.monthly_need is not none else '' }}" />
+    </label>
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+  </form>
+  {% elif forecast.plan.monthly_need is not none %}
+  <p>{{ t('forecast.monthlyNeed') }}: <strong>{{ forecast.plan.monthly_need | eur }}</strong></p>
+  {% endif %}
+
+  <h3>{{ t('forecast.otherIncome') }}</h3>
+  {% if forecast.plan.other_income %}
+  <ul class="sales-list">
+    {% for line in forecast.plan.other_income %}
+    <li>
+      <strong>{{ line.label }}</strong> · {{ line.amount_eur | eur }} · {{ t('forecast.otherPayments', count=line.payments, date=line.first_received_on|dmy) }}
+      <span class="badge {{ 'badge-sale-collected' if line.confirmed else 'badge-sale-expected' }}">{{ t('forecast.confirmed') if line.confirmed else t('forecast.possible') }}</span>
+      {% if is_admin %}
+      <form method="post" action="/forecast/other-income/{{ line.id }}/confirmed" style="display:inline">
+        <input type="hidden" name="view" value="{{ view }}" />
+        <input type="hidden" name="confirmed" value="{{ '' if line.confirmed else '1' }}" />
+        <button class="btn-secondary btn-tiny">{{ t('forecast.markPossible') if line.confirmed else t('forecast.markConfirmed') }}</button>
+      </form>
+      <form method="post" action="/forecast/other-income/{{ line.id }}/delete" style="display:inline"
+            data-confirm="{{ t('forecast.deleteConfirm') }}">
+        <input type="hidden" name="view" value="{{ view }}" />
+        <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted small">{{ t('forecast.noOtherIncome') }}</p>{% endif %}
+  {% if is_admin %}
+  <form method="post" action="/forecast/other-income" class="record-form">
+    <input type="hidden" name="view" value="{{ view }}" />
+    <label>{{ t('forecast.incomeName') }} <input type="text" name="label" required maxlength="200" /></label>
+    <label>{{ t('forecast.incomeAmount') }} <input type="text" name="amount_eur" inputmode="decimal" required /></label>
+    <label>{{ t('forecast.firstReceived') }} {{ date_field('first_received_on', None, required=True) }}</label>
+    <label>{{ t('forecast.incomePayments') }} <input type="number" name="payments" value="1" min="1" max="120" required /></label>
+    <label class="flag-check"><input type="checkbox" name="confirmed" value="1" checked /> {{ t('forecast.confirmed') }}</label>
+    <button type="submit" class="btn-primary">{{ t('forecast.addIncome') }}</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

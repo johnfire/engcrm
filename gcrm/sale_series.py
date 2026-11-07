@@ -31,13 +31,15 @@ def split_amount(total: Decimal, months: int) -> list[Decimal]:
     return [share] * (months - 1) + [total - share * (months - 1)]
 
 
+def shift_months(first: date, step: int) -> date:
+    """The same day of the month `step` months later (clipped to the month's last day)."""
+    index = first.month - 1 + step
+    year, month = first.year + index // 12, index % 12 + 1
+    return date(year, month, min(first.day, calendar.monthrange(year, month)[1]))
+
+
 def due_dates(first: date, months: int) -> list[date]:
     """The first due day, then the same day of each following month (clipped to the
     month's last day: 31 January, 28 February, 31 March...)."""
     check_months(months)
-    dates = []
-    for step in range(months):
-        index = first.month - 1 + step
-        year, month = first.year + index // 12, index % 12 + 1
-        dates.append(date(year, month, min(first.day, calendar.monthrange(year, month)[1])))
-    return dates
+    return [shift_months(first, step) for step in range(months)]

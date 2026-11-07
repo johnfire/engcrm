@@ -49,6 +49,7 @@ from gcrm.api.routers import (
     contact_feed,
     deals,
     drafts,
+    forecast,
     help,
     inbox,
     legal,
@@ -170,6 +171,7 @@ app.include_router(auth.router)
 app.include_router(legal.router)
 app.include_router(account.router)
 app.include_router(backups.router)
+app.include_router(forecast.router)
 app.include_router(two_factor.router)
 app.include_router(approval.router)
 app.include_router(activity.router)

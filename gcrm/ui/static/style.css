@@ -1459,3 +1459,12 @@ main.statistics-page { max-width: none; }
 .orgs-table .revenue-col { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .orgs-table .revenue-col--cancelled { color: var(--muted); }
 .orgs-table .revenue-col--total { font-weight: 600; }
+
+/* Forecast: period table against a target. */
+.forecast-tiles { margin-bottom: 1rem; }
+.forecast-tile__main { font-size: 1.4em; margin: 0.2rem 0; }
+.forecast-short { color: var(--warn); }
+.forecast-ok { color: var(--success); }
+.forecast-table td, .forecast-table th { white-space: nowrap; }
+.forecast-table tr.forecast-now td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.forecast-table tr.forecast-past td { color: var(--muted); }
