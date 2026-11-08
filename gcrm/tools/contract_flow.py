@@ -2,8 +2,9 @@
 
 Everything the owner has entered at "expected" or above counts (expected, booked, contracted,
 collected); cancelled money is left out. A sale sits in the bucket (week, month or year) of the
-date it was won (`won_on`), and a contract paid in monthly payments is one deal, entered once, in
-the bucket of the day it was won. Money in is the sales collected, on the day the money came in,
+day it was entered: the date it was won (`won_on`), or the day it was recorded if "date won" lies in
+the future (a payment day typed into it still counts from now). A contract paid in monthly payments is
+one deal, entered once, in the bucket of that day. Money in is the sales collected, on the day the money came in,
 plus the confirmed other income, spread over the days of the months it covers; the target is the
 plan's monthly need spread the same way, up to today.
 
@@ -26,11 +27,12 @@ ENTERED_STATUSES = ("expected", "booked", "contracted", "collected")
 _STATUS_LIST = ", ".join(f"'{status}'" for status in ENTERED_STATUSES)     # constants, never input
 _ZERO = Decimal("0")
 _CENT = Decimal("0.01")
+ENTERED_ON = "LEAST(s.won_on, s.created_at::date)"     # a future "date won" counts from the day it was recorded
 
 
 def _first_sale_month(cur, workspace_id: int, offer: str | None) -> date | None:
     scope, params = live_sales_sql(workspace_id, offer)
-    cur.execute(f"SELECT MIN(s.won_on) AS first {scope} AND s.status IN ({_STATUS_LIST})", params)
+    cur.execute(f"SELECT MIN({ENTERED_ON}) AS first {scope} AND s.status IN ({_STATUS_LIST})", params)
     first = cur.fetchone()["first"]
     return first.replace(day=1) if first else None
 
@@ -82,8 +84,8 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
         granularity, starts = flow_buckets(range_key, today, first_month)
         window_start = starts[0]
         scope, params = live_sales_sql(workspace_id, offer)
-        bucket = f"date_trunc('{granularity}', s.won_on)::date"                  # granularity is one of three constants
-        entered_in_window = f"{scope} AND s.status IN ({_STATUS_LIST}) AND s.won_on BETWEEN %s AND %s"
+        bucket = f"date_trunc('{granularity}', {ENTERED_ON})::date"             # granularity is one of three constants
+        entered_in_window = f"{scope} AND s.status IN ({_STATUS_LIST}) AND {ENTERED_ON} BETWEEN %s AND %s"
         cur.execute(f"SELECT {bucket} AS b, s.status, SUM(s.amount_eur) AS eur {entered_in_window} GROUP BY 1, 2",
                     [*params, window_start, today])
         entered_rows = cur.fetchall()
@@ -91,7 +93,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
                     f"{entered_in_window} GROUP BY 1", [*params, window_start, today])
         deals = {row["b"]: row["n"] for row in cur.fetchall()}
         cur.execute(f"SELECT COALESCE(SUM(s.amount_eur), 0) AS eur {scope} AND s.status IN ({_STATUS_LIST}) "
-                    "AND s.won_on < %s", [*params, window_start])
+                    f"AND {ENTERED_ON} < %s", [*params, window_start])
         base = Decimal(cur.fetchone()["eur"])
         cur.execute(f"SELECT s.collected_on AS d, SUM(s.amount_eur) AS eur {scope} AND s.status = 'collected' "
                     "AND s.collected_on BETWEEN %s AND %s GROUP BY 1", [*params, window_start, today])

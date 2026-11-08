@@ -105,3 +105,32 @@ def test_two_contracts_in_one_list_are_summarised_separately():
 def test_the_summary_is_attached_even_when_the_list_starts_mid_contract():
     rows = [_payment(2, "booked"), _payment(3, "booked")]              # payment 1 is not in this list
     assert attach_contract_summaries(rows)[0]["contract"]["open"] == 2
+
+
+from gcrm.sale_series import is_month_end, monthly_due_day  # noqa: E402
+
+
+def test_a_first_payment_on_the_last_day_of_a_month_means_the_last_day_of_every_month():
+    assert due_dates(date(2027, 4, 30), 5) == [date(2027, 4, 30), date(2027, 5, 31), date(2027, 6, 30),
+                                              date(2027, 7, 31), date(2027, 8, 31)]
+    assert due_dates(date(2028, 2, 29), 3) == [date(2028, 2, 29), date(2028, 3, 31), date(2028, 4, 30)]
+    assert due_dates(date(2027, 2, 28), 2) == [date(2027, 2, 28), date(2027, 3, 31)]
+    assert due_dates(date(2027, 1, 31), 4) == [date(2027, 1, 31), date(2027, 2, 28), date(2027, 3, 31), date(2027, 4, 30)]
+
+
+def test_any_other_first_day_repeats_on_the_same_day_and_is_clipped_in_short_months():
+    assert due_dates(date(2027, 1, 30), 3) == [date(2027, 1, 30), date(2027, 2, 28), date(2027, 3, 30)]
+    assert due_dates(date(2027, 5, 15), 3) == [date(2027, 5, 15), date(2027, 6, 15), date(2027, 7, 15)]
+
+
+def test_monthly_due_day_gives_the_day_a_given_number_of_months_later():
+    assert monthly_due_day(date(2027, 4, 30), 0) == date(2027, 4, 30)
+    assert monthly_due_day(date(2027, 4, 30), 1) == date(2027, 5, 31)
+    assert monthly_due_day(date(2027, 4, 29), 1) == date(2027, 5, 29)
+    assert monthly_due_day(date(2026, 12, 31), 2) == date(2027, 2, 28)
+
+
+@pytest.mark.parametrize("day,expected", [(date(2027, 1, 31), True), (date(2027, 2, 28), True), (date(2028, 2, 29), True),
+                                          (date(2028, 2, 28), False), (date(2027, 4, 30), True), (date(2027, 4, 29), False)])
+def test_the_last_day_of_a_month_is_recognised(day, expected):
+    assert is_month_end(day) is expected

@@ -15,7 +15,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.sale_series import attach_contract_summaries, due_dates, shift_months, split_amount
+from gcrm.sale_series import attach_contract_summaries, due_dates, monthly_due_day, split_amount
 from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.deal_records import get_deal
@@ -89,8 +89,9 @@ OPEN_SALE_STATUSES = ("expected", "booked", "contracted")      # not received an
 
 def set_sale_due_day(deal_id: int, sale_id: int, due_on: date, workspace_id: int | None = None) -> int:
     """Set or change the day a sale of this deal is due. For a payment of a monthly contract the payments
-    after it follow monthly from the new day (a short month is clipped: 31 January, 28 February); the ones
-    before it, and any already received, stay as they are. A received or cancelled sale keeps its day.
+    after it follow monthly from the new day (the same day of the month, clipped in a short month, or the
+    last day of each month when the new day is the last day of its month); the ones before it, and any
+    already received, stay as they are. A received or cancelled sale keeps its day.
     Returns how many sales changed: 0 when the deal has no such open sale. Raises DealNotFound."""
     with db() as conn:
         cur = conn.cursor()
@@ -106,7 +107,7 @@ def set_sale_due_day(deal_id: int, sale_id: int, due_on: date, workspace_id: int
             cur.execute("SELECT id, series_part FROM sales WHERE deal_id = %s AND series_id = %s::uuid AND deleted_at IS NULL "
                         "AND series_part >= %s AND status IN ('expected', 'booked', 'contracted') ORDER BY series_part FOR UPDATE",
                         (deal_id, sale["series"], sale["series_part"]))
-            changes = [(row["id"], shift_months(due_on, row["series_part"] - sale["series_part"])) for row in cur.fetchall()]
+            changes = [(row["id"], monthly_due_day(due_on, row["series_part"] - sale["series_part"])) for row in cur.fetchall()]
         for changed_id, day in changes:
             cur.execute("UPDATE sales SET expected_on = %s WHERE id = %s", (day, changed_id))
     log_audit(None, None, "sale.due_day", f"deal:{deal_id}", f"{sale_id} -> {due_on} ({len(changes)})")

@@ -38,11 +38,26 @@ def shift_months(first: date, step: int) -> date:
     return date(year, month, min(first.day, calendar.monthrange(year, month)[1]))
 
 
+def is_month_end(day: date) -> bool:
+    """Whether `day` is the last day of its month."""
+    return day.day == calendar.monthrange(day.year, day.month)[1]
+
+
+def monthly_due_day(first: date, step: int) -> date:
+    """The due day of the payment `step` months after one due on `first`: the same day of the month
+    (clipped in a short month: 31 January, 28 February), or, when `first` is the last day of its month,
+    the last day of each month (30 April, 31 May, 30 June)."""
+    later = shift_months(first, step)
+    if is_month_end(first):
+        return later.replace(day=calendar.monthrange(later.year, later.month)[1])
+    return later
+
+
 def due_dates(first: date, months: int) -> list[date]:
-    """The first due day, then the same day of each following month (clipped to the
-    month's last day: 31 January, 28 February, 31 March...)."""
+    """The first due day, then one a month on from it (see monthly_due_day): the same day of the month, or
+    the last day of each month when the first is the last day of its month."""
     check_months(months)
-    return [shift_months(first, step) for step in range(months)]
+    return [monthly_due_day(first, step) for step in range(months)]
 
 
 def contract_from_form(amount: Decimal, schedule: str, months: int) -> tuple[Decimal, int]:

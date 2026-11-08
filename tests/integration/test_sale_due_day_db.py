@@ -125,3 +125,27 @@ def test_the_due_day_is_set_from_the_page(firm):
     assert owner.post(f"/deals/{firm['deal']}/sales/999999/due-day", data={"due_on": "01.03.2027"}, follow_redirects=False).status_code == 404
     assert viewer.post(path, data={"due_on": "01.03.2027"}, follow_redirects=False).status_code == 403
     assert _rows(firm["deal"])[0]["expected_on"] == date(2027, 2, 15)
+
+
+def test_a_contract_that_starts_on_the_last_day_of_a_month_stays_on_the_last_day_of_every_month(firm):
+    add_deal_sale(firm["deal"], "1800", date(2026, 11, 8), "", firm["workspace"], status="booked", expected_on=date(2027, 4, 30), months=5)
+    assert [r["expected_on"] for r in _rows(firm["deal"])] == [date(2027, 4, 30), date(2027, 5, 31), date(2027, 6, 30),
+                                                              date(2027, 7, 31), date(2027, 8, 31)]
+    third = _rows(firm["deal"])[2]["id"]
+    assert set_sale_due_day(firm["deal"], third, date(2027, 9, 30), firm["workspace"]) == 3                 # moving a payment keeps the rule
+    assert [r["expected_on"] for r in _rows(firm["deal"])][2:] == [date(2027, 9, 30), date(2027, 10, 31), date(2027, 11, 30)]
+
+
+def test_setting_the_first_payments_own_day_again_re_dates_a_contract_that_was_on_the_30th(firm):
+    """The repair for contracts entered before the month-end rule: they stay on the 30th until the first
+    payment's day is set again, which re-dates the others from it."""
+    add_deal_sale(firm["deal"], "1200", date(2026, 11, 8), "", firm["workspace"], status="booked", expected_on=date(2027, 9, 30), months=4)
+    with db() as connection:
+        connection.cursor().execute("UPDATE sales SET expected_on = date '2027-09-30' + (series_part - 1) * interval '1 month' "
+                                    "WHERE deal_id = %s", (firm["deal"],))                 # as the old rule stored them: Sep 30, Oct 30, Nov 30, Dec 30
+        connection.cursor().execute("UPDATE sales SET expected_on = date '2027-12-30' WHERE deal_id = %s AND series_part = 4", (firm["deal"],))
+        connection.cursor().execute("UPDATE sales SET expected_on = date '2027-10-30' WHERE deal_id = %s AND series_part = 2", (firm["deal"],))
+    assert [r["expected_on"] for r in _rows(firm["deal"])][1] == date(2027, 10, 30)
+    first = _rows(firm["deal"])[0]["id"]
+    assert set_sale_due_day(firm["deal"], first, date(2027, 9, 30), firm["workspace"]) == 4
+    assert [r["expected_on"] for r in _rows(firm["deal"])] == [date(2027, 9, 30), date(2027, 10, 31), date(2027, 11, 30), date(2027, 12, 31)]

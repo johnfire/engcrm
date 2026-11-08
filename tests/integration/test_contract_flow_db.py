@@ -59,6 +59,8 @@ def world(clean_database, monkeypatch):
         other = save_organization("Kessler Logistik", "Ulm", source="test_fixture")
         add_deal_sale(_deal("organization", other), "99999", date(2026, 11, 4), "big", second, status="collected",
                       collected_on=date(2026, 11, 5))
+    with db() as connection:                    # the tests must not depend on the day they run: entered on the day won
+        connection.cursor().execute("UPDATE sales SET created_at = won_on::timestamptz")
     return {"first": first, "second": second}
 
 
@@ -266,3 +268,41 @@ def test_giving_an_undated_expected_sale_a_day_brings_it_into_the_projection(wor
     assert after["buckets"][-1]["projection"] - before["buckets"][-1]["projection"] == D("800")
     assert next(b for b in after["buckets"] if b["start"] == date(2027, 2, 1))["projection"] == \
         next(b for b in before["buckets"] if b["start"] == date(2027, 2, 1))["projection"]        # nothing earlier than its month moved
+
+
+def _enter(world, amount, won_on, entered_on, *, months=1, status="expected", due=date(2027, 2, 28)):
+    """A sale of the first workspace's VHS Musterstadt, entered (created) on `entered_on`."""
+    with workspace_scope(world["first"]):
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT d.id AS deal FROM deals d JOIN offers o ON o.id = d.offer_id JOIN contacts c ON c.id = d.contact_id "
+                           "WHERE c.name = 'VHS Musterstadt' AND o.slug = 'consulting'")
+            deal = cursor.fetchone()["deal"]
+        add_deal_sale(deal, amount, won_on, "test", world["first"], status=status, expected_on=due, months=months)
+    with db() as connection:
+        connection.cursor().execute("UPDATE sales SET created_at = %s::timestamptz WHERE description = 'test'", (entered_on,))
+
+
+def test_a_sale_whose_date_won_lies_in_the_future_counts_from_the_day_it_was_entered(world):
+    before = _flow(world)
+    _enter(world, "1200", date(2027, 1, 31), date(2026, 11, 7), months=3)                # "won" 31 January, typed on 7 November
+    flow = _flow(world)
+    november_before, november = before["buckets"][1], flow["buckets"][1]
+    assert november["entered_total"] - november_before["entered_total"] == D("1200") and november["entered"]["expected"] == D("2200")
+    assert november["deals"] - november_before["deals"] == 1                              # a contract is one deal
+    assert flow["buckets"][-1]["cumulative"] - before["buckets"][-1]["cumulative"] == D("1200")
+    week = _bucket(_flow(world, "3m"), date(2026, 11, 2))                                 # 7 November is a Saturday: the week of the 2nd
+    assert (week["entered_total"], week["deals"]) == (D("3600"), 2)
+    assert _flow(world)["buckets"][0]["entered_total"] == D("600")                        # October is untouched
+
+
+def test_a_sale_whose_date_won_is_in_the_future_is_not_counted_before_the_day_it_was_entered(world):
+    _enter(world, "700", date(2027, 1, 31), date(2026, 11, 19), months=1)                 # entered after "today" (18 November)
+    flow = _flow(world)
+    assert flow["buckets"][1]["entered_total"] == D("3700") and flow["buckets"][1]["deals"] == 3
+
+
+def test_a_back_dated_sale_keeps_its_date_won(world):
+    _enter(world, "700", date(2026, 10, 5), date(2026, 11, 7), months=1)                  # won in October, typed in November
+    october, november = _flow(world)["buckets"]
+    assert october["entered_total"] == D("1300") and november["entered_total"] == D("3700")
