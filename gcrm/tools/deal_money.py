@@ -148,6 +148,56 @@ def set_series_status(deal_id: int, series_id: str, status: str, workspace_id: i
     return changed
 
 
+CHANGEABLE_SALE_STATUSES = OPEN_SALE_STATUSES            # a received or cancelled sale keeps its money
+
+
+def set_sale_work(deal_id: int, sale_id: int, hours, rate, workspace_id: int | None = None) -> bool:
+    """Reset a sale that is not yet received to `hours` of work at `rate` euros an hour: its amount becomes
+    hours x rate. False when this deal has no such sale, or the sale is already received or cancelled.
+    Raises DealNotFound, or ValueError for hours or a rate that are missing, zero or negative."""
+    amount, worked = amount_and_hours(None, hours, rate)
+    with db() as conn:
+        cur = conn.cursor()
+        get_deal(cur, deal_id, workspace_id)
+        cur.execute("UPDATE sales SET amount_eur = %s, hours = %s WHERE id = %s AND deal_id = %s AND deleted_at IS NULL "
+                    "AND series_id IS NULL AND status = ANY(%s)", (amount, worked, sale_id, deal_id, list(CHANGEABLE_SALE_STATUSES)))
+        changed = cur.rowcount > 0
+    if changed:
+        log_audit(None, None, "sale.work_set", f"deal:{deal_id}", f"{sale_id}: {worked} h, {amount} EUR")
+    return changed
+
+
+def set_series_work(deal_id: int, series_id: str, hours, rate, workspace_id: int | None = None) -> int:
+    """Reset a contract to `hours` of work in all at `rate` euros an hour: its total becomes hours x rate,
+    spread over the payments still to come (not received, not cancelled) exactly as before, with their due days
+    untouched. Payments already received keep their money and count toward the total; cancelled ones are left
+    alone. Returns how many payments changed; 0 when this deal has no such contract. Raises DealNotFound, or
+    ValueError for bad hours or a rate, when nothing is left to come, or when the new total is less than what
+    was already received (nothing is changed then)."""
+    total, worked = amount_and_hours(None, hours, rate)
+    with db() as conn:
+        cur = conn.cursor()
+        get_deal(cur, deal_id, workspace_id)
+        cur.execute("SELECT id, status, amount_eur, hours FROM sales WHERE deal_id = %s AND series_id = %s::uuid AND deleted_at IS NULL "
+                    "ORDER BY series_part FOR UPDATE", (deal_id, str(series_id)))
+        payments = cur.fetchall()
+        if not payments:
+            return 0
+        open_payments = [p for p in payments if p["status"] in CHANGEABLE_SALE_STATUSES]
+        if not open_payments:
+            raise ValueError("every payment of this contract is already received or cancelled")
+        received = sum((Decimal(p["amount_eur"]) for p in payments if p["status"] == "collected"), Decimal("0"))
+        received_hours = sum((Decimal(p["hours"]) for p in payments if p["status"] == "collected" and p["hours"]), Decimal("0"))
+        remaining, remaining_hours = total - received, worked - received_hours
+        if remaining <= 0 or remaining_hours <= 0:
+            raise ValueError("that total is no more than what has already been received")
+        shares, hour_shares = split_amount(remaining, len(open_payments)), split_hours(remaining_hours, len(open_payments))
+        for payment, share, hour_share in zip(open_payments, shares, hour_shares):
+            cur.execute("UPDATE sales SET amount_eur = %s, hours = %s WHERE id = %s", (share, hour_share, payment["id"]))
+    log_audit(None, None, "sale.series_work", f"deal:{deal_id}", f"{series_id}: {worked} h at {rate} EUR/h ({len(open_payments)} payments)")
+    return len(open_payments)
+
+
 def set_sale_status(deal_id: int, sale_id: int, status: str, collected_on: date | None = None,
                     workspace_id: int | None = None) -> bool:
     """Move a sale of this deal along (or back, if it was a slip): booked →

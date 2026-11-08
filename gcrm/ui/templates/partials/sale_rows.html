@@ -10,7 +10,7 @@
 <li class="sale-contract">
   <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move">
     <input type="hidden" name="next" value="{{ page }}" />
-    <strong>{{ t('sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}</strong>
+    <strong>{% if sale.contract.hours %}{{ t('sale.contractLineHours', hours=sale.contract.hours | hrs, rate=sale.contract.rate_eur | hrs, total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% else %}{{ t('sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% endif %}</strong>
     <label>{{ t('sale.contractMove') }}
     <select name="status">
       {% for s in sale_statuses if s != 'collected' %}
@@ -18,6 +18,15 @@
       {% endfor %}
     </select></label>
     <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+  <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/work" class="sale__move sale__work"
+        title="{{ t('sale.workHintContract') }}">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <label>{{ t('sale.hoursTotal') }}
+      <input type="text" name="hours" inputmode="decimal" size="5" required value="{{ sale.contract.hours | hrs if sale.contract.hours else '' }}" /></label>
+    <label>{{ t('sale.rate') }}
+      <input type="text" name="rate" inputmode="decimal" size="5" required value="{{ sale.contract.rate_eur | hrs if sale.contract.rate_eur else '' }}" /></label>
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('sale.workSave') }}</button>
   </form>
 </li>
 {%- endif %}
@@ -49,6 +58,16 @@
     <span class="muted small">{{ t('sale.dueDay') }}</span>
     {{ date_field('due_on', sale.expected_on, required=True, label=t('sale.dueDay')) }}
     <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+  {%- endif %}
+  {%- if sale.status in ('expected', 'booked', 'contracted') and not sale.series_id %}
+  <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/work" class="sale__move sale__work">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <label>{{ t('sale.hours') }}
+      <input type="text" name="hours" inputmode="decimal" size="5" required value="{{ sale.hours | hrs if sale.hours else '' }}" /></label>
+    <label>{{ t('sale.rate') }}
+      <input type="text" name="rate" inputmode="decimal" size="5" required value="{{ sale.rate_eur | hrs if sale.rate_eur else '' }}" /></label>
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('sale.workSave') }}</button>
   </form>
   {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"

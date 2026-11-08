@@ -24,7 +24,9 @@ from gcrm.tools.deal_money import (
     end_subscription,
     set_sale_due_day,
     set_sale_status,
+    set_sale_work,
     set_series_status,
+    set_series_work,
     start_subscription,
 )
 from gcrm.tools.deal_offer_changes import DealOfferConflict, change_deal_offer
@@ -224,6 +226,60 @@ def deal_sale_due_day(
             raise HTTPException(status_code=404, detail="Sale not found")
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
+    return _back(next, "/organizations/")
+
+
+def _hours_and_rate(hours: str, rate: str):
+    """(total, hours) of what the hours-and-rate form sent; ValueError when either is missing or not above 0."""
+    return amount_and_hours(None, typed_number(hours), typed_number(rate))
+
+
+@router.post("/{deal_id}/sales/{sale_id}/work")
+def deal_sale_work(
+    request: Request,
+    deal_id: int,
+    sale_id: int,
+    hours: str = Form(""),
+    rate: str = Form(""),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Reset a sale that is not yet received to hours of work at a rate per hour (its amount follows)."""
+    try:
+        _hours_and_rate(hours, rate)
+        if not set_sale_work(deal_id, sale_id, typed_number(hours), typed_number(rate), request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter the hours and the rate per hour")
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/series/{series_id}/work")
+def deal_series_work(
+    request: Request,
+    deal_id: int,
+    series_id: str,
+    hours: str = Form(""),
+    rate: str = Form(""),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Reset a contract to hours of work in all at a rate per hour; its total is spread over the payments
+    still to come, on the same due days."""
+    try:
+        series = str(uuid.UUID(series_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    try:
+        _hours_and_rate(hours, rate)
+        if not set_series_work(deal_id, series, typed_number(hours), typed_number(rate), request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Contract not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter the hours and the rate per hour")
     return _back(next, "/organizations/")
 
 

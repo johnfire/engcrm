@@ -75,13 +75,14 @@ def test_the_first_payment_of_a_contract_carries_its_summary():
             _payment(1, "booked"), _payment(2, "booked"), _payment(3, "booked")]
     out = attach_contract_summaries(rows)
     assert "contract" not in out[0] and "contract" not in out[2] and "contract" not in out[3]
-    assert out[1]["contract"] == {"payments": 3, "total": Decimal("1500"), "open": 3, "open_status": "booked"}
+    assert out[1]["contract"] == {"payments": 3, "total": Decimal("1500"), "hours": None, "rate_eur": None, "open": 3,
+                                 "open_status": "booked"}
 
 
 def test_the_summary_describes_the_payments_still_to_come_not_the_first_one():
     rows = [_payment(1, "collected"), _payment(2, "contracted"), _payment(3, "contracted")]
     assert attach_contract_summaries(rows)[0]["contract"] == {
-        "payments": 3, "total": Decimal("1500"), "open": 2, "open_status": "contracted"}
+        "payments": 3, "total": Decimal("1500"), "hours": None, "rate_eur": None, "open": 2, "open_status": "contracted"}
 
 
 def test_a_fully_received_contract_has_nothing_left_to_move():
@@ -164,3 +165,10 @@ def test_hours_split_over_payments_like_money_and_add_up():
     assert split_hours(D("40"), 3) == [D("13.33"), D("13.33"), D("13.34")]
     assert split_hours(None, 3) == [None, None, None]
     assert sum(split_hours(D("10"), 4)) == D("10.00")
+
+
+def test_the_contract_summary_adds_up_the_hours_and_works_out_the_rate_leaving_cancelled_payments_out():
+    rows = [{"id": i, "series_id": "a", "series_part": i, "series_total": 3, "status": status, "amount_eur": "200.00", "hours": hours}
+            for i, status, hours in ((1, "booked", "4.00"), (2, "booked", "4.00"), (3, "cancelled", "4.00"))]
+    summary = attach_contract_summaries(rows)[0]["contract"]
+    assert (summary["hours"], summary["total"], summary["rate_eur"]) == (Decimal("8.00"), Decimal("400.00"), "50.00")
