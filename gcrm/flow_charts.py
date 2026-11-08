@@ -9,7 +9,7 @@ from gcrm.sale_series import shift_months
 
 LABEL_FORMAT = {"week": "%d.%m.", "month": "%m.%Y", "year": "%Y"}
 SPLIT_ORDER = ("expected", "booked", "contracted", "collected")
-OUTLOOK_WIDTH, OUTLOOK_HEIGHT = 900, 320     # the outlook chart spans the page and has up to 37 months to show
+OUTLOOK_WIDTH, OUTLOOK_HEIGHT, OUTLOOK_LABELS = 1400, 340, 14     # drawn wide so its type stays small; up to 37 months to show
 NEW_BUSINESS_MONTHS_AHEAD = 6                # with new sales expected, the bars run this far past this month
 TICK_STEPS = {"new": 10_000, "running": 20_000, "cash": 20_000}     # outlook: a mark every so many euros
 TALL = 260                                   # room for the extra marks
@@ -102,7 +102,7 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
     return {"key": "cash", "title": title, "note": note,
             "rows": rows, "extra": extra, "undated_items": items, "wide": True,
             "svg": line_chart(points, series, title, height=OUTLOOK_HEIGHT, tick_label=money,
-                                width=OUTLOOK_WIDTH, tick_step=TICK_STEPS["cash"])}
+                                width=OUTLOOK_WIDTH, tick_step=TICK_STEPS["cash"], max_labels=OUTLOOK_LABELS)}
 
 
 def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:

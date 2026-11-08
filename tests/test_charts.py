@@ -191,3 +191,13 @@ def test_a_bar_chart_can_be_drawn_wider_with_more_labels_on_the_axis():
     count = lambda svg: len(re.findall(r'<text class="chart-label" x="[\d.]+" y="\d+" text-anchor="middle">', svg))   # noqa: E731
     assert count(narrow) <= 6 and 10 <= count(wide) <= 14
     assert wide.count("<title>") == 52 and 'x2="1400"' in wide
+
+
+def test_a_line_chart_can_name_more_points_on_its_axis():
+    import re
+
+    from gcrm.charts import line_chart
+    points = [{"label": f"{i:02d}.2027", "values": [float(i)], "tip": "t"} for i in range(1, 15)]
+    count = lambda svg: len(re.findall(r'text-anchor="middle">\d\d\.2027<', svg))   # noqa: E731
+    assert count(str(line_chart(points, ["chart-line"], "x"))) <= 6
+    assert 10 <= count(str(line_chart(points, ["chart-line"], "x", width=1400, max_labels=14))) <= 14

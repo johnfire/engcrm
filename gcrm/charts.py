@@ -156,14 +156,16 @@ def _smooth_path(coords: list[tuple[float, float]]) -> str:
 
 
 def line_chart(points: list[dict], series_classes: list[str], title: str, height: int = 170,
-               tick_label=str, width: int = WIDTH, tick_step: float | None = None) -> Markup:
+               tick_label=str, width: int = WIDTH, tick_step: float | None = None,
+               max_labels: int = MAX_X_LABELS) -> Markup:
     """One to three lines over a labelled y scale with gridlines, for running totals. Each point: label,
     values (one number per series; None where a series has nothing, which breaks its line), tip (one
     tooltip for the whole slot). `series_classes` are the CSS classes of the lines: a dashed reference
     in the same unit has "chart-line--ref"; a projection "chart-line--projection" (hollow dots); and
     "chart-line--smooth" draws the line as a smooth curve through its points instead of straight
     segments. Dots are drawn while there are few enough points. A chart shown across the page can be
-    drawn on a wider `width` so its text keeps its size. `tick_step` asks for a mark every so much."""
+    drawn on a wider `width` so its text keeps its size. `tick_step` asks for a mark every so much; `max_labels` is how many
+    points may be named on the x axis."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
@@ -174,7 +176,7 @@ def line_chart(points: list[dict], series_classes: list[str], title: str, height
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8
     slot = (width - left) / len(points)
-    shown = _x_labels(len(points))
+    shown = _x_labels(len(points), max_labels)
     parts = [f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title)}">']
     for tick, text in zip(ticks, labels):
         y = top + plot - plot * tick / scale

@@ -168,7 +168,7 @@ def test_the_outlook_in_german():
 def test_the_outlook_chart_is_wide_and_tall_and_the_others_are_not():
     charts = build_flow_charts(_outlook(), "en", money)
     assert [c["wide"] for c in charts] == [False, False, True]
-    assert 'viewBox="0 0 900 320"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 260"' in str(charts[0]["svg"])   # taller: more marks
+    assert 'viewBox="0 0 1400 340"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 260"' in str(charts[0]["svg"])   # taller: more marks
     ordinary = build_flow_charts(_flow(), "en", money)
     assert 'viewBox="0 0 600 150"' in str(ordinary[0]["svg"])                        # the other ranges are unchanged
     assert [c["wide"] for c in build_flow_charts(_flow(), "en", money)] == [False, False, False]
@@ -326,3 +326,15 @@ def test_the_money_notes_mention_the_campaign_length():
     note = build_flow_charts(_outlook(new=D(1000), months=None, delay=1, campaign=4), "en", money)[2]["note"]
     assert "campaign runs for 4 months" in note and "no new bookings are added" in note
     assert "campaign" not in build_flow_charts(_outlook(new=D(1000), months=None, delay=1), "en", money)[2]["note"]
+
+
+def test_the_outlook_chart_is_drawn_1400_wide_with_a_date_label_for_most_months():
+    import re
+    chart = build_flow_charts(_outlook(), "en", money)[2]
+    assert 'viewBox="0 0 1400 340"' in str(chart["svg"])
+    flow = _outlook()
+    template = flow["buckets"][2]
+    flow["buckets"] += [{**template, "start": date(2027, month, 1), "end": date(2027, month, 28)} for month in range(1, 12)]
+    svg = str(build_flow_charts(flow, "en", money)[2]["svg"])
+    labels = re.findall(r'text-anchor="middle">\d\d\.\d{4}<', svg)
+    assert 10 <= len(labels) <= 14                                            # 14 months: nearly every month is named
