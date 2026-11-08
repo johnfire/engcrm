@@ -308,3 +308,19 @@ def test_the_expected_new_sales_can_be_set_before_any_monthly_need_and_the_need_
         assert plan["expected_new_monthly"] == D("750.00") and plan["monthly_need"] is None
         save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
         assert get_plan()["expected_new_monthly"] == D("750.00") and get_plan()["monthly_need"] == D("5000.00")
+
+
+def test_each_booking_can_keep_paying_for_a_number_of_months_or_for_ever(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"))
+        assert get_plan()["expected_new_months"] == 1                                    # the default: a one-off
+        save_expected_new_sales(D("1000"), 6)
+        assert get_plan()["expected_new_months"] == 6
+        save_expected_new_sales(D("1000"), None)
+        assert get_plan()["expected_new_months"] is None                                 # None: for ever
+        for bad in (0, -1, 121, "x", 2.5):
+            with pytest.raises(ValueError):
+                save_expected_new_sales(D("1000"), bad)
+        assert get_plan()["expected_new_months"] is None                                 # a refused change changes nothing
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_months"] == 1

@@ -120,7 +120,8 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
     buckets, running, money_in, target = [], base, _ZERO, _ZERO
     other_through, scheduled_through = _ZERO, _ZERO
     expected_new = (plan["expected_new_monthly"] or None) if outlook else None             # 0 draws nothing
-    months_of_new = 0
+    paying_months = plan["expected_new_months"]                                            # None: for ever
+    months_of_new, new_total = 0, _ZERO
     for start in starts:
         by_status = entered.get(start, {status: _ZERO for status in ENTERED_STATUSES})
         total = sum(by_status.values(), _ZERO)
@@ -146,12 +147,15 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             bucket["proj_other"] = flows["other_full"].quantize(_CENT)
             if start >= this_month:
                 months_of_new += 1
+                if expected_new:        # bookings still paying this month: this month's and the earlier ones within the run
+                    live = months_of_new if paying_months is None else min(months_of_new, paying_months)
+                    new_total += expected_new * live
                 bucket["projection"] = (collected_total + other_through + scheduled_through).quantize(_CENT)
                 if expected_new:
-                    bucket["with_new"] = (bucket["projection"] + expected_new * months_of_new).quantize(_CENT)
+                    bucket["with_new"] = (bucket["projection"] + new_total).quantize(_CENT)
             elif start == last_month:
                 bucket["projection"] = bucket["cum_money_in"]              # joins the projection to what really came in
                 bucket["with_new"] = bucket["projection"] if expected_new else None
         buckets.append(bucket)
     return {"range": range_key, "granularity": granularity, "today": today, "undated": undated,
-            "expected_new": expected_new, "has_target": plan["monthly_need"] is not None, "buckets": buckets}
+            "expected_new": expected_new, "expected_new_months": paying_months, "has_target": plan["monthly_need"] is not None, "buckets": buckets}

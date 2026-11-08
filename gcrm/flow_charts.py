@@ -62,7 +62,9 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
         series.append("chart-line chart-line--ref")
     note = t("flow.note.outlook" if has_target else "flow.note.outlookOnly")
     if expected_new:
-        note += " " + t("flow.note.assumed", amount=money(expected_new))
+        months = flow.get("expected_new_months", 1)
+        key = "flow.note.assumedForever" if months is None else "flow.note.assumedMonths" if months > 1 else "flow.note.assumed"
+        note += " " + t(key, amount=money(expected_new), months=months)
     undated = flow.get("undated")
     extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
     items = [_undated_item(item, t, money) for item in (undated or {}).get("items", [])]

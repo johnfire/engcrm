@@ -101,11 +101,11 @@ def _outlook_bucket(start, end, *, money_in, projection, target, future=False, s
             "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other, "with_new": with_new}
 
 
-def _outlook(has_target=True, undated=None, new=None):
+def _outlook(has_target=True, undated=None, new=None, months=1):
     extra = (lambda connector, now, later: (connector, now, later)) if new else (lambda *_: (None, None, None))
     connector, now, later = extra(D(2100), D(4300) + new, D(5800) + 2 * new) if new else (None, None, None)
     return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated,
-            "expected_new": new, "buckets": [
+            "expected_new": new, "expected_new_months": months, "buckets": [
         _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}, with_new=connector),
         _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500), with_new=now),
         _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500), with_new=later),
@@ -219,3 +219,14 @@ def test_the_note_says_what_the_blue_line_assumes_and_without_a_target_it_still_
 def test_the_new_sales_line_in_german():
     chart = build_flow_charts(_outlook(new=D(1000)), "de", money)[2]
     assert "mit erwarteten Neuverkäufen €5,300" in str(chart["svg"]) and "€1,000 pro Monat" in chart["note"]
+
+
+def test_the_note_says_how_long_each_booking_keeps_paying():
+    one = build_flow_charts(_outlook(new=D(1000)), "en", money)[2]["note"]
+    six = build_flow_charts(_outlook(new=D(1000), months=6), "en", money)[2]["note"]
+    forever = build_flow_charts(_outlook(new=D(1000), months=None), "en", money)[2]["note"]
+    assert "paid in the month it is booked" in one and "6 months" not in one
+    assert "every month for 6 months" in six and "€1,000 a month" in six
+    assert "every month from then on" in forever and "paid in the month it is booked" not in forever
+    german = build_flow_charts(_outlook(new=D(1000), months=None), "de", money)[2]["note"]
+    assert "jeden Monat" in german and "danach" in german

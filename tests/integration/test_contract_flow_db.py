@@ -346,3 +346,39 @@ def test_a_zero_expectation_draws_no_line_and_another_workspace_is_not_affected(
         save_expected_new_sales(D("500"))
     other = _outlook(world, workspace="second")
     assert other["expected_new"] is None and all(b["with_new"] is None for b in other["buckets"])
+
+
+def _extra(flow):
+    return [b["with_new"] - b["projection"] for b in flow["buckets"][1:]]
+
+
+def test_a_booking_that_keeps_paying_for_three_months_stacks_up_then_levels_off(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), 3)
+    flow = _outlook(world)
+    assert flow["expected_new_months"] == 3
+    one, two, three, four, five = _extra(flow)[:5]
+    # months 1..5 of cumulative money: 1000, 3000, 6000, then each month adds 3 live bookings = 3000
+    assert [one, two, three, four, five] == [D("1000.00"), D("3000.00"), D("6000.00"), D("9000.00"), D("12000.00")]
+
+
+def test_a_booking_that_pays_for_ever_grows_by_one_more_stream_every_month(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None)
+    flow = _outlook(world)
+    assert flow["expected_new_months"] is None
+    extra = _extra(flow)
+    assert extra[:4] == [D("1000.00"), D("3000.00"), D("6000.00"), D("10000.00")]
+    assert extra[-1] == D("1000.00") * 13 * 14 / 2                                       # 13 months: 1000 * k(k+1)/2
+
+
+def test_one_month_is_the_one_off_version_and_a_long_run_never_pays_before_it_is_booked(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), 1)
+        assert _extra(_outlook(world))[:3] == [D("1000.00"), D("2000.00"), D("3000.00")]
+        save_expected_new_sales(D("1000"), 120)
+    assert _extra(_outlook(world)) == _extra_forever_for_13_months()
+
+
+def _extra_forever_for_13_months():
+    return [D("1000.00") * k * (k + 1) / 2 for k in range(1, 14)]

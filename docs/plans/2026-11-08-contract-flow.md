@@ -42,4 +42,9 @@ month**, starting with the current month (`income_plan.expected_new_monthly`, mi
 draws nothing). The Outlook chart then adds a fourth, blue dotted line: the projection plus that amount
 times the months from this one through each month, so "what is already entered" and "what I hope to
 add" stay visibly apart. It is an assumption, stated in the chart note: each sale is taken as paid in
-the month it is booked, on top of everything already entered. The projection itself never changes.
+the month it is booked, on top of everything already entered.
+
+A second field says how many months each booking keeps paying (migration 091, `expected_new_months`):
+1 (the default) is the one-off above; a number such as 6 makes every booking pay its amount for that many
+months from the month it is booked, so the streams stack; `i` (or ∞) means it pays every month from then on
+(NULL in the database). At 1,000 a month and "for ever" the extra money after k months is 1,000 × k(k+1)/2. The projection itself never changes.

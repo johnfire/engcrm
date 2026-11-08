@@ -152,10 +152,15 @@
       <input type="text" name="expected_new_monthly" inputmode="decimal"
              value="{{ forecast.plan.expected_new_monthly if forecast.plan.expected_new_monthly is not none else '' }}" />
     </label>
+    <label>{{ t('forecast.newSales.months') }}
+      <input type="text" name="new_sales_months" inputmode="text" maxlength="3" size="4"
+             value="{{ 'i' if forecast.plan.expected_new_months is none else forecast.plan.expected_new_months }}" />
+    </label>
     <button type="submit" class="btn-primary">{{ t('forecast.newSales.save') }}</button>
   </form>
   {% elif forecast.plan.expected_new_monthly is not none %}
-  <p>{{ t('forecast.newSales.label') }}: <strong>{{ forecast.plan.expected_new_monthly | eur }}</strong></p>
+  <p>{{ t('forecast.newSales.label') }}: <strong>{{ forecast.plan.expected_new_monthly | eur }}</strong>
+    · {{ t('forecast.newSales.months') }}: {{ '∞' if forecast.plan.expected_new_months is none else forecast.plan.expected_new_months }}</p>
   {% endif %}
 
   <h3>{{ t('forecast.otherIncome') }}</h3>

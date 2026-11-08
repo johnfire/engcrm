@@ -344,3 +344,18 @@ def test_the_blue_line_follows_the_language_and_a_viewer_sees_the_figure(world):
     assert "mit erwarteten Neuverkäufen" in german and "Erwartete Neuverkäufe pro Monat" in german
     viewer = _browser("viewer@first.example").get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
     assert "Expected new sales per month" in viewer and 'name="expected_new_monthly"' not in viewer
+
+
+def test_the_months_each_booking_pays_are_a_number_or_the_letter_i_and_zero_is_refused(world):
+    admin = _browser("owner@first.example")
+    for typed, stored in (("", 1), ("6", 6), ("i", None), ("I", None), ("\u221e", None), (" 12 ", 12)):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_months": typed}).status_code == 303
+        with workspace_scope(world["first"]):
+            assert get_plan()["expected_new_months"] == stored, typed
+    for bad in ("0", "-3", "121", "forever", "2.5"):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_months": bad}).status_code == 400, bad
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_months": "i"}, follow_redirects=False)
+    page = admin.get("/forecast?flow=outlook&lang=en").text
+    assert 'name="new_sales_months"' in page and "every month from then on" in page.replace("\xa0", " ")

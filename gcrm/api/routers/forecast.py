@@ -93,14 +93,28 @@ def save_need(request: Request, monthly_need: str = Form(...), start_month: str 
     return _back(view)
 
 
+def _paying_months(typed: str) -> int | None:
+    """Months each booking pays: blank is 1, a whole number is that many, "i" or "∞" is for ever (None)."""
+    text = typed.strip().lower()
+    if not text:
+        return 1
+    if text in ("i", "\u221e"):
+        return None
+    if not text.isdigit():
+        raise ValueError("enter a whole number of months, or i for no end")
+    return int(text)
+
+
 @router.post("/forecast/new-sales", dependencies=[Depends(require_admin)])
-def save_new_sales(request: Request, expected_new_monthly: str = Form(""), view: str = Form("month")):
-    """Set the euros of new sales expected to be booked each month (blank: no assumption). Only the
+def save_new_sales(request: Request, expected_new_monthly: str = Form(""), new_sales_months: str = Form(""),
+                   view: str = Form("month")):
+    """Set the euros of new sales expected to be booked each month (blank: no assumption) and for how
+    many months each booking keeps paying (blank: 1, a one-off; "i" or "∞": for ever). Only the
     Outlook chart draws it, so the page comes back on the Outlook."""
     try:
         text = expected_new_monthly.replace(",", ".").strip()
         with workspace_scope(session_workspace_id(request)):
-            save_expected_new_sales(Decimal(text) if text else None)
+            save_expected_new_sales(Decimal(text) if text else None, _paying_months(new_sales_months))
     except (InvalidOperation, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error) or "Enter an amount of 0 or more")
     return local_redirect("/forecast", view=view if view in GRANULARITIES else "month", flow="outlook")
