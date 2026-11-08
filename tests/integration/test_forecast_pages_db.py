@@ -359,3 +359,38 @@ def test_the_months_each_booking_pays_are_a_number_or_the_letter_i_and_zero_is_r
     admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_months": "i"}, follow_redirects=False)
     page = admin.get("/forecast?flow=outlook&lang=en").text
     assert 'name="new_sales_months"' in page and "every month from then on" in page.replace("\xa0", " ")
+
+
+def test_the_table_has_a_projected_column_between_subtotal_and_other_income_once_new_sales_are_expected(world):
+    admin = _browser("owner@first.example")
+    before = admin.get("/forecast?lang=en").text
+    head = before[before.index("<thead>"):before.index("</thead>")]
+    assert "Projected" not in head                                                  # nothing assumed: no column
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_delay": "1"}, follow_redirects=False)
+    page = admin.get("/forecast?lang=en").text
+    head = page[page.index("<thead>"):page.index("</thead>")]
+    assert head.index("Subtotal") < head.index("Projected") < head.index("Other income") < head.index("Grand total")
+    assert "Projected = the new sales you expect" in page
+
+
+def test_the_delay_is_a_whole_number_of_months_and_blank_means_one(world):
+    admin = _browser("owner@first.example")
+    for typed, stored in (("", 1), ("0", 0), ("3", 3)):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_delay": typed}).status_code == 303
+        with workspace_scope(world["first"]):
+            assert get_plan()["expected_new_delay"] == stored, typed
+    for bad in ("-1", "25", "soon", "1.5"):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_delay": bad}).status_code == 400, bad
+
+
+def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_expected(world):
+    admin = _browser("owner@first.example")
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    assert "is heading for" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_months": "i"}, follow_redirects=False)
+    page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
+    assert "total is heading for" in page and "expected new sales" in page
+    assert "calendar year of each month is heading" in page
+    assert "is heading for" not in section(admin.get("/forecast?flow=3m&lang=en").text)           # only the outlook

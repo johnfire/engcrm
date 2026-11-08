@@ -11,7 +11,12 @@ from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
 from gcrm.tools.deal_money import add_deal_sale, set_sale_status
 from gcrm.tools.deal_records import add_deal, get_deals
-from gcrm.tools.income_plan import add_other_income, save_expected_new_sales, save_monthly_need
+from gcrm.tools.income_plan import (
+    add_other_income,
+    get_plan,
+    save_expected_new_sales,
+    save_monthly_need,
+)
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -315,7 +320,7 @@ def test_without_an_expectation_there_is_no_new_sales_line(world):
 
 def test_expected_new_sales_add_up_month_by_month_on_top_of_the_projection(world):
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"))
+        save_expected_new_sales(D("1000"), 1, 0)
     flow = _outlook(world)
     assert flow["expected_new"] == D("1000.00")
     october, november, december = flow["buckets"][:3]
@@ -331,7 +336,7 @@ def test_expected_new_sales_add_up_month_by_month_on_top_of_the_projection(world
 def test_the_expectation_never_changes_the_scheduled_projection_or_the_money_in(world):
     before = _outlook(world)
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"))
+        save_expected_new_sales(D("1000"), 1, 0)
     after = _outlook(world)
     assert [b["projection"] for b in before["buckets"]] == [b["projection"] for b in after["buckets"]]
     assert [b["cum_money_in"] for b in before["buckets"]] == [b["cum_money_in"] for b in after["buckets"]]
@@ -354,7 +359,7 @@ def _extra(flow):
 
 def test_a_booking_that_keeps_paying_for_three_months_stacks_up_then_levels_off(world):
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"), 3)
+        save_expected_new_sales(D("1000"), 3, 0)
     flow = _outlook(world)
     assert flow["expected_new_months"] == 3
     one, two, three, four, five = _extra(flow)[:5]
@@ -364,7 +369,7 @@ def test_a_booking_that_keeps_paying_for_three_months_stacks_up_then_levels_off(
 
 def test_a_booking_that_pays_for_ever_grows_by_one_more_stream_every_month(world):
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"), None)
+        save_expected_new_sales(D("1000"), None, 0)
     flow = _outlook(world)
     assert flow["expected_new_months"] is None
     extra = _extra(flow)
@@ -374,11 +379,43 @@ def test_a_booking_that_pays_for_ever_grows_by_one_more_stream_every_month(world
 
 def test_one_month_is_the_one_off_version_and_a_long_run_never_pays_before_it_is_booked(world):
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"), 1)
+        save_expected_new_sales(D("1000"), 1, 0)
         assert _extra(_outlook(world))[:3] == [D("1000.00"), D("2000.00"), D("3000.00")]
-        save_expected_new_sales(D("1000"), 120)
+        save_expected_new_sales(D("1000"), 120, 0)
     assert _extra(_outlook(world)) == _extra_forever_for_13_months()
 
 
 def _extra_forever_for_13_months():
     return [D("1000.00") * k * (k + 1) / 2 for k in range(1, 14)]
+
+
+def test_the_first_payment_comes_after_the_delay_so_the_blue_line_starts_later(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"))                                      # the default: one month after it is booked
+        assert get_plan()["expected_new_delay"] == 1
+    assert _extra(_outlook(world))[:4] == [D("0.00"), D("1000.00"), D("2000.00"), D("3000.00")]
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None, 2)                             # for ever, first payment two months on
+    assert _extra(_outlook(world))[:5] == [D("0.00"), D("0.00"), D("1000.00"), D("3000.00"), D("6000.00")]
+
+
+def test_the_year_total_is_what_is_known_for_the_year_plus_the_new_sales_started_by_that_month(world):
+    from gcrm.tools.forecast import get_forecast
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None, 1)                              # for ever, a month after booking
+    flow = _outlook(world)
+    by_month = {b["start"]: b for b in flow["buckets"]}
+    assert by_month[date(2026, 10, 1)]["year_total"] is None                      # months behind us: not drawn
+    november, january, february, march = (by_month[date(*m, 1)] for m in ((2026, 11), (2027, 1), (2027, 2), (2027, 3)))
+    assert november["year_new"] == D("0.00")                                      # nothing booked has started paying yet
+    assert [january["year_new"], february["year_new"], march["year_new"]] == [D("24000.00"), D("35000.00"), D("45000.00")]
+    assert january["year_known"] == february["year_known"] == march["year_known"]     # the known part does not move within a year
+    assert january["year_total"] == january["year_known"] + january["year_new"]
+    with workspace_scope(world["first"]):
+        year = {p["start"]: p for p in get_forecast(world["first"], "year", TODAY)["periods"]}[date(2027, 1, 1)]
+    assert january["year_known"] == year["subtotal"] + year["covered"]            # the same known money the table shows for 2027
+
+
+def test_without_an_expectation_there_is_no_year_total(world):
+    flow = _outlook(world)
+    assert all(b["year_total"] is None and b["year_known"] is None for b in flow["buckets"])

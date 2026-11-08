@@ -7,7 +7,8 @@ money is left out. Money with no due day is reported apart as "undated" instead 
   collected   received      contracted  a written contract exists   booked    agreed
   expected    a hope        subtotal = collected + contracted + booked + expected (the sales)
   other income = confirmed income from the plan that covers the period (counts toward the target)
-  total (the grand total) = subtotal + other income
+  projected = cash from the new sales the owner expects to book (an assumption, from the plan)
+  total (the grand total) = subtotal + projected + other income
 
 The target is the income plan's monthly need (gcrm/tools/income_plan.py), the same every month,
 summed for a quarter or year; "still missing" is target minus total. Nothing here weights money by likelihood: it is what it is.
@@ -19,6 +20,7 @@ from gcrm.db.connection import db
 from gcrm.forecast_math import (
     month_targets,
     months_of,
+    new_sales_cash,
     period_end,
     period_start,
     periods_around,
@@ -66,7 +68,7 @@ def _monthly_money(workspace_id: int, first: date, last: date, offer: str | None
     return months, undated, undated_count
 
 
-def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
+def _period(granularity: str, start: date, money: dict, targets: dict, projected: dict) -> dict:
     months = months_of(granularity, start)
     sums = _blank()
     for month in months:
@@ -74,12 +76,13 @@ def _period(granularity: str, start: date, money: dict, targets: dict) -> dict:
             sums[status] += euros
     subtotal = sums["collected"] + sums["contracted"] + sums["booked"] + sums["expected"]
     covered = sum((targets[m]["covered"] for m in months), _ZERO)
-    total = subtotal + covered
+    expected_cash = sum((projected[m] for m in months), _ZERO)
+    total = subtotal + expected_cash + covered
     counted = [targets[m]["target"] for m in months if targets[m]["target"] is not None]
     target = sum(counted, _ZERO) if counted else None            # months before the business started count for nothing
     return {
         "start": start, "end": period_end(granularity, start), **sums,
-        "subtotal": subtotal, "total": total, "target": target,
+        "subtotal": subtotal, "projected": expected_cash, "total": total, "target": target,
         "possible_income": sum((targets[m]["possible"] for m in months), _ZERO),
         "covered": covered,
         "gap_total": None if target is None else target - total,
@@ -104,8 +107,10 @@ def get_forecast(workspace_id: int, granularity: str, today: date | None = None,
         all_months += months_of(g, s)
     targets = month_targets(plan["monthly_need"], plan["other_income"], sorted(set(all_months)), plan["start_month"])
     money, undated, undated_count = _monthly_money(workspace_id, first, last, offer)
-    periods = [_period(granularity, s, money, targets) for s in starts]
-    tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets)} for key, g, s in tile_starts]
+    projected = new_sales_cash(plan["expected_new_monthly"], plan["expected_new_months"], plan["expected_new_delay"],
+                               today.replace(day=1), sorted(set(all_months)))
+    periods = [_period(granularity, s, money, targets, projected) for s in starts]
+    tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets, projected)} for key, g, s in tile_starts]
     return {
         "granularity": granularity, "today": today, "periods": periods, "tiles": tiles, "plan": plan,
         "undated": {**undated, "total": undated["contracted"] + undated["booked"] + undated["expected"],

@@ -21,10 +21,11 @@ def _amount(value, name: str) -> Decimal:
 
 def get_plan() -> dict:
     """{"monthly_need": Decimal | None, "start_month": date | None, "expected_new_monthly": Decimal | None,
-    "expected_new_months": int | None (None: keeps paying for ever; 1 when nothing is saved), "other_income": [lines, by the month they start covering]} for this workspace."""
+    "expected_new_months": int | None (None: keeps paying for ever; 1 when nothing is saved),
+    "expected_new_delay": int (months from booking to first payment; 1 when nothing is saved), "other_income": [lines, by the month they start covering]} for this workspace."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT monthly_need, start_month, expected_new_monthly, expected_new_months FROM income_plan")
+        cur.execute("SELECT monthly_need, start_month, expected_new_monthly, expected_new_months, expected_new_delay FROM income_plan")
         plan = cur.fetchone()
         cur.execute("SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed "
                     "FROM other_income WHERE deleted_at IS NULL ORDER BY covers_from, id")
@@ -32,7 +33,8 @@ def get_plan() -> dict:
     return {"monthly_need": plan["monthly_need"] if plan else None,
             "start_month": plan["start_month"] if plan else None,
             "expected_new_monthly": plan["expected_new_monthly"] if plan else None,
-            "expected_new_months": plan["expected_new_months"] if plan else 1, "other_income": lines}
+            "expected_new_months": plan["expected_new_months"] if plan else 1,
+            "expected_new_delay": plan["expected_new_delay"] if plan else 1, "other_income": lines}
 
 
 def save_monthly_need(amount, start_month: date | None = None) -> None:
@@ -52,11 +54,13 @@ def save_monthly_need(amount, start_month: date | None = None) -> None:
 
 
 MAX_NEW_SALES_MONTHS = 120
+MAX_NEW_SALES_DELAY = 24
 
 
-def save_expected_new_sales(amount, months: int | None = 1) -> None:
+def save_expected_new_sales(amount, months: int | None = 1, delay: int = 1) -> None:
     """Set the euros of new sales expected to be booked each month (0 or more; None clears it) and
-    how many months each booking keeps paying its amount (1 = a one-off; None = for ever). Only
+    how many months each booking keeps paying its amount (1 = a one-off; None = for ever) and how many
+    months after the booking the first payment comes (0 = the same month). Only
     these change: the monthly need stays as it is. Raises ValueError, changing nothing."""
     value = None if amount is None else _amount(amount, "the expected new sales")
     if value is not None and value < 0:
@@ -64,12 +68,15 @@ def save_expected_new_sales(amount, months: int | None = 1) -> None:
     if months is not None and (isinstance(months, bool) or not isinstance(months, int)
                                or not 1 <= months <= MAX_NEW_SALES_MONTHS):
         raise ValueError(f"enter 1 to {MAX_NEW_SALES_MONTHS} months, or i for no end")
+    if isinstance(delay, bool) or not isinstance(delay, int) or not 0 <= delay <= MAX_NEW_SALES_DELAY:
+        raise ValueError(f"enter 0 to {MAX_NEW_SALES_DELAY} months before the first payment")
     with db() as conn:
         conn.cursor().execute(
-            "INSERT INTO income_plan (workspace_id, expected_new_monthly, expected_new_months, updated_at) "
-            "VALUES (request_workspace_id(), %s, %s, NOW()) ON CONFLICT (workspace_id) DO UPDATE "
+            "INSERT INTO income_plan (workspace_id, expected_new_monthly, expected_new_months, expected_new_delay, "
+            "updated_at) VALUES (request_workspace_id(), %s, %s, %s, NOW()) ON CONFLICT (workspace_id) DO UPDATE "
             "SET expected_new_monthly = EXCLUDED.expected_new_monthly, "
-            "expected_new_months = EXCLUDED.expected_new_months, updated_at = NOW()", (value, months))
+            "expected_new_months = EXCLUDED.expected_new_months, expected_new_delay = EXCLUDED.expected_new_delay, "
+            "updated_at = NOW()", (value, months, delay))
     log_audit(None, None, "forecast.expected_new_saved", None, "expected new sales changed")
 
 

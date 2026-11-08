@@ -48,3 +48,17 @@ A second field says how many months each booking keeps paying (migration 091, `e
 1 (the default) is the one-off above; a number such as 6 makes every booking pay its amount for that many
 months from the month it is booked, so the streams stack; `i` (or ∞) means it pays every month from then on
 (NULL in the database). At 1,000 a month and "for ever" the extra money after k months is 1,000 × k(k+1)/2. The projection itself never changes.
+
+A third field, "months from booking to first payment" (migration 092, `expected_new_delay`, default 1),
+moves the start of each booking's payments.
+
+**Projected column.** With new sales expected, the forecast table gets a "Projected" column between the
+subtotal and other income: the cash those assumed bookings bring in each period. The grand total is
+subtotal + projected + other income, and "still missing" uses it.
+
+**Where the year is heading.** On the "Total won" chart (Outlook only) the same assumption draws a second
+blue line from this month on. At each month it shows the whole calendar year of that month: what is already
+received or scheduled that year, plus confirmed other income, plus the cash the assumed bookings that have
+started paying by that month bring in during that year. Example (1,000 booked in each of November and December,
+paid for ever from a month on): January = known + 24,000, February adds the January booking's 11 payments left
+in the year, March the February booking's 10. It cannot be reconstructed for past months, so it starts now.

@@ -324,3 +324,54 @@ def test_each_booking_can_keep_paying_for_a_number_of_months_or_for_ever(world):
         assert get_plan()["expected_new_months"] is None                                 # a refused change changes nothing
     with workspace_scope(world["second"]):
         assert get_plan()["expected_new_months"] == 1
+
+
+def test_the_delay_before_the_first_payment_is_saved_and_checked(world):
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_delay"] == 1                                     # nothing saved: one month
+        save_expected_new_sales(D("1000"), 1, 0)
+        assert get_plan()["expected_new_delay"] == 0
+        save_expected_new_sales(D("1000"), 1, 3)
+        assert get_plan()["expected_new_delay"] == 3
+        for bad in (-1, 25, "x", 1.5, None):
+            with pytest.raises(ValueError):
+                save_expected_new_sales(D("1000"), 1, bad)
+        assert get_plan()["expected_new_delay"] == 3
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_delay"] == 1
+
+
+def test_the_projected_column_is_the_cash_from_the_new_sales_you_expect_and_counts_in_the_total(world):
+    with workspace_scope(world["first"]):
+        save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
+        save_expected_new_sales(D("1000"), 1, 1)
+        forecast = get_forecast(world["first"], "month", date(2026, 11, 8))
+        by_month = {p["start"]: p for p in forecast["periods"]}
+        assert by_month[date(2026, 10, 1)]["projected"] == D("0")
+        assert by_month[date(2026, 11, 1)]["projected"] == D("0")                       # booked now, paid from December
+        assert by_month[date(2026, 12, 1)]["projected"] == D("1000")
+        assert by_month[date(2027, 12, 1)]["projected"] == D("1000")
+        december = by_month[date(2026, 12, 1)]
+        assert december["total"] == december["subtotal"] + D("1000") + december["covered"]
+        assert december["gap_total"] == december["target"] - december["total"]
+        quarter = {p["start"]: p for p in get_forecast(world["first"], "quarter", date(2026, 11, 8))["periods"]}
+        assert quarter[date(2026, 10, 1)]["projected"] == D("1000")                      # Dec only
+        assert quarter[date(2027, 1, 1)]["projected"] == D("3000")
+        year = {p["start"]: p for p in get_forecast(world["first"], "year", date(2026, 11, 8))["periods"]}
+        assert year[date(2026, 1, 1)]["projected"] == D("1000") and year[date(2027, 1, 1)]["projected"] == D("12000")
+        this_year = next(t for t in get_forecast(world["first"], "month", date(2026, 11, 8))["tiles"] if t["key"] == "this_year")
+        assert this_year["projected"] == D("1000") and this_year["total"] == this_year["subtotal"] + D("1000") + this_year["covered"]
+
+
+def test_bookings_that_keep_paying_stack_in_the_projected_column(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None, 1)                                      # for ever, from the month after
+        months = {p["start"]: p["projected"] for p in get_forecast(world["first"], "month", date(2026, 11, 8))["periods"]}
+        assert [months[date(2026, 11, 1)], months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)]] == \
+            [D("0"), D("1000"), D("2000"), D("3000")]
+
+
+def test_without_an_expectation_projected_is_zero_and_totals_are_unchanged(world):
+    with workspace_scope(world["first"]):
+        forecast = get_forecast(world["first"], "month", date(2026, 11, 8))
+        assert all(p["projected"] == D("0") and p["total"] == p["subtotal"] + p["covered"] for p in forecast["periods"])

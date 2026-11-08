@@ -21,6 +21,28 @@ def _undated_item(item: dict, t, money) -> dict:
             "status": t(f"sale.status.{item['status']}"), "description": item["description"] or ""}
 
 
+def _year_view(flow: dict, label, t, money) -> tuple[list[dict], list[list]]:
+    """Points and table rows for the "total won" chart when new sales are expected: the black running total
+    up to today and, from this month on, the blue line of where the calendar year of each month is heading
+    (what is known for that year plus the cash the expected new bookings started by then bring that year)."""
+    points, rows = [], []
+    for b in flow["buckets"]:
+        year_total = b["year_total"]
+        parts = []
+        if not b["future"]:
+            parts.append(t("flow.tip.running", label=label(b), total=money(b["cumulative"]), added=money(b["entered_total"])))
+        if year_total is not None:
+            parts.append(t("flow.part.yearHeading", label=label(b), year=b["start"].year, total=money(year_total),
+                           known=money(b["year_known"]), new=money(b["year_new"])))
+        tip = " · ".join(parts)
+        points.append({"label": label(b), "tip": tip or label(b),
+                       "values": [None if b["future"] else float(b["cumulative"]),
+                                  None if year_total is None else float(year_total)]})
+        rows.append([label(b), "—" if b["future"] else money(b["cumulative"]),
+                     "—" if year_total is None else money(year_total)])
+    return points, rows
+
+
 def _outlook_chart(flow: dict, t, label, money) -> dict:
     """Money in so far (solid), the projection from today on (a smooth dotted line), the same plus the
     new sales the owner expects each month (a smooth blue line, only when entered) and the target
@@ -64,7 +86,9 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
     if expected_new:
         months = flow.get("expected_new_months", 1)
         key = "flow.note.assumedForever" if months is None else "flow.note.assumedMonths" if months > 1 else "flow.note.assumed"
-        note += " " + t(key, amount=money(expected_new), months=months)
+        delay = flow.get("expected_new_delay", 1)
+        when = t("flow.when.same" if delay == 0 else "flow.when.next" if delay == 1 else "flow.when.later", delay=delay)
+        note += " " + t(key, amount=money(expected_new), months=months, when=when)
     undated = flow.get("undated")
     extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
     items = [_undated_item(item, t, money) for item in (undated or {}).get("items", [])]
@@ -100,6 +124,11 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
                        "tip": t("flow.tip.running", label=label(b), total=money(b["cumulative"]),
                                 added=money(b["entered_total"]))} for b in buckets]
     running_rows = [[label(b), money(b["cumulative"]), money(b["entered_total"])] for b in buckets]
+    running_series, running_note = ["chart-line"], t("flow.note.running")
+    if outlook and flow.get("expected_new"):
+        running_points, running_rows = _year_view(flow, label, t, money)
+        running_series.append("chart-line chart-line--assumed chart-line--smooth")
+        running_note += " " + t("flow.note.runningYear")
 
     cash_points, cash_rows = [], []
     for b in buckets:
@@ -120,7 +149,7 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     return [
         {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows, "extra": "", "undated_items": [], "wide": False,
          "svg": bar_chart(new_points, new_title, tick_label=money)},
-        {"key": "running", "title": running_title, "note": t("flow.note.running"), "rows": running_rows, "extra": "", "undated_items": [], "wide": False,
-         "svg": line_chart(running_points, ["chart-line"], running_title, tick_label=money)},
+        {"key": "running", "title": running_title, "note": running_note, "rows": running_rows, "extra": "", "undated_items": [], "wide": False,
+         "svg": line_chart(running_points, running_series, running_title, tick_label=money)},
         cash,
     ]

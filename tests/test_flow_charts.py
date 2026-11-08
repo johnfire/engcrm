@@ -92,20 +92,22 @@ def test_a_flow_with_nothing_in_it_draws_nothing_to_hover():
 TODAY = date(2026, 11, 18)
 
 
-def _outlook_bucket(start, end, *, money_in, projection, target, future=False, sales=D(0), other=D(0), entered=None, with_new=None):
+def _outlook_bucket(start, end, *, money_in, projection, target, future=False, sales=D(0), other=D(0), entered=None, with_new=None, year=None):
     zero = {"expected": D(0), "booked": D(0), "contracted": D(0), "collected": D(0)}
     total = sum((entered or {}).values(), D(0))
     return {"start": start, "end": end, "future": future, "entered": {**zero, **(entered or {})}, "entered_total": total,
             "deals": 1 if total else 0, "cumulative": D(700), "sales_in": None if future else D(600), "other_in": None if future else D(1500),
             "money_in": None if future else money_in, "target": D(5000), "cum_money_in": None if future else money_in,
-            "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other, "with_new": with_new}
+            "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other, "with_new": with_new,
+            "year_known": None if year is None else year[0], "year_new": None if year is None else year[1],
+            "year_total": None if year is None else year[0] + year[1]}
 
 
-def _outlook(has_target=True, undated=None, new=None, months=1):
+def _outlook(has_target=True, undated=None, new=None, months=1, delay=0):
     extra = (lambda connector, now, later: (connector, now, later)) if new else (lambda *_: (None, None, None))
     connector, now, later = extra(D(2100), D(4300) + new, D(5800) + 2 * new) if new else (None, None, None)
     return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated,
-            "expected_new": new, "expected_new_months": months, "buckets": [
+            "expected_new": new, "expected_new_months": months, "expected_new_delay": delay, "buckets": [
         _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}, with_new=connector),
         _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500), with_new=now),
         _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500), with_new=later),
@@ -230,3 +232,35 @@ def test_the_note_says_how_long_each_booking_keeps_paying():
     assert "every month from then on" in forever and "paid in the month it is booked" not in forever
     german = build_flow_charts(_outlook(new=D(1000), months=None), "de", money)[2]["note"]
     assert "jeden Monat" in german and "danach" in german
+
+
+def test_the_note_says_when_the_first_payment_comes():
+    nxt = build_flow_charts(_outlook(new=D(1000), delay=1), "en", money)[2]["note"]
+    later = build_flow_charts(_outlook(new=D(1000), months=6, delay=2), "en", money)[2]["note"]
+    assert "paid in the month after it is booked" in nxt
+    assert "starting 2 months after it is booked" in later and "every month for 6 months" in later
+    german = build_flow_charts(_outlook(new=D(1000), months=None, delay=1), "de", money)[2]["note"]
+    assert "im Monat nach dem Abschluss" in german
+
+
+def _with_years():
+    flow = _outlook(new=D(1000), months=None, delay=1)
+    flow["buckets"][1]["year_known"], flow["buckets"][1]["year_new"], flow["buckets"][1]["year_total"] = D(36000), D(0), D(36000)
+    flow["buckets"][2]["year_known"], flow["buckets"][2]["year_new"], flow["buckets"][2]["year_total"] = D(36000), D(24000), D(60000)
+    return flow
+
+
+def test_the_total_won_chart_gets_a_blue_year_line_from_this_month_on_even_in_the_future():
+    chart = build_flow_charts(_with_years(), "en", money)[1]
+    svg = str(chart["svg"])
+    assert svg.count("<path") == 1 and "chart-line--assumed" in svg                       # one smooth blue path (two points); black is straight
+    assert "12.2026: the 2026 total is heading for €60,000 (known €36,000 + expected new sales €24,000)" in svg
+    assert chart["rows"][2] == ["12.2026", "—", "€60,000"] and chart["rows"][0][2] == "—"
+    assert "calendar year of each month is heading" in chart["note"]
+
+
+def test_without_expected_new_sales_the_total_won_chart_stays_as_it_was():
+    chart = build_flow_charts(_outlook(), "en", money)[1]
+    assert "chart-line--assumed" not in str(chart["svg"]) and "calendar year" not in chart["note"]
+    german = build_flow_charts(_with_years(), "de", money)[1]
+    assert "steuert auf" in str(german["svg"]) and "Kalenderjahr" in german["note"]

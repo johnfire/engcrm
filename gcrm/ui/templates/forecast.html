@@ -16,7 +16,7 @@
   </p>
   {% endif %}
   <p class="muted small">
-    {{ t('forecast.subtotal') }} {{ p.subtotal | eur }} · {{ t('forecast.otherIncomeCol') }} {{ p.covered | eur }}
+    {{ t('forecast.subtotal') }} {{ p.subtotal | eur }}{% if p.projected %} · {{ t('forecast.projectedCol') }} {{ p.projected | eur }}{% endif %} · {{ t('forecast.otherIncomeCol') }} {{ p.covered | eur }}
   </p>
 </section>
 {% endmacro %}
@@ -53,6 +53,7 @@
       <th class="num">{{ t('sale.status.booked') }}</th>
       <th class="num">{{ t('sale.status.expected') }}</th>
       <th class="num">{{ t('forecast.subtotal') }}</th>
+      {% if forecast.plan.expected_new_monthly %}<th class="num" title="{{ t('forecast.projectedHint') }}">{{ t('forecast.projectedCol') }}</th>{% endif %}
       <th class="num" title="{{ t('forecast.otherIncomeHint') }}">{{ t('forecast.otherIncomeCol') }}</th>
       <th class="num">{{ t('forecast.total') }}</th>
       <th class="num">{{ t('forecast.target') }}</th>
@@ -67,6 +68,7 @@
         <td class="num">{% if p[key] %}{{ p[key] | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>
         {% endfor %}
         <td class="num">{{ p.subtotal | eur }}</td>
+        {% if forecast.plan.expected_new_monthly %}<td class="num">{% if p.projected %}{{ p.projected | eur }}{% else %}<span class="muted">·</span>{% endif %}</td>{% endif %}
         <td class="num">{% if p.covered %}{{ p.covered | eur }}{% else %}<span class="muted">·</span>{% endif %}
           {% if p.possible_income %}<span class="muted small" title="{{ t('forecast.possibleHint') }}"> +{{ p.possible_income | eur }}?</span>{% endif %}</td>
         <td class="num"><strong>{{ p.total | eur }}</strong></td>
@@ -155,6 +157,10 @@
     <label>{{ t('forecast.newSales.months') }}
       <input type="text" name="new_sales_months" inputmode="text" maxlength="3" size="4"
              value="{{ 'i' if forecast.plan.expected_new_months is none else forecast.plan.expected_new_months }}" />
+    </label>
+    <label>{{ t('forecast.newSales.delay') }}
+      <input type="text" name="new_sales_delay" inputmode="numeric" maxlength="2" size="3"
+             value="{{ forecast.plan.expected_new_delay }}" />
     </label>
     <button type="submit" class="btn-primary">{{ t('forecast.newSales.save') }}</button>
   </form>

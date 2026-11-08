@@ -123,3 +123,41 @@ def test_other_income_bigger_than_the_need_does_not_change_the_target():
 
 def test_without_a_need_there_is_no_target_but_the_income_is_still_reported():
     assert month_targets(None, LINES, [OCT]) == {OCT: {"target": None, "possible": D("0"), "covered": D("1500")}}
+
+
+def test_how_many_expected_bookings_are_paying_in_a_month():
+    from gcrm.forecast_math import live_bookings
+    assert [live_bookings(j, None, 1) for j in range(5)] == [0, 1, 2, 3, 4]            # for ever, first payment a month on
+    assert [live_bookings(j, 3, 1) for j in range(6)] == [0, 1, 2, 3, 3, 3]            # each pays three months
+    assert [live_bookings(j, 1, 0) for j in range(3)] == [1, 1, 1]                      # a one-off paid the month it is booked
+    assert [live_bookings(j, 2, 2) for j in range(5)] == [0, 0, 1, 2, 2]
+
+
+def test_cash_from_the_expected_new_sales_by_month_never_comes_before_this_month():
+    from decimal import Decimal
+
+    from gcrm.forecast_math import new_sales_cash
+    this = date(2026, 11, 1)
+    months = [date(2026, 10, 1), date(2026, 11, 1), date(2026, 12, 1), date(2027, 1, 1)]
+    assert new_sales_cash(Decimal("1000"), None, 1, this, months) == {
+        date(2026, 10, 1): 0, date(2026, 11, 1): 0, date(2026, 12, 1): Decimal("1000"), date(2027, 1, 1): Decimal("2000")}
+    assert all(v == 0 for v in new_sales_cash(None, None, 1, this, months).values())
+
+
+def test_the_calendar_year_total_of_the_expected_new_sales_as_of_each_month():
+    from decimal import Decimal
+
+    from gcrm.forecast_math import new_sales_in_year
+    this = date(2026, 11, 1)
+
+    def at(month, year=2027, paying=None, delay=1):
+        return new_sales_in_year(Decimal("1000"), paying, delay, this, month, year)
+    # Nov and Dec bookings (paid for ever, from a month on) are paying by January: 12 + 12 payments in 2027
+    assert at(date(2027, 1, 1)) == Decimal("24000")
+    assert at(date(2027, 2, 1)) == Decimal("35000")                                    # the January booking adds 11 more
+    assert at(date(2027, 3, 1)) == Decimal("45000")                                    # February's adds 10
+    assert at(date(2026, 12, 1), year=2027) == Decimal("12000")                         # only November's has started: 12 payments
+    assert at(date(2027, 1, 1), paying=1) == Decimal("1000")                            # one-offs: only December's lands in 2027
+    assert at(date(2027, 1, 1), delay=0) == Decimal("36000")                            # Nov, Dec, Jan bookings, 12 payments each
+    assert new_sales_in_year(None, None, 1, this, date(2027, 1, 1), 2027) == 0
+    assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 1, 1), 2026) == Decimal("1000")   # Dec 2026: November's first payment
