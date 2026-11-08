@@ -168,7 +168,9 @@ def test_the_outlook_in_german():
 def test_the_outlook_chart_is_wide_and_tall_and_the_others_are_not():
     charts = build_flow_charts(_outlook(), "en", money)
     assert [c["wide"] for c in charts] == [False, False, True]
-    assert 'viewBox="0 0 900 320"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 150"' in str(charts[0]["svg"])
+    assert 'viewBox="0 0 900 320"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 260"' in str(charts[0]["svg"])   # taller: more marks
+    ordinary = build_flow_charts(_flow(), "en", money)
+    assert 'viewBox="0 0 600 150"' in str(ordinary[0]["svg"])                        # the other ranges are unchanged
     assert [c["wide"] for c in build_flow_charts(_flow(), "en", money)] == [False, False, False]
 
 
@@ -264,3 +266,44 @@ def test_without_expected_new_sales_the_total_won_chart_stays_as_it_was():
     assert "chart-line--assumed" not in str(chart["svg"]) and "calendar year" not in chart["note"]
     german = build_flow_charts(_with_years(), "de", money)[1]
     assert "steuert auf" in str(german["svg"]) and "Kalenderjahr" in german["note"]
+
+
+def _big_outlook():
+    flow = _outlook(new=D(1000), months=None, delay=1)
+    for bucket, total in zip(flow["buckets"], (30000, 90000, 140000)):
+        bucket["cumulative"] = D(total)
+        bucket["entered_total"] = D(total) if bucket["start"].month == 11 else bucket["entered_total"]
+    flow["buckets"][2]["cum_target"], flow["buckets"][2]["projection"], flow["buckets"][2]["with_new"] = D(120000), D(70000), D(95000)
+    flow["buckets"][1]["entered_total"] = D(85000)
+    flow["buckets"][1]["entered"]["booked"] = D(85000)
+    return flow
+
+
+def test_the_outlook_axes_are_marked_every_ten_and_twenty_thousand():
+    new, running, cash = build_flow_charts(_big_outlook(), "en", money)
+    for marks in ("€10,000", "€50,000", "€90,000"):
+        assert f">{marks}<" in str(new["svg"])
+    marks = str(running["svg"])
+    assert ">€20,000<" in marks and ">€40,000<" in marks and ">€100,000<" in marks          # every 20,000 ...
+    assert ">€30,000<" not in marks and ">€50,000<" not in marks                              # ... not every 50,000
+    assert ">€20,000<" in str(cash["svg"]) and ">€30,000<" not in str(cash["svg"])
+
+
+def test_new_business_runs_six_months_ahead_with_the_expected_sales_stacked_in_blue():
+    flow = _big_outlook()
+    start = flow["buckets"][2]["start"]
+    flow["buckets"] += [{**flow["buckets"][2], "start": date(2027, month, 1), "end": date(2027, month, 28), "future": True,
+                         "entered_total": D(0), "deals": 0} for month in range(1, 9)]
+    del start
+    chart = build_flow_charts(flow, "en", money)[0]
+    svg = str(chart["svg"])
+    assert svg.count("chart-bar--assumed") >= 6 and 'class="chart-bar"' in svg
+    labels = [row[0] for row in chart["rows"]]
+    assert labels[-1] == "05.2027" and "06.2027" not in labels                      # this month (11.2026) + 6
+    assert chart["rows"][0][2] == "—" and chart["rows"][1][2] == "€1,000"                    # past month: no blue; this month: blue
+    assert "expected new sales €1,000" in svg and "Yellow: business you have entered" in chart["note"]
+
+
+def test_without_expected_sales_new_business_stops_today_and_has_no_blue():
+    chart = build_flow_charts(_outlook(), "en", money)[0]
+    assert "chart-bar--assumed" not in str(chart["svg"]) and "Yellow" not in chart["note"]

@@ -4,10 +4,14 @@ the third runs twelve months on, with a projection line. Text comes from the tra
 the tooltips carry the number of deals and the split by status."""
 from gcrm.charts import bar_chart, line_chart
 from gcrm.i18n import translate
+from gcrm.sale_series import shift_months
 
 LABEL_FORMAT = {"week": "%d.%m.", "month": "%m.%Y", "year": "%Y"}
 SPLIT_ORDER = ("expected", "booked", "contracted", "collected")
 OUTLOOK_WIDTH, OUTLOOK_HEIGHT = 900, 320     # the outlook chart spans the page and has up to 37 months to show
+NEW_BUSINESS_MONTHS_AHEAD = 6                # with new sales expected, the bars run this far past this month
+TICK_STEPS = {"new": 10_000, "running": 20_000, "cash": 20_000}     # outlook: a mark every so many euros
+TALL = 260                                   # room for the extra marks
 
 
 def _undated_item(item: dict, t, money) -> dict:
@@ -95,7 +99,7 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
     return {"key": "cash", "title": title, "note": note,
             "rows": rows, "extra": extra, "undated_items": items, "wide": True,
             "svg": line_chart(points, series, title, height=OUTLOOK_HEIGHT, tick_label=money,
-                                width=OUTLOOK_WIDTH)}
+                                width=OUTLOOK_WIDTH, tick_step=TICK_STEPS["cash"])}
 
 
 def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
@@ -111,14 +115,24 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     def label(bucket: dict) -> str:
         return bucket["start"].strftime(fmt)
 
+    expected_new = flow.get("expected_new") if outlook else None
     new_points, new_rows = [], []
-    for b in buckets:
+    reach = shift_months(flow["today"].replace(day=1), NEW_BUSINESS_MONTHS_AHEAD) if expected_new else None
+    for b in ([b for b in flow["buckets"] if b["start"] <= reach] if expected_new else buckets):
         split = ", ".join(f"{t('sale.status.' + status)} {money(b['entered'][status])}"
                           for status in SPLIT_ORDER if b["entered"][status])
         parts = [f"{label(b)}: {money(b['entered_total'])}", t("flow.deals", count=b["deals"])]
-        tip = " · ".join(parts + ([split] if split else []))
-        new_points.append({"label": label(b), "value": float(b["entered_total"]), "tip": tip})
-        new_rows.append([label(b), money(b["entered_total"]), str(b["deals"])])
+        point = {"label": label(b), "value": float(b["entered_total"])}
+        row = [label(b), money(b["entered_total"]), str(b["deals"])]
+        if expected_new:
+            has_blue = b["end"] >= flow["today"]                     # this month and the months ahead
+            if has_blue:
+                parts.append(t("flow.part.newExpected", amount=money(expected_new)))
+                point["assumed"] = float(expected_new)
+            row.insert(2, money(expected_new) if has_blue else "—")
+        point["tip"] = " · ".join(parts + ([split] if split else []))
+        new_points.append(point)
+        new_rows.append(row)
 
     running_points = [{"label": label(b), "values": [float(b["cumulative"])],
                        "tip": t("flow.tip.running", label=label(b), total=money(b["cumulative"]),
@@ -146,10 +160,14 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     cash = (_outlook_chart(flow, t, label, money) if outlook else
             {"key": "cash", "title": cash_title, "note": t("flow.note.cash" if has_target else "flow.note.cashOnly"),
              "rows": cash_rows, "extra": "", "undated_items": [], "wide": False, "svg": line_chart(cash_points, series, cash_title, tick_label=money)})
+    new_note = t("flow.note.new") + (" " + t("flow.note.newExpected", amount=money(expected_new)) if expected_new else "")
+    steps = TICK_STEPS if outlook else {}
+    tall = {"height": TALL} if outlook else {}
     return [
-        {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows, "extra": "", "undated_items": [], "wide": False,
-         "svg": bar_chart(new_points, new_title, tick_label=money)},
+        {"key": "new", "title": new_title, "note": new_note, "rows": new_rows, "extra": "", "undated_items": [], "wide": False,
+         "svg": bar_chart(new_points, new_title, tick_label=money, tick_step=steps.get("new"), **tall)},
         {"key": "running", "title": running_title, "note": running_note, "rows": running_rows, "extra": "", "undated_items": [], "wide": False,
-         "svg": line_chart(running_points, running_series, running_title, tick_label=money)},
+         "svg": line_chart(running_points, running_series, running_title, tick_label=money,
+                           tick_step=steps.get("running"), **tall)},
         cash,
     ]

@@ -1171,6 +1171,8 @@
   "forecast.projectedHint": "Einnahmen aus den Neuverkäufen, die Sie pro Monat zu buchen erwarten, laut Plan. Das ist eine Annahme, kein erfasstes Geschäft; sie zählt zur Gesamtsumme.",
   "flow.part.yearHeading": "{{label}}: die Summe {{year}} steuert auf {{total}} zu (bekannt {{known}} + erwartete Neuverkäufe {{new}})",
   "flow.note.runningYear": "Blau gepunktet (ab diesem Monat): wohin das Kalenderjahr des jeweiligen Monats steuert: alles, was in diesem Jahr schon eingegangen oder geplant ist, plus bestätigtes weiteres Einkommen, plus die Einnahmen aus den erwarteten Neuverkäufen in diesem Jahr, soweit die Abschlüsse bis zu diesem Monat zu zahlen begonnen haben. Sie wächst, je mehr Monate an Abschlüssen angenommen werden.",
+  "flow.part.newExpected": "erwartete Neuverkäufe {{amount}}",
+  "flow.note.newExpected": "Gelb: von Ihnen erfasstes Geschäft. Blau, ab diesem Monat daraufgesetzt: die {{amount}} an Neuverkäufen, die Sie pro Monat zu buchen erwarten (eine Annahme aus dem Plan, kein erfasstes Geschäft).",
   "flow.part.thisMonth": "dieser Monat: geplante Verkäufe {{sales}} + weiteres Einkommen {{other}}",
   "flow.undated_one": "{{count}} Zahlung über {{amount}} hat noch keinen Fälligkeitstag und fehlt deshalb in der Prognose.",
   "flow.undated_other": "{{count}} Zahlungen über {{amount}} haben noch keinen Fälligkeitstag und fehlen deshalb in der Prognose.",

@@ -21,9 +21,16 @@ def _x_labels(count: int) -> set[int]:
     return {i for i in range(count) if (count - 1 - i) % step == 0}
 
 
-def y_ticks(most: float, whole: bool) -> list[float]:
+MIN_FIXED_TICKS, MAX_FIXED_TICKS = 3, 14
+
+
+def y_ticks(most: float, whole: bool, step: float | None = None) -> list[float]:
     """Round scale values from 0 up to at least `most`, in steps of 1, 2 or 5 times a
-    power of ten. `whole` keeps the step at 1 or more, for counts."""
+    power of ten. `whole` keeps the step at 1 or more, for counts. A wanted `step` (e.g. every
+    10,000) is used when it gives a readable number of marks (3 to 14); a small or huge chart
+    falls back to the automatic step instead of one mark or a wall of them."""
+    if step and MIN_FIXED_TICKS <= math.ceil(most / step - 1e-9) <= MAX_FIXED_TICKS:
+        return [round(i * step, 10) for i in range(math.ceil(most / step - 1e-9) + 1)]
     raw = (most or 1) / Y_INTERVALS
     magnitude = 10 ** math.floor(math.log10(raw))
     step = next(f * magnitude for f in (1, 2, 5, 10) if f * magnitude >= raw)
@@ -33,16 +40,25 @@ def y_ticks(most: float, whole: bool) -> list[float]:
     return [round(i * step, 10) for i in range(count + 1)]
 
 
-def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str) -> Markup:
+def _bar_path(css: str, x: float, width: float, base: float, height: float, rounded: bool) -> str:
+    """One bar segment standing on `base`, `height` tall; the data end is rounded when `rounded`."""
+    y = base - height
+    r = min(4.0, width / 2, height) if rounded else 0.0
+    return (f'<path class="{css}" d="M{x:.1f},{base:.1f} V{y + r:.1f} Q{x:.1f},{y:.1f} {x + r:.1f},{y:.1f} '
+            f'H{x + width - r:.1f} Q{x + width:.1f},{y:.1f} {x + width:.1f},{y + r:.1f} V{base:.1f} Z"/>')
+
+
+def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str, tick_step: float | None = None) -> Markup:
     """Vertical bars over a baseline, against a labelled y scale with gridlines.
-    Each point: label, value (number), tip (tooltip text). `tick_label` formats a
-    scale value (adds the unit)."""
+    Each point: label, value (number), tip (tooltip text), and optionally `assumed` (a number): an
+    assumption stacked on top of the bar in its own colour. `tick_label` formats a scale value
+    (adds the unit); `tick_step` asks for a mark every so much."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
     plot = height - top - bottom
-    values = [p["value"] for p in points]
-    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values))
+    values = [p["value"] + p.get("assumed", 0) for p in points]
+    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values), tick_step)
     scale = ticks[-1]
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8  # gutter for the scale
@@ -60,15 +76,15 @@ def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str)
     for i, p in enumerate(points):
         x0 = left + i * slot
         x = x0 + (slot - bar) / 2
+        base = top + plot
         h = plot * p["value"] / scale if p["value"] else 0
-        y = top + plot - h
+        extra = plot * p.get("assumed", 0) / scale if p.get("assumed") else 0
         parts.append(f'<g class="chart-mark"><title>{escape(p["tip"])}</title>'
                      f'<rect class="chart-hit" x="{x0:.1f}" y="0" width="{slot:.1f}" height="{height}"/>')
-        if h:
-            r = min(4.0, bar / 2, h)  # rounded data end, square on the baseline
-            parts.append(
-                f'<path class="chart-bar" d="M{x:.1f},{top + plot} V{y + r:.1f} Q{x:.1f},{y:.1f} {x + r:.1f},{y:.1f} '
-                f'H{x + bar - r:.1f} Q{x + bar:.1f},{y:.1f} {x + bar:.1f},{y + r:.1f} V{top + plot} Z"/>')
+        if h:      # the entered part: rounded on top only when nothing is stacked above it
+            parts.append(_bar_path("chart-bar", x, bar, base, h, rounded=not extra))
+        if extra:  # the assumed part sits on top, in its own colour
+            parts.append(_bar_path("chart-bar chart-bar--assumed", x, bar, base - h, extra, rounded=True))
         parts.append("</g>")
         if i in shown:
             parts.append(f'<text class="chart-label" x="{x0 + slot / 2:.1f}" y="{height - 6}" '
@@ -134,20 +150,20 @@ def _smooth_path(coords: list[tuple[float, float]]) -> str:
 
 
 def line_chart(points: list[dict], series_classes: list[str], title: str, height: int = 170,
-               tick_label=str, width: int = WIDTH) -> Markup:
+               tick_label=str, width: int = WIDTH, tick_step: float | None = None) -> Markup:
     """One to three lines over a labelled y scale with gridlines, for running totals. Each point: label,
     values (one number per series; None where a series has nothing, which breaks its line), tip (one
     tooltip for the whole slot). `series_classes` are the CSS classes of the lines: a dashed reference
     in the same unit has "chart-line--ref"; a projection "chart-line--projection" (hollow dots); and
     "chart-line--smooth" draws the line as a smooth curve through its points instead of straight
     segments. Dots are drawn while there are few enough points. A chart shown across the page can be
-    drawn on a wider `width` so its text keeps its size."""
+    drawn on a wider `width` so its text keeps its size. `tick_step` asks for a mark every so much."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
     plot = height - top - bottom
     values = [v for p in points for v in p["values"] if v is not None]
-    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values))
+    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values), tick_step)
     scale = ticks[-1]
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8

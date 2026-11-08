@@ -394,3 +394,14 @@ def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_
     assert "total is heading for" in page and "expected new sales" in page
     assert "calendar year of each month is heading" in page
     assert "is heading for" not in section(admin.get("/forecast?flow=3m&lang=en").text)           # only the outlook
+
+
+def test_the_new_business_chart_runs_six_months_ahead_with_blue_on_top_once_new_sales_are_expected(world):
+    admin = _browser("owner@first.example")
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000"}, follow_redirects=False)
+    page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
+    assert page.count("chart-bar--assumed") == 7                                          # this month and six more
+    assert "Yellow: business you have entered" in page
+    assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=year&lang=en").text)

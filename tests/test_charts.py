@@ -155,3 +155,18 @@ def test_the_assumed_new_sales_line_has_its_own_dot_style():
     points = [{"label": "A", "values": [1, 2], "tip": "A"}, {"label": "B", "values": [5, 7], "tip": "B"}]
     svg = str(line_chart(points, ["chart-line", "chart-line chart-line--assumed chart-line--smooth"], "x"))
     assert 'class="chart-dot chart-dot--assumed"' in svg and 'class="chart-line chart-line--assumed chart-line--smooth"' in svg
+
+
+def test_a_wanted_tick_step_is_used_when_it_gives_a_readable_number_of_marks():
+    from gcrm.charts import y_ticks
+    assert y_ticks(88000, False, 10000) == [i * 10000 for i in range(10)]
+    assert y_ticks(138000, False, 20000) == [i * 20000 for i in range(8)]
+    assert y_ticks(15000, False, 10000) == y_ticks(15000, False)                   # only 2 marks: automatic instead
+    assert y_ticks(900000, False, 10000) == y_ticks(900000, False)                 # 90 marks: automatic instead
+
+
+def test_a_bar_can_carry_an_assumed_part_stacked_on_top():
+    points = [{"label": "A", "value": 10, "tip": "A"}, {"label": "B", "value": 0, "assumed": 6, "tip": "B"},
+              {"label": "C", "value": 4, "assumed": 6, "tip": "C"}]
+    svg = str(bar_chart(points, "x"))
+    assert svg.count('class="chart-bar chart-bar--assumed"') == 2 and svg.count('class="chart-bar"') == 2
