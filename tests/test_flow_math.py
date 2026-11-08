@@ -17,8 +17,8 @@ D = Decimal
 TODAY = date(2026, 11, 18)          # a Wednesday
 
 
-def test_the_ranges_are_three_months_a_year_and_the_whole_business():
-    assert FLOW_RANGES == ("3m", "year", "all") and DEFAULT_FLOW in FLOW_RANGES
+def test_the_first_three_ranges_are_three_months_a_year_and_the_whole_business():
+    assert FLOW_RANGES[:3] == ("3m", "year", "all") and DEFAULT_FLOW in FLOW_RANGES
 
 
 def test_bucket_boundaries():
@@ -103,3 +103,25 @@ def test_without_a_need_the_target_is_zero_but_income_still_counts_and_unconfirm
     pace = daily_pace(None, [SUPPORT, maybe], None, date(2026, 10, 1), date(2026, 10, 31))
     assert _sum(pace, "target", date(2026, 10, 1), date(2026, 10, 31)) == D("0")
     assert _sum(pace, "covered", date(2026, 10, 1), date(2026, 10, 31)).quantize(D("0.01")) == D("1500.00")
+
+
+def test_the_outlook_is_a_further_range_and_not_the_default():
+    assert FLOW_RANGES == ("3m", "year", "all", "outlook") and DEFAULT_FLOW == "3m"
+
+
+def test_the_outlook_runs_monthly_from_the_first_month_of_the_business_to_twelve_months_ahead():
+    granularity, starts = flow_buckets("outlook", TODAY, first_month=date(2026, 10, 17))
+    assert granularity == "month" and starts[0] == date(2026, 10, 1) and starts[-1] == date(2027, 11, 1)
+    assert len(starts) == 14 and date(2026, 11, 1) in starts
+
+
+def test_the_outlook_without_a_first_month_is_this_month_and_the_twelve_after_it():
+    granularity, starts = flow_buckets("outlook", TODAY)
+    assert granularity == "month" and starts[0] == date(2026, 11, 1) and len(starts) == 13 and starts[-1] == date(2027, 11, 1)
+
+
+def test_the_outlook_looks_back_at_most_two_years():
+    _, starts = flow_buckets("outlook", TODAY, first_month=date(2015, 1, 1))
+    assert starts[0] == date(2024, 12, 1) and len(starts) == 24 + 12
+    _, near = flow_buckets("outlook", TODAY, first_month=date(2025, 1, 1))
+    assert near[0] == date(2025, 1, 1)

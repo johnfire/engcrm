@@ -1484,3 +1484,8 @@ main.statistics-page { max-width: none; }
 .chart-line--ref { stroke: var(--muted); stroke-dasharray: 6 5; }
 .chart-dot--ref { fill: var(--muted); }
 .forecast-flow { margin-top: 0.6rem; }
+
+/* The outlook's projection: the same hue as money in, dotted, with hollow dots, so it reads as "not yet". */
+.chart-line--projection { stroke-dasharray: 2 6; stroke-linecap: round; }
+.chart-dot--projection { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.stat-chart--wide { grid-column: 1 / -1; }

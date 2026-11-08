@@ -1,8 +1,9 @@
 """Windows and pace for the contract-flow graphs: pure date and money arithmetic.
 
-Three ranges: the last 3 months (13 weeks), the last 12 months, and the whole business (from its
-first month; by year once that is more than four years). Each is cut into buckets: a week
-(Monday to Sunday), a month or a year. The target and the other income are spread evenly over the
+Four ranges: the last 3 months (13 weeks), the last 12 months, the whole business (from its first
+month; by year once that is more than four years), and the outlook (monthly, from the first month,
+at most two years back, to twelve months ahead). Each is cut into buckets: a week (Monday to
+Sunday), a month or a year. The target and the other income are spread evenly over the
 days of each month, so a graph by the week can compare money in with a smooth pace. Nothing here
 touches the database.
 """
@@ -13,11 +14,13 @@ from decimal import Decimal
 from gcrm.forecast_math import month_targets
 from gcrm.sale_series import shift_months
 
-FLOW_RANGES = ("3m", "year", "all")
+FLOW_RANGES = ("3m", "year", "all", "outlook")
 DEFAULT_FLOW = "3m"      # weekly: shows the pick-up of a young business best
 WEEKS_SHOWN = 13
 MONTHS_SHOWN = 12
 MONTHS_BEFORE_YEARS = 48
+OUTLOOK_HISTORY_MONTHS = 24     # at most, counting this month
+OUTLOOK_MONTHS_AHEAD = 12
 _ZERO = Decimal("0")
 
 
@@ -52,6 +55,12 @@ def flow_buckets(range_key: str, today: date, first_month: date | None = None) -
     this_month = today.replace(day=1)
     if range_key == "year":
         return "month", [shift_months(this_month, -n) for n in range(MONTHS_SHOWN - 1, -1, -1)]
+    if range_key == "outlook":
+        first = min(first_month.replace(day=1), this_month) if first_month else this_month
+        first = max(first, shift_months(this_month, 1 - OUTLOOK_HISTORY_MONTHS))
+        last = shift_months(this_month, OUTLOOK_MONTHS_AHEAD)
+        months = (last.year - first.year) * 12 + last.month - first.month + 1
+        return "month", [shift_months(first, n) for n in range(months)]
     if range_key != "all":
         raise ValueError(f"unknown range {range_key!r}")
     first = min(first_month.replace(day=1), this_month) if first_month else this_month

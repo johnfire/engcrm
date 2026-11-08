@@ -99,10 +99,11 @@
   {% if not flow_has_data %}<p class="muted">{{ t('flow.empty') }}</p>{% endif %}
   <div class="stat-charts forecast-flow">
     {% for chart in flow_charts %}
-    <figure class="stat-chart">
+    <figure class="stat-chart{{ ' stat-chart--wide' if chart.wide }}">
       <figcaption>{{ chart.title }}</figcaption>
       {{ chart.svg }}
       <p class="muted small">{{ chart.note }}</p>
+      {% if chart.extra %}<p class="muted small">{{ chart.extra }}</p>{% endif %}
       <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
         <div class="table-scroll"><table><tbody>
           {% for row in chart.rows %}<tr><td>{{ row[0] }}</td>{% for cell in row[1:] %}<td class="num">{{ cell }}</td>{% endfor %}</tr>{% endfor %}

@@ -88,3 +88,64 @@ def test_line_chart_text_is_escaped_and_money_ticks_use_the_formatter():
                          tick_label=lambda v: f"{v:g} €"))
     assert "<b>" not in svg and "&lt;b&gt;" in svg and "a &amp; b" in svg and 'aria-label="x &lt; y"' in svg
     assert "€" in svg
+
+
+import re  # noqa: E402
+
+
+def test_a_gap_breaks_a_line_and_a_lone_point_is_a_dot():
+    gap = [{"label": f"M{i}", "values": [v], "tip": f"M{i}"} for i, v in enumerate([None, None, 100, 200, 300])]
+    svg = str(line_chart(gap, ["chart-line"], "x"))
+    assert svg.count("<polyline") == 1 and svg.count("<circle") == 3 and svg.count("<title>") == 5
+    split = [{"label": f"M{i}", "values": [v], "tip": f"M{i}"} for i, v in enumerate([10, None, 30])]
+    svg = str(line_chart(split, ["chart-line"], "x"))
+    assert "<polyline" not in svg and svg.count("<circle") == 2
+
+
+def test_a_series_that_ends_early_still_scales_to_the_largest_visible_value():
+    points = [{"label": f"M{i}", "values": [a, b], "tip": f"M{i}"} for i, (a, b) in enumerate([(100, 300), (None, 900)])]
+    svg = str(line_chart(points, ["chart-line", "chart-line chart-line--ref"], "x"))
+    assert ">1000<" in svg or ">1200<" in svg                               # the scale reaches 900
+
+
+def _smooth_segments(svg: str):
+    path = re.search(r'<path class="chart-line chart-line--smooth" d="([^"]+)"', svg).group(1)
+    start = re.match(r"M([\d.\-]+),([\d.\-]+)", path)
+    y0 = float(start.group(2))
+    segments = []
+    for c in re.finditer(r"C([\d.\-]+),([\d.\-]+) ([\d.\-]+),([\d.\-]+) ([\d.\-]+),([\d.\-]+)", path):
+        _, y1, _, y2, _, y = (float(g) for g in c.groups())
+        segments.append((y0, y1, y2, y))
+        y0 = y
+    return segments
+
+
+def test_a_smooth_series_is_a_curve_that_never_overshoots_and_stays_flat_where_the_data_is_flat():
+    values = [0, 0, 100, 400, 400, 900]
+    points = [{"label": f"M{i}", "values": [v], "tip": f"M{i}"} for i, v in enumerate(values)]
+    svg = str(line_chart(points, ["chart-line chart-line--smooth"], "x"))
+    assert "<polyline" not in svg
+    segments = _smooth_segments(svg)
+    assert len(segments) == 5
+    for (y0, c1, c2, y1), (a, b) in zip(segments, zip(values, values[1:])):
+        low, high = min(y0, y1) - 0.06, max(y0, y1) + 0.06
+        assert low <= c1 <= high and low <= c2 <= high                       # no wobble beyond its two neighbours
+        if a == b:
+            assert abs(c1 - y0) < 0.06 and abs(c2 - y0) < 0.06               # a flat stretch is drawn flat
+
+
+def test_a_smooth_series_with_two_points_is_still_drawn():
+    points = [{"label": "A", "values": [1], "tip": "A"}, {"label": "B", "values": [5], "tip": "B"}]
+    assert 'class="chart-line chart-line--smooth"' in str(line_chart(points, ["chart-line chart-line--smooth"], "x"))
+
+
+def test_projection_dots_are_hollow():
+    points = [{"label": "A", "values": [1], "tip": "A"}, {"label": "B", "values": [5], "tip": "B"}]
+    svg = str(line_chart(points, ["chart-line chart-line--projection chart-line--smooth"], "x"))
+    assert 'class="chart-dot chart-dot--projection"' in svg
+
+
+def test_a_line_chart_can_be_drawn_on_a_wider_canvas():
+    svg = str(line_chart(_line_points([1, 2, 3]), ["chart-line"], "x", width=900))
+    assert 'viewBox="0 0 900 170"' in svg and 'x2="900"' in svg
+    assert 'viewBox="0 0 600 170"' in str(line_chart(_line_points([1, 2, 3]), ["chart-line"], "x"))

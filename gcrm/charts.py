@@ -108,40 +108,81 @@ def spark(points: list[dict], title: str, height: int = 60) -> Markup:
     return Markup("".join(parts))
 
 
+def _smooth_path(coords: list[tuple[float, float]]) -> str:
+    """An SVG path through the points as a smooth curve that never overshoots (monotone cubic
+    interpolation): between two points it stays between their heights, and flat stretches stay flat.
+    The curve passes through every point, so it is only the look that is smoothed, not the numbers."""
+    n = len(coords)
+    slopes = [(coords[i + 1][1] - coords[i][1]) / (coords[i + 1][0] - coords[i][0]) for i in range(n - 1)]
+    tangents = [slopes[0]] + [0.0 if slopes[i - 1] * slopes[i] <= 0 else (slopes[i - 1] + slopes[i]) / 2
+                              for i in range(1, n - 1)] + [slopes[-1]]
+    for i, slope in enumerate(slopes):
+        if slope == 0:
+            tangents[i] = tangents[i + 1] = 0.0
+            continue
+        a, b = tangents[i] / slope, tangents[i + 1] / slope
+        if a * a + b * b > 9:
+            tau = 3 / math.sqrt(a * a + b * b)
+            tangents[i], tangents[i + 1] = tau * a * slope, tau * b * slope
+    d = [f"M{coords[0][0]:.1f},{coords[0][1]:.1f}"]
+    for i in range(n - 1):
+        (x0, y0), (x1, y1) = coords[i], coords[i + 1]
+        h = x1 - x0
+        d.append(f"C{x0 + h / 3:.1f},{y0 + tangents[i] * h / 3:.1f} {x1 - h / 3:.1f},{y1 - tangents[i + 1] * h / 3:.1f} "
+                 f"{x1:.1f},{y1:.1f}")
+    return " ".join(d)
+
+
 def line_chart(points: list[dict], series_classes: list[str], title: str, height: int = 170,
-               tick_label=str) -> Markup:
-    """One or two lines over a labelled y scale with gridlines, for a running total. Each point:
-    label, values (one number per series), tip (one tooltip for the whole slot). `series_classes`
-    are the CSS classes of the lines; a second line is a dashed reference in the same unit
-    (class "chart-line chart-line--ref"). Dots are drawn while there are few enough points."""
+               tick_label=str, width: int = WIDTH) -> Markup:
+    """One to three lines over a labelled y scale with gridlines, for running totals. Each point: label,
+    values (one number per series; None where a series has nothing, which breaks its line), tip (one
+    tooltip for the whole slot). `series_classes` are the CSS classes of the lines: a dashed reference
+    in the same unit has "chart-line--ref"; a projection "chart-line--projection" (hollow dots); and
+    "chart-line--smooth" draws the line as a smooth curve through its points instead of straight
+    segments. Dots are drawn while there are few enough points. A chart shown across the page can be
+    drawn on a wider `width` so its text keeps its size."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
     plot = height - top - bottom
-    values = [v for p in points for v in p["values"]]
+    values = [v for p in points for v in p["values"] if v is not None]
     ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values))
     scale = ticks[-1]
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8
-    slot = (WIDTH - left) / len(points)
+    slot = (width - left) / len(points)
     shown = _x_labels(len(points))
-    parts = [f'<svg class="chart" viewBox="0 0 {WIDTH} {height}" role="img" aria-label="{escape(title)}">']
+    parts = [f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title)}">']
     for tick, text in zip(ticks, labels):
         y = top + plot - plot * tick / scale
         if tick:
-            parts.append(f'<line class="chart-grid" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
+            parts.append(f'<line class="chart-grid" x1="{left}" x2="{width}" y1="{y:.1f}" y2="{y:.1f}"/>')
         parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
                      f'dominant-baseline="middle">{escape(text)}</text>')
-    parts.append(f'<line class="chart-axis" x1="{left}" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>')
+    parts.append(f'<line class="chart-axis" x1="{left}" x2="{width}" y1="{top + plot}" y2="{top + plot}"/>')
     for index, css in enumerate(series_classes):
-        coords = [(left + (i + 0.5) * slot, top + plot - plot * float(p["values"][index]) / scale)
-                  for i, p in enumerate(points)]
-        if len(coords) > 1:
-            line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
-            parts.append(f'<polyline class="{escape(css)}" points="{line}"/>')
-        if len(coords) <= 31:
-            dot = "chart-dot chart-dot--ref" if "--ref" in css else "chart-dot"
-            parts.extend(f'<circle class="{dot}" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>' for x, y in coords)
+        runs, run = [], []
+        for i, p in enumerate(points):
+            value = p["values"][index]
+            if value is None:
+                if run:
+                    runs.append(run)
+                run = []
+            else:
+                run.append((left + (i + 0.5) * slot, top + plot - plot * float(value) / scale))
+        if run:
+            runs.append(run)
+        for coords in runs:
+            if len(coords) > 1 and "--smooth" in css:
+                parts.append(f'<path class="{escape(css)}" d="{_smooth_path(coords)}"/>')
+            elif len(coords) > 1:
+                line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+                parts.append(f'<polyline class="{escape(css)}" points="{line}"/>')
+        if len(points) <= 31:
+            dot = ("chart-dot chart-dot--projection" if "--projection" in css
+                   else "chart-dot chart-dot--ref" if "--ref" in css else "chart-dot")
+            parts.extend(f'<circle class="{dot}" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>' for coords in runs for x, y in coords)
     for i, p in enumerate(points):
         x0 = left + i * slot
         parts.append(f'<g class="chart-mark"><title>{escape(p["tip"])}</title>'

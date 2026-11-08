@@ -249,3 +249,39 @@ def test_the_charts_follow_the_language(world):
     section = browser.get("/forecast").text
     section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
     assert "Vertragsfluss" in section and "Neues Geschäft pro Woche" in section and "Gesamtes Geschäft" in section
+
+
+def test_the_outlook_is_a_fourth_range_with_a_projection_line_and_the_target_ahead(world):
+    admin = _browser("owner@first.example")
+    admin.post("/forecast/need", data={"monthly_need": "5000", "start_month": "01.10.2026", "view": "month"}, follow_redirects=False)
+    with workspace_scope(world["first"]):
+        add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Outlook Firm", "Ulm", source="test_fixture"))
+                           if d["offer_slug"] == "consulting"), "1200", date(2026, 10, 20), "job", world["first"], status="booked",
+                      expected_on=date(2027, 3, 1))
+        add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Undated Firm", "Ulm", source="test_fixture"))
+                           if d["offer_slug"] == "consulting"), "800", date(2026, 10, 21), "no date", world["first"], status="booked")
+    page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
+    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    assert 'name="flow" value="outlook"' in section and "Outlook" in section
+    assert "Money in, projection and target (running total)" in section
+    assert "chart-line--smooth" in section and "chart-line--projection" in section and "chart-line--ref" in section
+    assert "projected" in section and "by month end" in section
+    assert "1 payment worth 800 € has no due day yet" in section
+    assert "New business per month" in section                               # the first two charts are still there
+    assert section.count("stat-chart--wide") == 1                            # the outlook chart spans the page
+    assert "stat-chart--wide" not in admin.get("/forecast?flow=3m&lang=en").text
+
+
+def test_the_outlook_keeps_the_chosen_view_and_the_other_ranges_still_work(world):
+    browser = _browser("owner@first.example")
+    page = browser.get("/forecast?flow=outlook&view=quarter&lang=en").text
+    assert '<input type="hidden" name="flow" value="outlook"' in page
+    assert "Money in (running total)" in browser.get("/forecast?flow=3m&lang=en").text       # no plan: just money in
+
+
+def test_the_outlook_follows_the_language(world):
+    browser = _browser("owner@first.example")
+    browser.post("/settings/language", data={"ui_language": "de"})
+    section = browser.get("/forecast?flow=outlook").text
+    section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
+    assert "Ausblick" in section and "Eingang und Prognose (Laufende Summe)" in section

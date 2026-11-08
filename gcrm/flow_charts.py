@@ -1,17 +1,58 @@
 """The three contract-flow charts, drawn from a get_contract_flow() result: new business per period,
-the running total, and money in against the target. Text comes from the translation catalogs; the
-tooltips carry the number of deals and the split by status."""
+the running total, and money in against the target. In the outlook the first two stop at today and
+the third runs twelve months on, with a projection line. Text comes from the translation catalogs;
+the tooltips carry the number of deals and the split by status."""
 from gcrm.charts import bar_chart, line_chart
 from gcrm.i18n import translate
 
 LABEL_FORMAT = {"week": "%d.%m.", "month": "%m.%Y", "year": "%Y"}
 SPLIT_ORDER = ("expected", "booked", "contracted", "collected")
+OUTLOOK_WIDTH, OUTLOOK_HEIGHT = 900, 320     # the outlook chart spans the page and has up to 37 months to show
+
+
+def _outlook_chart(flow: dict, t, label, money) -> dict:
+    """Money in so far (solid), the projection from today on (a smooth dotted line) and the target
+    (dashed), by month, up to twelve months ahead."""
+    has_target = flow["has_target"]
+    today = flow["today"]
+    points, rows = [], []
+    for b in flow["buckets"]:
+        future = b["future"]
+        current = not future and b["start"] <= today <= b["end"]
+        parts = []
+        if not future:
+            parts.append(t("flow.part.inSoFar", amount=money(b["cum_money_in"])))
+        if future or current:
+            parts.append(t("flow.part.projected", amount=money(b["projection"])))
+        if has_target:
+            parts.append(t("flow.part.target", amount=money(b["cum_target"])))
+        if future or current:
+            parts.append(t("flow.part.thisMonth", sales=money(b["proj_sales"]), other=money(b["proj_other"])))
+        values = [None if future else float(b["cum_money_in"]),
+                  None if b["projection"] is None else float(b["projection"])]
+        cells = ["—" if future else money(b["cum_money_in"]), "—" if b["projection"] is None else money(b["projection"])]
+        if has_target:
+            values.append(float(b["cum_target"]))
+            cells.append(money(b["cum_target"]))
+        points.append({"label": label(b), "values": values, "tip": f"{label(b)}: " + " · ".join(parts)})
+        rows.append([label(b)] + cells)
+    title = t("flow.chart.outlook" if has_target else "flow.chart.outlookOnly")
+    series = ["chart-line", "chart-line chart-line--projection chart-line--smooth"]
+    if has_target:
+        series.append("chart-line chart-line--ref")
+    undated = flow.get("undated")
+    extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
+    return {"key": "cash", "title": title, "note": t("flow.note.outlook" if has_target else "flow.note.outlookOnly"),
+            "rows": rows, "extra": extra, "wide": True,
+            "svg": line_chart(points, series, title, height=OUTLOOK_HEIGHT, tick_label=money,
+                                width=OUTLOOK_WIDTH)}
 
 
 def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
-    """[{key, title, note, svg, rows}] for the page. `money` formats an amount in euros."""
+    """[{key, title, note, extra, svg, rows}] for the page. `money` formats an amount in euros."""
     fmt = LABEL_FORMAT[flow["granularity"]]
-    buckets = flow["buckets"]
+    outlook = flow.get("range") == "outlook"
+    buckets = [b for b in flow["buckets"] if not b.get("future")]              # the first two charts stop at today
     has_target = flow["has_target"]
 
     def t(key: str, **params) -> str:
@@ -47,11 +88,13 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     running_title = t("flow.chart.running")
     cash_title = t("flow.chart.cash" if has_target else "flow.chart.cashOnly")
     series = ["chart-line", "chart-line chart-line--ref"] if has_target else ["chart-line"]
+    cash = (_outlook_chart(flow, t, label, money) if outlook else
+            {"key": "cash", "title": cash_title, "note": t("flow.note.cash" if has_target else "flow.note.cashOnly"),
+             "rows": cash_rows, "extra": "", "wide": False, "svg": line_chart(cash_points, series, cash_title, tick_label=money)})
     return [
-        {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows,
+        {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows, "extra": "", "wide": False,
          "svg": bar_chart(new_points, new_title, tick_label=money)},
-        {"key": "running", "title": running_title, "note": t("flow.note.running"), "rows": running_rows,
+        {"key": "running", "title": running_title, "note": t("flow.note.running"), "rows": running_rows, "extra": "", "wide": False,
          "svg": line_chart(running_points, ["chart-line"], running_title, tick_label=money)},
-        {"key": "cash", "title": cash_title, "note": t("flow.note.cash" if has_target else "flow.note.cashOnly"),
-         "rows": cash_rows, "svg": line_chart(cash_points, series, cash_title, tick_label=money)},
+        cash,
     ]

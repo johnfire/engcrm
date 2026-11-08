@@ -138,3 +138,87 @@ def test_another_workspace_sees_only_its_own_money_and_no_target_without_a_plan(
 def test_an_unknown_range_is_refused(world):
     with workspace_scope(world["first"]), pytest.raises(ValueError):
         get_contract_flow(world["first"], "decade", TODAY, None)
+
+
+def _extra_sales(world):
+    """A booked payment that was due on 30 October and has not arrived, and one booked sale with no due day."""
+    with workspace_scope(world["first"]):
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT d.id FROM deals d JOIN offers o ON o.id = d.offer_id JOIN contacts c ON c.id = d.contact_id "
+                           "WHERE c.name = 'VHS Musterstadt' AND o.slug = 'consulting'")
+            deal = cursor.fetchone()["id"]
+        add_deal_sale(deal, "400", date(2026, 10, 12), "late payer", world["first"], status="booked", expected_on=date(2026, 10, 30))
+        add_deal_sale(deal, "500", date(2026, 11, 12), "no date yet", world["first"], status="booked")
+
+
+def _outlook(world, workspace="first", offer=None):
+    return _flow(world, "outlook", workspace, offer)
+
+
+def test_the_outlook_runs_monthly_from_the_first_month_to_twelve_months_ahead_and_marks_the_future(world):
+    flow = _outlook(world)
+    assert flow["granularity"] == "month" and flow["range"] == "outlook"
+    starts = [b["start"] for b in flow["buckets"]]
+    assert starts[0] == date(2026, 10, 1) and starts[-1] == date(2027, 11, 1) and len(starts) == 14
+    assert [b["future"] for b in flow["buckets"]] == [False, False] + [True] * 12
+    assert flow["buckets"][1]["end"] == date(2026, 11, 30)                     # a bucket keeps its true last day
+
+
+def test_money_in_so_far_stops_at_today_and_the_past_months_are_unchanged(world):
+    flow = _outlook(world)
+    october, november, december = flow["buckets"][:3]
+    assert (october["cum_money_in"], november["cum_money_in"]) == (D("2100.00"), D("3000.00"))
+    assert december["cum_money_in"] is None and december["money_in"] is None and december["sales_in"] is None
+    assert (october["entered_total"], november["entered_total"], december["entered_total"]) == (D("600"), D("3700"), D("0"))
+
+
+def test_the_projection_adds_scheduled_sales_by_due_day_and_covering_income_to_what_is_collected(world):
+    _extra_sales(world)
+    flow = _outlook(world)
+    projection = {b["start"]: b["projection"] for b in flow["buckets"]}
+    # collected so far 600; other income 1500 a month Oct to Mar; scheduled: person 300 (28 Nov) and the late 400 -> November,
+    # the contract 600 a month Feb to May, the expected 1000 in June
+    assert projection[date(2026, 10, 1)] == D("2100.00")                          # the last month already behind us: what really came in
+    expected = {date(2026, 11, 1): D("4300"), date(2026, 12, 1): D("5800"), date(2027, 1, 1): D("7300"), date(2027, 2, 1): D("9400"),
+                date(2027, 3, 1): D("11500"), date(2027, 4, 1): D("12100"), date(2027, 5, 1): D("12700"), date(2027, 6, 1): D("13700"),
+                date(2027, 11, 1): D("13700")}
+    for month, value in expected.items():
+        assert projection[month].quantize(D("0.01")) == value, month
+
+
+def test_a_payment_past_its_due_day_is_placed_in_this_month_and_one_without_a_due_day_is_listed_apart(world):
+    _extra_sales(world)
+    flow = _outlook(world)
+    november = flow["buckets"][1]
+    assert november["proj_sales"] == D("700")                                      # 300 contracted + the late 400
+    assert flow["buckets"][0]["proj_sales"] == D("0")                              # October's late payment did not stay in October
+    assert flow["undated"] == {"count": 1, "total": D("500")}
+
+
+def test_the_target_runs_on_through_every_month_ahead(world):
+    flow = _outlook(world)
+    target = [b["cum_target"] for b in flow["buckets"]]
+    assert target[0] == D("5000.00") and target[1] == D("10000.00")               # the whole of this month, not to date
+    assert target[-1] == D("70000.00") and flow["has_target"] is True
+
+
+def test_the_other_income_ends_when_it_ends(world):
+    flow = _outlook(world)
+    covered = [b["proj_other"] for b in flow["buckets"]]
+    assert [c.quantize(D("0.01")) for c in covered[:7]] == [D("1500.00")] * 6 + [D("0.00")]      # Oct to Mar
+
+
+def test_another_workspace_gets_its_own_outlook_without_a_target(world):
+    flow = _outlook(world, workspace="second")
+    assert flow["has_target"] is False and flow["undated"] == {"count": 0, "total": D("0")}
+    assert flow["buckets"][0]["start"] == date(2026, 11, 1) and len(flow["buckets"]) == 13
+    assert flow["buckets"][0]["cum_money_in"] == D("99999.00") and flow["buckets"][-1]["projection"] == D("99999.00")
+    assert "Brandt" not in str(_outlook(world)) and "Kessler" not in str(_outlook(world))
+
+
+def test_the_offer_filter_removes_the_sales_but_not_the_other_income(world):
+    _extra_sales(world)
+    flow = _outlook(world, offer="learnwohl")
+    assert all(b["proj_sales"] == D("0") for b in flow["buckets"]) and flow["undated"]["count"] == 0
+    assert flow["buckets"][-1]["projection"].quantize(D("0.01")) == D("9000.00")        # six months of 1500, nothing else

@@ -87,3 +87,81 @@ def test_german():
 def test_a_flow_with_nothing_in_it_draws_nothing_to_hover():
     empty = {"granularity": "month", "has_target": False, "buckets": []}
     assert all(str(c["svg"]) == "" for c in build_flow_charts(empty, "en", money))
+
+
+TODAY = date(2026, 11, 18)
+
+
+def _outlook_bucket(start, end, *, money_in, projection, target, future=False, sales=D(0), other=D(0), entered=None):
+    zero = {"expected": D(0), "booked": D(0), "contracted": D(0), "collected": D(0)}
+    total = sum((entered or {}).values(), D(0))
+    return {"start": start, "end": end, "future": future, "entered": {**zero, **(entered or {})}, "entered_total": total,
+            "deals": 1 if total else 0, "cumulative": D(700), "sales_in": None if future else D(600), "other_in": None if future else D(1500),
+            "money_in": None if future else money_in, "target": D(5000), "cum_money_in": None if future else money_in,
+            "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other}
+
+
+def _outlook(has_target=True, undated=None):
+    return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated, "buckets": [
+        _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}),
+        _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500)),
+        _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500)),
+    ]}
+
+
+def _marks(svg) -> int:
+    return str(svg).count('class="chart-mark"')
+
+
+def test_the_outlook_keeps_the_first_two_charts_to_the_past_and_the_present():
+    charts = build_flow_charts(_outlook(), "en", money)
+    assert _marks(charts[0]["svg"]) == 2 and _marks(charts[1]["svg"]) == 2                  # no empty future months
+    assert _marks(charts[2]["svg"]) == 3                                                    # the cash chart runs on
+
+
+def test_the_outlook_cash_chart_has_money_in_a_smooth_projection_and_a_dashed_target():
+    chart = build_flow_charts(_outlook(), "en", money)[2]
+    svg = str(chart["svg"])
+    assert chart["title"] == "Money in, projection and target (running total)"
+    assert svg.count("<polyline") == 2 and svg.count("chart-line--smooth") == 1 and "chart-line--projection" in svg and "chart-line--ref" in svg
+
+
+def test_the_outlook_tooltips_say_what_is_in_so_far_what_is_projected_and_what_is_scheduled():
+    svg = str(build_flow_charts(_outlook(), "en", money)[2]["svg"])
+    assert "10.2026: €2,100 in so far · target €5,000" in svg                               # a past month: what happened
+    assert ("11.2026: €3,000 in so far · projected €4,300 by month end · target €10,000 · "
+            "this month: scheduled sales €700 + other income €1,500") in svg                # this month: both
+    assert ("12.2026: projected €5,800 by month end · target €15,000 · "
+            "this month: scheduled sales €0 + other income €1,500") in svg                  # a future month: projection only
+
+
+def test_the_outlook_table_shows_a_dash_where_there_is_no_money_in_yet():
+    rows = build_flow_charts(_outlook(), "en", money)[2]["rows"]
+    assert rows[0] == ["10.2026", "€2,100", "€2,100", "€5,000"] and rows[2] == ["12.2026", "—", "€5,800", "€15,000"]
+
+
+def test_without_a_plan_the_outlook_draws_money_in_and_the_projection_only():
+    chart = build_flow_charts(_outlook(has_target=False), "en", money)[2]
+    svg = str(chart["svg"])
+    assert chart["title"] == "Money in and projection (running total)" and "chart-line--ref" not in svg and "target" not in svg
+    assert chart["rows"][2] == ["12.2026", "—", "€5,800"]
+
+
+def test_money_with_no_due_day_is_mentioned_under_the_chart():
+    chart = build_flow_charts(_outlook(undated={"count": 2, "total": D(900)}), "en", money)[2]
+    assert "2 payments worth €900 have no due day yet" in chart["extra"]
+    assert build_flow_charts(_outlook(undated={"count": 1, "total": D(500)}), "en", money)[2]["extra"].startswith("1 payment worth €500")
+    assert build_flow_charts(_outlook(), "en", money)[2]["extra"] == ""
+
+
+def test_the_outlook_in_german():
+    chart = build_flow_charts(_outlook(), "de", money)[2]
+    assert chart["title"] == "Eingang, Prognose und Ziel (Laufende Summe)"
+    assert "voraussichtlich €4,300 bis Monatsende" in str(chart["svg"])
+
+
+def test_the_outlook_chart_is_wide_and_tall_and_the_others_are_not():
+    charts = build_flow_charts(_outlook(), "en", money)
+    assert [c["wide"] for c in charts] == [False, False, True]
+    assert 'viewBox="0 0 900 320"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 150"' in str(charts[0]["svg"])
+    assert [c["wide"] for c in build_flow_charts(_flow(), "en", money)] == [False, False, False]

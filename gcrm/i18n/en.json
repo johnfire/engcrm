@@ -1145,5 +1145,16 @@
   "flow.tip.running": "{{label}}: {{total}} in total · +{{added}} new",
   "flow.tip.cash": "{{label}}: {{money_in}} in of {{target}} target so far (this period: sales {{sales}} + other income {{other}})",
   "flow.tip.cashNoTarget": "{{label}}: {{money_in}} in so far (this period: sales {{sales}} + other income {{other}})",
-  "flow.empty": "Nothing entered yet in this range."
+  "flow.empty": "Nothing entered yet in this range.",
+  "flow.range.outlook": "Outlook",
+  "flow.chart.outlook": "Money in, projection and target (running total)",
+  "flow.chart.outlookOnly": "Money in and projection (running total)",
+  "flow.note.outlook": "Solid line: money in so far. Dotted line: the projection, which adds up what is already scheduled: what you have collected, every unreceived sale on its due day (a late one counts this month) and the confirmed other income for the months it covers. It is not a guess about deals you have not won yet. Dashed line: your target, month by month, up to twelve months ahead.",
+  "flow.note.outlookOnly": "Solid line: money in so far. Dotted line: the projection, which adds up what is already scheduled: what you have collected, every unreceived sale on its due day (a late one counts this month) and the confirmed other income for the months it covers. Set a monthly need in the plan to see a target line.",
+  "flow.part.inSoFar": "{{amount}} in so far",
+  "flow.part.projected": "projected {{amount}} by month end",
+  "flow.part.target": "target {{amount}}",
+  "flow.part.thisMonth": "this month: scheduled sales {{sales}} + other income {{other}}",
+  "flow.undated_one": "{{count}} payment worth {{amount}} has no due day yet, so it is not in the projection.",
+  "flow.undated_other": "{{count}} payments worth {{amount}} have no due day yet, so they are not in the projection."
 }

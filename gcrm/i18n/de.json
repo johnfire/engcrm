@@ -1145,5 +1145,16 @@
   "flow.tip.running": "{{label}}: {{total}} insgesamt · +{{added}} neu",
   "flow.tip.cash": "{{label}}: {{money_in}} Eingang von {{target}} Ziel bisher (dieser Zeitraum: Verkäufe {{sales}} + weiteres Einkommen {{other}})",
   "flow.tip.cashNoTarget": "{{label}}: {{money_in}} Eingang bisher (dieser Zeitraum: Verkäufe {{sales}} + weiteres Einkommen {{other}})",
-  "flow.empty": "In diesem Zeitraum wurde noch nichts erfasst."
+  "flow.empty": "In diesem Zeitraum wurde noch nichts erfasst.",
+  "flow.range.outlook": "Ausblick",
+  "flow.chart.outlook": "Eingang, Prognose und Ziel (Laufende Summe)",
+  "flow.chart.outlookOnly": "Eingang und Prognose (Laufende Summe)",
+  "flow.note.outlook": "Durchgezogen: bisheriger Eingang. Gepunktet: die Prognose, sie addiert, was schon feststeht: Ihren bisherigen Eingang, jeden noch nicht erhaltenen Verkauf an seinem Fälligkeitstag (ein verspäteter zählt in diesem Monat) und das bestätigte weitere Einkommen für die abgedeckten Monate. Sie ist keine Schätzung noch nicht gewonnener Abschlüsse. Gestrichelt: Ihr Ziel, Monat für Monat, bis zu zwölf Monate voraus.",
+  "flow.note.outlookOnly": "Durchgezogen: bisheriger Eingang. Gepunktet: die Prognose, sie addiert, was schon feststeht: Ihren bisherigen Eingang, jeden noch nicht erhaltenen Verkauf an seinem Fälligkeitstag (ein verspäteter zählt in diesem Monat) und das bestätigte weitere Einkommen für die abgedeckten Monate. Tragen Sie im Plan einen Monatsbedarf ein, um eine Ziellinie zu sehen.",
+  "flow.part.inSoFar": "{{amount}} bisher eingegangen",
+  "flow.part.projected": "voraussichtlich {{amount}} bis Monatsende",
+  "flow.part.target": "Ziel {{amount}}",
+  "flow.part.thisMonth": "dieser Monat: geplante Verkäufe {{sales}} + weiteres Einkommen {{other}}",
+  "flow.undated_one": "{{count}} Zahlung über {{amount}} hat noch keinen Fälligkeitstag und fehlt deshalb in der Prognose.",
+  "flow.undated_other": "{{count}} Zahlungen über {{amount}} haben noch keinen Fälligkeitstag und fehlen deshalb in der Prognose."
 }
