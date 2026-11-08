@@ -48,17 +48,19 @@ def _bar_path(css: str, x: float, width: float, base: float, height: float, roun
             f'H{x + width - r:.1f} Q{x + width:.1f},{y:.1f} {x + width:.1f},{y + r:.1f} V{base:.1f} Z"/>')
 
 
-def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str, tick_step: float | None = None) -> Markup:
+def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str, tick_step: float | None = None,
+              limit: float | None = None) -> Markup:
     """Vertical bars over a baseline, against a labelled y scale with gridlines.
     Each point: label, value (number), tip (tooltip text), and optionally `assumed` (a number): an
     assumption stacked on top of the bar in its own colour. `tick_label` formats a scale value
-    (adds the unit); `tick_step` asks for a mark every so much."""
+    (adds the unit); `tick_step` asks for a mark every so much; a `limit` is drawn as a dashed line the scale
+    always reaches (e.g. the hours that can be worked in a week)."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
     plot = height - top - bottom
     values = [p["value"] + p.get("assumed", 0) for p in points]
-    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values), tick_step)
+    ticks = y_ticks(max([*values, limit or 0], default=0), all(float(v).is_integer() for v in [*values, limit or 0]), tick_step)
     scale = ticks[-1]
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8  # gutter for the scale
@@ -73,6 +75,9 @@ def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str,
         parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
                      f'dominant-baseline="middle">{escape(text)}</text>')
     parts.append(f'<line class="chart-axis" x1="{left}" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>')
+    if limit:
+        y = top + plot - plot * limit / scale
+        parts.append(f'<line class="chart-limit" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
     for i, p in enumerate(points):
         x0 = left + i * slot
         x = x0 + (slot - bar) / 2

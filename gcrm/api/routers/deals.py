@@ -158,6 +158,8 @@ def deal_sale_add(
     amount_eur: str = Form(""),
     hours: str = Form(""),
     rate: str = Form(""),
+    work_from: str = Form(""),
+    work_to: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
     status: str = Form("booked"),
@@ -176,7 +178,8 @@ def deal_sale_add(
         add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
                       workspace_id=request.session.get("workspace_id"), status=status,
                       expected_on=parse_day(expected_on), months=months,
-                      hours=contract_hours(worked, schedule, months))
+                      hours=contract_hours(worked, schedule, months),
+                      work_from=parse_day(work_from), work_to=parse_day(work_to))
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except (InvalidOperation, ValueError) as error:
@@ -241,13 +244,17 @@ def deal_sale_work(
     sale_id: int,
     hours: str = Form(""),
     rate: str = Form(""),
+    work_from: str = Form(""),
+    work_to: str = Form(""),
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Reset a sale that is not yet received to hours of work at a rate per hour (its amount follows)."""
+    """Reset a sale that is not yet received to hours of work at a rate per hour (its amount follows), and
+    optionally the days the work is done (blank: unchanged)."""
     try:
         _hours_and_rate(hours, rate)
-        if not set_sale_work(deal_id, sale_id, typed_number(hours), typed_number(rate), request.session.get("workspace_id")):
+        if not set_sale_work(deal_id, sale_id, typed_number(hours), typed_number(rate), request.session.get("workspace_id"),
+                             parse_day(work_from), parse_day(work_to)):
             raise HTTPException(status_code=404, detail="Sale not found")
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
@@ -263,18 +270,21 @@ def deal_series_work(
     series_id: str,
     hours: str = Form(""),
     rate: str = Form(""),
+    work_from: str = Form(""),
+    work_to: str = Form(""),
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     """Reset a contract to hours of work in all at a rate per hour; its total is spread over the payments
-    still to come, on the same due days."""
+    still to come, on the same due days. Optionally the days the work is done (blank: unchanged)."""
     try:
         series = str(uuid.UUID(series_id))
     except ValueError:
         raise HTTPException(status_code=404, detail="Contract not found")
     try:
         _hours_and_rate(hours, rate)
-        if not set_series_work(deal_id, series, typed_number(hours), typed_number(rate), request.session.get("workspace_id")):
+        if not set_series_work(deal_id, series, typed_number(hours), typed_number(rate), request.session.get("workspace_id"),
+                               parse_day(work_from), parse_day(work_to)):
             raise HTTPException(status_code=404, detail="Contract not found")
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")

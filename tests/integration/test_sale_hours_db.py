@@ -124,3 +124,22 @@ def test_the_backup_has_the_hours(world):
     with zipfile.ZipFile(io.BytesIO(archive)) as z:
         header = z.read("sales.csv").decode("utf-8-sig").splitlines()[0].split(",")
         assert "hours" in header and "12.00" in z.read("sales.csv").decode("utf-8-sig")
+
+
+def test_the_forms_take_a_work_window_and_every_payment_of_a_contract_gets_it(world):
+    browser = TestClient(main.app)
+    browser.post("/login", data={"email": "owner@first.example", "password": PASSWORD}, follow_redirects=False)
+    base = {"won_on": "03.11.2026", "status": "booked", "schedule": "monthly", "months": "3", "expected_on": "01.12.2026",
+            "description": "coaching", "amount_eur": "", "hours": "4", "rate": "50"}
+    assert browser.post(f"/organizations/{world['org']}/sales", data={**base, "work_from": "05.12.2026", "work_to": "28.02.2027"},
+                        follow_redirects=False).status_code in (302, 303)
+    rows = _sales(world)
+    assert len(rows) == 3 and {(str(r["work_from"]), str(r["work_to"])) for r in rows} == {("2026-12-05", "2027-02-28")}
+    for bad in ({"work_from": "05.12.2026", "work_to": ""}, {"work_from": "", "work_to": "05.12.2026"},
+                {"work_from": "05.12.2026", "work_to": "01.12.2026"}):
+        assert browser.post(f"/organizations/{world['org']}/sales", data={**base, **bad}, follow_redirects=False).status_code == 400, bad
+    assert len(_sales(world)) == 3
+    via_deal = browser.post(f"/deals/{world['deal']}/sales", data={**base, "description": "viaDeal", "schedule": "one", "work_from": "01.03.2027",
+                                                                    "work_to": "31.03.2027"}, follow_redirects=False)
+    assert via_deal.status_code in (302, 303)
+    assert [str(s["work_from"]) for s in _sales(world) if s["description"] == "viaDeal"] == ["2027-03-01"]

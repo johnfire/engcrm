@@ -196,3 +196,23 @@ def test_hours_a_week_at_a_rate_come_to_so_much_a_month():
     assert monthly_value(Decimal("10"), Decimal("50")) == Decimal("2166.67")
     assert monthly_value(Decimal("0"), Decimal("80")) == Decimal("0.00")
     assert WEEKS_PER_MONTH == Decimal(52) / Decimal(12)
+
+
+def test_a_sales_hours_are_spread_evenly_over_the_days_of_its_work_window_and_added_up_by_week():
+    from gcrm.forecast_math import spread_hours, week_start
+    assert week_start(date(2026, 11, 8)) == date(2026, 11, 2) and week_start(date(2026, 11, 2)) == date(2026, 11, 2)
+    # Mon 2 Nov to Sun 15 Nov = 14 days: 28 hours, 14 in each week
+    assert spread_hours(Decimal("28"), date(2026, 11, 2), date(2026, 11, 15)) == {date(2026, 11, 2): Decimal("14"), date(2026, 11, 9): Decimal("14")}
+    # Wed 4 Nov to Tue 10 Nov = 7 days, 7 hours: Wed..Sun is 5 of them, Mon..Tue 2
+    assert spread_hours(Decimal("7"), date(2026, 11, 4), date(2026, 11, 10)) == {date(2026, 11, 2): Decimal("5"), date(2026, 11, 9): Decimal("2")}
+    assert spread_hours(Decimal("3"), date(2026, 11, 4), date(2026, 11, 4)) == {date(2026, 11, 2): Decimal("3")}
+    assert sum(spread_hours(Decimal("10"), date(2026, 11, 4), date(2026, 12, 20)).values()) == Decimal("10")
+    with pytest.raises(ValueError):
+        spread_hours(Decimal("3"), date(2026, 11, 5), date(2026, 11, 4))
+
+
+def test_without_a_work_window_the_hours_fall_in_the_month_the_payment_is_due():
+    from gcrm.forecast_math import hours_window
+    assert hours_window(None, None, date(2026, 11, 18)) == (date(2026, 11, 1), date(2026, 11, 30))
+    assert hours_window(date(2026, 12, 7), date(2027, 1, 15), date(2026, 11, 18)) == (date(2026, 12, 7), date(2027, 1, 15))
+    assert hours_window(date(2026, 12, 7), None, date(2026, 11, 18)) == (date(2026, 11, 1), date(2026, 11, 30))     # half a window is no window

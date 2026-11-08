@@ -184,3 +184,19 @@ def test_bad_input_is_a_400_a_missing_contract_a_404_and_a_viewer_is_refused(wor
     assert admin.post(f"/deals/{world['other_deal']}/sales/{world['single']}/work", data={"hours": "1", "rate": "1"}, follow_redirects=False).status_code == 404
     assert viewer.post(url, data={"hours": "36", "rate": "30"}, follow_redirects=False).status_code == 403
     assert [r["amount_eur"] for r in _rows(world, "course")] == [D("240.00")] * 5
+
+
+def test_the_edit_forms_can_set_the_work_window_and_leave_it_alone_when_blank(world):
+    admin = _browser("owner@first.example")
+    url = f"/deals/{world['deal']}/series/{_series(world)}/work"
+    assert admin.post(url, data={"hours": "36", "rate": "30", "work_from": "01.02.2027", "work_to": "31.05.2027"},
+                      follow_redirects=False).status_code == 303
+    assert {(str(r["work_from"]), str(r["work_to"])) for r in _rows(world, "course")} == {("2027-02-01", "2027-05-31")}
+    assert admin.post(url, data={"hours": "40", "rate": "30"}, follow_redirects=False).status_code == 303          # blank: unchanged
+    assert {(str(r["work_from"]), str(r["work_to"])) for r in _rows(world, "course")} == {("2027-02-01", "2027-05-31")}
+    assert admin.post(f"/deals/{world['deal']}/sales/{world['single']}/work",
+                      data={"hours": "10", "rate": "40", "work_from": "01.03.2027", "work_to": "05.03.2027"}, follow_redirects=False).status_code == 303
+    (single,) = _rows(world, "workshop")
+    assert (str(single["work_from"]), str(single["work_to"])) == ("2027-03-01", "2027-03-05")
+    for bad in ({"work_from": "01.03.2027", "work_to": ""}, {"work_from": "05.03.2027", "work_to": "01.03.2027"}):
+        assert admin.post(url, data={"hours": "36", "rate": "30", **bad}, follow_redirects=False).status_code == 400, bad

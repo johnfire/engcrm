@@ -155,6 +155,8 @@ def record_sale(
     amount_eur: str = Form(""),
     hours: str = Form(""),
     rate: str = Form(""),
+    work_from: str = Form(""),
+    work_to: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
     deal_id: int | None = Form(None),
@@ -175,7 +177,8 @@ def record_sale(
         if when is None:
             raise ValueError("a sale needs its day")
         sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id,
-                           status=status, expected_on=parse_day(expected_on), months=months, hours=worked)
+                           status=status, expected_on=parse_day(expected_on), months=months, hours=worked,
+                           work_from=parse_day(work_from), work_to=parse_day(work_to))
     except InvalidOperation:
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
     except ValueError as error:

@@ -68,7 +68,7 @@ FILES: dict[str, str] = {
     "sales.csv": """
         SELECT s.id, s.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
                COALESCE(c.name, p.name) AS owner_name, s.amount_eur, s.status,
-               s.won_on, s.expected_on, s.collected_on, s.hours, s.description,
+               s.won_on, s.expected_on, s.collected_on, s.hours, s.work_from, s.work_to, s.description,
                s.series_id::text AS contract_id, s.series_part AS payment_number, s.series_total AS payments_in_contract,
                s.created_at
           FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL
@@ -86,7 +86,7 @@ FILES: dict[str, str] = {
          WHERE s.workspace_id = %(ws)s AND s.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY s.id""",
     "income_plan.csv": """
-        SELECT monthly_need, expected_new_monthly, expected_new_months, expected_new_delay, expected_new_campaign, expected_new_hours_per_week, expected_new_rate, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
+        SELECT monthly_need, expected_new_monthly, expected_new_months, expected_new_delay, expected_new_campaign, expected_new_hours_per_week, expected_new_rate, weekly_capacity, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
     "other_income.csv": """
         SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed, created_at
           FROM other_income WHERE workspace_id = %(ws)s AND deleted_at IS NULL ORDER BY id""",
@@ -108,7 +108,7 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   sales.csv           sales; status is expected, booked, contracted, collected or cancelled. A contract paid in
                       monthly payments is one row per payment, tied by contract_id (payment_number of
                       payments_in_contract); expected_on is the day that payment is due; hours is the work
-                      in that payment (empty: not recorded)
+                      in that payment (empty: not recorded) and work_from / work_to the days it is done
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
   income_plan.csv     the income you need per month from sales, the first month it applies from, and the new
@@ -116,7 +116,7 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
                       booking pays (expected_new_months; empty: for ever), and the months
                       from booking to first payment (expected_new_delay) and how many months the
                       campaign runs (expected_new_campaign; empty: it never stops); the monthly value is
-                      worked out from expected_new_hours_per_week x expected_new_rate x 52 / 12
+                      worked out from expected_new_hours_per_week x expected_new_rate x 52 / 12; weekly_capacity is the hours a week you can work
   other_income.csv    other income that covers part of it: the months it covers, and whether it is confirmed
   manifest.json       when this was made and how many rows each file holds
 

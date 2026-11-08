@@ -126,6 +126,19 @@
   </div>
 </section>
 
+<section class="detail-section" id="hours">
+  <h2>{{ hours_chart.title }}</h2>
+  <figure class="stat-chart">
+    {{ hours_chart.svg }}
+    <p class="muted small">{{ hours_chart.note }}</p>
+    <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
+      <div class="table-scroll"><table><tbody>
+        {% for row in hours_chart.rows %}<tr><td>{{ row[0] }}</td>{% for cell in row[1:] %}<td class="num">{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+      </tbody></table></div>
+    </details>
+  </figure>
+</section>
+
 <section class="detail-section" id="plan">
   <h2>{{ t('forecast.plan') }}</h2>
   <p class="muted small">{{ t('forecast.planHint') }}</p>
@@ -178,6 +191,18 @@
   {% elif forecast.plan.expected_new_monthly is not none %}
   <p>{{ t('forecast.newSales.label') }}: <strong>{{ forecast.plan.expected_new_monthly | eur }}</strong>
     {% if forecast.plan.expected_new_hours is not none %}({{ forecast.plan.expected_new_hours }} h × {{ forecast.plan.expected_new_rate | eur }}){% endif %} · {{ t('forecast.newSales.months') }}: {{ '∞' if forecast.plan.expected_new_months is none else forecast.plan.expected_new_months }}</p>
+  {% endif %}
+
+  {% if is_admin %}
+  <h3>{{ t('hours.capacity.title') }}</h3>
+  <form method="post" action="/forecast/capacity" class="record-form" id="capacity">
+    <input type="hidden" name="view" value="{{ view }}" />
+    <label>{{ t('hours.capacity.label') }}
+      <input type="text" name="weekly_capacity" inputmode="decimal" size="5"
+             value="{{ forecast.plan.weekly_capacity if forecast.plan.weekly_capacity is not none else '' }}" />
+    </label>
+    <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+  </form>
   {% endif %}
 
   <h3>{{ t('forecast.otherIncome') }}</h3>

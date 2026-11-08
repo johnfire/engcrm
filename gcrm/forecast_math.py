@@ -7,7 +7,7 @@ November). Months before the business started have no target. Unconfirmed other 
 "possible": shown, never counted. Nothing here touches the database.
 """
 import calendar
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.sale_series import shift_months
@@ -155,3 +155,34 @@ def new_sales_in_year(monthly: Decimal | None, paying_months: int | None, delay:
         last = year_last if paying_months is None else min(first + paying_months - 1, year_last)
         payments += max(0, last - max(first, year_first) + 1)
     return Decimal(monthly) * payments
+
+
+def week_start(day: date) -> date:
+    """The Monday of the week `day` falls in."""
+    return day - timedelta(days=day.weekday())
+
+
+def hours_window(work_from: date | None, work_to: date | None, fallback_day: date) -> tuple[date, date]:
+    """The days a sale's hours are worked: its work window when it has both ends, otherwise the whole
+    calendar month of `fallback_day` (the day its payment is due)."""
+    if work_from is not None and work_to is not None:
+        return work_from, work_to
+    first = fallback_day.replace(day=1)
+    return first, first.replace(day=calendar.monthrange(first.year, first.month)[1])
+
+
+def spread_hours(hours: Decimal, first: date, last: date) -> dict[date, Decimal]:
+    """{Monday of the week: hours} for `hours` spread evenly over the days from `first` to `last`
+    (inclusive). Raises ValueError when the window ends before it begins."""
+    if last < first:
+        raise ValueError("the work window ends before it begins")
+    days = (last - first).days + 1
+    in_week: dict[date, int] = {}
+    for offset in range(days):
+        monday = week_start(first + timedelta(days=offset))
+        in_week[monday] = in_week.get(monday, 0) + 1
+    total = Decimal(hours)
+    weeks = {monday: (total * count / days).quantize(Decimal("0.0001")) for monday, count in in_week.items()}
+    last_monday = max(weeks)
+    weeks[last_monday] += total - sum(weeks.values(), _ZERO)          # the rounding left-over lands on the last week
+    return weeks

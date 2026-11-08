@@ -15,7 +15,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.session_workspace import session_workspace_id
-from gcrm.api.templates import eur, templates
+from gcrm.api.templates import eur, hours_text, templates
 from gcrm.dates import parse_day
 from gcrm.flow_charts import build_flow_charts
 from gcrm.flow_math import DEFAULT_FLOW, FLOW_RANGES
@@ -28,9 +28,12 @@ from gcrm.tools.income_plan import (
     delete_other_income,
     save_expected_new_hours,
     save_monthly_need,
+    save_weekly_capacity,
     set_other_income_confirmed,
     update_other_income,
 )
+from gcrm.tools.weekly_hours import get_weekly_hours
+from gcrm.weekly_charts import build_weekly_hours_chart
 from gcrm.workspace_context import workspace_scope
 
 router = APIRouter(tags=["forecast"], dependencies=[Depends(require_login)])
@@ -59,14 +62,17 @@ def forecast_page(
     with workspace_scope(workspace_id):
         forecast = get_forecast(workspace_id, view, date.today(), active_offer)
         contract_flow = get_contract_flow(workspace_id, flow, date.today(), active_offer)
+        weekly = get_weekly_hours(workspace_id, date.today(), offer=active_offer)
     lang = request.session.get("ui_language", DEFAULT_LANGUAGE)
     flow_charts = build_flow_charts(contract_flow, lang, eur)
+    hours_chart = build_weekly_hours_chart(weekly, lang, lambda value: f"{hours_text(value)} h")
     flow_has_data = any(b["cumulative"] for b in contract_flow["buckets"])
     labels = {p["start"]: period_label(view, p["start"]) for p in forecast["periods"]}
     tile_labels = {t["key"]: period_label(t["granularity"], t["start"]) for t in forecast["tiles"]}
     return templates.TemplateResponse("forecast.html", {
         "request": request, "forecast": forecast, "view": view, "views": GRANULARITIES, "labels": labels,
         "flow": flow, "flow_ranges": FLOW_RANGES, "flow_charts": flow_charts, "flow_has_data": flow_has_data,
+        "hours_chart": hours_chart,
         "tile_labels": tile_labels, "offers": offers, "active_offer": active_offer, "today": date.today().isoformat(),
         "is_admin": request.session.get("role") == "admin",
     })
@@ -103,6 +109,17 @@ def _paying_months(typed: str) -> int | None:
     if not text.isdigit():
         raise ValueError("enter a whole number of months, or i for no end")
     return int(text)
+
+
+@router.post("/forecast/capacity", dependencies=[Depends(require_admin)])
+def save_capacity(request: Request, weekly_capacity: str = Form(""), view: str = Form("month")):
+    """Set the hours a week that can be worked (blank: no limit line on the weekly-hours chart)."""
+    try:
+        with workspace_scope(session_workspace_id(request)):
+            save_weekly_capacity(_number(weekly_capacity))
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter the hours a week you can work")
+    return local_redirect("/forecast", view=view if view in GRANULARITIES else "month", flow="outlook")
 
 
 def _number(typed: str) -> Decimal | None:

@@ -26,6 +26,8 @@
       <input type="text" name="hours" inputmode="decimal" size="5" required value="{{ sale.contract.hours | hrs if sale.contract.hours else '' }}" /></label>
     <label>{{ t('sale.rate') }}
       <input type="text" name="rate" inputmode="decimal" size="5" required value="{{ sale.contract.rate_eur | hrs if sale.contract.rate_eur else '' }}" /></label>
+    <label>{{ t('sale.workFrom') }} {{ date_field('work_from', None, label=t('sale.workFrom')) }}</label>
+    <label>{{ t('sale.workTo') }} {{ date_field('work_to', None, label=t('sale.workTo')) }}</label>
     <button type="submit" class="btn-secondary btn-tiny">{{ t('sale.workSave') }}</button>
   </form>
 </li>
@@ -67,6 +69,8 @@
       <input type="text" name="hours" inputmode="decimal" size="5" required value="{{ sale.hours | hrs if sale.hours else '' }}" /></label>
     <label>{{ t('sale.rate') }}
       <input type="text" name="rate" inputmode="decimal" size="5" required value="{{ sale.rate_eur | hrs if sale.rate_eur else '' }}" /></label>
+    <label>{{ t('sale.workFrom') }} {{ date_field('work_from', sale.work_from, label=t('sale.workFrom')) }}</label>
+    <label>{{ t('sale.workTo') }} {{ date_field('work_to', sale.work_to, label=t('sale.workTo')) }}</label>
     <button type="submit" class="btn-secondary btn-tiny">{{ t('sale.workSave') }}</button>
   </form>
   {%- endif %}
@@ -95,7 +99,13 @@
 <label>{{ t('sale.rate') }}
   <input type="text" name="rate" inputmode="decimal" size="5" />
 </label>
-<p class="muted small record-form__wide">{{ t('sale.hoursHint') }}</p>
+<label>{{ t('sale.workFrom') }}
+  {{ date_field('work_from', None) }}
+</label>
+<label>{{ t('sale.workTo') }}
+  {{ date_field('work_to', None) }}
+</label>
+<p class="muted small record-form__wide">{{ t('sale.hoursHint') }} {{ t('sale.workHint') }}</p>
 <fieldset class="sale-kind">
   <legend>{{ t('sale.kind') }}</legend>
   <label class="flag-check"><input type="radio" name="schedule" value="one" checked /> {{ t('sale.kindOne') }}</label>

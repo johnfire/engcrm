@@ -1,5 +1,5 @@
 """The Forecast page and its plan forms, through real logins on the real schema."""
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -192,8 +192,8 @@ def test_the_months_view_runs_through_the_end_of_next_year(world):
 
 def test_the_forecast_page_has_the_contract_flow_section_below_the_table_with_a_range_switch(world):
     page = _browser("owner@first.example").get("/forecast?lang=en").text
-    assert page.index("<tbody>") < page.index('id="contract-flow"') < page.index('id="plan"')
-    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    assert page.index("<tbody>") < page.index('id="contract-flow"') < page.index('id="hours"') < page.index('id="plan"')
+    section = page[page.index('id="contract-flow"'):page.index('id="hours"')]
     for text in ("Contract flow", "3 months", "1 year", "Whole business", "New business per week",
                  "Total won so far (running total)", "Money in (running total)"):
         assert text in section
@@ -216,7 +216,7 @@ def test_the_range_is_chosen_with_the_flow_parameter_and_nonsense_falls_back(wor
 def test_the_view_buttons_keep_the_chosen_range_and_the_range_buttons_keep_the_view(world):
     page = _browser("owner@first.example").get("/forecast?flow=3m&view=quarter&lang=en").text
     assert page.count('<input type="hidden" name="flow" value="3m"') == 1             # in the Months/Quarters/Years form
-    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    section = page[page.index('id="contract-flow"'):page.index('id="hours"')]
     assert '<input type="hidden" name="view" value="quarter"' in section
 
 
@@ -227,7 +227,7 @@ def test_the_charts_show_the_figures_of_the_workspace_and_the_target_line_once_a
         add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Chart Firm", "Ulm", source="test_fixture"))
                            if d["offer_slug"] == "consulting"), "1200", date(2026, 10, 20), "job", world["first"], status="expected")
     page = admin.get("/forecast?flow=all&lang=en").text.replace("\xa0", " ")
-    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    section = page[page.index('id="contract-flow"'):page.index('id="hours"')]
     assert "Money in vs target (running total)" in section and "chart-line--ref" in section
     assert "10.2026: 1.200 € · 1 deal · Expected 1.200 €" in section and "10.2026: 1.200 € in total" in section
     assert "Kessler" not in section
@@ -248,7 +248,7 @@ def test_the_charts_follow_the_language(world):
         connection.cursor().execute("UPDATE users SET ui_language = 'de' WHERE email = 'owner@first.example'")
     browser.post("/settings/language", data={"ui_language": "de"})
     section = browser.get("/forecast").text
-    section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
+    section = section[section.index('id="contract-flow"'):section.index('id="hours"')]
     assert "Vertragsfluss" in section and "Neues Geschäft pro Woche" in section and "Gesamtes Geschäft" in section
 
 
@@ -262,7 +262,7 @@ def test_the_outlook_is_a_fourth_range_with_a_projection_line_and_the_target_ahe
         add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Undated Firm", "Ulm", source="test_fixture"))
                            if d["offer_slug"] == "consulting"), "800", date(2026, 10, 21), "no date", world["first"], status="booked")
     page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
-    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    section = page[page.index('id="contract-flow"'):page.index('id="hours"')]
     assert 'name="flow" value="outlook"' in section and "Outlook" in section
     assert "Money in, projection and target (running total)" in section
     assert "chart-line--smooth" in section and "chart-line--projection" in section and "chart-line--ref" in section
@@ -284,7 +284,7 @@ def test_the_outlook_follows_the_language(world):
     browser = _browser("owner@first.example")
     browser.post("/settings/language", data={"ui_language": "de"})
     section = browser.get("/forecast?flow=outlook").text
-    section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
+    section = section[section.index('id="contract-flow"'):section.index('id="hours"')]
     assert "Ausblick" in section and "Eingang und Prognose (Laufende Summe)" in section
 
 
@@ -295,7 +295,7 @@ def test_the_outlook_lists_the_sales_with_no_due_day_as_links_to_fix_them(world)
         add_deal_sale(next(d["id"] for d in get_deals("organization", org) if d["offer_slug"] == "consulting"),
                       "800", date(2026, 10, 21), "interview", world["first"], status="expected")
     page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
-    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    section = page[page.index('id="contract-flow"'):page.index('id="hours"')]
     assert f'href="/organizations/{org}#sales"' in section and "Eckert Schulen" in section and "800 €" in section
     assert "Expected" in section[section.index("Eckert Schulen"):]
     assert "contract-flow-undated" in section
@@ -306,7 +306,7 @@ def test_the_outlook_lists_the_sales_with_no_due_day_as_links_to_fix_them(world)
 def test_an_admin_enters_the_new_sales_he_expects_and_the_outlook_gets_a_blue_line(world):
     admin = _browser("owner@first.example")
     outlook = "/forecast?flow=outlook&lang=en"
-    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="hours"')]       # noqa: E731
     assert "chart-line--assumed" not in section(admin.get(outlook).text)                       # nothing entered: no blue line
     plan = admin.get(outlook).text
     assert 'action="/forecast/new-sales"' in plan and "Hours of work per week" in plan and "Rate per hour" in plan
@@ -392,7 +392,7 @@ def test_the_delay_is_a_whole_number_of_months_and_blank_means_one(world):
 
 def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_expected(world):
     admin = _browser("owner@first.example")
-    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="hours"')]       # noqa: E731
     assert "is heading for" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
     admin.post("/forecast/new-sales", data={**NEW, "new_sales_months": "i"}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
@@ -403,7 +403,7 @@ def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_
 
 def test_the_new_business_chart_runs_six_months_ahead_with_blue_on_top_once_new_sales_are_expected(world):
     admin = _browser("owner@first.example")
-    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="hours"')]       # noqa: E731
     assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
     admin.post("/forecast/new-sales", data={**NEW}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
@@ -432,3 +432,41 @@ def test_the_page_says_what_the_hours_and_rate_work_out_to_a_month(world):
     admin.post("/forecast/new-sales", data=NEW, follow_redirects=False)
     page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", "")
     assert "That works out to 1.300" in page and "52 weeks" in page and "Hours of work per week" in page
+
+
+def test_the_page_has_a_weekly_hours_section_with_a_chart_for_everyone(world):
+    for email in ("owner@first.example", "viewer@first.example"):
+        page = _browser(email).get("/forecast?lang=en").text
+        section = page[page.index('id="hours"'):page.index('id="plan"')]
+        assert "Hours booked per week" in section
+        assert "<svg" in section and "Yellow: hours on your sales" in section
+
+
+def test_hours_on_sales_show_in_the_weekly_chart_and_the_capacity_adds_a_limit_line(world):
+    admin = _browser("owner@first.example")
+    with workspace_scope(world["first"]):
+        school = save_organization("Hours School", "Ulm", source="test_fixture")
+        deal = next(d["id"] for d in get_deals("organization", school) if d["offer_slug"] == "consulting")
+        monday = date.today() - timedelta(days=date.today().weekday())
+        add_deal_sale(deal, "700", date.today(), "course", world["first"], status="booked", hours=Decimal("14"),
+                      work_from=monday, work_to=monday + timedelta(days=6))
+    page = admin.get("/forecast?lang=en").text.replace("\xa0", " ")
+    section = page[page.index('id="hours"'):page.index('id="plan"')]
+    assert "14.0 h entered" not in section and "14 h entered" in section and "chart-limit" not in section
+    assert admin.post("/forecast/capacity", data={"weekly_capacity": "30,5"}, follow_redirects=False).status_code == 303
+    with workspace_scope(world["first"]):
+        assert get_plan()["weekly_capacity"] == Decimal("30.50")
+    page = admin.get("/forecast?lang=en").text.replace("\xa0", " ")
+    section = page[page.index('id="hours"'):page.index('id="plan"')]
+    assert "chart-limit" in section and "limit 30,5 h" in section
+    admin.post("/forecast/capacity", data={"weekly_capacity": ""}, follow_redirects=False)
+    with workspace_scope(world["first"]):
+        assert get_plan()["weekly_capacity"] is None
+
+
+def test_the_capacity_form_is_for_admins_and_refuses_nonsense(world):
+    viewer, admin = _browser("viewer@first.example"), _browser("owner@first.example")
+    assert 'action="/forecast/capacity"' not in viewer.get("/forecast?lang=en").text
+    assert viewer.post("/forecast/capacity", data={"weekly_capacity": "30"}, follow_redirects=False).status_code == 403
+    for bad in ("lots", "-3", "200"):
+        assert admin.post("/forecast/capacity", data={"weekly_capacity": bad}, follow_redirects=False).status_code == 400, bad

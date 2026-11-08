@@ -152,3 +152,11 @@ def typed_number(text: str) -> Decimal | None:
     Raises InvalidOperation for text that is no number."""
     cleaned = (text or "").replace(",", ".").strip()
     return Decimal(cleaned) if cleaned else None
+
+
+def check_work_window(work_from: date | None, work_to: date | None) -> None:
+    """A sale's work window has both ends or neither, and ends no earlier than it begins; else ValueError."""
+    if (work_from is None) != (work_to is None):
+        raise ValueError("give both the first and the last day of the work, or neither")
+    if work_from is not None and work_to < work_from:
+        raise ValueError("the work cannot end before it begins")

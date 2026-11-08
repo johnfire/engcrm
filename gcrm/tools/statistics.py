@@ -83,7 +83,8 @@ def set_minute_defaults(workspace_id: int, minutes: dict[str, int]) -> None:
 
 def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str,
              deal_id: int | None = None, status: str | None = None, expected_on: date | None = None,
-             collected_on: date | None = None, months: int = 1, hours=None, rate=None) -> int | None:
+             collected_on: date | None = None, months: int = 1, hours=None, rate=None,
+             work_from: date | None = None, work_to: date | None = None) -> int | None:
     """Record a sale on an organization of this workspace, for one of its deals
     (`deal_id`; its Consulting deal when not given), or — with `months` 2 to 60 — a contract
     paid in that many monthly payments, the first due on `expected_on`. `status` defaults to
@@ -106,7 +107,7 @@ def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: da
         if deal is None:
             return None
         ids = insert_sale_payments(cur, workspace_id, deal["id"], Decimal(amount_eur), won_on,
-                                   description, status, expected_on, collected_on, months, hours)
+                                   description, status, expected_on, collected_on, months, hours, work_from, work_to)
     log_audit(None, None, "sale.added", f"contact:{contact_id}", f"{amount_eur} EUR on {won_on}")
     return ids[0]
 
@@ -116,7 +117,7 @@ def get_sales(contact_id: int) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             "SELECT s.id, s.deal_id, s.amount_eur, s.won_on, s.description, s.status, s.expected_on, s.collected_on, "
-            "s.series_id::text AS series_id, s.series_part, s.series_total, s.hours, o.name AS offer FROM sales s "
+            "s.series_id::text AS series_id, s.series_part, s.series_total, s.hours, s.work_from, s.work_to, o.name AS offer FROM sales s "
             "JOIN deals d ON d.id = s.deal_id JOIN offers o ON o.id = d.offer_id "
             "WHERE d.contact_id = %s AND s.deleted_at IS NULL "
             "ORDER BY s.won_on DESC, COALESCE(s.series_id::text, ''), s.series_part, s.id DESC",

@@ -24,10 +24,11 @@ def get_plan() -> dict:
     "expected_new_months": int | None (None: keeps paying for ever; 1 when nothing is saved),
     "expected_new_delay": int (months from booking to first payment; 1 when nothing is saved),
     "expected_new_campaign": int | None (months the campaign makes new bookings; None: it never stops),
-    "expected_new_hours": Decimal | None (hours a week of each booking) and "expected_new_rate" (€ an hour), "other_income": [lines, by the month they start covering]} for this workspace."""
+    "expected_new_hours": Decimal | None (hours a week of each booking) and "expected_new_rate" (€ an hour),
+    "weekly_capacity": Decimal | None (hours a week that can be worked), "other_income": [lines, by the month they start covering]} for this workspace."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT monthly_need, start_month, expected_new_monthly, expected_new_months, expected_new_delay, expected_new_campaign, expected_new_hours_per_week, expected_new_rate FROM income_plan")
+        cur.execute("SELECT monthly_need, start_month, expected_new_monthly, expected_new_months, expected_new_delay, expected_new_campaign, expected_new_hours_per_week, expected_new_rate, weekly_capacity FROM income_plan")
         plan = cur.fetchone()
         cur.execute("SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed "
                     "FROM other_income WHERE deleted_at IS NULL ORDER BY covers_from, id")
@@ -39,7 +40,8 @@ def get_plan() -> dict:
             "expected_new_delay": plan["expected_new_delay"] if plan else 1,
             "expected_new_campaign": plan["expected_new_campaign"] if plan else None,
             "expected_new_hours": plan["expected_new_hours_per_week"] if plan else None,
-            "expected_new_rate": plan["expected_new_rate"] if plan else None, "other_income": lines}
+            "expected_new_rate": plan["expected_new_rate"] if plan else None,
+            "weekly_capacity": plan["weekly_capacity"] if plan else None, "other_income": lines}
 
 
 def save_monthly_need(amount, start_month: date | None = None) -> None:
@@ -111,6 +113,18 @@ def save_expected_new_hours(hours_per_week, rate, months: int | None = 1, delay:
     if not 0 <= euros <= MAX_RATE:
         raise ValueError(f"enter a rate of 0 to {MAX_RATE} euros an hour")
     save_expected_new_sales(monthly_value(hours, euros), months, delay, campaign, hours, euros)
+
+
+def save_weekly_capacity(hours) -> None:
+    """Set how many hours a week can be worked (0 to 168; None clears it). Only this changes. Raises ValueError."""
+    value = None if hours is None else _amount(hours, "the weekly capacity")
+    if value is not None and not 0 <= value <= MAX_HOURS_PER_WEEK:
+        raise ValueError(f"enter 0 to {MAX_HOURS_PER_WEEK} hours a week")
+    with db() as conn:
+        conn.cursor().execute(
+            "INSERT INTO income_plan (workspace_id, weekly_capacity, updated_at) VALUES (request_workspace_id(), %s, NOW()) "
+            "ON CONFLICT (workspace_id) DO UPDATE SET weekly_capacity = EXCLUDED.weekly_capacity, updated_at = NOW()", (value,))
+    log_audit(None, None, "forecast.capacity_saved", None, "weekly capacity changed")
 
 
 def _checked_line(label: str, amount, first_received_on: date, payments: int,

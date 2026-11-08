@@ -170,3 +170,13 @@ def test_a_bar_can_carry_an_assumed_part_stacked_on_top():
               {"label": "C", "value": 4, "assumed": 6, "tip": "C"}]
     svg = str(bar_chart(points, "x"))
     assert svg.count('class="chart-bar chart-bar--assumed"') == 2 and svg.count('class="chart-bar"') == 2
+
+
+def test_a_limit_is_a_dashed_line_that_the_scale_always_reaches():
+    svg = str(bar_chart(_points([2, 4]), "x", limit=30))
+    assert svg.count('class="chart-limit"') == 1
+    assert 'class="chart-bar"' in svg
+    top = [float(m) for m in __import__("re").findall(r'<line class="chart-limit" x1="[\d.]+" x2="[\d.]+" y1="([\d.]+)"', svg)]
+    assert top and top[0] <= 20                                                  # near the top of the plot: the scale grew to the limit
+    assert "chart-limit" not in str(bar_chart(_points([2, 4]), "x"))
+    assert "chart-limit" not in str(bar_chart(_points([2, 4]), "x", limit=None))
