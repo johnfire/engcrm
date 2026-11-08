@@ -39,3 +39,15 @@ def test_the_blue_part_and_the_limit_only_appear_when_there_is_something_to_show
 def test_the_chart_follows_the_language():
     chart = build_weekly_hours_chart(_weekly(D("30")), "de", hours)
     assert chart["title"] == "Gebuchte Stunden pro Woche" and "erfasst" in str(chart["svg"]) and "Grenze" in str(chart["svg"])
+
+
+def test_a_year_of_weeks_is_drawn_wide_so_the_type_stays_small_with_a_label_every_few_weeks():
+    import re
+    from datetime import timedelta
+    start = date(2026, 11, 9)
+    weeks = [{"start": start + timedelta(weeks=i), "end": start + timedelta(weeks=i, days=6), "entered": D(i % 20), "expected": D(0),
+              "total": D(i % 20)} for i in range(52)]
+    chart = build_weekly_hours_chart({"weeks": weeks, "capacity": None, "has_expected": False}, "en", hours)
+    svg = str(chart["svg"])
+    assert 'viewBox="0 0 1400 ' in svg and len(chart["rows"]) == 52 and svg.count("<title>") == 52
+    assert 10 <= len(re.findall(r'text-anchor="middle">\d\d\.\d\d\.<', svg)) <= 14

@@ -15,9 +15,9 @@ Y_INTERVALS = 4  # roughly how many steps the y scale is cut into
 LABEL_CHAR_WIDTH = 11  # px per character of a 17px axis label (digits are widest), for the gutter
 
 
-def _x_labels(count: int) -> set[int]:
-    """Which positions get an x label: at most MAX_X_LABELS, always the last."""
-    step = max(1, -(-count // MAX_X_LABELS))
+def _x_labels(count: int, most: int = MAX_X_LABELS) -> set[int]:
+    """Which positions get an x label: at most `most`, always the last."""
+    step = max(1, -(-count // most))
     return {i for i in range(count) if (count - 1 - i) % step == 0}
 
 
@@ -49,12 +49,13 @@ def _bar_path(css: str, x: float, width: float, base: float, height: float, roun
 
 
 def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str, tick_step: float | None = None,
-              limit: float | None = None) -> Markup:
+              limit: float | None = None, width: int = WIDTH, max_labels: int = MAX_X_LABELS) -> Markup:
     """Vertical bars over a baseline, against a labelled y scale with gridlines.
     Each point: label, value (number), tip (tooltip text), and optionally `assumed` (a number): an
     assumption stacked on top of the bar in its own colour. `tick_label` formats a scale value
     (adds the unit); `tick_step` asks for a mark every so much; a `limit` is drawn as a dashed line the scale
-    always reaches (e.g. the hours that can be worked in a week)."""
+    always reaches (e.g. the hours that can be worked in a week). A chart shown across the page can be drawn
+    on a wider `width` so its text keeps its size, and given more x labels (`max_labels`)."""
     if not points:
         return Markup("")
     top, bottom = 18, 22
@@ -64,20 +65,20 @@ def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str,
     scale = ticks[-1]
     labels = [tick_label(t) for t in ticks]
     left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8  # gutter for the scale
-    slot = (WIDTH - left) / len(points)
+    slot = (width - left) / len(points)
     bar = max(2.0, slot - 4)  # a 4px surface gap between bars
-    shown = _x_labels(len(points))
-    parts = [f'<svg class="chart" viewBox="0 0 {WIDTH} {height}" role="img" aria-label="{escape(title)}">']
+    shown = _x_labels(len(points), max_labels)
+    parts = [f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(title)}">']
     for tick, text in zip(ticks, labels):
         y = top + plot - plot * tick / scale
         if tick:
-            parts.append(f'<line class="chart-grid" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
+            parts.append(f'<line class="chart-grid" x1="{left}" x2="{width}" y1="{y:.1f}" y2="{y:.1f}"/>')
         parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
                      f'dominant-baseline="middle">{escape(text)}</text>')
-    parts.append(f'<line class="chart-axis" x1="{left}" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>')
+    parts.append(f'<line class="chart-axis" x1="{left}" x2="{width}" y1="{top + plot}" y2="{top + plot}"/>')
     if limit:
         y = top + plot - plot * limit / scale
-        parts.append(f'<line class="chart-limit" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
+        parts.append(f'<line class="chart-limit" x1="{left}" x2="{width}" y1="{y:.1f}" y2="{y:.1f}"/>')
     for i, p in enumerate(points):
         x0 = left + i * slot
         x = x0 + (slot - bar) / 2

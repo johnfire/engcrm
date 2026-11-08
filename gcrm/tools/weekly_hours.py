@@ -15,7 +15,7 @@ from gcrm.tools.income_plan import get_plan
 from gcrm.tools.revenue import live_sales_sql
 
 _ZERO = Decimal("0")
-DEFAULT_WEEKS = 13
+DEFAULT_WEEKS = 52              # the next twelve months
 
 
 def _window(row) -> tuple[date, date]:

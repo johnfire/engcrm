@@ -1353,6 +1353,7 @@ main.statistics-page { max-width: none; }
 .chart { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-bar { fill: var(--accent); }
 .chart-bar--assumed { fill: var(--assumed); }
+.stat-chart--hours .chart { max-width: 1400px; }          /* a year of weeks is drawn 1400 wide: never blown up past that */
 .chart-limit { stroke: var(--danger); stroke-width: 1.5; stroke-dasharray: 6 4; }
 .chart-axis { stroke: var(--border); stroke-width: 1; }
 .chart-grid { stroke: color-mix(in srgb, var(--muted) 30%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }

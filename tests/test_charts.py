@@ -180,3 +180,14 @@ def test_a_limit_is_a_dashed_line_that_the_scale_always_reaches():
     assert top and top[0] <= 20                                                  # near the top of the plot: the scale grew to the limit
     assert "chart-limit" not in str(bar_chart(_points([2, 4]), "x"))
     assert "chart-limit" not in str(bar_chart(_points([2, 4]), "x", limit=None))
+
+
+def test_a_bar_chart_can_be_drawn_wider_with_more_labels_on_the_axis():
+    import re
+    points = _points(list(range(1, 53)))
+    narrow = str(bar_chart(points, "x"))
+    wide = str(bar_chart(points, "x", width=1400, max_labels=14))
+    assert 'viewBox="0 0 600 150"' in narrow and 'viewBox="0 0 1400 150"' in wide
+    count = lambda svg: len(re.findall(r'<text class="chart-label" x="[\d.]+" y="\d+" text-anchor="middle">', svg))   # noqa: E731
+    assert count(narrow) <= 6 and 10 <= count(wide) <= 14
+    assert wide.count("<title>") == 52 and 'x2="1400"' in wide

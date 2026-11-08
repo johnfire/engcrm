@@ -4,6 +4,8 @@ hours that can be worked in a week. Text comes from the translation catalogs."""
 from gcrm.charts import bar_chart
 from gcrm.i18n import translate
 
+CHART_WIDTH, CHART_HEIGHT, MAX_LABELS = 1400, 280, 14      # a year of weeks: drawn wide so the type stays small
+
 
 def build_weekly_hours_chart(weekly: dict, lang: str, hours) -> dict:
     """{title, note, rows, svg} for the page. `hours` formats a number of hours (with its unit)."""
@@ -36,5 +38,5 @@ def build_weekly_hours_chart(weekly: dict, lang: str, hours) -> dict:
         note += " " + t("hours.noteLimit", hours=hours(capacity))
     title = t("hours.title")
     return {"title": title, "note": note, "rows": rows, "has_expected": has_expected,
-            "svg": bar_chart(points, title, height=240, tick_label=lambda tick: f"{tick:g}",
-                             limit=float(capacity) if capacity else None)}
+            "svg": bar_chart(points, title, height=CHART_HEIGHT, tick_label=lambda tick: f"{tick:g}",
+                             limit=float(capacity) if capacity else None, width=CHART_WIDTH, max_labels=MAX_LABELS)}

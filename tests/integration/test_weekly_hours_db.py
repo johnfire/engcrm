@@ -116,3 +116,10 @@ def test_the_weekly_capacity_is_saved_and_returned(world):
         assert get_plan()["weekly_capacity"] is None
     with workspace_scope(world["second"]):
         assert get_plan()["weekly_capacity"] is None
+
+
+def test_by_default_it_covers_the_next_twelve_months_of_weeks(world):
+    with workspace_scope(world["first"]):
+        result = get_weekly_hours(world["first"], TODAY)
+    assert len(result["weeks"]) == 52
+    assert result["weeks"][0]["start"] == date(2026, 11, 9) and result["weeks"][-1]["start"] == date(2027, 11, 1)
