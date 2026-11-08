@@ -165,7 +165,7 @@ def test_the_pages_show_status_pipeline_and_the_forms_to_move_a_sale(firm):
     finally:
         main.app.dependency_overrides.pop(require_login, None)
         main.app.dependency_overrides.pop(require_admin, None)
-    assert "badge-sale-booked" in org_page and "expected 20.01.2027" in org_page
+    assert "badge-sale-booked" in org_page and "due 20.01.2027" in org_page
     assert 'action="/deals/%d/sales/' % firm["deal"] in org_page
     assert "badge-sale-contracted" in person_page and f'action="/deals/{own}/sales"' in person_page
     assert "Booked, not collected yet" in person_page

@@ -1011,7 +1011,6 @@
   "sale.status.contracted": "Vertrag liegt vor",
   "sale.status.collected": "Bezahlt",
   "sale.status.cancelled": "Storniert",
-  "sale.expectedOn": "erwartet {{date}}",
   "sale.collectedOn": "bezahlt {{date}}",
   "sale.expectedOnLabel": "Erwartet am bzw. erste Rate fällig (bei monatlicher Zahlung nötig)",
   "sale.collectedOnLabel": "Tag des Geldeingangs (leer = heute)",
@@ -1156,5 +1155,10 @@
   "flow.part.target": "Ziel {{amount}}",
   "flow.part.thisMonth": "dieser Monat: geplante Verkäufe {{sales}} + weiteres Einkommen {{other}}",
   "flow.undated_one": "{{count}} Zahlung über {{amount}} hat noch keinen Fälligkeitstag und fehlt deshalb in der Prognose.",
-  "flow.undated_other": "{{count}} Zahlungen über {{amount}} haben noch keinen Fälligkeitstag und fehlen deshalb in der Prognose."
+  "flow.undated_other": "{{count}} Zahlungen über {{amount}} haben noch keinen Fälligkeitstag und fehlen deshalb in der Prognose.",
+  "sale.dueOn": "fällig {{date}}",
+  "sale.noDueDay": "noch kein Fälligkeitstag",
+  "sale.dueDay": "Fälligkeitstag",
+  "sale.dueDayHint": "Legen Sie fest, wann diese Rate fällig ist. Die folgenden Raten richten sich monatlich danach.",
+  "flow.undatedList": "Geben Sie diesen einen Fälligkeitstag, damit sie in die Prognose eingehen:"
 }

@@ -1489,3 +1489,8 @@ main.statistics-page { max-width: none; }
 .chart-line--projection { stroke-dasharray: 2 6; stroke-linecap: round; }
 .chart-dot--projection { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .stat-chart--wide { grid-column: 1 / -1; }
+
+/* A sale with no due day is flagged where it is listed, and in the list under the outlook chart. */
+.sale__nodate { color: var(--warn); }
+.sale__due { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.2rem 0.5rem 0.2rem 0; }
+.contract-flow-undated { margin-top: 0.4rem; }

@@ -1011,7 +1011,6 @@
   "sale.status.contracted": "Contracted",
   "sale.status.collected": "Collected",
   "sale.status.cancelled": "Cancelled",
-  "sale.expectedOn": "expected {{date}}",
   "sale.collectedOn": "collected {{date}}",
   "sale.expectedOnLabel": "Expected on, or first payment due (needed for monthly payments)",
   "sale.collectedOnLabel": "Day the money came in (blank = today)",
@@ -1156,5 +1155,10 @@
   "flow.part.target": "target {{amount}}",
   "flow.part.thisMonth": "this month: scheduled sales {{sales}} + other income {{other}}",
   "flow.undated_one": "{{count}} payment worth {{amount}} has no due day yet, so it is not in the projection.",
-  "flow.undated_other": "{{count}} payments worth {{amount}} have no due day yet, so they are not in the projection."
+  "flow.undated_other": "{{count}} payments worth {{amount}} have no due day yet, so they are not in the projection.",
+  "sale.dueOn": "due {{date}}",
+  "sale.noDueDay": "no due day yet",
+  "sale.dueDay": "Due day",
+  "sale.dueDayHint": "Set the day this payment is due. The payments after it follow monthly from that day.",
+  "flow.undatedList": "Give these a due day to bring them into the projection:"
 }

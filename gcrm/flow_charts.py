@@ -10,6 +10,17 @@ SPLIT_ORDER = ("expected", "booked", "contracted", "collected")
 OUTLOOK_WIDTH, OUTLOOK_HEIGHT = 900, 320     # the outlook chart spans the page and has up to 37 months to show
 
 
+def _undated_item(item: dict, t, money) -> dict:
+    """One sale with no due day, as a line with a link to where its due day can be set: an
+    organization's Sales card, or the person's deal card."""
+    if item["organization_id"] is not None:
+        name, href = item["organization_name"], f"/organizations/{item['organization_id']}#sales"
+    else:
+        name, href = item["person_name"], f"/people/{item['person_id']}#deal-{item['deal_id']}"
+    return {"name": name, "href": href, "amount": money(item["amount_eur"]),
+            "status": t(f"sale.status.{item['status']}"), "description": item["description"] or ""}
+
+
 def _outlook_chart(flow: dict, t, label, money) -> dict:
     """Money in so far (solid), the projection from today on (a smooth dotted line) and the target
     (dashed), by month, up to twelve months ahead."""
@@ -42,8 +53,9 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
         series.append("chart-line chart-line--ref")
     undated = flow.get("undated")
     extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
+    items = [_undated_item(item, t, money) for item in (undated or {}).get("items", [])]
     return {"key": "cash", "title": title, "note": t("flow.note.outlook" if has_target else "flow.note.outlookOnly"),
-            "rows": rows, "extra": extra, "wide": True,
+            "rows": rows, "extra": extra, "undated_items": items, "wide": True,
             "svg": line_chart(points, series, title, height=OUTLOOK_HEIGHT, tick_label=money,
                                 width=OUTLOOK_WIDTH)}
 
@@ -90,11 +102,11 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     series = ["chart-line", "chart-line chart-line--ref"] if has_target else ["chart-line"]
     cash = (_outlook_chart(flow, t, label, money) if outlook else
             {"key": "cash", "title": cash_title, "note": t("flow.note.cash" if has_target else "flow.note.cashOnly"),
-             "rows": cash_rows, "extra": "", "wide": False, "svg": line_chart(cash_points, series, cash_title, tick_label=money)})
+             "rows": cash_rows, "extra": "", "undated_items": [], "wide": False, "svg": line_chart(cash_points, series, cash_title, tick_label=money)})
     return [
-        {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows, "extra": "", "wide": False,
+        {"key": "new", "title": new_title, "note": t("flow.note.new"), "rows": new_rows, "extra": "", "undated_items": [], "wide": False,
          "svg": bar_chart(new_points, new_title, tick_label=money)},
-        {"key": "running", "title": running_title, "note": t("flow.note.running"), "rows": running_rows, "extra": "", "wide": False,
+        {"key": "running", "title": running_title, "note": t("flow.note.running"), "rows": running_rows, "extra": "", "undated_items": [], "wide": False,
          "svg": line_chart(running_points, ["chart-line"], running_title, tick_label=money)},
         cash,
     ]

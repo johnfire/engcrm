@@ -285,3 +285,18 @@ def test_the_outlook_follows_the_language(world):
     section = browser.get("/forecast?flow=outlook").text
     section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
     assert "Ausblick" in section and "Eingang und Prognose (Laufende Summe)" in section
+
+
+def test_the_outlook_lists_the_sales_with_no_due_day_as_links_to_fix_them(world):
+    admin = _browser("owner@first.example")
+    with workspace_scope(world["first"]):
+        org = save_organization("Eckert Schulen", "Augsburg", source="test_fixture")
+        add_deal_sale(next(d["id"] for d in get_deals("organization", org) if d["offer_slug"] == "consulting"),
+                      "800", date(2026, 10, 21), "interview", world["first"], status="expected")
+    page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
+    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    assert f'href="/organizations/{org}#sales"' in section and "Eckert Schulen" in section and "800 €" in section
+    assert "Expected" in section[section.index("Eckert Schulen"):]
+    assert "contract-flow-undated" in section
+    other = _browser("owner@second.example").get("/forecast?flow=outlook&lang=en").text
+    assert "Eckert Schulen" not in other                                       # another workspace never sees it

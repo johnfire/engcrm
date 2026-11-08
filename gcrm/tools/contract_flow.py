@@ -36,26 +36,30 @@ def _first_sale_month(cur, workspace_id: int, offer: str | None) -> date | None:
 
 
 def _scheduled_sales(cur, scope: str, params: list, today: date) -> tuple[dict[date, Decimal], dict]:
-    """({month: € still to arrive}, {"count", "total"} of those with no due day) for the sales that have
-    not been received yet (and any received on a day still to come). A payment whose due day has passed
-    counts in the current month: it is still expected, so it is not left in the past."""
+    """({month: € still to arrive}, {"count", "total", "items"} of the unreceived sales with no due day)
+    for the outlook. A sale received on a day still to come counts on that day. A payment whose due day
+    has passed counts in the current month: it is still expected, so it is not left in the past. The
+    sales with no due day cannot be placed: each is listed (who, how much, which status) so it can be fixed."""
     cur.execute(
-        "SELECT date_trunc('month', due)::date AS month, SUM(amount) AS eur, COUNT(*) AS n FROM ("
+        "SELECT date_trunc('month', due)::date AS month, SUM(amount) AS eur FROM ("
         "  SELECT s.amount_eur AS amount, CASE WHEN s.status = 'collected' THEN s.collected_on ELSE s.expected_on END AS due "
         f"  {scope} AND s.status IN ({_STATUS_LIST}) AND (s.status <> 'collected' OR s.collected_on > %s)"
-        ") x GROUP BY 1",
+        ") x WHERE due IS NOT NULL GROUP BY 1",
         [*params, today],
     )
     this_month = today.replace(day=1)
     scheduled: dict[date, Decimal] = {}
-    undated = {"count": 0, "total": _ZERO}
     for row in cur.fetchall():
-        if row["month"] is None:
-            undated = {"count": row["n"], "total": Decimal(row["eur"])}
-        else:
-            month = max(row["month"], this_month)
-            scheduled[month] = scheduled.get(month, _ZERO) + Decimal(row["eur"])
-    return scheduled, undated
+        month = max(row["month"], this_month)
+        scheduled[month] = scheduled.get(month, _ZERO) + Decimal(row["eur"])
+    cur.execute(
+        "SELECT s.id AS sale_id, s.deal_id, s.status, s.amount_eur, s.description, c.id AS organization_id, "
+        f"c.name AS organization_name, p.id AS person_id, p.name AS person_name {scope} "
+        "AND s.status IN ('expected', 'booked', 'contracted') AND s.expected_on IS NULL ORDER BY s.won_on, s.id",
+        params,
+    )
+    items = [{**dict(row), "amount_eur": Decimal(row["amount_eur"])} for row in cur.fetchall()]
+    return scheduled, {"count": len(items), "total": sum((item["amount_eur"] for item in items), _ZERO), "items": items}
 
 
 def get_contract_flow(workspace_id: int, range_key: str, today: date | None = None, offer: str | None = None) -> dict:

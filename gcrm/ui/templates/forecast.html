@@ -104,6 +104,16 @@
       {{ chart.svg }}
       <p class="muted small">{{ chart.note }}</p>
       {% if chart.extra %}<p class="muted small">{{ chart.extra }}</p>{% endif %}
+      {% if chart.undated_items %}
+      <div class="contract-flow-undated">
+        <p class="small">{{ t('flow.undatedList') }}</p>
+        <ul class="sales-list">
+          {% for item in chart.undated_items %}
+          <li><a href="{{ item.href }}">{{ item.name }}</a> · <strong>{{ item.amount }}</strong> · {{ item.status }}{% if item.description %} · {{ item.description }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
       <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
         <div class="table-scroll"><table><tbody>
           {% for row in chart.rows %}<tr><td>{{ row[0] }}</td>{% for cell in row[1:] %}<td class="num">{{ cell }}</td>{% endfor %}</tr>{% endfor %}

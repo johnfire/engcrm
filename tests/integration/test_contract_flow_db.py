@@ -193,7 +193,7 @@ def test_a_payment_past_its_due_day_is_placed_in_this_month_and_one_without_a_du
     november = flow["buckets"][1]
     assert november["proj_sales"] == D("700")                                      # 300 contracted + the late 400
     assert flow["buckets"][0]["proj_sales"] == D("0")                              # October's late payment did not stay in October
-    assert flow["undated"] == {"count": 1, "total": D("500")}
+    assert (flow["undated"]["count"], flow["undated"]["total"]) == (1, D("500"))
 
 
 def test_the_target_runs_on_through_every_month_ahead(world):
@@ -211,7 +211,7 @@ def test_the_other_income_ends_when_it_ends(world):
 
 def test_another_workspace_gets_its_own_outlook_without_a_target(world):
     flow = _outlook(world, workspace="second")
-    assert flow["has_target"] is False and flow["undated"] == {"count": 0, "total": D("0")}
+    assert flow["has_target"] is False and flow["undated"] == {"count": 0, "total": D("0"), "items": []}
     assert flow["buckets"][0]["start"] == date(2026, 11, 1) and len(flow["buckets"]) == 13
     assert flow["buckets"][0]["cum_money_in"] == D("99999.00") and flow["buckets"][-1]["projection"] == D("99999.00")
     assert "Brandt" not in str(_outlook(world)) and "Kessler" not in str(_outlook(world))
@@ -222,3 +222,47 @@ def test_the_offer_filter_removes_the_sales_but_not_the_other_income(world):
     flow = _outlook(world, offer="learnwohl")
     assert all(b["proj_sales"] == D("0") for b in flow["buckets"]) and flow["undated"]["count"] == 0
     assert flow["buckets"][-1]["projection"].quantize(D("0.01")) == D("9000.00")        # six months of 1500, nothing else
+
+
+def test_the_sales_with_no_due_day_are_listed_with_who_they_belong_to_so_they_can_be_fixed(world):
+    with workspace_scope(world["first"]):
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT d.id AS deal, c.id AS contact FROM deals d JOIN offers o ON o.id = d.offer_id "
+                           "JOIN contacts c ON c.id = d.contact_id WHERE c.name = 'VHS Musterstadt' AND o.slug = 'consulting'")
+            org = cursor.fetchone()
+            cursor.execute("SELECT d.id AS deal, p.id AS person FROM deals d JOIN people p ON p.id = d.person_id "
+                           "WHERE p.name = 'Pat Freelancer'")
+            person = cursor.fetchone()
+        first = add_deal_sale(org["deal"], "800", date(2026, 11, 9), "Eckert", world["first"], status="expected")
+        second = add_deal_sale(person["deal"], "250", date(2026, 11, 10), "coaching", world["first"], status="booked")
+    flow = _outlook(world)
+    items = flow["undated"]["items"]
+    assert (flow["undated"]["count"], flow["undated"]["total"]) == (2, D("1050"))
+    assert [(i["sale_id"], i["status"], i["amount_eur"]) for i in items] == [(first, "expected", D("800")), (second, "booked", D("250"))]
+    assert items[0]["organization_id"] == org["contact"] and items[0]["organization_name"] == "VHS Musterstadt" and items[0]["person_id"] is None
+    assert items[1]["person_id"] == person["person"] and items[1]["person_name"] == "Pat Freelancer" and items[1]["organization_id"] is None
+    assert items[0]["deal_id"] == org["deal"] and items[0]["description"] == "Eckert"
+
+
+def test_giving_an_undated_expected_sale_a_day_brings_it_into_the_projection(world):
+    from gcrm.tools.deal_money import set_sale_due_day
+    with workspace_scope(world["first"]):
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT d.id AS deal FROM deals d JOIN offers o ON o.id = d.offer_id JOIN contacts c ON c.id = d.contact_id "
+                           "WHERE c.name = 'VHS Musterstadt' AND o.slug = 'consulting'")
+            deal = cursor.fetchone()["deal"]
+        sale = add_deal_sale(deal, "800", date(2026, 11, 9), "Eckert", world["first"], status="expected")
+    before = _outlook(world)
+    assert before["undated"]["count"] == 1 and before["undated"]["items"][0]["sale_id"] == sale
+    with workspace_scope(world["first"]):
+        assert set_sale_due_day(deal, sale, date(2027, 3, 10), world["first"]) == 1
+    after = _outlook(world)
+    assert after["undated"] == {"count": 0, "total": D("0"), "items": []}
+    march = next(b for b in after["buckets"] if b["start"] == date(2027, 3, 1))
+    march_before = next(b for b in before["buckets"] if b["start"] == date(2027, 3, 1))
+    assert march["projection"] - march_before["projection"] == D("800")
+    assert after["buckets"][-1]["projection"] - before["buckets"][-1]["projection"] == D("800")
+    assert next(b for b in after["buckets"] if b["start"] == date(2027, 2, 1))["projection"] == \
+        next(b for b in before["buckets"] if b["start"] == date(2027, 2, 1))["projection"]        # nothing earlier than its month moved

@@ -22,6 +22,7 @@ from gcrm.tools.deal_money import (
     delete_deal_sale,
     delete_subscription,
     end_subscription,
+    set_sale_due_day,
     set_sale_status,
     set_series_status,
     start_subscription,
@@ -197,6 +198,28 @@ def deal_sale_status(
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/sales/{sale_id}/due-day")
+def deal_sale_due_day(
+    request: Request,
+    deal_id: int,
+    sale_id: int,
+    due_on: str = Form(""),
+    next: str = Form(""),
+    _admin: str = Depends(require_admin),
+):
+    """Set or change the day a sale is due (a monthly contract's later payments follow from it)."""
+    try:
+        day = _required_day(due_on)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    try:
+        if not set_sale_due_day(deal_id, sale_id, day, request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Sale not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
     return _back(next, "/organizations/")
 
 

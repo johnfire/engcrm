@@ -140,3 +140,9 @@ it("says which payment of a contract a sale is", () => {
   const screen = render(<SalesCard organizationId={42} sales={[payment]} canEdit={false} />);
   expect(screen.getByText("Booked · payment 2 of 4 · expected 01.03.2027")).toBeTruthy();
 });
+
+it("shows the due day of an expected sale too, not only of booked and contracted ones", () => {
+  const expected = { ...BOOKED, id: 9, status: "expected" as const, expected_on: "2027-01-31" };
+  const screen = render(<SalesCard organizationId={42} sales={[expected]} canEdit={false} />);
+  expect(screen.getByText("Expected · expected 31.01.2027")).toBeTruthy();
+});

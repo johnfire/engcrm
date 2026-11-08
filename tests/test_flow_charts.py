@@ -165,3 +165,19 @@ def test_the_outlook_chart_is_wide_and_tall_and_the_others_are_not():
     assert [c["wide"] for c in charts] == [False, False, True]
     assert 'viewBox="0 0 900 320"' in str(charts[2]["svg"]) and 'viewBox="0 0 600 150"' in str(charts[0]["svg"])
     assert [c["wide"] for c in build_flow_charts(_flow(), "en", money)] == [False, False, False]
+
+
+def test_the_undated_sales_become_a_list_of_links_to_where_they_can_be_fixed():
+    items = [
+        {"sale_id": 11, "deal_id": 3, "status": "expected", "amount_eur": D(800), "description": "Eckert", "organization_id": 7,
+         "organization_name": "Eckert Schulen", "person_id": None, "person_name": None},
+        {"sale_id": 12, "deal_id": 4, "status": "booked", "amount_eur": D(250), "description": "", "organization_id": None,
+         "organization_name": None, "person_id": 9, "person_name": "Pat <Freelancer>"},
+    ]
+    chart = build_flow_charts(_outlook(undated={"count": 2, "total": D(1050), "items": items}), "en", money)[2]
+    assert chart["undated_items"] == [
+        {"name": "Eckert Schulen", "href": "/organizations/7#sales", "amount": "€800", "status": "Expected", "description": "Eckert"},
+        {"name": "Pat <Freelancer>", "href": "/people/9#deal-4", "amount": "€250", "status": "Booked", "description": ""},
+    ]
+    assert build_flow_charts(_outlook(), "en", money)[2]["undated_items"] == []
+    assert all(c["undated_items"] == [] for c in build_flow_charts(_flow(), "en", money))

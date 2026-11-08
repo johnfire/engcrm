@@ -27,8 +27,9 @@
   {%- if sale.series_id %} <span class="muted small">· {{ t('sale.paymentOf', part=sale.series_part, total=sale.series_total) }}</span>{% endif %}
   {%- if sale.offer and show_offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}
   {%- if sale.description %} · {{ sale.description }}{% endif %}
-  {%- if sale.status in ('booked', 'contracted') and sale.expected_on %}
-  <span class="muted small">· {{ t('sale.expectedOn', date=sale.expected_on|dmy) }}</span>{% endif %}
+  {%- if sale.status in ('expected', 'booked', 'contracted') %}
+  {%- if sale.expected_on %}<span class="muted small">· {{ t('sale.dueOn', date=sale.expected_on|dmy) }}</span>
+  {%- else %}<span class="sale__nodate small">· {{ t('sale.noDueDay') }}</span>{% endif %}{% endif %}
   {%- if sale.status == 'collected' and sale.collected_on %}
   <span class="muted small">· {{ t('sale.collectedOn', date=sale.collected_on|dmy) }}</span>{% endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/status" class="sale__move">
@@ -41,6 +42,15 @@
     {{ date_field('collected_on', None, label=t('sale.collectedOnLabel')) }}
     <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
   </form>
+  {%- if sale.status in ('expected', 'booked', 'contracted') %}
+  <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/due-day" class="sale__move sale__due"
+        title="{{ t('sale.dueDayHint') if sale.series_id else '' }}">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <span class="muted small">{{ t('sale.dueDay') }}</span>
+    {{ date_field('due_on', sale.expected_on, required=True, label=t('sale.dueDay')) }}
+    <button type="submit" class="btn-secondary btn-tiny">{{ t('common.save') }}</button>
+  </form>
+  {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
         data-confirm="{{ t('sales.deleteConfirm') }}">
     <input type="hidden" name="next" value="{{ page }}" />

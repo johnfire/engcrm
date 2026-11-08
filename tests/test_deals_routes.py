@@ -373,3 +373,25 @@ class TestOneTimeOrMonthly:
         with patch("gcrm.api.routers.deals.add_deal_sale") as add:
             assert post("/deals/9/sales", {"amount_eur": "5", "won_on": "2026-11-08", "schedule": "weekly"}).status_code == 400
         add.assert_not_called()
+
+
+class TestDueDay:
+    """Setting or changing a sale's due day from the sale row."""
+
+    def test_the_form_sends_the_day_and_returns_to_the_page(self, admin_web):
+        with patch("gcrm.api.routers.deals.set_sale_due_day", return_value=1) as setter:
+            response = post("/deals/9/sales/5/due-day", {"due_on": "15.02.2027", "next": "/organizations/4"})
+        assert response.headers["location"] == "/organizations/4"
+        assert setter.call_args.args[:3] == (9, 5, date(2027, 2, 15))
+
+    def test_a_day_that_cannot_be_read_or_is_missing_is_a_400_and_changes_nothing(self, admin_web):
+        with patch("gcrm.api.routers.deals.set_sale_due_day") as setter:
+            assert post("/deals/9/sales/5/due-day", {"due_on": "someday"}).status_code == 400
+            assert post("/deals/9/sales/5/due-day", {"due_on": ""}).status_code == 400
+        setter.assert_not_called()
+
+    def test_a_sale_that_cannot_be_changed_is_a_404(self, admin_web):
+        with patch("gcrm.api.routers.deals.set_sale_due_day", return_value=0):
+            assert post("/deals/9/sales/5/due-day", {"due_on": "15.02.2027"}).status_code == 404
+        with patch("gcrm.api.routers.deals.set_sale_due_day", side_effect=DealNotFound()):
+            assert post("/deals/9/sales/5/due-day", {"due_on": "15.02.2027"}).status_code == 404

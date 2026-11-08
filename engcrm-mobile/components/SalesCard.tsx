@@ -118,7 +118,7 @@ export function SalesCard({ organizationId, sales, canEdit }: Props) {
                 <Text style={styles.statusLine}>
                   {t(`sale.status.${current}`)}
                   {sale.series_id ? ` · ${t("sale.paymentOf", { part: sale.series_part, total: sale.series_total })}` : ""}
-                  {(current === "booked" || current === "contracted") && sale.expected_on
+                  {(current === "expected" || current === "booked" || current === "contracted") && sale.expected_on
                     ? ` · ${t("sale.expectedOn", { date: formatDay(sale.expected_on) })}`
                     : ""}
                   {current === "collected" && sale.collected_on
