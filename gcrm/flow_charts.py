@@ -22,9 +22,11 @@ def _undated_item(item: dict, t, money) -> dict:
 
 
 def _outlook_chart(flow: dict, t, label, money) -> dict:
-    """Money in so far (solid), the projection from today on (a smooth dotted line) and the target
+    """Money in so far (solid), the projection from today on (a smooth dotted line), the same plus the
+    new sales the owner expects each month (a smooth blue line, only when entered) and the target
     (dashed), by month, up to twelve months ahead."""
     has_target = flow["has_target"]
+    expected_new = flow.get("expected_new")
     today = flow["today"]
     points, rows = [], []
     for b in flow["buckets"]:
@@ -35,6 +37,8 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
             parts.append(t("flow.part.inSoFar", amount=money(b["cum_money_in"])))
         if future or current:
             parts.append(t("flow.part.projected", amount=money(b["projection"])))
+            if b["with_new"] is not None:
+                parts.append(t("flow.part.withNew", amount=money(b["with_new"])))
         if has_target:
             parts.append(t("flow.part.target", amount=money(b["cum_target"])))
         if future or current:
@@ -42,6 +46,9 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
         values = [None if future else float(b["cum_money_in"]),
                   None if b["projection"] is None else float(b["projection"])]
         cells = ["—" if future else money(b["cum_money_in"]), "—" if b["projection"] is None else money(b["projection"])]
+        if expected_new:
+            values.append(None if b["with_new"] is None else float(b["with_new"]))
+            cells.append("—" if b["with_new"] is None else money(b["with_new"]))
         if has_target:
             values.append(float(b["cum_target"]))
             cells.append(money(b["cum_target"]))
@@ -49,12 +56,17 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
         rows.append([label(b)] + cells)
     title = t("flow.chart.outlook" if has_target else "flow.chart.outlookOnly")
     series = ["chart-line", "chart-line chart-line--projection chart-line--smooth"]
+    if expected_new:
+        series.append("chart-line chart-line--assumed chart-line--smooth")
     if has_target:
         series.append("chart-line chart-line--ref")
+    note = t("flow.note.outlook" if has_target else "flow.note.outlookOnly")
+    if expected_new:
+        note += " " + t("flow.note.assumed", amount=money(expected_new))
     undated = flow.get("undated")
     extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
     items = [_undated_item(item, t, money) for item in (undated or {}).get("items", [])]
-    return {"key": "cash", "title": title, "note": t("flow.note.outlook" if has_target else "flow.note.outlookOnly"),
+    return {"key": "cash", "title": title, "note": note,
             "rows": rows, "extra": extra, "undated_items": items, "wide": True,
             "svg": line_chart(points, series, title, height=OUTLOOK_HEIGHT, tick_label=money,
                                 width=OUTLOOK_WIDTH)}

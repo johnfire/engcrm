@@ -149,3 +149,9 @@ def test_a_line_chart_can_be_drawn_on_a_wider_canvas():
     svg = str(line_chart(_line_points([1, 2, 3]), ["chart-line"], "x", width=900))
     assert 'viewBox="0 0 900 170"' in svg and 'x2="900"' in svg
     assert 'viewBox="0 0 600 170"' in str(line_chart(_line_points([1, 2, 3]), ["chart-line"], "x"))
+
+
+def test_the_assumed_new_sales_line_has_its_own_dot_style():
+    points = [{"label": "A", "values": [1, 2], "tip": "A"}, {"label": "B", "values": [5, 7], "tip": "B"}]
+    svg = str(line_chart(points, ["chart-line", "chart-line chart-line--assumed chart-line--smooth"], "x"))
+    assert 'class="chart-dot chart-dot--assumed"' in svg and 'class="chart-line chart-line--assumed chart-line--smooth"' in svg

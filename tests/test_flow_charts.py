@@ -92,20 +92,23 @@ def test_a_flow_with_nothing_in_it_draws_nothing_to_hover():
 TODAY = date(2026, 11, 18)
 
 
-def _outlook_bucket(start, end, *, money_in, projection, target, future=False, sales=D(0), other=D(0), entered=None):
+def _outlook_bucket(start, end, *, money_in, projection, target, future=False, sales=D(0), other=D(0), entered=None, with_new=None):
     zero = {"expected": D(0), "booked": D(0), "contracted": D(0), "collected": D(0)}
     total = sum((entered or {}).values(), D(0))
     return {"start": start, "end": end, "future": future, "entered": {**zero, **(entered or {})}, "entered_total": total,
             "deals": 1 if total else 0, "cumulative": D(700), "sales_in": None if future else D(600), "other_in": None if future else D(1500),
             "money_in": None if future else money_in, "target": D(5000), "cum_money_in": None if future else money_in,
-            "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other}
+            "cum_target": target, "projection": projection, "proj_sales": sales, "proj_other": other, "with_new": with_new}
 
 
-def _outlook(has_target=True, undated=None):
-    return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated, "buckets": [
-        _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}),
-        _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500)),
-        _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500)),
+def _outlook(has_target=True, undated=None, new=None):
+    extra = (lambda connector, now, later: (connector, now, later)) if new else (lambda *_: (None, None, None))
+    connector, now, later = extra(D(2100), D(4300) + new, D(5800) + 2 * new) if new else (None, None, None)
+    return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated,
+            "expected_new": new, "buckets": [
+        _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}, with_new=connector),
+        _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500), with_new=now),
+        _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500), with_new=later),
     ]}
 
 
@@ -181,3 +184,38 @@ def test_the_undated_sales_become_a_list_of_links_to_where_they_can_be_fixed():
     ]
     assert build_flow_charts(_outlook(), "en", money)[2]["undated_items"] == []
     assert all(c["undated_items"] == [] for c in build_flow_charts(_flow(), "en", money))
+
+
+def test_the_expected_new_sales_are_a_blue_smooth_line_between_the_projection_and_the_target():
+    chart = build_flow_charts(_outlook(new=D(1000)), "en", money)[2]
+    svg = str(chart["svg"])
+    assert svg.count("chart-line--smooth") == 2 and "chart-line--assumed" in svg and "chart-line--ref" in svg
+    assert svg.count("<polyline") == 2                                                   # money in and the target stay straight
+
+
+def test_the_tooltips_name_the_total_with_the_new_sales_you_expect():
+    svg = str(build_flow_charts(_outlook(new=D(1000)), "en", money)[2]["svg"])
+    assert "10.2026: €2,100 in so far · target €5,000" in svg                           # a past month is unchanged
+    assert ("11.2026: €3,000 in so far · projected €4,300 by month end · with expected new sales €5,300 · target €10,000 · "
+            "this month: scheduled sales €700 + other income €1,500") in svg
+    assert ("12.2026: projected €5,800 by month end · with expected new sales €7,800 · target €15,000 · "
+            "this month: scheduled sales €0 + other income €1,500") in svg
+
+
+def test_the_table_has_a_column_for_the_new_sales_line_only_when_there_is_one():
+    rows = build_flow_charts(_outlook(new=D(1000)), "en", money)[2]["rows"]
+    assert rows[0] == ["10.2026", "€2,100", "€2,100", "€2,100", "€5,000"] and rows[2] == ["12.2026", "—", "€5,800", "€7,800", "€15,000"]
+    assert build_flow_charts(_outlook(), "en", money)[2]["rows"][2] == ["12.2026", "—", "€5,800", "€15,000"]
+
+
+def test_the_note_says_what_the_blue_line_assumes_and_without_a_target_it_still_draws():
+    chart = build_flow_charts(_outlook(new=D(1000)), "en", money)[2]
+    assert "€1,000 a month" in chart["note"] and "paid in the month" in chart["note"]
+    no_target = build_flow_charts(_outlook(has_target=False, new=D(1000)), "en", money)[2]
+    assert "chart-line--assumed" in str(no_target["svg"]) and "chart-line--ref" not in str(no_target["svg"])
+    assert "a month" not in build_flow_charts(_outlook(), "en", money)[2]["note"]
+
+
+def test_the_new_sales_line_in_german():
+    chart = build_flow_charts(_outlook(new=D(1000)), "de", money)[2]
+    assert "mit erwarteten Neuverkäufen €5,300" in str(chart["svg"]) and "€1,000 pro Monat" in chart["note"]

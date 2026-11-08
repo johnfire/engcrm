@@ -137,3 +137,15 @@ def test_deleted_rows_and_secrets_are_not_exported(two_workspaces):
 ])
 def test_a_typed_in_formula_never_runs_in_a_spreadsheet(typed, stored):
     assert neutralize_formula(typed) == stored
+
+
+def test_the_plan_is_exported_with_the_new_sales_you_expect_each_month(two_workspaces):
+    from gcrm.tools.income_plan import save_expected_new_sales
+    first, second = two_workspaces
+    with workspace_scope(first):
+        save_expected_new_sales(Decimal("1000"))                      # no monthly need entered: the row still exports
+    archive, manifest = build_backup(first)
+    (plan,) = _read(archive)["income_plan.csv"]
+    assert plan["expected_new_monthly"] == "1000.00" and plan["monthly_need"] == ""
+    assert manifest["counts"]["income_plan.csv"] == 1
+    assert _read(build_backup(second)[0])["income_plan.csv"] == []

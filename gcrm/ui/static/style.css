@@ -47,6 +47,7 @@
   --success: #5fae78;
   --warn: #d98a3d;
   --jade: #5fb3a8;
+  --assumed: #5b9bd5;
   --font: "Josefin Sans", "Segoe UI", system-ui, sans-serif;
   --font-display: "Poiret One", "Josefin Sans", system-ui, sans-serif;
   --font-mono: "Courier New", Courier, monospace;
@@ -1488,6 +1489,8 @@ main.statistics-page { max-width: none; }
 /* The outlook's projection: the same hue as money in, dotted, with hollow dots, so it reads as "not yet". */
 .chart-line--projection { stroke-dasharray: 2 6; stroke-linecap: round; }
 .chart-dot--projection { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.chart-line--assumed { stroke: var(--assumed); stroke-dasharray: 2 6; stroke-linecap: round; }
+.chart-dot--assumed { fill: var(--surface); stroke: var(--assumed); stroke-width: 2; }
 .stat-chart--wide { grid-column: 1 / -1; }
 
 /* A sale with no due day is flagged where it is listed, and in the list under the outlook chart. */

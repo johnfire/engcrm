@@ -300,3 +300,47 @@ def test_the_outlook_lists_the_sales_with_no_due_day_as_links_to_fix_them(world)
     assert "contract-flow-undated" in section
     other = _browser("owner@second.example").get("/forecast?flow=outlook&lang=en").text
     assert "Eckert Schulen" not in other                                       # another workspace never sees it
+
+
+def test_an_admin_enters_the_new_sales_he_expects_and_the_outlook_gets_a_blue_line(world):
+    admin = _browser("owner@first.example")
+    outlook = "/forecast?flow=outlook&lang=en"
+    section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
+    assert "chart-line--assumed" not in section(admin.get(outlook).text)                       # nothing entered: no blue line
+    plan = admin.get(outlook).text
+    assert 'action="/forecast/new-sales"' in plan and "Expected new sales per month" in plan
+    reply = admin.post("/forecast/new-sales", data={"expected_new_monthly": "1500,50", "view": "quarter"}, follow_redirects=False)
+    assert reply.status_code == 303 and "view=quarter" in reply.headers["location"] and "flow=outlook" in reply.headers["location"]
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_monthly"] == Decimal("1500.50") and get_plan()["monthly_need"] is None
+    page = admin.get(outlook).text.replace("\xa0", " ")
+    assert "chart-line--assumed" in section(page) and "with expected new sales" in section(page)
+    assert "a month of new sales you expect to book" in section(page)
+    assert "chart-line--assumed" not in section(admin.get("/forecast?flow=3m&lang=en").text)    # only the outlook has the line
+    assert 'value="1500.50"' in page
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": ""}, follow_redirects=False)  # blank clears it
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_monthly"] is None
+    assert "chart-line--assumed" not in section(admin.get(outlook).text)
+
+
+def test_the_new_sales_form_is_for_admins_and_rejects_nonsense(world):
+    viewer, admin = _browser("viewer@first.example"), _browser("owner@first.example")
+    assert 'action="/forecast/new-sales"' not in viewer.get("/forecast?lang=en").text
+    assert viewer.post("/forecast/new-sales", data={"expected_new_monthly": "900"}, follow_redirects=False).status_code == 403
+    for bad in ("lots", "-5"):
+        assert admin.post("/forecast/new-sales", data={"expected_new_monthly": bad}, follow_redirects=False).status_code == 400
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_monthly"] is None
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_monthly"] is None
+
+
+def test_the_blue_line_follows_the_language_and_a_viewer_sees_the_figure(world):
+    admin = _browser("owner@first.example")
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000"}, follow_redirects=False)
+    admin.post("/settings/language", data={"ui_language": "de"})
+    german = admin.get("/forecast?flow=outlook").text.replace("\xa0", " ")
+    assert "mit erwarteten Neuverkäufen" in german and "Erwartete Neuverkäufe pro Monat" in german
+    viewer = _browser("viewer@first.example").get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
+    assert "Expected new sales per month" in viewer and 'name="expected_new_monthly"' not in viewer

@@ -181,6 +181,7 @@ def line_chart(points: list[dict], series_classes: list[str], title: str, height
                 parts.append(f'<polyline class="{escape(css)}" points="{line}"/>')
         if len(points) <= 31:
             dot = ("chart-dot chart-dot--projection" if "--projection" in css
+                   else "chart-dot chart-dot--assumed" if "--assumed" in css
                    else "chart-dot chart-dot--ref" if "--ref" in css else "chart-dot")
             parts.extend(f'<circle class="{dot}" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>' for coords in runs for x, y in coords)
     for i, p in enumerate(points):

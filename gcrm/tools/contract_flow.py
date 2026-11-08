@@ -119,6 +119,8 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
     this_month, last_month = today.replace(day=1), shift_months(today.replace(day=1), -1)
     buckets, running, money_in, target = [], base, _ZERO, _ZERO
     other_through, scheduled_through = _ZERO, _ZERO
+    expected_new = (plan["expected_new_monthly"] or None) if outlook else None             # 0 draws nothing
+    months_of_new = 0
     for start in starts:
         by_status = entered.get(start, {status: _ZERO for status in ENTERED_STATUSES})
         total = sum(by_status.values(), _ZERO)
@@ -135,7 +137,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             "money_in": None if future else (flows["sales"] + flows["other"]).quantize(_CENT),
             "target": (flows["target_full"] if outlook else flows["target"]).quantize(_CENT),
             "cum_money_in": None if future else money_in.quantize(_CENT), "cum_target": target.quantize(_CENT),
-            "projection": None, "proj_sales": None, "proj_other": None,
+            "projection": None, "proj_sales": None, "proj_other": None, "with_new": None,
         }
         if outlook:
             other_through += flows["other_full"]
@@ -143,9 +145,13 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             bucket["proj_sales"] = scheduled.get(start, _ZERO).quantize(_CENT)
             bucket["proj_other"] = flows["other_full"].quantize(_CENT)
             if start >= this_month:
+                months_of_new += 1
                 bucket["projection"] = (collected_total + other_through + scheduled_through).quantize(_CENT)
+                if expected_new:
+                    bucket["with_new"] = (bucket["projection"] + expected_new * months_of_new).quantize(_CENT)
             elif start == last_month:
                 bucket["projection"] = bucket["cum_money_in"]              # joins the projection to what really came in
+                bucket["with_new"] = bucket["projection"] if expected_new else None
         buckets.append(bucket)
     return {"range": range_key, "granularity": granularity, "today": today, "undated": undated,
-            "has_target": plan["monthly_need"] is not None, "buckets": buckets}
+            "expected_new": expected_new, "has_target": plan["monthly_need"] is not None, "buckets": buckets}

@@ -11,7 +11,7 @@ from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
 from gcrm.tools.deal_money import add_deal_sale, set_sale_status
 from gcrm.tools.deal_records import add_deal, get_deals
-from gcrm.tools.income_plan import add_other_income, save_monthly_need
+from gcrm.tools.income_plan import add_other_income, save_expected_new_sales, save_monthly_need
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -306,3 +306,43 @@ def test_a_back_dated_sale_keeps_its_date_won(world):
     _enter(world, "700", date(2026, 10, 5), date(2026, 11, 7), months=1)                  # won in October, typed in November
     october, november = _flow(world)["buckets"]
     assert october["entered_total"] == D("1300") and november["entered_total"] == D("3700")
+
+
+def test_without_an_expectation_there_is_no_new_sales_line(world):
+    flow = _outlook(world)
+    assert flow["expected_new"] is None and all(b["with_new"] is None for b in flow["buckets"])
+
+
+def test_expected_new_sales_add_up_month_by_month_on_top_of_the_projection(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"))
+    flow = _outlook(world)
+    assert flow["expected_new"] == D("1000.00")
+    october, november, december = flow["buckets"][:3]
+    assert october["with_new"] == october["projection"] == D("2100.00")           # the last month already behind us: what really came in
+    assert november["with_new"] - november["projection"] == D("1000.00")          # this month counts too
+    assert december["with_new"] - december["projection"] == D("2000.00")
+    last = flow["buckets"][-1]                                                    # November 2027 is the 13th month from now on
+    assert last["start"] == date(2027, 11, 1) and last["with_new"] - last["projection"] == D("13000.00")
+    steps = [b["with_new"] - b["projection"] for b in flow["buckets"][1:]]
+    assert steps == [D("1000.00") * n for n in range(1, 14)]
+
+
+def test_the_expectation_never_changes_the_scheduled_projection_or_the_money_in(world):
+    before = _outlook(world)
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"))
+    after = _outlook(world)
+    assert [b["projection"] for b in before["buckets"]] == [b["projection"] for b in after["buckets"]]
+    assert [b["cum_money_in"] for b in before["buckets"]] == [b["cum_money_in"] for b in after["buckets"]]
+    assert [b["entered_total"] for b in before["buckets"]] == [b["entered_total"] for b in after["buckets"]]
+
+
+def test_a_zero_expectation_draws_no_line_and_another_workspace_is_not_affected(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("0"))
+    assert _outlook(world)["expected_new"] is None
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("500"))
+    other = _outlook(world, workspace="second")
+    assert other["expected_new"] is None and all(b["with_new"] is None for b in other["buckets"])

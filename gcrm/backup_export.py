@@ -86,7 +86,7 @@ FILES: dict[str, str] = {
          WHERE s.workspace_id = %(ws)s AND s.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY s.id""",
     "income_plan.csv": """
-        SELECT monthly_need, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
+        SELECT monthly_need, expected_new_monthly, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
     "other_income.csv": """
         SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed, created_at
           FROM other_income WHERE workspace_id = %(ws)s AND deleted_at IS NULL ORDER BY id""",
@@ -110,7 +110,8 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
                       payments_in_contract); expected_on is the day that payment is due
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
-  income_plan.csv     the income you need per month from sales, and the first month it applies from
+  income_plan.csv     the income you need per month from sales, the first month it applies from, and the new
+                      sales you expect to book each month (expected_new_monthly)
   other_income.csv    other income that covers part of it: the months it covers, and whether it is confirmed
   manifest.json       when this was made and how many rows each file holds
 

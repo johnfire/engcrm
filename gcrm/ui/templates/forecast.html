@@ -143,6 +143,21 @@
   <p>{{ t('forecast.monthlyNeed') }}: <strong>{{ forecast.plan.monthly_need | eur }}</strong>{% if forecast.plan.start_month %} · {{ t('forecast.startMonthShown', date=forecast.plan.start_month|dmy) }}{% endif %}</p>
   {% endif %}
 
+  {% if is_admin %}
+  <h3>{{ t('forecast.newSales.title') }}</h3>
+  <p class="muted small">{{ t('forecast.newSales.hint') }}</p>
+  <form method="post" action="/forecast/new-sales" class="record-form" id="new-sales">
+    <input type="hidden" name="view" value="{{ view }}" />
+    <label>{{ t('forecast.newSales.label') }}
+      <input type="text" name="expected_new_monthly" inputmode="decimal"
+             value="{{ forecast.plan.expected_new_monthly if forecast.plan.expected_new_monthly is not none else '' }}" />
+    </label>
+    <button type="submit" class="btn-primary">{{ t('forecast.newSales.save') }}</button>
+  </form>
+  {% elif forecast.plan.expected_new_monthly is not none %}
+  <p>{{ t('forecast.newSales.label') }}: <strong>{{ forecast.plan.expected_new_monthly | eur }}</strong></p>
+  {% endif %}
+
   <h3>{{ t('forecast.otherIncome') }}</h3>
   {% if forecast.plan.other_income %}
   <ul class="sales-list">

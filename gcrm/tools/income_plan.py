@@ -20,17 +20,18 @@ def _amount(value, name: str) -> Decimal:
 
 
 def get_plan() -> dict:
-    """{"monthly_need": Decimal | None, "start_month": date | None, "other_income": [lines, by the
-    month they start covering]} for this workspace."""
+    """{"monthly_need": Decimal | None, "start_month": date | None, "expected_new_monthly": Decimal | None,
+    "other_income": [lines, by the month they start covering]} for this workspace."""
     with db() as conn:
         cur = conn.cursor()
-        cur.execute("SELECT monthly_need, start_month FROM income_plan")
+        cur.execute("SELECT monthly_need, start_month, expected_new_monthly FROM income_plan")
         plan = cur.fetchone()
         cur.execute("SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed "
                     "FROM other_income WHERE deleted_at IS NULL ORDER BY covers_from, id")
         lines = [dict(row) for row in cur.fetchall()]
     return {"monthly_need": plan["monthly_need"] if plan else None,
-            "start_month": plan["start_month"] if plan else None, "other_income": lines}
+            "start_month": plan["start_month"] if plan else None,
+            "expected_new_monthly": plan["expected_new_monthly"] if plan else None, "other_income": lines}
 
 
 def save_monthly_need(amount, start_month: date | None = None) -> None:
@@ -47,6 +48,20 @@ def save_monthly_need(amount, start_month: date | None = None) -> None:
             "SET monthly_need = EXCLUDED.monthly_need, start_month = EXCLUDED.start_month, updated_at = NOW()",
             (need, first))
     log_audit(None, None, "forecast.need_saved", None, "monthly need changed")
+
+
+def save_expected_new_sales(amount) -> None:
+    """Set the euros of new sales expected to be booked each month (0 or more; None clears it).
+    Only the expectation changes: the monthly need stays as it is. Raises ValueError."""
+    value = None if amount is None else _amount(amount, "the expected new sales")
+    if value is not None and value < 0:
+        raise ValueError("the expected new sales cannot be negative")
+    with db() as conn:
+        conn.cursor().execute(
+            "INSERT INTO income_plan (workspace_id, expected_new_monthly, updated_at) "
+            "VALUES (request_workspace_id(), %s, NOW()) ON CONFLICT (workspace_id) DO UPDATE "
+            "SET expected_new_monthly = EXCLUDED.expected_new_monthly, updated_at = NOW()", (value,))
+    log_audit(None, None, "forecast.expected_new_saved", None, "expected new sales changed")
 
 
 def _checked_line(label: str, amount, first_received_on: date, payments: int,

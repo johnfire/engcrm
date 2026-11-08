@@ -26,6 +26,7 @@ from gcrm.tools.forecast import get_forecast
 from gcrm.tools.income_plan import (
     add_other_income,
     delete_other_income,
+    save_expected_new_sales,
     save_monthly_need,
     set_other_income_confirmed,
     update_other_income,
@@ -90,6 +91,19 @@ def save_need(request: Request, monthly_need: str = Form(...), start_month: str 
     except (InvalidOperation, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error) or "Enter the amount you need per month")
     return _back(view)
+
+
+@router.post("/forecast/new-sales", dependencies=[Depends(require_admin)])
+def save_new_sales(request: Request, expected_new_monthly: str = Form(""), view: str = Form("month")):
+    """Set the euros of new sales expected to be booked each month (blank: no assumption). Only the
+    Outlook chart draws it, so the page comes back on the Outlook."""
+    try:
+        text = expected_new_monthly.replace(",", ".").strip()
+        with workspace_scope(session_workspace_id(request)):
+            save_expected_new_sales(Decimal(text) if text else None)
+    except (InvalidOperation, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error) or "Enter an amount of 0 or more")
+    return local_redirect("/forecast", view=view if view in GRANULARITIES else "month", flow="outlook")
 
 
 def _income_fields(label: str, amount_eur: str, first_received_on: str, covers_from: str):

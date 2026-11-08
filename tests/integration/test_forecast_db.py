@@ -14,6 +14,7 @@ from gcrm.tools.income_plan import (
     add_other_income,
     delete_other_income,
     get_plan,
+    save_expected_new_sales,
     save_monthly_need,
     set_other_income_confirmed,
     update_other_income,
@@ -282,3 +283,28 @@ def test_an_income_line_can_be_edited_and_only_by_its_own_workspace(world):
         with pytest.raises(ValueError):
             update_other_income(line, "", D("1"), date(2026, 11, 1), 1, True, None)
         assert not update_other_income(999999, "x", D("1"), date(2026, 11, 1), 1, True, None)
+
+
+def test_the_new_sales_expected_each_month_are_saved_cleared_and_private_to_the_workspace(world):
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_monthly"] is None
+        save_expected_new_sales(D("1000"))
+        plan = get_plan()
+        assert plan["expected_new_monthly"] == D("1000.00") and plan["monthly_need"] == D("5000.00")     # the need is left alone
+        save_expected_new_sales(None)
+        assert get_plan()["expected_new_monthly"] is None
+        for bad in (D("-1"), "lots"):
+            with pytest.raises(ValueError):
+                save_expected_new_sales(bad)
+        save_expected_new_sales(D("750"))
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_monthly"] is None
+
+
+def test_the_expected_new_sales_can_be_set_before_any_monthly_need_and_the_need_does_not_wipe_them(world):
+    with workspace_scope(world["second"]):
+        save_expected_new_sales(D("750"))
+        plan = get_plan()
+        assert plan["expected_new_monthly"] == D("750.00") and plan["monthly_need"] is None
+        save_monthly_need(D("5000"), start_month=date(2026, 10, 1))
+        assert get_plan()["expected_new_monthly"] == D("750.00") and get_plan()["monthly_need"] == D("5000.00")

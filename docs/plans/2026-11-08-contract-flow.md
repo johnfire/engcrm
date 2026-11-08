@@ -35,3 +35,11 @@ other income is left out. A sale with no due day cannot be placed and is listed 
 The smoothness is drawing only (monotone cubic interpolation through the true monthly totals, so it
 never overshoots). A fitted "if the pace continues" line for future new business is a later, clearly
 labelled option once there is enough history to mean something.
+
+### Expected new sales (blue line)
+The owner can enter one number in the Plan section: the euros of new sales expected to be **booked each
+month**, starting with the current month (`income_plan.expected_new_monthly`, migration 090; blank or 0
+draws nothing). The Outlook chart then adds a fourth, blue dotted line: the projection plus that amount
+times the months from this one through each month, so "what is already entered" and "what I hope to
+add" stay visibly apart. It is an assumption, stated in the chart note: each sale is taken as paid in
+the month it is booked, on top of everything already entered. The projection itself never changes.
