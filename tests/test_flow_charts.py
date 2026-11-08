@@ -103,11 +103,11 @@ def _outlook_bucket(start, end, *, money_in, projection, target, future=False, s
             "year_total": None if year is None else year[0] + year[1]}
 
 
-def _outlook(has_target=True, undated=None, new=None, months=1, delay=0):
+def _outlook(has_target=True, undated=None, new=None, months=1, delay=0, campaign=None):
     extra = (lambda connector, now, later: (connector, now, later)) if new else (lambda *_: (None, None, None))
     connector, now, later = extra(D(2100), D(4300) + new, D(5800) + 2 * new) if new else (None, None, None)
     return {"range": "outlook", "granularity": "month", "has_target": has_target, "today": TODAY, "undated": undated,
-            "expected_new": new, "expected_new_months": months, "expected_new_delay": delay, "buckets": [
+            "expected_new": new, "expected_new_months": months, "expected_new_delay": delay, "expected_new_campaign": campaign, "buckets": [
         _outlook_bucket(date(2026, 10, 1), date(2026, 10, 31), money_in=D(2100), projection=D(2100), target=D(5000), entered={"collected": D(600)}, with_new=connector),
         _outlook_bucket(date(2026, 11, 1), date(2026, 11, 30), money_in=D(3000), projection=D(4300), target=D(10000), sales=D(700), other=D(1500), with_new=now),
         _outlook_bucket(date(2026, 12, 1), date(2026, 12, 31), money_in=None, projection=D(5800), target=D(15000), future=True, sales=D(0), other=D(1500), with_new=later),
@@ -307,3 +307,22 @@ def test_new_business_runs_six_months_ahead_with_the_expected_sales_stacked_in_b
 def test_without_expected_sales_new_business_stops_today_and_has_no_blue():
     chart = build_flow_charts(_outlook(), "en", money)[0]
     assert "chart-bar--assumed" not in str(chart["svg"]) and "Yellow" not in chart["note"]
+
+
+def test_the_blue_bars_stop_when_the_campaign_ends_and_the_note_says_so():
+    flow = _big_outlook()
+    flow["expected_new_campaign"] = 2                                               # this month and the next only
+    flow["buckets"] += [{**flow["buckets"][2], "start": date(2027, month, 1), "end": date(2027, month, 28), "future": True,
+                         "entered_total": D(0), "deals": 0} for month in range(1, 9)]
+    chart = build_flow_charts(flow, "en", money)[0]
+    assert str(chart["svg"]).count("chart-bar--assumed") == 2
+    assert [row[2] for row in chart["rows"][:5]] == ["—", "€1,000", "€1,000", "—", "—"]       # Oct (past), Nov, Dec, then none
+    assert "for 2 months" in chart["note"]
+    other = build_flow_charts(_outlook(new=D(1000)), "en", money)[1]["note"]
+    assert "campaign" not in other
+
+
+def test_the_money_notes_mention_the_campaign_length():
+    note = build_flow_charts(_outlook(new=D(1000), months=None, delay=1, campaign=4), "en", money)[2]["note"]
+    assert "campaign runs for 4 months" in note and "no new bookings are added" in note
+    assert "campaign" not in build_flow_charts(_outlook(new=D(1000), months=None, delay=1), "en", money)[2]["note"]

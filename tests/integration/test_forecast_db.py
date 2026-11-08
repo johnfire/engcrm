@@ -375,3 +375,27 @@ def test_without_an_expectation_projected_is_zero_and_totals_are_unchanged(world
     with workspace_scope(world["first"]):
         forecast = get_forecast(world["first"], "month", date(2026, 11, 8))
         assert all(p["projected"] == D("0") and p["total"] == p["subtotal"] + p["covered"] for p in forecast["periods"])
+
+
+def test_the_campaign_length_is_saved_checked_and_blank_means_no_end(world):
+    with workspace_scope(world["first"]):
+        assert get_plan()["expected_new_campaign"] is None
+        save_expected_new_sales(D("1000"), None, 1, 4)
+        assert get_plan()["expected_new_campaign"] == 4
+        for bad in (0, -1, 121, "x", 1.5):
+            with pytest.raises(ValueError):
+                save_expected_new_sales(D("1000"), None, 1, bad)
+        assert get_plan()["expected_new_campaign"] == 4
+        save_expected_new_sales(D("1000"), None, 1)
+        assert get_plan()["expected_new_campaign"] is None
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_campaign"] is None
+
+
+def test_the_projected_column_stops_growing_when_the_campaign_ends(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None, 1, 4)                                  # Nov, Dec, Jan, Feb; paid for ever
+        months = {p["start"]: p["projected"] for p in get_forecast(world["first"], "month", date(2026, 11, 8))["periods"]}
+    assert [months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)], months[date(2027, 3, 1)]] == \
+        [D("1000"), D("2000"), D("3000"), D("4000")]
+    assert months[date(2027, 4, 1)] == months[date(2027, 11, 1)] == D("4000")          # no new sales after February

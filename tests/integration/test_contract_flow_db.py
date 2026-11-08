@@ -419,3 +419,16 @@ def test_the_year_total_is_what_is_known_for_the_year_plus_the_new_sales_started
 def test_without_an_expectation_there_is_no_year_total(world):
     flow = _outlook(world)
     assert all(b["year_total"] is None and b["year_known"] is None for b in flow["buckets"])
+
+
+def test_a_campaign_that_stops_flattens_the_blue_lines(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_sales(D("1000"), None, 1, 4)
+    flow = _outlook(world)
+    assert flow["expected_new_campaign"] == 4
+    extra = _extra(flow)
+    # cash per month 0, 1000, 2000, 3000, 4000, 4000 ... so the running total gains 4000 a month once it stops growing
+    assert extra[:6] == [D("0.00"), D("1000.00"), D("3000.00"), D("6000.00"), D("10000.00"), D("14000.00")]
+    assert extra[-1] - extra[-2] == D("4000.00")
+    by_month = {b["start"]: b for b in flow["buckets"]}
+    assert [by_month[date(2027, m, 1)]["year_new"] for m in (1, 2, 3, 4, 11)] == [D("24000.00"), D("35000.00")] + [D("45000.00")] * 3

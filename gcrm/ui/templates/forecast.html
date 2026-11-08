@@ -162,6 +162,10 @@
       <input type="text" name="new_sales_delay" inputmode="numeric" maxlength="2" size="3"
              value="{{ forecast.plan.expected_new_delay }}" />
     </label>
+    <label>{{ t('forecast.newSales.campaign') }}
+      <input type="text" name="new_sales_campaign" inputmode="numeric" maxlength="3" size="4"
+             value="{{ forecast.plan.expected_new_campaign if forecast.plan.expected_new_campaign is not none else '' }}" />
+    </label>
     <button type="submit" class="btn-primary">{{ t('forecast.newSales.save') }}</button>
   </form>
   {% elif forecast.plan.expected_new_monthly is not none %}

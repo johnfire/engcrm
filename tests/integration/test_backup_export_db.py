@@ -147,5 +147,6 @@ def test_the_plan_is_exported_with_the_new_sales_you_expect_each_month(two_works
     archive, manifest = build_backup(first)
     (plan,) = _read(archive)["income_plan.csv"]
     assert plan["expected_new_monthly"] == "1000.00" and plan["monthly_need"] == ""
+    assert plan["expected_new_campaign"] == ""                                      # no end
     assert manifest["counts"]["income_plan.csv"] == 1
     assert _read(build_backup(second)[0])["income_plan.csv"] == []

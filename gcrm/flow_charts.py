@@ -3,6 +3,7 @@ the running total, and money in against the target. In the outlook the first two
 the third runs twelve months on, with a projection line. Text comes from the translation catalogs;
 the tooltips carry the number of deals and the split by status."""
 from gcrm.charts import bar_chart, line_chart
+from gcrm.forecast_math import month_index
 from gcrm.i18n import translate
 from gcrm.sale_series import shift_months
 
@@ -93,6 +94,8 @@ def _outlook_chart(flow: dict, t, label, money) -> dict:
         delay = flow.get("expected_new_delay", 1)
         when = t("flow.when.same" if delay == 0 else "flow.when.next" if delay == 1 else "flow.when.later", delay=delay)
         note += " " + t(key, amount=money(expected_new), months=months, when=when)
+        if flow.get("expected_new_campaign"):
+            note += " " + t("flow.note.campaignStops", months=flow["expected_new_campaign"])
     undated = flow.get("undated")
     extra = t("flow.undated", count=undated["count"], amount=money(undated["total"])) if undated and undated["count"] else ""
     items = [_undated_item(item, t, money) for item in (undated or {}).get("items", [])]
@@ -125,7 +128,9 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
         point = {"label": label(b), "value": float(b["entered_total"])}
         row = [label(b), money(b["entered_total"]), str(b["deals"])]
         if expected_new:
-            has_blue = b["end"] >= flow["today"]                     # this month and the months ahead
+            campaign = flow.get("expected_new_campaign")
+            this_month = flow["today"].replace(day=1)
+            has_blue = b["end"] >= flow["today"] and (campaign is None or month_index(this_month, b["start"]) < campaign)
             if has_blue:
                 parts.append(t("flow.part.newExpected", amount=money(expected_new)))
                 point["assumed"] = float(expected_new)
@@ -160,7 +165,11 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
     cash = (_outlook_chart(flow, t, label, money) if outlook else
             {"key": "cash", "title": cash_title, "note": t("flow.note.cash" if has_target else "flow.note.cashOnly"),
              "rows": cash_rows, "extra": "", "undated_items": [], "wide": False, "svg": line_chart(cash_points, series, cash_title, tick_label=money)})
-    new_note = t("flow.note.new") + (" " + t("flow.note.newExpected", amount=money(expected_new)) if expected_new else "")
+    new_note = t("flow.note.new")
+    if expected_new:
+        campaign = flow.get("expected_new_campaign")
+        new_note += " " + (t("flow.note.newExpectedFor", amount=money(expected_new), months=campaign) if campaign
+                           else t("flow.note.newExpected", amount=money(expected_new)))
     steps = TICK_STEPS if outlook else {}
     tall = {"height": TALL} if outlook else {}
     return [

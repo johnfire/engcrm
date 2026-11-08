@@ -161,3 +161,28 @@ def test_the_calendar_year_total_of_the_expected_new_sales_as_of_each_month():
     assert at(date(2027, 1, 1), delay=0) == Decimal("36000")                            # Nov, Dec, Jan bookings, 12 payments each
     assert new_sales_in_year(None, None, 1, this, date(2027, 1, 1), 2027) == 0
     assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 1, 1), 2026) == Decimal("1000")   # Dec 2026: November's first payment
+
+
+def test_a_campaign_that_stops_adds_no_more_bookings_after_its_last_month():
+    from gcrm.forecast_math import live_bookings
+    # November to February = 4 months; for ever, paid from a month on: it climbs to 4 and stays there
+    assert [live_bookings(j, None, 1, 4) for j in range(8)] == [0, 1, 2, 3, 4, 4, 4, 4]
+    # each booking pays 2 months: the last booking (made in month 3) pays in months 4 and 5, then nothing
+    assert [live_bookings(j, 2, 1, 4) for j in range(8)] == [0, 1, 2, 2, 2, 1, 0, 0]
+    assert [live_bookings(j, None, 1, None) for j in range(5)] == [0, 1, 2, 3, 4]               # no end: as before
+    assert [live_bookings(j, 1, 0, 3) for j in range(5)] == [1, 1, 1, 0, 0]                       # one-offs, three months
+
+
+def test_cash_and_the_year_total_follow_a_campaign_that_stops():
+    from decimal import Decimal
+
+    from gcrm.forecast_math import new_sales_cash, new_sales_in_year
+    this = date(2026, 11, 1)
+    months = [date(2026, 11, 1), date(2026, 12, 1), date(2027, 1, 1), date(2027, 2, 1), date(2027, 3, 1), date(2027, 4, 1)]
+    cash = new_sales_cash(Decimal("1000"), None, 1, this, months, 4)
+    assert list(cash.values()) == [0, 1000, 2000, 3000, 4000, 4000]
+    # Nov..Feb bookings, paid for ever from a month on: their first payments are Dec, Jan, Feb, Mar,
+    # so in 2027 they pay 12 + 12 + 11 + 10 months
+    assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 12, 1), 2027, 4) == Decimal("45000")
+    assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 12, 1), 2027, None) == Decimal("90000")   # no end: 24 + (11+...+1)
+    assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 1, 1), 2027, 4) == Decimal("24000")      # as of January: same as before

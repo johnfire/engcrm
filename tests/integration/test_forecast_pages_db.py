@@ -405,3 +405,18 @@ def test_the_new_business_chart_runs_six_months_ahead_with_blue_on_top_once_new_
     assert page.count("chart-bar--assumed") == 7                                          # this month and six more
     assert "Yellow: business you have entered" in page
     assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=year&lang=en").text)
+
+
+def test_the_campaign_length_is_a_whole_number_of_months_and_blank_means_no_end(world):
+    admin = _browser("owner@first.example")
+    for typed, stored in (("4", 4), ("", None), (" 12 ", 12)):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_campaign": typed}).status_code == 303
+        with workspace_scope(world["first"]):
+            assert get_plan()["expected_new_campaign"] == stored, typed
+    for bad in ("0", "-2", "121", "long", "2.5"):
+        assert admin.post("/forecast/new-sales", follow_redirects=False,
+                          data={"expected_new_monthly": "1000", "new_sales_campaign": bad}).status_code == 400, bad
+    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_campaign": "4"}, follow_redirects=False)
+    page = admin.get("/forecast?flow=outlook&lang=en").text
+    assert 'name="new_sales_campaign"' in page and "campaign runs" in page

@@ -108,7 +108,7 @@ def get_forecast(workspace_id: int, granularity: str, today: date | None = None,
     targets = month_targets(plan["monthly_need"], plan["other_income"], sorted(set(all_months)), plan["start_month"])
     money, undated, undated_count = _monthly_money(workspace_id, first, last, offer)
     projected = new_sales_cash(plan["expected_new_monthly"], plan["expected_new_months"], plan["expected_new_delay"],
-                               today.replace(day=1), sorted(set(all_months)))
+                               today.replace(day=1), sorted(set(all_months)), plan["expected_new_campaign"])
     periods = [_period(granularity, s, money, targets, projected) for s in starts]
     tiles = [{"key": key, "granularity": g, **_period(g, s, money, targets, projected)} for key, g, s in tile_starts]
     return {

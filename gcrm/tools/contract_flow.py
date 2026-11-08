@@ -136,6 +136,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
     other_through, scheduled_through = _ZERO, _ZERO
     expected_new = (plan["expected_new_monthly"] or None) if outlook else None             # 0 draws nothing
     paying_months, delay = plan["expected_new_months"], plan["expected_new_delay"]          # None: for ever
+    campaign = plan["expected_new_campaign"]                                               # None: it never stops
     months_of_new, new_total = 0, _ZERO
     year_known = _year_known(starts, this_month, collected_by_day, scheduled, plan) if expected_new else {}
     for start in starts:
@@ -158,7 +159,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             "year_known": None, "year_new": None, "year_total": None,
         }
         if outlook and expected_new and start >= this_month:      # where the calendar year of this month is heading
-            new_in_year = new_sales_in_year(expected_new, paying_months, delay, this_month, start, start.year)
+            new_in_year = new_sales_in_year(expected_new, paying_months, delay, this_month, start, start.year, campaign)
             bucket.update(year_known=year_known[start.year].quantize(_CENT), year_new=new_in_year.quantize(_CENT),
                           year_total=(year_known[start.year] + new_in_year).quantize(_CENT))
         if outlook:
@@ -169,7 +170,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             if start >= this_month:
                 months_of_new += 1
                 if expected_new:        # bookings still paying this month: this month's and the earlier ones within the run
-                    new_total += expected_new * live_bookings(months_of_new - 1, paying_months, delay)
+                    new_total += expected_new * live_bookings(months_of_new - 1, paying_months, delay, campaign)
                 bucket["projection"] = (collected_total + other_through + scheduled_through).quantize(_CENT)
                 if expected_new:
                     bucket["with_new"] = (bucket["projection"] + new_total).quantize(_CENT)
@@ -179,4 +180,5 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
         buckets.append(bucket)
     return {"range": range_key, "granularity": granularity, "today": today, "undated": undated,
             "expected_new": expected_new, "expected_new_months": paying_months,
-            "expected_new_delay": delay, "has_target": plan["monthly_need"] is not None, "buckets": buckets}
+            "expected_new_delay": delay,
+            "expected_new_campaign": campaign, "has_target": plan["monthly_need"] is not None, "buckets": buckets}

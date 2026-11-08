@@ -100,44 +100,50 @@ def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[
     return result
 
 
-def live_bookings(months_from_now: int, paying_months: int | None, delay: int) -> int:
+def live_bookings(months_from_now: int, paying_months: int | None, delay: int, campaign_months: int | None = None) -> int:
     """How many of the expected new bookings are paying in the month `months_from_now` after this
-    one (0 = this month). One booking is made each month from this month on; each pays from `delay`
-    months after it is booked, for `paying_months` months (None: for ever)."""
-    started = months_from_now - delay + 1                 # bookings whose first payment is due by now
-    if started <= 0:
-        return 0
-    return started if paying_months is None else min(started, paying_months)
+    one (0 = this month). One booking is made each month from this month on, for `campaign_months`
+    months (None: it never stops); each pays from `delay` months after it is booked, for
+    `paying_months` months (None: for ever)."""
+    newest = months_from_now - delay                        # the latest booking whose first payment is due by now
+    if campaign_months is not None:
+        newest = min(newest, campaign_months - 1)
+    oldest = 0 if paying_months is None else max(0, months_from_now - delay - paying_months + 1)
+    return max(0, newest - oldest + 1)
 
 
 def new_sales_cash(monthly: Decimal | None, paying_months: int | None, delay: int, this_month: date,
-                   months: list[date]) -> dict[date, Decimal]:
+                   months: list[date], campaign_months: int | None = None) -> dict[date, Decimal]:
     """{month: € arriving from the expected new bookings} for each month in `months` (all zero without an
     expectation, and before this month). A booking of `monthly` euros a month is made every month
-    from `this_month`."""
+    from `this_month`, for `campaign_months` months (None: it never stops)."""
     cash = {}
     for month in months:
-        index = (month.year - this_month.year) * 12 + month.month - this_month.month
-        cash[month] = _ZERO if not monthly or index < 0 else Decimal(monthly) * live_bookings(index, paying_months, delay)
+        index = month_index(this_month, month)
+        cash[month] = (_ZERO if not monthly or index < 0
+                       else Decimal(monthly) * live_bookings(index, paying_months, delay, campaign_months))
     return cash
 
 
-def _month_index(this_month: date, month: date) -> int:
+def month_index(this_month: date, month: date) -> int:
+    """How many months `month` is after `this_month` (negative before it)."""
     return (month.year - this_month.year) * 12 + month.month - this_month.month
 
 
 def new_sales_in_year(monthly: Decimal | None, paying_months: int | None, delay: int, this_month: date,
-                      as_of: date, year: int) -> Decimal:
+                      as_of: date, year: int, campaign_months: int | None = None) -> Decimal:
     """The cash the expected new bookings bring in during the calendar `year`, counting the bookings whose
     first payment has started by the month `as_of` (one booking of `monthly` euros a month is made every
-    month from `this_month`; each pays for `paying_months` months, None: for ever, after `delay` months).
-    As the months pass, more bookings have started, so this total for the year grows."""
+    month from `this_month` for `campaign_months` months, None: without end; each pays for `paying_months`
+    months, None: for ever, after `delay` months). As the months pass, more bookings have started, so this
+    total for the year grows until the campaign ends."""
     if not monthly:
         return _ZERO
-    now = _month_index(this_month, as_of)
-    year_first, year_last = _month_index(this_month, date(year, 1, 1)), _month_index(this_month, date(year, 12, 1))
+    now = month_index(this_month, as_of)
+    year_first, year_last = month_index(this_month, date(year, 1, 1)), month_index(this_month, date(year, 12, 1))
+    newest = now - delay if campaign_months is None else min(now - delay, campaign_months - 1)
     payments = 0
-    for booked in range(0, now - delay + 1):                      # bookings whose first payment is due by `as_of`
+    for booked in range(0, newest + 1):                           # bookings whose first payment is due by `as_of`
         first = booked + delay
         last = year_last if paying_months is None else min(first + paying_months - 1, year_last)
         payments += max(0, last - max(first, year_first) + 1)

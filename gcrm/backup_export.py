@@ -86,7 +86,7 @@ FILES: dict[str, str] = {
          WHERE s.workspace_id = %(ws)s AND s.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY s.id""",
     "income_plan.csv": """
-        SELECT monthly_need, expected_new_monthly, expected_new_months, expected_new_delay, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
+        SELECT monthly_need, expected_new_monthly, expected_new_months, expected_new_delay, expected_new_campaign, start_month, updated_at FROM income_plan WHERE workspace_id = %(ws)s""",
     "other_income.csv": """
         SELECT id, label, amount_eur, first_received_on, covers_from, payments, confirmed, created_at
           FROM other_income WHERE workspace_id = %(ws)s AND deleted_at IS NULL ORDER BY id""",
@@ -113,7 +113,8 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   income_plan.csv     the income you need per month from sales, the first month it applies from, and the new
                       sales you expect to book each month (expected_new_monthly) and how many months each
                       booking pays (expected_new_months; empty: for ever), and the months
-                      from booking to first payment (expected_new_delay)
+                      from booking to first payment (expected_new_delay) and how many months the
+                      campaign runs (expected_new_campaign; empty: it never stops)
   other_income.csv    other income that covers part of it: the months it covers, and whether it is confirmed
   manifest.json       when this was made and how many rows each file holds
 
