@@ -22,7 +22,7 @@
 </li>
 {%- endif %}
 <li class="sale sale--{{ sale.status }}">
-  <strong>{{ sale.amount_eur | eur }}</strong> · {{ sale.won_on|dmy }}
+  <strong>{{ sale.amount_eur | eur }}</strong>{% if sale.hours %} <span class="muted small">· {{ sale.hours | hrs }} h{% if sale.rate_eur %} · {{ sale.rate_eur | hrs }} €/h{% endif %}</span>{% endif %} · {{ sale.won_on|dmy }}
   <span class="badge badge-sale-{{ sale.status }}">{{ t('sale.status.' ~ sale.status) }}</span>
   {%- if sale.series_id %} <span class="muted small">· {{ t('sale.paymentOf', part=sale.series_part, total=sale.series_total) }}</span>{% endif %}
   {%- if sale.offer and show_offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}
@@ -70,6 +70,13 @@
 <label>{{ t('sale.expectedOnLabel') }}
   {{ date_field('expected_on', None) }}
 </label>
+<label>{{ t('sale.hours') }}
+  <input type="text" name="hours" inputmode="decimal" size="5" />
+</label>
+<label>{{ t('sale.rate') }}
+  <input type="text" name="rate" inputmode="decimal" size="5" />
+</label>
+<p class="muted small record-form__wide">{{ t('sale.hoursHint') }}</p>
 <fieldset class="sale-kind">
   <legend>{{ t('sale.kind') }}</legend>
   <label class="flag-check"><input type="radio" name="schedule" value="one" checked /> {{ t('sale.kindOne') }}</label>

@@ -116,7 +116,7 @@
           <form method="post" action="/deals/{{ deal.id }}/sales" class="record-form">
             <input type="hidden" name="next" value="{{ deal_page }}" />
             <label>{{ t('sales.amount') }}
-              <input type="text" name="amount_eur" inputmode="decimal" required placeholder="2400" />
+              <input type="text" name="amount_eur" inputmode="decimal" placeholder="2400" />
             </label>
             <label>{{ t('sales.wonOn') }}
               {{ date_field('won_on', today, required=True) }}

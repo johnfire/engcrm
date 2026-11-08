@@ -25,6 +25,12 @@ def eur(value) -> str:
     return text.replace(",", "\u2009").replace(".", ",").replace("\u2009", ".") + " €"
 
 
+def hours_text(value) -> str:
+    """Hours (or a rate per hour) without trailing zeros, German style: 5, 12,5, 33,33."""
+    text = f"{Decimal(str(value or 0)).quantize(Decimal('0.01')):f}".rstrip("0").rstrip(".")
+    return text.replace(".", ",")
+
+
 def tojson_filter(value) -> Markup:
     """Serialize a value for embedding in a <script> block. Escapes the
     characters that would otherwise let embedded data break out of the tag
@@ -72,6 +78,7 @@ templates.env.filters["urlenc"] = quote_plus
 templates.env.filters["browsable_url"] = browsable_url
 templates.env.filters["tojson"] = tojson_filter
 templates.env.filters["eur"] = eur
+templates.env.filters["hrs"] = hours_text
 templates.env.filters["dmy"] = format_day
 templates.env.filters["dmy_time"] = format_day_time
 templates.env.globals["activity_type"] = activity_type

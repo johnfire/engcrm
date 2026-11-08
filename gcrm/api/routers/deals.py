@@ -13,7 +13,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
 from gcrm.dates import parse_day
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
-from gcrm.sale_series import contract_from_form
+from gcrm.sale_series import amount_and_hours, contract_from_form, contract_hours, typed_number
 from gcrm.sale_status import SALE_STATUSES
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import (
@@ -153,7 +153,9 @@ def deal_remove(request: Request, deal_id: int, next: str = Form(""), _admin: st
 def deal_sale_add(
     request: Request,
     deal_id: int,
-    amount_eur: str = Form(...),
+    amount_eur: str = Form(""),
+    hours: str = Form(""),
+    rate: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
     status: str = Form("booked"),
@@ -167,10 +169,12 @@ def deal_sale_add(
     "one" (a single payment) or "monthly" (the amount is per month, for `months` months, the
     first due on `expected_on`)."""
     try:
-        amount, months = contract_from_form(Decimal(amount_eur.replace(",", ".").strip()), schedule, months)
+        amount, worked = amount_and_hours(typed_number(amount_eur), typed_number(hours), typed_number(rate))   # per month if monthly
+        amount, months = contract_from_form(amount, schedule, months)
         add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
                       workspace_id=request.session.get("workspace_id"), status=status,
-                      expected_on=parse_day(expected_on), months=months)
+                      expected_on=parse_day(expected_on), months=months,
+                      hours=contract_hours(worked, schedule, months))
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except (InvalidOperation, ValueError) as error:

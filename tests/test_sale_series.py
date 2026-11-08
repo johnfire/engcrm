@@ -134,3 +134,33 @@ def test_monthly_due_day_gives_the_day_a_given_number_of_months_later():
                                           (date(2028, 2, 28), False), (date(2027, 4, 30), True), (date(2027, 4, 29), False)])
 def test_the_last_day_of_a_month_is_recognised(day, expected):
     assert is_month_end(day) is expected
+
+
+def test_hours_and_a_rate_make_the_amount_and_an_amount_with_hours_gives_the_rate():
+    from decimal import Decimal as D
+
+    from gcrm.sale_series import amount_and_hours, rate_of
+    assert amount_and_hours(None, D("5"), D("29")) == (D("145.00"), D("5.00"))               # hours x rate
+    assert amount_and_hours(D("300"), D("5"), None) == (D("300.00"), D("5.00"))              # an amount, with its hours
+    assert amount_and_hours(D("300"), None, None) == (D("300.00"), None)                      # as before: no hours
+    assert amount_and_hours(D("300"), D("5"), D("29")) == (D("300.00"), D("5.00"))           # the amount wins; the rate is only a way to type it
+    assert rate_of(D("145"), D("5")) == D("29.00") and rate_of(D("100"), D("3")) == D("33.33")
+    assert rate_of(D("100"), None) is None and rate_of(D("100"), D("0")) is None
+
+
+@pytest.mark.parametrize("amount,hours,rate", [(None, None, None), (None, Decimal("5"), None), (None, None, Decimal("29")), (Decimal("0"), Decimal("5"), None),
+                                              (Decimal("100"), Decimal("0"), None), (Decimal("100"), Decimal("-2"), None), (None, Decimal("5"), Decimal("0")),
+                                              (Decimal("100"), Decimal("100001"), None), (None, Decimal("5"), Decimal("-1")), (Decimal("100"), "lots", None)])
+def test_hours_and_amounts_that_make_no_sense_are_refused(amount, hours, rate):
+    from gcrm.sale_series import amount_and_hours
+    with pytest.raises(ValueError):
+        amount_and_hours(amount, hours, rate)
+
+
+def test_hours_split_over_payments_like_money_and_add_up():
+    from decimal import Decimal as D
+
+    from gcrm.sale_series import split_hours
+    assert split_hours(D("40"), 3) == [D("13.33"), D("13.33"), D("13.34")]
+    assert split_hours(None, 3) == [None, None, None]
+    assert sum(split_hours(D("10"), 4)) == D("10.00")

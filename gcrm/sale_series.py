@@ -6,11 +6,12 @@ on payments too. See docs/plans/2026-11-07-payment-schedules.md.
 """
 import calendar
 from datetime import date
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, Decimal, InvalidOperation
 
 MIN_MONTHS = 2
 MAX_MONTHS = 60
 _CENT = Decimal("0.01")
+MAX_SALE_HOURS = Decimal(100000)
 
 
 def check_months(months: int) -> int:
@@ -94,3 +95,56 @@ def attach_contract_summaries(sales: list[dict]) -> list[dict]:
             "open_status": still_open[0]["status"] if still_open else None,
         }
     return sales
+
+
+def _number(value, name: str) -> Decimal:
+    try:
+        return Decimal(str(value)).quantize(_CENT)
+    except InvalidOperation:
+        raise ValueError(f"{name} must be a number")
+
+
+def amount_and_hours(amount, hours, rate) -> tuple[Decimal, Decimal | None]:
+    """(amount, hours) for a sale from what was typed: an amount (with or without hours), or hours and a
+    rate per hour, whose product is the amount. When the amount is given the rate is not needed (it is
+    worked out again as amount / hours). Raises ValueError for anything missing, zero or negative."""
+    worked = None if hours is None else _number(hours, "the hours")
+    if worked is not None and not 0 < worked <= MAX_SALE_HOURS:
+        raise ValueError("the hours must be more than 0")
+    if amount is None:
+        if worked is None or rate is None:
+            raise ValueError("give an amount, or the hours and a rate per hour")
+        per_hour = _number(rate, "the rate per hour")
+        if per_hour <= 0:
+            raise ValueError("the rate per hour must be more than 0")
+        return (worked * per_hour).quantize(_CENT), worked
+    money = _number(amount, "the amount")
+    if money <= 0:
+        raise ValueError("amount must be more than 0")
+    return money, worked
+
+
+def rate_of(amount, hours) -> Decimal | None:
+    """The euros per hour of a sale, or None without hours."""
+    if not hours or Decimal(str(hours)) <= 0:
+        return None
+    return (Decimal(str(amount)) / Decimal(str(hours))).quantize(_CENT)
+
+
+def split_hours(total: Decimal | None, months: int) -> list[Decimal | None]:
+    """The hours of a contract over its payments, split like the money; None stays None."""
+    if total is None:
+        return [None] * months
+    return split_amount(total, months)
+
+
+def contract_hours(hours: Decimal | None, schedule: str, months: int) -> Decimal | None:
+    """The hours of a whole contract: typed per month for a "monthly" schedule, so times the months."""
+    return hours * months if hours is not None and schedule == "monthly" else hours
+
+
+def typed_number(text: str) -> Decimal | None:
+    """A number typed in a form field, with a comma or a point; None when the field is blank.
+    Raises InvalidOperation for text that is no number."""
+    cleaned = (text or "").replace(",", ".").strip()
+    return Decimal(cleaned) if cleaned else None

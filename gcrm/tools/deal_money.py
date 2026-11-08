@@ -15,10 +15,23 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db, serialize_row
-from gcrm.sale_series import attach_contract_summaries, due_dates, monthly_due_day, split_amount
+from gcrm.sale_series import (
+    amount_and_hours,
+    attach_contract_summaries,
+    due_dates,
+    monthly_due_day,
+    rate_of,
+    split_amount,
+    split_hours,
+)
 from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.deal_records import get_deal
+
+
+def rate_text(amount, hours) -> str | None:
+    rate = rate_of(amount, hours)
+    return None if rate is None else str(rate)
 
 
 def _money(amount) -> Decimal:
@@ -32,14 +45,15 @@ def _money(amount) -> Decimal:
 
 def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, won_on: date, description: str,
                          status: str, expected_on: date | None, collected_on: date | None,
-                         months: int = 1) -> list[int]:
+                         months: int = 1, hours: Decimal | None = None) -> list[int]:
     """Insert one sale (months = 1) or a contract's monthly payments (months 2 to 60) on a
     deal, inside the caller's transaction, and return the new ids in payment order. A
     schedule needs the first due day, and starts as expected, booked or contracted: each
-    payment is marked received when it arrives. Nothing is inserted when anything is refused."""
+    payment is marked received when it arrives. `hours` (the whole sale's) is split over the payments
+    like the money. Nothing is inserted when anything is refused."""
     text = (description or "").strip()[:500] or None
     if months == 1:
-        parts, dues, series = [total], [expected_on], None
+        parts, dues, series, hour_parts = [total], [expected_on], None, [hours]
         collected = [collected_day(status, collected_on, won_on)]
     else:
         if status == "collected":
@@ -48,15 +62,15 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
         if expected_on is None:
             raise ValueError("a payment schedule needs the day the first payment is due")
         dues, parts = due_dates(expected_on, months), split_amount(total, months)
-        series, collected = str(uuid.uuid4()), [None] * months
+        series, collected, hour_parts = str(uuid.uuid4()), [None] * months, split_hours(hours, months)
     ids = []
-    for part, (amount, due, got) in enumerate(zip(parts, dues, collected), start=1):
+    for part, (amount, due, got, worked) in enumerate(zip(parts, dues, collected, hour_parts), start=1):
         cur.execute(
             "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
-            "collected_on, series_id, series_part, series_total) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s) RETURNING id",
+            "collected_on, series_id, series_part, series_total, hours) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s, %s) RETURNING id",
             (workspace_id, deal_id, amount, won_on, text, status, due, got, series,
-             part if series else None, months if series else None),
+             part if series else None, months if series else None, worked),
         )
         ids.append(cur.fetchone()["id"])
     return ids
@@ -65,20 +79,21 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
 def add_deal_sale(deal_id: int, amount_eur, won_on: date, description: str = "",
                   workspace_id: int | None = None, status: str | None = None,
                   expected_on: date | None = None, collected_on: date | None = None,
-                  months: int = 1) -> int:
+                  months: int = 1, hours=None, rate=None) -> int:
     """Record a sale on a deal of an organization or person, or — with `months` 2 to 60 —
     a contract paid in that many monthly payments, the first due on `expected_on`. `status`
     defaults to collected (what every sale was before statuses). Returns the (first) sale's
     id. Raises DealNotFound, or ValueError for an amount not above 0, an unknown status or a
-    schedule that cannot be made."""
-    amount = _money(amount_eur)
+    schedule that cannot be made. `hours` is the work in the whole sale; with `rate` per hour and no
+    amount, hours x rate is the amount."""
+    amount, hours = amount_and_hours(amount_eur, hours, rate)
     status = checked_sale_status(status)
     with db() as conn:
         cur = conn.cursor()
         get_deal(cur, deal_id, workspace_id)
         cur.execute("SELECT workspace_id FROM deals WHERE id = %s", (deal_id,))
         ids = insert_sale_payments(cur, cur.fetchone()["workspace_id"], deal_id, amount, won_on, description, status,
-                                   expected_on, collected_on, months)
+                                   expected_on, collected_on, months, hours)
     log_audit(None, None, "sale.added", f"deal:{deal_id}",
               f"{amount} EUR on {won_on} ({status}" + (f", {months} payments)" if months > 1 else ")"))
     return ids[0]
@@ -247,14 +262,14 @@ def deal_money(deal_ids: list[int], today: date | None = None) -> dict[int, dict
         cur = conn.cursor()
         cur.execute(
             "SELECT id, deal_id, amount_eur, won_on, description, status, expected_on, collected_on, "
-            "series_id::text AS series_id, series_part, series_total FROM sales "
+            "series_id::text AS series_id, series_part, series_total, hours FROM sales "
             "WHERE deal_id = ANY(%s) AND deleted_at IS NULL "
             "ORDER BY won_on DESC, COALESCE(series_id::text, ''), series_part, id DESC",
             (list(deal_ids),),
         )
         for row in cur.fetchall():
             entry = money[row["deal_id"]]
-            entry["sales"].append(serialize_row(dict(row)))
+            entry["sales"].append({**serialize_row(dict(row)), "rate_eur": rate_text(row["amount_eur"], row["hours"])})
             if row["status"] == "collected":
                 entry["sales_total"] += row["amount_eur"]
             elif row["status"] in FIRM_PIPELINE_STATUSES:

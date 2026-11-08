@@ -386,6 +386,8 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
   <section class="detail-section record-card" id="sales">
     <h2>{{ t('sales.title') }}</h2>
     {% if sales %}
+    {% set booked_hours = sales | rejectattr('status', 'equalto', 'cancelled') | selectattr('hours') | map(attribute='hours') | map('float') | sum %}
+    {% if booked_hours %}<p class="muted small">{{ t('sale.hoursBooked', hours=booked_hours | hrs) }}</p>{% endif %}
     <ul class="sales-list">
       {% for sale in sales %}
       {{ sale_item(sale, sale.deal_id, '/organizations/' ~ organization.id, show_offer=True) }}
@@ -396,7 +398,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     {% endif %}
     <form method="post" action="/organizations/{{ organization.id }}/sales" class="record-form">
       <label>{{ t('sales.amount') }}
-        <input type="text" name="amount_eur" inputmode="decimal" required placeholder="2400" />
+        <input type="text" name="amount_eur" inputmode="decimal" placeholder="2400" />
       </label>
       <label>{{ t('sales.wonOn') }}
         {{ date_field('won_on', today, required=True) }}

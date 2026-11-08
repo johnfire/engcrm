@@ -235,6 +235,12 @@ class TestSubscriptionRoutes:
         assert client.post("/api/deals/9/subscription", headers=VIEWER,
                            json={"amount_eur_month": "19", "started_on": "2026-10-01"}).status_code == 403
 
+    def test_the_phone_can_send_the_hours_of_a_sale(self):
+        with patch("gcrm.api.routers.api_deals.add_deal_sale", return_value=5) as add:
+            response = client.post("/api/deals/9/sales", headers=ADMIN,
+                                   json={"amount_eur": "300", "won_on": "2026-10-05", "hours": "12"})
+        assert response.status_code == 201 and add.call_args.kwargs["hours"] == Decimal("12")
+
 
 class TestSaleStatus:
     """A sale is booked, contracted, collected or cancelled; the web forms and the phone say which."""

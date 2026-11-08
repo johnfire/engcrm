@@ -68,7 +68,7 @@ FILES: dict[str, str] = {
     "sales.csv": """
         SELECT s.id, s.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
                COALESCE(c.name, p.name) AS owner_name, s.amount_eur, s.status,
-               s.won_on, s.expected_on, s.collected_on, s.description,
+               s.won_on, s.expected_on, s.collected_on, s.hours, s.description,
                s.series_id::text AS contract_id, s.series_part AS payment_number, s.series_total AS payments_in_contract,
                s.created_at
           FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL
@@ -107,7 +107,8 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   deals.csv           what you pitch to each organization or person, and where it stands
   sales.csv           sales; status is expected, booked, contracted, collected or cancelled. A contract paid in
                       monthly payments is one row per payment, tied by contract_id (payment_number of
-                      payments_in_contract); expected_on is the day that payment is due
+                      payments_in_contract); expected_on is the day that payment is due; hours is the work
+                      in that payment (empty: not recorded)
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
   income_plan.csv     the income you need per month from sales, the first month it applies from, and the new

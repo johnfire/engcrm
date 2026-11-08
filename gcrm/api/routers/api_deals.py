@@ -161,6 +161,7 @@ class Sale(BaseModel):
     status: str = "collected"  # booked | contracted | collected | cancelled
     expected_on: date | None = None  # when it is due; with months, the first payment's day
     months: int = 1  # 2 to 60: a contract paid in that many monthly payments
+    hours: Decimal | None = None  # hours of work in the whole sale (split over the payments like the money)
 
 
 @router.post("/deals/{deal_id}/sales", status_code=201)
@@ -169,7 +170,8 @@ def record_deal_sale(deal_id: int, body: Sale, _role: str = Depends(require_jwt_
     """A one-off sale on an organization's deal."""
     try:
         return {"id": add_deal_sale(deal_id, body.amount_eur, body.won_on, body.description, _workspace(payload),
-                                     status=body.status, expected_on=body.expected_on, months=body.months)}
+                                     status=body.status, expected_on=body.expected_on, months=body.months,
+                                     hours=body.hours)}
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:

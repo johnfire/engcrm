@@ -2,7 +2,7 @@
 on an organization, and the default minutes per activity type.
 See docs/plans/2026-10-05-statistics-design.md."""
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
@@ -25,7 +25,7 @@ from gcrm.dates import parse_day
 from gcrm.db.connection import db
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.organization_state import PIPELINE_STAGES
-from gcrm.sale_series import contract_from_form
+from gcrm.sale_series import amount_and_hours, contract_from_form, contract_hours, typed_number
 from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.tools.deal_records import resolve_log_offer
 from gcrm.tools.statistics import (
@@ -152,7 +152,9 @@ async def save_minute_defaults(request: Request, _admin: str = Depends(require_a
 def record_sale(
     request: Request,
     contact_id: int,
-    amount_eur: str = Form(...),
+    amount_eur: str = Form(""),
+    hours: str = Form(""),
+    rate: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
     deal_id: int | None = Form(None),
@@ -166,13 +168,14 @@ def record_sale(
     none), booked, contracted or already collected. `schedule` is "one" (a single payment) or
     "monthly" (the amount is per month, for `months` months, the first due on the expected day)."""
     try:
-        amount = Decimal(amount_eur.replace(",", ".").strip()).quantize(Decimal("0.01"))
-        amount, months = contract_from_form(amount, schedule, months)
+        amount, worked = amount_and_hours(typed_number(amount_eur), typed_number(hours), typed_number(rate))      # per month for a monthly schedule
+        amount, months_paid = contract_from_form(amount, schedule, months)
+        worked, months = contract_hours(worked, schedule, months_paid), months_paid
         when = parse_day(won_on)
         if when is None:
             raise ValueError("a sale needs its day")
         sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id,
-                           status=status, expected_on=parse_day(expected_on), months=months)
+                           status=status, expected_on=parse_day(expected_on), months=months, hours=worked)
     except InvalidOperation:
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
     except ValueError as error:
