@@ -14,6 +14,7 @@ from gcrm.sale_series import shift_months
 
 GRANULARITIES = ("month", "quarter", "year")
 MAX_RECEIPTS = 120
+WEEKS_PER_MONTH = Decimal(52) / Decimal(12)
 _ZERO = Decimal("0")
 
 
@@ -98,6 +99,12 @@ def month_targets(monthly_need: Decimal | None, lines: list[dict], months: list[
         target = None if (monthly_need is None or not in_business) else Decimal(monthly_need)
         result[month] = {"target": target, "possible": possible.get(month, _ZERO), "covered": covered}
     return result
+
+
+def monthly_value(hours_per_week: Decimal, rate: Decimal) -> Decimal:
+    """Euros a month from `hours_per_week` hours of work a week at `rate` euros an hour (52 weeks a year,
+    12 months), in cents."""
+    return (Decimal(hours_per_week) * Decimal(rate) * WEEKS_PER_MONTH).quantize(Decimal("0.01"))
 
 
 def live_bookings(months_from_now: int, paying_months: int | None, delay: int, campaign_months: int | None = None) -> int:

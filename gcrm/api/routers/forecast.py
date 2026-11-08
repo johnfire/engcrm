@@ -26,7 +26,7 @@ from gcrm.tools.forecast import get_forecast
 from gcrm.tools.income_plan import (
     add_other_income,
     delete_other_income,
-    save_expected_new_sales,
+    save_expected_new_hours,
     save_monthly_need,
     set_other_income_confirmed,
     update_other_income,
@@ -105,6 +105,12 @@ def _paying_months(typed: str) -> int | None:
     return int(text)
 
 
+def _number(typed: str) -> Decimal | None:
+    """A decimal typed with a comma or a point; None when blank."""
+    text = typed.replace(",", ".").strip()
+    return Decimal(text) if text else None
+
+
 def _campaign_months(typed: str) -> int | None:
     """Months the campaign runs: blank is no end, a whole number is that many."""
     text = typed.strip()
@@ -126,16 +132,18 @@ def _delay_months(typed: str) -> int:
 
 
 @router.post("/forecast/new-sales", dependencies=[Depends(require_admin)])
-def save_new_sales(request: Request, expected_new_monthly: str = Form(""), new_sales_months: str = Form(""),
+def save_new_sales(request: Request, expected_new_hours: str = Form(""), expected_new_rate: str = Form(""),
+                   new_sales_months: str = Form(""),
                    new_sales_delay: str = Form(""), new_sales_campaign: str = Form(""), view: str = Form("month")):
-    """Set the euros of new sales expected to be booked each month (blank: no assumption) and for how
+    """Set the new sales expected each month as hours of work a week at a rate per hour (both blank: no
+    assumption), and for how
     many months each booking keeps paying (blank: 1, a one-off; "i" or "∞": for ever). Only the
     Outlook chart draws it, so the page comes back on the Outlook."""
     try:
-        text = expected_new_monthly.replace(",", ".").strip()
+        hours, rate = _number(expected_new_hours), _number(expected_new_rate)
         with workspace_scope(session_workspace_id(request)):
-            save_expected_new_sales(Decimal(text) if text else None, _paying_months(new_sales_months),
-                                   _delay_months(new_sales_delay), _campaign_months(new_sales_campaign))
+            save_expected_new_hours(hours, rate, _paying_months(new_sales_months),
+                                    _delay_months(new_sales_delay), _campaign_months(new_sales_campaign))
     except (InvalidOperation, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error) or "Enter an amount of 0 or more")
     return local_redirect("/forecast", view=view if view in GRANULARITIES else "month", flow="outlook")

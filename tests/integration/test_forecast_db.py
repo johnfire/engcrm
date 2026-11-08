@@ -14,6 +14,7 @@ from gcrm.tools.income_plan import (
     add_other_income,
     delete_other_income,
     get_plan,
+    save_expected_new_hours,
     save_expected_new_sales,
     save_monthly_need,
     set_other_income_confirmed,
@@ -399,3 +400,31 @@ def test_the_projected_column_stops_growing_when_the_campaign_ends(world):
     assert [months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)], months[date(2027, 3, 1)]] == \
         [D("1000"), D("2000"), D("3000"), D("4000")]
     assert months[date(2027, 4, 1)] == months[date(2027, 11, 1)] == D("4000")          # no new sales after February
+
+
+def test_hours_a_week_and_a_rate_make_the_monthly_value_and_are_remembered(world):
+    with workspace_scope(world["first"]):
+        assert (get_plan()["expected_new_hours"], get_plan()["expected_new_rate"]) == (None, None)
+        save_expected_new_hours(D("3"), D("100"), None, 1, 4)
+        plan = get_plan()
+        assert (plan["expected_new_hours"], plan["expected_new_rate"]) == (D("3.00"), D("100.00"))
+        assert plan["expected_new_monthly"] == D("1300.00")                              # 3 x 100 x 52/12
+        assert (plan["expected_new_months"], plan["expected_new_delay"], plan["expected_new_campaign"]) == (None, 1, 4)
+        save_expected_new_hours(None, None)                                              # both empty clears the expectation
+        plan = get_plan()
+        assert plan["expected_new_monthly"] is None and plan["expected_new_hours"] is None and plan["expected_new_rate"] is None
+        for hours, rate in ((D("3"), None), (None, D("100")), (D("-1"), D("100")), (D("3"), D("-5")), ("lots", D("100")),
+                            (D("169"), D("100")), (D("3"), D("100000"))):
+            with pytest.raises(ValueError):
+                save_expected_new_hours(hours, rate)
+        assert get_plan()["expected_new_monthly"] is None
+    with workspace_scope(world["second"]):
+        assert get_plan()["expected_new_hours"] is None
+
+
+def test_a_plain_monthly_amount_clears_any_hours_and_rate(world):
+    with workspace_scope(world["first"]):
+        save_expected_new_hours(D("3"), D("100"))
+        save_expected_new_sales(D("500"))
+        plan = get_plan()
+        assert plan["expected_new_monthly"] == D("500.00") and plan["expected_new_hours"] is None

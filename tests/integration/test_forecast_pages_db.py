@@ -16,6 +16,7 @@ from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
 PASSWORD = "a-long-test-password-1"
+NEW = {"expected_new_hours": "3", "expected_new_rate": "100"}          # 3 hours a week at 100 euros: 1,300 a month
 
 
 def _user(workspace, email, role="admin"):
@@ -308,17 +309,19 @@ def test_an_admin_enters_the_new_sales_he_expects_and_the_outlook_gets_a_blue_li
     section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
     assert "chart-line--assumed" not in section(admin.get(outlook).text)                       # nothing entered: no blue line
     plan = admin.get(outlook).text
-    assert 'action="/forecast/new-sales"' in plan and "Expected new sales per month" in plan
-    reply = admin.post("/forecast/new-sales", data={"expected_new_monthly": "1500,50", "view": "quarter"}, follow_redirects=False)
+    assert 'action="/forecast/new-sales"' in plan and "Hours of work per week" in plan and "Rate per hour" in plan
+    reply = admin.post("/forecast/new-sales", data={"expected_new_hours": "3", "expected_new_rate": "100,50", "view": "quarter"}, follow_redirects=False)
     assert reply.status_code == 303 and "view=quarter" in reply.headers["location"] and "flow=outlook" in reply.headers["location"]
     with workspace_scope(world["first"]):
-        assert get_plan()["expected_new_monthly"] == Decimal("1500.50") and get_plan()["monthly_need"] is None
+        assert get_plan()["expected_new_monthly"] == Decimal("1306.50") and get_plan()["monthly_need"] is None
+        assert (get_plan()["expected_new_hours"], get_plan()["expected_new_rate"]) == (Decimal("3.00"), Decimal("100.50"))
     page = admin.get(outlook).text.replace("\xa0", " ")
     assert "chart-line--assumed" in section(page) and "with expected new sales" in section(page)
     assert "a month of new sales you expect to book" in section(page)
     assert "chart-line--assumed" not in section(admin.get("/forecast?flow=3m&lang=en").text)    # only the outlook has the line
-    assert 'value="1500.50"' in page
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": ""}, follow_redirects=False)  # blank clears it
+    assert 'name="expected_new_hours"' in page and 'value="100.50"' in page and 'value="3.00"' in page
+    assert "1.306,50" in page.replace("\xa0", "")                                        # the monthly value it works out to
+    admin.post("/forecast/new-sales", data={"expected_new_hours": "", "expected_new_rate": ""}, follow_redirects=False)  # blank clears it
     with workspace_scope(world["first"]):
         assert get_plan()["expected_new_monthly"] is None
     assert "chart-line--assumed" not in section(admin.get(outlook).text)
@@ -327,9 +330,11 @@ def test_an_admin_enters_the_new_sales_he_expects_and_the_outlook_gets_a_blue_li
 def test_the_new_sales_form_is_for_admins_and_rejects_nonsense(world):
     viewer, admin = _browser("viewer@first.example"), _browser("owner@first.example")
     assert 'action="/forecast/new-sales"' not in viewer.get("/forecast?lang=en").text
-    assert viewer.post("/forecast/new-sales", data={"expected_new_monthly": "900"}, follow_redirects=False).status_code == 403
-    for bad in ("lots", "-5"):
-        assert admin.post("/forecast/new-sales", data={"expected_new_monthly": bad}, follow_redirects=False).status_code == 400
+    assert viewer.post("/forecast/new-sales", data=NEW, follow_redirects=False).status_code == 403
+    for bad in ({"expected_new_hours": "lots", "expected_new_rate": "100"}, {"expected_new_hours": "3", "expected_new_rate": "-5"},
+                {"expected_new_hours": "3", "expected_new_rate": ""}, {"expected_new_hours": "", "expected_new_rate": "100"},
+                {"expected_new_hours": "200", "expected_new_rate": "100"}):
+        assert admin.post("/forecast/new-sales", data=bad, follow_redirects=False).status_code == 400, bad
     with workspace_scope(world["first"]):
         assert get_plan()["expected_new_monthly"] is None
     with workspace_scope(world["second"]):
@@ -338,25 +343,25 @@ def test_the_new_sales_form_is_for_admins_and_rejects_nonsense(world):
 
 def test_the_blue_line_follows_the_language_and_a_viewer_sees_the_figure(world):
     admin = _browser("owner@first.example")
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000"}, follow_redirects=False)
+    admin.post("/forecast/new-sales", data={**NEW}, follow_redirects=False)
     admin.post("/settings/language", data={"ui_language": "de"})
     german = admin.get("/forecast?flow=outlook").text.replace("\xa0", " ")
-    assert "mit erwarteten Neuverkäufen" in german and "Erwartete Neuverkäufe pro Monat" in german
+    assert "mit erwarteten Neuverkäufen" in german and "Arbeitsstunden pro Woche" in german
     viewer = _browser("viewer@first.example").get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
-    assert "Expected new sales per month" in viewer and 'name="expected_new_monthly"' not in viewer
+    assert "Expected new sales per month" in viewer and 'name="expected_new_hours"' not in viewer
 
 
 def test_the_months_each_booking_pays_are_a_number_or_the_letter_i_and_zero_is_refused(world):
     admin = _browser("owner@first.example")
     for typed, stored in (("", 1), ("6", 6), ("i", None), ("I", None), ("\u221e", None), (" 12 ", 12)):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_months": typed}).status_code == 303
+                          data={**NEW, "new_sales_months": typed}).status_code == 303
         with workspace_scope(world["first"]):
             assert get_plan()["expected_new_months"] == stored, typed
     for bad in ("0", "-3", "121", "forever", "2.5"):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_months": bad}).status_code == 400, bad
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_months": "i"}, follow_redirects=False)
+                          data={**NEW, "new_sales_months": bad}).status_code == 400, bad
+    admin.post("/forecast/new-sales", data={**NEW, "new_sales_months": "i"}, follow_redirects=False)
     page = admin.get("/forecast?flow=outlook&lang=en").text
     assert 'name="new_sales_months"' in page and "every month from then on" in page.replace("\xa0", " ")
 
@@ -366,7 +371,7 @@ def test_the_table_has_a_projected_column_between_subtotal_and_other_income_once
     before = admin.get("/forecast?lang=en").text
     head = before[before.index("<thead>"):before.index("</thead>")]
     assert "Projected" not in head                                                  # nothing assumed: no column
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_delay": "1"}, follow_redirects=False)
+    admin.post("/forecast/new-sales", data={**NEW, "new_sales_delay": "1"}, follow_redirects=False)
     page = admin.get("/forecast?lang=en").text
     head = page[page.index("<thead>"):page.index("</thead>")]
     assert head.index("Subtotal") < head.index("Projected") < head.index("Other income") < head.index("Grand total")
@@ -377,19 +382,19 @@ def test_the_delay_is_a_whole_number_of_months_and_blank_means_one(world):
     admin = _browser("owner@first.example")
     for typed, stored in (("", 1), ("0", 0), ("3", 3)):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_delay": typed}).status_code == 303
+                          data={**NEW, "new_sales_delay": typed}).status_code == 303
         with workspace_scope(world["first"]):
             assert get_plan()["expected_new_delay"] == stored, typed
     for bad in ("-1", "25", "soon", "1.5"):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_delay": bad}).status_code == 400, bad
+                          data={**NEW, "new_sales_delay": bad}).status_code == 400, bad
 
 
 def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_expected(world):
     admin = _browser("owner@first.example")
     section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
     assert "is heading for" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_months": "i"}, follow_redirects=False)
+    admin.post("/forecast/new-sales", data={**NEW, "new_sales_months": "i"}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
     assert "total is heading for" in page and "expected new sales" in page
     assert "calendar year of each month is heading" in page
@@ -400,7 +405,7 @@ def test_the_new_business_chart_runs_six_months_ahead_with_blue_on_top_once_new_
     admin = _browser("owner@first.example")
     section = lambda page: page[page.index('id="contract-flow"'):page.index('id="plan"')]       # noqa: E731
     assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000"}, follow_redirects=False)
+    admin.post("/forecast/new-sales", data={**NEW}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
     assert page.count("chart-bar--assumed") == 7                                          # this month and six more
     assert "Yellow: business you have entered" in page
@@ -411,12 +416,19 @@ def test_the_campaign_length_is_a_whole_number_of_months_and_blank_means_no_end(
     admin = _browser("owner@first.example")
     for typed, stored in (("4", 4), ("", None), (" 12 ", 12)):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_campaign": typed}).status_code == 303
+                          data={**NEW, "new_sales_campaign": typed}).status_code == 303
         with workspace_scope(world["first"]):
             assert get_plan()["expected_new_campaign"] == stored, typed
     for bad in ("0", "-2", "121", "long", "2.5"):
         assert admin.post("/forecast/new-sales", follow_redirects=False,
-                          data={"expected_new_monthly": "1000", "new_sales_campaign": bad}).status_code == 400, bad
-    admin.post("/forecast/new-sales", data={"expected_new_monthly": "1000", "new_sales_campaign": "4"}, follow_redirects=False)
+                          data={**NEW, "new_sales_campaign": bad}).status_code == 400, bad
+    admin.post("/forecast/new-sales", data={**NEW, "new_sales_campaign": "4"}, follow_redirects=False)
     page = admin.get("/forecast?flow=outlook&lang=en").text
     assert 'name="new_sales_campaign"' in page and "campaign runs" in page
+
+
+def test_the_page_says_what_the_hours_and_rate_work_out_to_a_month(world):
+    admin = _browser("owner@first.example")
+    admin.post("/forecast/new-sales", data=NEW, follow_redirects=False)
+    page = admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", "")
+    assert "That works out to 1.300" in page and "52 weeks" in page and "Hours of work per week" in page

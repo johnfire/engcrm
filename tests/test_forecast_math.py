@@ -186,3 +186,13 @@ def test_cash_and_the_year_total_follow_a_campaign_that_stops():
     assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 12, 1), 2027, 4) == Decimal("45000")
     assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 12, 1), 2027, None) == Decimal("90000")   # no end: 24 + (11+...+1)
     assert new_sales_in_year(Decimal("1000"), None, 1, this, date(2027, 1, 1), 2027, 4) == Decimal("24000")      # as of January: same as before
+
+
+def test_hours_a_week_at_a_rate_come_to_so_much_a_month():
+    from decimal import Decimal
+
+    from gcrm.forecast_math import WEEKS_PER_MONTH, monthly_value
+    assert monthly_value(Decimal("3"), Decimal("100")) == Decimal("1300.00")              # 3 h x 100 x 52/12
+    assert monthly_value(Decimal("10"), Decimal("50")) == Decimal("2166.67")
+    assert monthly_value(Decimal("0"), Decimal("80")) == Decimal("0.00")
+    assert WEEKS_PER_MONTH == Decimal(52) / Decimal(12)
