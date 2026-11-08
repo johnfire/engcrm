@@ -1,6 +1,7 @@
-"""Small server-drawn SVG charts for the Statistics page: no script, no outside
+"""Small server-drawn SVG charts for the Statistics and Forecast pages: no script, no outside
 service. One series per chart in one hue (several measures get several charts,
-never a second axis); every bar or point has a full-height hover target whose
+never a second axis; the one exception is a dashed reference line in the same unit on the
+same scale, such as a target); every bar or point has a full-height hover target whose
 <title> is its tooltip; text is drawn in text colours, not the series colour.
 Colours come from the page's CSS (classes chart-*), so the theme applies."""
 import math
@@ -103,5 +104,50 @@ def spark(points: list[dict], title: str, height: int = 60) -> Markup:
         parts.append(f'<g class="chart-mark"><title>{escape(p["tip"])}</title>'
                      f'<rect class="chart-hit" x="{max(0, x - slot / 2):.1f}" y="0" width="{slot:.1f}" height="{height}"/>'
                      f'<circle class="chart-dot" cx="{x:.1f}" cy="{y:.1f}" r="4"/></g>')
+    parts.append("</svg>")
+    return Markup("".join(parts))
+
+
+def line_chart(points: list[dict], series_classes: list[str], title: str, height: int = 170,
+               tick_label=str) -> Markup:
+    """One or two lines over a labelled y scale with gridlines, for a running total. Each point:
+    label, values (one number per series), tip (one tooltip for the whole slot). `series_classes`
+    are the CSS classes of the lines; a second line is a dashed reference in the same unit
+    (class "chart-line chart-line--ref"). Dots are drawn while there are few enough points."""
+    if not points:
+        return Markup("")
+    top, bottom = 18, 22
+    plot = height - top - bottom
+    values = [v for p in points for v in p["values"]]
+    ticks = y_ticks(max(values, default=0), all(float(v).is_integer() for v in values))
+    scale = ticks[-1]
+    labels = [tick_label(t) for t in ticks]
+    left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8
+    slot = (WIDTH - left) / len(points)
+    shown = _x_labels(len(points))
+    parts = [f'<svg class="chart" viewBox="0 0 {WIDTH} {height}" role="img" aria-label="{escape(title)}">']
+    for tick, text in zip(ticks, labels):
+        y = top + plot - plot * tick / scale
+        if tick:
+            parts.append(f'<line class="chart-grid" x1="{left}" x2="{WIDTH}" y1="{y:.1f}" y2="{y:.1f}"/>')
+        parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
+                     f'dominant-baseline="middle">{escape(text)}</text>')
+    parts.append(f'<line class="chart-axis" x1="{left}" x2="{WIDTH}" y1="{top + plot}" y2="{top + plot}"/>')
+    for index, css in enumerate(series_classes):
+        coords = [(left + (i + 0.5) * slot, top + plot - plot * float(p["values"][index]) / scale)
+                  for i, p in enumerate(points)]
+        if len(coords) > 1:
+            line = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+            parts.append(f'<polyline class="{escape(css)}" points="{line}"/>')
+        if len(coords) <= 31:
+            dot = "chart-dot chart-dot--ref" if "--ref" in css else "chart-dot"
+            parts.extend(f'<circle class="{dot}" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>' for x, y in coords)
+    for i, p in enumerate(points):
+        x0 = left + i * slot
+        parts.append(f'<g class="chart-mark"><title>{escape(p["tip"])}</title>'
+                     f'<rect class="chart-hit" x="{x0:.1f}" y="0" width="{slot:.1f}" height="{height}"/></g>')
+        if i in shown:
+            parts.append(f'<text class="chart-label" x="{x0 + slot / 2:.1f}" y="{height - 6}" '
+                         f'text-anchor="middle">{escape(p["label"])}</text>')
     parts.append("</svg>")
     return Markup("".join(parts))

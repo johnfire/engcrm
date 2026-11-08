@@ -15,9 +15,13 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.session_workspace import session_workspace_id
-from gcrm.api.templates import templates
+from gcrm.api.templates import eur, templates
 from gcrm.dates import parse_day
+from gcrm.flow_charts import build_flow_charts
+from gcrm.flow_math import DEFAULT_FLOW, FLOW_RANGES
 from gcrm.forecast_math import GRANULARITIES
+from gcrm.i18n import DEFAULT_LANGUAGE
+from gcrm.tools.contract_flow import get_contract_flow
 from gcrm.tools.forecast import get_forecast
 from gcrm.tools.income_plan import (
     add_other_income,
@@ -44,17 +48,24 @@ def period_label(granularity: str, start: date) -> str:
 def forecast_page(
     request: Request,
     view: str = Query(default="month"),
+    flow: str = Query(default=DEFAULT_FLOW),
     offer: Optional[str] = Query(default=None),
 ):
     view = view if view in GRANULARITIES else "month"
+    flow = flow if flow in FLOW_RANGES else DEFAULT_FLOW
     active_offer, offers = web_offer_filter(request, offer)
     workspace_id = session_workspace_id(request)
     with workspace_scope(workspace_id):
         forecast = get_forecast(workspace_id, view, date.today(), active_offer)
+        contract_flow = get_contract_flow(workspace_id, flow, date.today(), active_offer)
+    lang = request.session.get("ui_language", DEFAULT_LANGUAGE)
+    flow_charts = build_flow_charts(contract_flow, lang, eur)
+    flow_has_data = any(b["cumulative"] for b in contract_flow["buckets"])
     labels = {p["start"]: period_label(view, p["start"]) for p in forecast["periods"]}
     tile_labels = {t["key"]: period_label(t["granularity"], t["start"]) for t in forecast["tiles"]}
     return templates.TemplateResponse("forecast.html", {
         "request": request, "forecast": forecast, "view": view, "views": GRANULARITIES, "labels": labels,
+        "flow": flow, "flow_ranges": FLOW_RANGES, "flow_charts": flow_charts, "flow_has_data": flow_has_data,
         "tile_labels": tile_labels, "offers": offers, "active_offer": active_offer, "today": date.today().isoformat(),
         "is_admin": request.session.get("role") == "admin",
     })

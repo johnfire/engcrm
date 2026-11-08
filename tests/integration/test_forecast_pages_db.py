@@ -187,3 +187,65 @@ def test_the_months_view_runs_through_the_end_of_next_year(world):
     year = date.today().year
     assert f"12.{year + 1}" in table and f"01.{year}" in table
     assert f"01.{year + 2}" not in table
+
+
+def test_the_forecast_page_has_the_contract_flow_section_below_the_table_with_a_range_switch(world):
+    page = _browser("owner@first.example").get("/forecast?lang=en").text
+    assert page.index("<tbody>") < page.index('id="contract-flow"') < page.index('id="plan"')
+    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    for text in ("Contract flow", "3 months", "1 year", "Whole business", "New business per week",
+                 "Total won so far (running total)", "Money in (running total)"):
+        assert text in section
+    assert section.count("<svg") == 3 and section.count("<figure") == 3
+    assert 'name="flow" value="3m"' in section and 'name="flow" value="year"' in section and 'name="flow" value="all"' in section
+    assert 'aria-current="true"' in section                                  # the chosen range is marked
+
+
+def test_the_range_is_chosen_with_the_flow_parameter_and_nonsense_falls_back(world):
+    browser = _browser("owner@first.example")
+    weekly = browser.get("/forecast?flow=3m&lang=en").text
+    assert "New business per week" in weekly
+    yearly = browser.get("/forecast?flow=year&lang=en").text
+    assert "New business per month" in yearly
+    assert "New business per week" in browser.get("/forecast?flow=decade&lang=en").text          # the default: 3 months, by week
+    assert "New business per month" in browser.get("/forecast?flow=all&lang=en").text
+    assert 'name="flow" value="year"' in browser.get("/forecast?flow=year&view=quarter&lang=en").text
+
+
+def test_the_view_buttons_keep_the_chosen_range_and_the_range_buttons_keep_the_view(world):
+    page = _browser("owner@first.example").get("/forecast?flow=3m&view=quarter&lang=en").text
+    assert page.count('<input type="hidden" name="flow" value="3m"') == 1             # in the Months/Quarters/Years form
+    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    assert '<input type="hidden" name="view" value="quarter"' in section
+
+
+def test_the_charts_show_the_figures_of_the_workspace_and_the_target_line_once_a_plan_exists(world):
+    admin = _browser("owner@first.example")
+    admin.post("/forecast/need", data={"monthly_need": "5000", "start_month": "01.10.2026", "view": "month"}, follow_redirects=False)
+    with workspace_scope(world["first"]):
+        add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Chart Firm", "Ulm", source="test_fixture"))
+                           if d["offer_slug"] == "consulting"), "1200", date(2026, 10, 20), "job", world["first"], status="expected")
+    page = admin.get("/forecast?flow=all&lang=en").text.replace("\xa0", " ")
+    section = page[page.index('id="contract-flow"'):page.index('id="plan"')]
+    assert "Money in vs target (running total)" in section and "chart-line--ref" in section
+    assert "10.2026: 1.200 € · 1 deal · Expected 1.200 €" in section and "10.2026: 1.200 € in total" in section
+    assert "Kessler" not in section
+
+
+def test_a_viewer_can_see_the_charts_and_another_workspace_sees_none_of_this_ones_money(world):
+    with workspace_scope(world["first"]):
+        add_deal_sale(next(d["id"] for d in get_deals("organization", save_organization("Private Firm", "Ulm", source="test_fixture"))
+                           if d["offer_slug"] == "consulting"), "4321", date.today(), "", world["first"], status="booked")
+    assert "contract-flow" in _browser("viewer@first.example").get("/forecast?lang=en").text
+    other = _browser("owner@second.example").get("/forecast?lang=en").text.replace("\xa0", " ")
+    assert "4.321" not in other and "Nothing entered yet in this range." in other
+
+
+def test_the_charts_follow_the_language(world):
+    browser = _browser("owner@first.example")
+    with db() as connection:
+        connection.cursor().execute("UPDATE users SET ui_language = 'de' WHERE email = 'owner@first.example'")
+    browser.post("/settings/language", data={"ui_language": "de"})
+    section = browser.get("/forecast").text
+    section = section[section.index('id="contract-flow"'):section.index('id="plan"')]
+    assert "Vertragsfluss" in section and "Neues Geschäft pro Woche" in section and "Gesamtes Geschäft" in section

@@ -29,6 +29,7 @@
 </div>
 
 <form method="get" action="/forecast" class="stat-periods" aria-label="{{ t('forecast.view') }}">
+  <input type="hidden" name="flow" value="{{ flow }}" />
   {% include 'partials/offer_filter.html' %}
   {% for v in views %}
   <button type="submit" name="view" value="{{ v }}" class="{{ 'btn-primary' if v == view else 'btn-secondary' }}"
@@ -81,6 +82,35 @@
   <p class="muted small">{{ t('forecast.undated', amount=forecast.undated.total | eur, count=forecast.undated.count) }}</p>
   {% endif %}
   <p class="muted small">{{ t('forecast.legend') }}</p>
+</section>
+
+<section class="detail-section" id="contract-flow">
+  <div class="stat-trends__head">
+    <h2>{{ t('flow.title') }}</h2>
+    <form method="get" action="/forecast#contract-flow" class="stat-trends__buckets" aria-label="{{ t('flow.range') }}">
+      <input type="hidden" name="view" value="{{ view }}" />
+      {% for r in flow_ranges %}
+      <button type="submit" name="flow" value="{{ r }}" class="{{ 'btn-primary' if r == flow else 'btn-secondary' }}"
+              {% if r == flow %}aria-current="true"{% endif %}>{{ t('flow.range.' ~ r) }}</button>
+      {% endfor %}
+    </form>
+  </div>
+  <p class="muted small">{{ t('flow.hint') }}</p>
+  {% if not flow_has_data %}<p class="muted">{{ t('flow.empty') }}</p>{% endif %}
+  <div class="stat-charts forecast-flow">
+    {% for chart in flow_charts %}
+    <figure class="stat-chart">
+      <figcaption>{{ chart.title }}</figcaption>
+      {{ chart.svg }}
+      <p class="muted small">{{ chart.note }}</p>
+      <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
+        <div class="table-scroll"><table><tbody>
+          {% for row in chart.rows %}<tr><td>{{ row[0] }}</td>{% for cell in row[1:] %}<td class="num">{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody></table></div>
+      </details>
+    </figure>
+    {% endfor %}
+  </div>
 </section>
 
 <section class="detail-section" id="plan">

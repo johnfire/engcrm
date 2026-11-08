@@ -1479,3 +1479,8 @@ main.statistics-page { max-width: none; }
 .record-form .sale-kind input[type="radio"] { width: auto; min-width: 0; margin: 0; padding: 0; }
 .record-form .sale-kind input[type="number"] { width: 5rem; }
 .record-form .sale-kind p { flex-basis: 100%; margin: 0; }
+
+/* Contract flow charts below the forecast table: the second line is a dashed reference (the target). */
+.chart-line--ref { stroke: var(--muted); stroke-dasharray: 6 5; }
+.chart-dot--ref { fill: var(--muted); }
+.forecast-flow { margin-top: 0.6rem; }

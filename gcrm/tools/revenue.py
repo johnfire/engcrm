@@ -48,6 +48,18 @@ def revenue_sort_sql(owner_alias: str, which: str, offer: str | None) -> str:
     return revenue_sum_sql(owner_alias, statuses, offer)
 
 
+def live_sales_sql(workspace_id: int, offer: str | None) -> tuple[str, list]:
+    """The FROM ... WHERE for a workspace's live sales, organizations' and people's alike: the
+    sale, its deal and its owner are not deleted, limited to one offer's deals when `offer` is given.
+    Aliases: s sale, d deal, c organization, p person. Append further conditions with AND.
+    Returns (sql, params). One definition, so every figure on every page counts the same sales."""
+    only = f" AND d.offer_id = {offer_id_sql('%s', offer)}" if offer else ""
+    sql = ("FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL "
+           "LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id "
+           f"WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND COALESCE(c.deleted_at, p.deleted_at) IS NULL{only}")
+    return sql, [workspace_id] + ([workspace_id] if offer else [])
+
+
 def business_revenue(workspace_id: int | None, offer: str | None = None) -> dict:
     """{status: {eur, count}} for every sale of the workspace — organizations' and people's —
     plus "total" (without cancelled). Deleted owners and sales are left out."""
@@ -56,14 +68,9 @@ def business_revenue(workspace_id: int | None, offer: str | None = None) -> dict
         if workspace_id is None:
             cur.execute("SELECT id FROM workspaces WHERE slug = 'default'")
             workspace_id = cur.fetchone()["id"]
-        only = f" AND d.offer_id = {offer_id_sql('%s', offer)}" if offer else ""
-        params = [workspace_id] + ([workspace_id] if offer else [])
+        scope, params = live_sales_sql(workspace_id, offer)
         cur.execute(
-            "SELECT s.status, COALESCE(SUM(s.amount_eur), 0) AS eur, COUNT(*) AS n "
-            "FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL "
-            "LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id "
-            "WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND COALESCE(c.deleted_at, p.deleted_at) IS NULL"
-            f"{only} GROUP BY s.status",
+            "SELECT s.status, COALESCE(SUM(s.amount_eur), 0) AS eur, COUNT(*) AS n " + scope + " GROUP BY s.status",
             params,
         )
         found = {row["status"]: row for row in cur.fetchall()}

@@ -25,8 +25,8 @@ from gcrm.forecast_math import (
     shift_months,
 )
 from gcrm.sale_status import SALE_STATUSES
-from gcrm.tools.db_deals import offer_id_sql
 from gcrm.tools.income_plan import get_plan
+from gcrm.tools.revenue import live_sales_sql
 
 _ZERO = Decimal("0")
 # The tiles above the table, in order: (key, granularity, how many periods after the current one).
@@ -44,19 +44,15 @@ def _blank() -> dict:
 def _monthly_money(workspace_id: int, first: date, last: date, offer: str | None) -> tuple[dict, dict, int]:
     """({month: {status: €}}, undated {status: €}, undated count) for the live sales of the
     workspace, organizations' and people's alike, between `first` and `last` inclusive."""
-    only = f" AND dl.offer_id = {offer_id_sql('%s', offer)}" if offer else ""
-    extra = [workspace_id] if offer else []
+    scope, params = live_sales_sql(workspace_id, offer)
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
             "SELECT date_trunc('month', due)::date AS month, status, SUM(amount_eur) AS eur, COUNT(*) AS n FROM ("
-            "  SELECT s.status, s.amount_eur, CASE WHEN s.status = 'collected' THEN s.collected_on ELSE s.expected_on END AS due"
-            "    FROM sales s JOIN deals dl ON dl.id = s.deal_id AND dl.deleted_at IS NULL"
-            "    LEFT JOIN contacts c ON c.id = dl.contact_id LEFT JOIN people p ON p.id = dl.person_id"
-            "   WHERE s.workspace_id = %s AND s.deleted_at IS NULL AND s.status <> 'cancelled'"
-            f"     AND COALESCE(c.deleted_at, p.deleted_at) IS NULL{only}"
+            "  SELECT s.status, s.amount_eur, CASE WHEN s.status = 'collected' THEN s.collected_on ELSE s.expected_on END AS due "
+            f"  {scope} AND s.status <> 'cancelled'"
             ") x WHERE due IS NULL OR due BETWEEN %s AND %s GROUP BY 1, 2",
-            [workspace_id, *extra, first, last],
+            [*params, first, last],
         )
         rows = cur.fetchall()
     months: dict[date, dict] = {}

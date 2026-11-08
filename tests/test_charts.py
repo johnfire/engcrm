@@ -52,3 +52,39 @@ def test_bars_draw_a_labelled_scale_and_gridlines_and_scale_to_its_top():
         assert f">{label}</text>" in svg
     assert svg.count('class="chart-grid"') == 3  # one per step above the baseline
     assert "max" not in svg
+
+
+from gcrm.charts import line_chart  # noqa: E402
+
+
+def _line_points(first, second=None):
+    return [{"label": f"M{i}", "values": [v] if second is None else [v, second[i]], "tip": f"M{i}: {v}"}
+            for i, v in enumerate(first)]
+
+
+def test_a_line_chart_has_a_tooltip_per_slot_a_labelled_scale_and_one_line_per_series():
+    svg = str(line_chart(_line_points([1000, 2500, 4000]), ["chart-line"], "Running total"))
+    assert svg.count("<title>") == 3 and "<title>M2: 4000</title>" in svg
+    assert svg.count("<polyline") == 1 and svg.count("<circle") == 3
+    assert 'role="img" aria-label="Running total"' in svg and 'class="chart-grid"' in svg
+
+
+def test_a_second_series_is_a_reference_line_on_the_same_scale():
+    svg = str(line_chart(_line_points([100, 200, 300], [500, 500, 500]), ["chart-line", "chart-line chart-line--ref"],
+                         "Money in vs target"))
+    assert svg.count("<polyline") == 2 and 'class="chart-line chart-line--ref"' in svg
+    assert svg.count("<title>") == 3                                       # still one tooltip per slot, not per line
+    assert ">500<" in svg or ">600<" in svg or ">400<" in svg                # the scale reaches the larger series
+
+
+def test_a_single_point_is_a_dot_and_nothing_draws_nothing():
+    svg = str(line_chart(_line_points([5]), ["chart-line"], "x"))
+    assert "<polyline" not in svg and svg.count("<circle") == 1
+    assert str(line_chart([], ["chart-line"], "x")) == ""
+
+
+def test_line_chart_text_is_escaped_and_money_ticks_use_the_formatter():
+    svg = str(line_chart([{"label": "<b>", "values": [1000], "tip": "a & b"}], ["chart-line"], "x < y",
+                         tick_label=lambda v: f"{v:g} €"))
+    assert "<b>" not in svg and "&lt;b&gt;" in svg and "a &amp; b" in svg and 'aria-label="x &lt; y"' in svg
+    assert "€" in svg
