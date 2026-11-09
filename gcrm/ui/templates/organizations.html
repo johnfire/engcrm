@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}">{% endblock %} {% block title %}{{ t('organizations.title') }} — {{ t('nav.brand') }}{%
+{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}"><script nonce="{{ csp_nonce }}" src="/static/fit-table-height.js?v={{ static_version }}" defer></script>{% endblock %} {% block title %}{{ t('organizations.title') }} — {{ t('nav.brand') }}{%
 endblock %} {% block main_class %}main-wide{% endblock %} {% block content %}
 <div class="page-header">
   <h1>{{ t('organizations.title') }}</h1>
