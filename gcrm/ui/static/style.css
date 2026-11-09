@@ -1034,6 +1034,21 @@ td.nowrap {
    width its content needs, and lets Name and Notes share whatever the screen
    has left, so the table widens with the monitor instead of stretching one
    greedy column. */
+/* The organizations list is long (a page is 100 rows) and wide. As a plain
+   overflow-x box its sideways scrollbar sat at the bottom of the whole table,
+   far below the screen. Capping the box at the window's height gives it both
+   scrollbars within view, and the sticky header keeps the column names on
+   screen while the rows scroll. */
+.table-scroll:has(> table.orgs-table) {
+  max-height: calc(100vh - 5rem);
+  overflow: auto;
+}
+.orgs-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+}
 table.orgs-table {
   table-layout: fixed;
   /* Below the minimum the wrapper scrolls rather than crushing 16 columns;
