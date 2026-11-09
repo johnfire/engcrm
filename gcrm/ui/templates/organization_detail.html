@@ -446,6 +446,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
         <th>{{ t('common.summary') }}</th>
         <th>{{ t('organizationDetail.outcome') }}</th>
         <th>{{ t('organizationDetail.nextAction') }}</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -472,6 +473,13 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
           <span class="muted"
             >({{ (i.next_action_date|dmy) }})</span
           >{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/organizations/{{ organization.id }}/interactions/{{ i.id }}/delete"
+                style="display: inline"
+                data-confirm="{{ t('organizationDetail.interactionDeleteConfirm') }}">
+            <button class="btn-danger btn-tiny">{{ t('organizationDetail.interactionDelete') }}</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

@@ -26,7 +26,7 @@ from gcrm.tools.db_deals import (
     organization_deal_join,
     stage_and_status_counts,
 )
-from gcrm.tools.db_interactions import get_visit_summary
+from gcrm.tools.db_interactions import delete_meeting_note, get_visit_summary
 from gcrm.tools.db_linkedin import (
     REACHABLE_PAGE_SIZE,
     get_known_people_for_org,
@@ -441,7 +441,7 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
             raise HTTPException(status_code=404, detail="Contact not found")
         organization = dict(row)
         cur.execute(
-            "SELECT i.interaction_date, i.method, i.direction, i.summary, i.outcome, i.next_action, "
+            "SELECT i.id, i.interaction_date, i.method, i.direction, i.summary, i.outcome, i.next_action, "
             "i.next_action_date, i.duration_minutes, i.attitude, i.my_read, i.materials_left, o.name AS offer "
             "FROM interactions i "
             "LEFT JOIN offers o ON o.id = i.offer_id WHERE i.contact_id = %s AND i.deleted_at IS NULL "
@@ -668,6 +668,14 @@ def delete_organization(contact_id: int, request: Request, _admin: str = Depends
     # Bounce back to whichever list the admin deleted from — but only if the
     # Referer is one of our own paths; see gcrm/api/redirects.py.
     return local_redirect(request.headers.get("referer", ""), fallback="/organizations/")
+
+
+@router.post("/{contact_id}/interactions/{interaction_id}/delete")
+def remove_interaction(contact_id: int, interaction_id: int, _admin: str = Depends(require_admin)):
+    """Soft-delete one wrong entry from the interaction history (the row stays in the database)."""
+    if not delete_meeting_note(contact_id, interaction_id):
+        raise HTTPException(status_code=404, detail="Interaction not found")
+    return local_redirect(f"/organizations/{contact_id}", saved="1")
 
 
 @router.post("/{contact_id}/unflag")

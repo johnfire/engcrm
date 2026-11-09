@@ -248,6 +248,8 @@
   "organizationDetail.previsitBrief": "Pre-visit brief",
   "organizationDetail.backToList": "Back to list",
   "organizationDetail.interactionHistory": "Interaction History",
+  "organizationDetail.interactionDelete": "Delete",
+  "organizationDetail.interactionDeleteConfirm": "Delete this entry from the interaction history?",
   "organizationDetail.method": "Method",
   "organizationDetail.direction": "Direction",
   "organizationDetail.outcome": "Outcome",

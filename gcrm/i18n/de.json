@@ -248,6 +248,8 @@
   "organizationDetail.previsitBrief": "Besuchs-Briefing",
   "organizationDetail.backToList": "Zurück zur Liste",
   "organizationDetail.interactionHistory": "Interaktionsverlauf",
+  "organizationDetail.interactionDelete": "Löschen",
+  "organizationDetail.interactionDeleteConfirm": "Diesen Eintrag aus dem Interaktionsverlauf löschen?",
   "organizationDetail.method": "Methode",
   "organizationDetail.direction": "Richtung",
   "organizationDetail.outcome": "Ergebnis",
