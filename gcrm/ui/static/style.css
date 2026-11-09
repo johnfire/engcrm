@@ -1037,10 +1037,15 @@ td.nowrap {
 table.orgs-table {
   table-layout: fixed;
   /* Below the minimum the wrapper scrolls rather than crushing 16 columns;
-     above the maximum the leftover width would all land on Name, which just
-     makes the eye travel further between columns. */
-  min-width: 1680px;
-  max-width: 1980px;
+     the columns' own widths (plus Name's 250px) add up to about 2420px. */
+  min-width: 2420px;
+}
+/* Name is the one column that must stay readable: it gets its own width instead
+   of whatever the fixed columns leave over (which, with the revenue columns,
+   was nothing). The table is as wide as its columns add up to; the
+   .table-scroll wrapper gives it a scrollbar at the bottom. */
+.orgs-table col.c-name {
+  width: 250px;
 }
 /* Sort links are nowrap everywhere else, which in a fixed-width column means a
    two-word heading overlaps its neighbour instead of wrapping. */
