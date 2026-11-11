@@ -1,27 +1,19 @@
-// Which offer's pipeline a list shows, remembered on the phone: one offer's slug,
-// or "all". `offer` is null until the remembered choice has been read, so a list
-// can wait for it instead of loading the wrong pipeline first.
+// Which offer's pipeline a list shows: one offer's slug, or "all". Every list opens
+// on all of them; picking an offer narrows this visit only. (Remembering the choice
+// made an empty offer's pipeline look like a CRM with no data in it.)
 import { useEffect, useState } from "react";
 
-import { ALL_OFFERS, fetchOffers, getOfferFilter, Offer, setOfferFilter } from "../services/deals";
+import { ALL_OFFERS, fetchOffers, Offer } from "../services/deals";
 
 export function useOfferFilter() {
-  const [offer, setOffer] = useState<string | null>(null);
+  const [offer, setOffer] = useState<string>(ALL_OFFERS);
   const [offers, setOffers] = useState<Offer[]>([]);
 
   useEffect(() => {
-    getOfferFilter().then(setOffer);
     fetchOffers()
       .then(setOffers)
       .catch(() => setOffers([])); // the list still loads; the picker offers only "All"
   }, []);
 
-  function choose(next: string) {
-    setOffer(next);
-    void setOfferFilter(next);
-  }
-
-  // A remembered offer that no longer exists (archived) falls back to all of them.
-  const known = offer === null || offer === ALL_OFFERS || offers.length === 0 || offers.some((o) => o.slug === offer);
-  return { offer: known ? offer : ALL_OFFERS, offers, choose };
+  return { offer, offers, choose: setOffer };
 }

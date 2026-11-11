@@ -42,20 +42,18 @@ export default function OrganizationsScreen() {
 
   const fetchPage = useCallback(
     (page: number): Promise<Organization[]> =>
-      offer === null
-        ? Promise.resolve([]) // the remembered offer is still being read
-        : fetchOrganizations({
-            search,
-            stage,
-            status,
-            sort,
-            dir,
-            personal_priority: personalPriority,
-            linkedin,
-            suppressed,
-            offer,
-            page,
-          }),
+      fetchOrganizations({
+        search,
+        stage,
+        status,
+        sort,
+        dir,
+        personal_priority: personalPriority,
+        linkedin,
+        suppressed,
+        offer,
+        page,
+      }),
     [search, stage, status, sort, dir, personalPriority, linkedin, suppressed, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(
@@ -97,7 +95,7 @@ export default function OrganizationsScreen() {
           </TouchableOpacity>
         )}
       </View>
-      {offer !== null && <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />}
+      <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
       <OrganizationListControls
         stage={stage}
         status={status}
@@ -116,7 +114,7 @@ export default function OrganizationsScreen() {
           setDir(nextDirection);
         }}
       />
-      {loading || offer === null ? (
+      {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>

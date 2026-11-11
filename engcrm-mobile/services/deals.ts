@@ -2,9 +2,8 @@
 // organization or person — its own stage, status, contact person, next step and
 // money. See docs/plans/2026-10-10-offers-and-deals-design.md (phase 4).
 //
-// The lists remember which offer's pipeline they show, and the creation forms
-// the offer used last, on the phone itself (AsyncStorage), like the web does per
-// browser session.
+// The creation forms remember the offer used last, on the phone itself
+// (AsyncStorage). The lists do not: they always open on every offer.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { client } from "./api";
@@ -161,25 +160,7 @@ export function defaultLogOffer(deals: Pick<Deal, "offer_slug" | "pipeline_stage
 export const GENERAL = "general";
 export const ALL_OFFERS = "all";
 
-const FILTER_KEY = "offerFilter";
 const LAST_OFFER_KEY = "lastOffer";
-
-/** Which offer's pipeline the lists show: a slug, or "all". Unreadable storage is "all". */
-export async function getOfferFilter(): Promise<string> {
-  try {
-    return (await AsyncStorage.getItem(FILTER_KEY)) || ALL_OFFERS;
-  } catch {
-    return ALL_OFFERS;
-  }
-}
-
-export async function setOfferFilter(offer: string): Promise<void> {
-  try {
-    await AsyncStorage.setItem(FILTER_KEY, offer);
-  } catch {
-    // remembering is a convenience; the list still shows what was picked
-  }
-}
 
 /** The offer a new organization or person goes into: the one used last, else consulting. */
 export async function getLastOffer(): Promise<string> {
@@ -194,6 +175,6 @@ export async function setLastOffer(offer: string): Promise<void> {
   try {
     await AsyncStorage.setItem(LAST_OFFER_KEY, offer);
   } catch {
-    // as above
+    // remembering is a convenience; the form still uses what was picked
   }
 }

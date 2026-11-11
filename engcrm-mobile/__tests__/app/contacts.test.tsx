@@ -10,15 +10,12 @@ jest.mock("../../services/contact-feed", () => ({
   fetchContactFeed: (...args: unknown[]) => mockFetch(...args),
   fetchContactCounts: () => Promise.reject(new Error("counts are optional")),
 }));
-const mockSetOfferFilter = jest.fn();
 jest.mock("../../services/deals", () => ({
   ...jest.requireActual("../../services/deals"),
   fetchOffers: () => Promise.resolve([
     { id: 1, slug: "consulting", name: "Consulting", website: null, revenue_kind: "one_off" },
     { id: 2, slug: "learnwohl", name: "LearnWohl", website: null, revenue_kind: "subscription" },
   ]),
-  getOfferFilter: () => Promise.resolve("all"),
-  setOfferFilter: (...args: unknown[]) => mockSetOfferFilter(...args),
 }));
 jest.mock("expo-router", () => {
   const React = jest.requireActual("react");
@@ -62,12 +59,17 @@ it("combines search, contact type and stage and changes sort without losing filt
   await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", page: 1, offer: "all" }));
 });
 
-it("shows one offer's pipeline when picked, and remembers the choice", async () => {
+it("shows one offer's pipeline when picked, and opens on every offer again next time", async () => {
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("LearnWohl")).toBeTruthy());
   fireEvent.press(screen.getByText("LearnWohl"));
   await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ offer: "learnwohl" })));
-  expect(mockSetOfferFilter).toHaveBeenCalledWith("learnwohl");
+  screen.unmount();
+  mockFetch.mockClear();
+  render(<ContactsScreen />);
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  expect(mockFetch).toHaveBeenCalledWith(expect.objectContaining({ page: 1, offer: "all" }));
+  expect(mockFetch).not.toHaveBeenCalledWith(expect.objectContaining({ offer: "learnwohl" }));
 });
 
 it("loads another page without dropping people who share an organization ID", async () => {

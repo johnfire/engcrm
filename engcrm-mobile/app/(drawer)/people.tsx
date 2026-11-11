@@ -60,9 +60,7 @@ export default function PeopleScreen() {
 
   const fetchPage = useCallback(
     (page: number): Promise<Person[]> =>
-      offer === null
-        ? Promise.resolve([]) // the remembered offer is still being read
-        : fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, offer, page }),
+      fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, offer, page }),
     [search, sort, dir, stage, linkedin, rating, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(fetchPage, PEOPLE_PAGE_SIZE);
@@ -103,7 +101,7 @@ export default function PeopleScreen() {
         )}
       </View>
 
-      {offer !== null && <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />}
+      <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
       <ChipRow label={t("common.pipelineStage")}>
         {STAGE_FILTERS.map((filter) => (
           <FilterChip
@@ -148,7 +146,7 @@ export default function PeopleScreen() {
         ))}
       </ChipRow>
 
-      {loading || offer === null ? (
+      {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>
