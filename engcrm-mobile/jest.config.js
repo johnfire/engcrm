@@ -15,6 +15,7 @@ module.exports = {
     "^@react-native-async-storage/async-storage$":
       "<rootDir>/node_modules/@react-native-async-storage/async-storage/jest/async-storage-mock.js",
   },
+  setupFiles: ["<rootDir>/jest.setup.js"],
   testMatch: ["**/__tests__/**/*.[jt]s?(x)"],
   // The first test in a screen file pays for transforming the React Native
   // modules it loads: ~2.4 s here with a cold cache vs ~0.25 s warm. CI always

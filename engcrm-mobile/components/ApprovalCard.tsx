@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Approval } from "../services/api";
 import { useTranslation } from "../i18n/I18nContext";
+import { ModalSafeArea } from "./ModalSafeArea";
 
 interface Props {
   item: Approval;
@@ -52,7 +53,7 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
       </TouchableOpacity>
 
       <Modal visible={expanded} animationType="slide">
-        <View style={styles.modal}>
+        <ModalSafeArea edges={["top", "bottom"]} style={styles.modal}>
           <Text style={styles.modalTitle}>{item.draft_subject}</Text>
           <Text style={styles.modalVenue}>
             {item.name} · {item.city}
@@ -66,7 +67,7 @@ export function ApprovalCard({ item, onApprove, onReject, onEdit }: Props) {
           >
             <Text style={styles.closeTxt}>{t("approvalCard.close")}</Text>
           </TouchableOpacity>
-        </View>
+        </ModalSafeArea>
       </Modal>
     </>
   );
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editTxt: { color: "#aaa", fontSize: 12, fontWeight: "600" },
-  modal: { flex: 1, backgroundColor: "#0f0f23", padding: 24, paddingTop: 60 },
+  modal: { flex: 1, backgroundColor: "#0f0f23", padding: 24 },
   modalTitle: {
     color: "#fff",
     fontSize: 18,

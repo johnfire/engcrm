@@ -1,5 +1,6 @@
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useTranslation } from "../i18n/I18nContext";
+import { ModalSafeArea } from "./ModalSafeArea";
 
 const CLASSIFICATIONS = [
   { key: "interested", labelKey: "classifySheet.interested", color: "#22c55e" },
@@ -21,7 +22,7 @@ export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
   const { t } = useTranslation();
   return (
     <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.overlay}>
+      <ModalSafeArea edges={["bottom"]} style={styles.overlay}>
         <View style={styles.sheet}>
           <Text style={styles.title}>{t("classifySheet.title")}</Text>
           {CLASSIFICATIONS.map((classification) => (
@@ -39,7 +40,7 @@ export function ClassifySheet({ visible, onSelect, onCancel }: Props) {
             <Text style={styles.cancelText}>{t("classifySheet.cancel")}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ModalSafeArea>
     </Modal>
   );
 }

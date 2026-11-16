@@ -62,4 +62,12 @@ describe("ApprovalCard", () => {
     fireEvent.press(getByText("Reject"));
     expect(onReject).toHaveBeenCalledWith(mockApproval);
   });
+
+  it("keeps the full draft view clear of both system bars", () => {
+    const { getByText, getByTestId } = render(
+      <ApprovalCard item={mockApproval} onApprove={jest.fn()} onReject={jest.fn()} onEdit={jest.fn()} />,
+    );
+    fireEvent.press(getByText("Test Subject"));
+    expect(getByTestId("modal-safe-area").props.edges).toEqual({ bottom: "additive", top: "additive", left: "off", right: "off" });
+  });
 });

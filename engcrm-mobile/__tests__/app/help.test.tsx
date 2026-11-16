@@ -31,6 +31,7 @@ describe("Help Centre", () => {
     await waitFor(() => expect(screen.getByText("Review safely")).toBeTruthy());
     fireEvent.press(screen.getByText("Review safely"));
     expect(screen.getByText("Nothing is sent automatically.")).toBeTruthy();
+    expect(screen.getByTestId("modal-safe-area").props.edges).toEqual({ bottom: "additive", top: "additive", left: "off", right: "off" });
     fireEvent.press(screen.getByText("Yes"));
     await waitFor(() => expect(mockFeedback).toHaveBeenCalledWith(1, true));
   });

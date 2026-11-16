@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { useTranslation } from "../i18n/I18nContext";
+import { ModalSafeArea } from "./ModalSafeArea";
 
 interface Props {
   visible: boolean;
@@ -34,8 +35,9 @@ export function RejectSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide">
+      <ModalSafeArea edges={["bottom"]} style={styles.overlay}>
       <KeyboardAvoidingView
-        style={styles.overlay}
+        style={styles.keyboardArea}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.sheet}>
@@ -61,6 +63,7 @@ export function RejectSheet({
           </View>
         </View>
       </KeyboardAvoidingView>
+      </ModalSafeArea>
     </Modal>
   );
 }
@@ -71,6 +74,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "#00000088",
   },
+  keyboardArea: { flex: 1, justifyContent: "flex-end" },
   sheet: {
     backgroundColor: "#1e1e3a",
     borderRadius: 16,

@@ -2,6 +2,7 @@ import "../services/fieldModeTask"; // field mode's background task: must be def
 import { useCallback, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isLoggedIn } from "../services/auth";
 import { fetchHelpTourStatus, fetchMe } from "../services/api";
 import { addLanguageChangeListener, registerForPushNotifications } from "../services/notifications";
@@ -13,6 +14,7 @@ function InnerLayout() {
   const segments = useSegments();
   const [checked, setChecked] = useState(false);
   const { setLanguage } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   // Pulls the account's current ui_language from the server and applies it.
   // Best-effort: not logged in yet, offline, or an expired token just leaves
@@ -87,7 +89,15 @@ function InnerLayout() {
   if (!checked) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    // Android draws the app edge-to-edge, under the back/home/recents bar. This
+    // padding lifts every screen's bottom (lists, Add business, Save buttons, the
+    // drawer menu) above that bar; the strip behind the bar gets the app colour.
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { paddingBottom: insets.bottom, backgroundColor: "#0f0f23" },
+      }}
+    >
       <Stack.Screen name="login" />
       <Stack.Screen name="forgot-password" />
       <Stack.Screen name="(drawer)" />

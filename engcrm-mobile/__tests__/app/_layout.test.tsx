@@ -3,8 +3,12 @@ import { AppState } from "react-native";
 
 let mockSegments: string[] = [];
 const mockReplace = jest.fn();
+let mockStackOptions: any;
 jest.mock("expo-router", () => {
-  const Stack: any = ({ children }: any) => children;
+  const Stack: any = ({ children, screenOptions }: any) => {
+    mockStackOptions = screenOptions;
+    return children;
+  };
   Stack.Screen = () => null;
   return {
     Stack,
@@ -45,6 +49,7 @@ jest.mock("../../i18n/I18nContext", () => ({
   useTranslation: () => ({ language: "en", setLanguage: mockSetLanguage, t: (key: string) => key }),
 }));
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import RootLayout from "../../app/_layout";
 
 describe("root layout language sync", () => {
@@ -147,5 +152,18 @@ describe("root layout language sync", () => {
     act(() => languageChangeCallback!("fr"));
 
     expect(mockSetLanguage).not.toHaveBeenCalled();
+  });
+});
+
+describe("root layout system bars", () => {
+  it("keeps every screen above Android's back/home/recents bar", async () => {
+    (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 24, bottom: 48, left: 0, right: 0 });
+    mockIsLoggedIn.mockResolvedValue(false);
+    mockSegments = [];
+
+    render(<RootLayout />);
+
+    await waitFor(() => expect(mockStackOptions).toBeDefined());
+    expect(mockStackOptions.contentStyle).toMatchObject({ paddingBottom: 48 });
   });
 });
