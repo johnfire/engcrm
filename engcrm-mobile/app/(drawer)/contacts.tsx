@@ -5,6 +5,7 @@ import { AddBusinessButton } from "../../components/add-business-button";
 import { ContactCountsStrip } from "../../components/contact-counts";
 import { ContactFeedRow } from "../../components/contact-feed-row";
 import { ContactFeedControls } from "../../components/contact-feed-controls";
+import { FilterPanel, ListSearchRow } from "../../components/ListFilters";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OfferFilterChips } from "../../components/OfferFilterChips";
 import { useOfferFilter } from "../../hooks/useOfferFilter";
@@ -21,7 +22,10 @@ export default function ContactsScreen() {
   const [kind, setKind] = useState<ContactKind | "">("");
   const [stage, setStage] = useState("");
   const [sort, setSort] = useState<ContactSort>("last_contact");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { offer, offers, choose: chooseOffer } = useOfferFilter();
+  const activeFilters = [offer !== ALL_OFFERS, kind !== "", stage !== ""].filter(Boolean).length;
+  const clearFilters = () => { chooseOffer(ALL_OFFERS); setKind(""); setStage(""); };
   const fetchPage = useCallback((page: number) =>
     fetchContactFeed({ search, kind, stage, sort, page, offer }),
     [search, kind, stage, sort, offer]);
@@ -30,11 +34,15 @@ export default function ContactsScreen() {
 
   return (
     <View style={styles.container}>
-      <AddBusinessButton isAdmin={!!isAdmin} />
-      <ContactCountsStrip offer={offer} />
-      <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
-      <ContactFeedControls search={search} kind={kind} stage={stage} sort={sort}
-        onSearchChange={setSearch} onKindChange={setKind} onStageChange={setStage} onSortChange={setSort} onSubmit={reload} />
+      <ListSearchRow placeholder={t("contactFeed.search")} search={search} onSearchChange={setSearch} onSubmit={reload}
+        filtersOpen={filtersOpen} activeFilters={activeFilters} onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+        action={<AddBusinessButton isAdmin={!!isAdmin} />} />
+      <FilterPanel open={filtersOpen} activeFilters={activeFilters} onClear={clearFilters}>
+        <ContactCountsStrip offer={offer} />
+        <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
+        <ContactFeedControls kind={kind} stage={stage} sort={sort}
+          onKindChange={setKind} onStageChange={setStage} onSortChange={setSort} />
+      </FilterPanel>
       {error && <Text style={styles.message}>{t("common.couldntLoadRefresh")}</Text>}
       {loading ? <ActivityIndicator style={styles.loading} color="#7c6fff" /> : <FlatList
         data={items} keyExtractor={contactKey} contentContainerStyle={styles.list}

@@ -781,5 +781,8 @@
   "sale.expectedOnLabel": "Erwartet am (optional)",
   "sale.moveTo": "Verschieben nach",
   "sale.status.expected": "Erwartet",
-  "sale.paymentOf": "Rate {{part}} von {{total}}"
+  "sale.paymentOf": "Rate {{part}} von {{total}}",
+  "listFilters.button": "Filter",
+  "listFilters.buttonActive": "Filter ({{count}})",
+  "listFilters.clear": "Filter zurücksetzen"
 }

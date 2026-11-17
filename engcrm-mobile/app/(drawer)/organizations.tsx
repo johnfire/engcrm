@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  FlatList,
-  TextInput,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  TouchableOpacity,
-} from "react-native";
+import { View, FlatList, Text, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import {
   fetchOrganizations,
@@ -20,6 +11,8 @@ import { getRole } from "../../services/auth";
 import { usePagedList } from "../../services/usePagedList";
 import { OrganizationListControls } from "../../components/OrganizationListControls";
 import { OrganizationRow } from "../../components/OrganizationRow";
+import { FilterPanel, ListSearchRow } from "../../components/ListFilters";
+import { ListAddButton } from "../../components/add-business-button";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OfferFilterChips } from "../../components/OfferFilterChips";
 import { useOfferFilter } from "../../hooks/useOfferFilter";
@@ -38,7 +31,19 @@ export default function OrganizationsScreen() {
   const [sort, setSort] = useState<OrganizationSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const { offer, offers, choose: chooseOffer } = useOfferFilter();
+  const activeFilters = [offer !== ALL_OFFERS, stage, status, personalPriority, linkedin, suppressed]
+    .filter(Boolean).length;
+  const clearFilters = () => {
+    chooseOffer(ALL_OFFERS);
+    setStage("");
+    setStatus("");
+    setPersonalPriority("");
+    setLinkedin("");
+    setSuppressed("");
+  };
 
   const fetchPage = useCallback(
     (page: number): Promise<Organization[]> =>
@@ -73,47 +78,42 @@ export default function OrganizationsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.search}
-          placeholder={t("organizations.searchPlaceholder")}
-          placeholderTextColor="#555"
-          value={search}
-          onChangeText={setSearch}
-          onSubmitEditing={reload}
-          returnKeyType="search"
-          accessibilityLabel={t("organizations.searchPlaceholder")}
-        />
-        {isAdmin && (
-          <TouchableOpacity
-            style={styles.add}
+      <ListSearchRow
+        placeholder={t("organizations.searchPlaceholder")}
+        search={search}
+        onSearchChange={setSearch}
+        onSubmit={reload}
+        filtersOpen={filtersOpen}
+        activeFilters={activeFilters}
+        onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+        action={isAdmin && (
+          <ListAddButton
+            label={t("businessForm.add")}
             onPress={() => router.push({ pathname: "/(drawer)/edit-organization", params: {} })}
-            accessibilityRole="button"
-            accessibilityLabel={t("businessForm.add")}
-          >
-            <Text style={styles.addText}>{t("businessForm.add")}</Text>
-          </TouchableOpacity>
+          />
         )}
-      </View>
-      <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
-      <OrganizationListControls
-        stage={stage}
-        status={status}
-        personalPriority={personalPriority}
-        linkedin={linkedin}
-        suppressed={suppressed}
-        sort={sort}
-        direction={dir}
-        onStageChange={setStage}
-        onStatusChange={setStatus}
-        onPriorityChange={setPersonalPriority}
-        onLinkedinChange={setLinkedin}
-        onSuppressedChange={setSuppressed}
-        onSortChange={(nextSort, nextDirection) => {
-          setSort(nextSort);
-          setDir(nextDirection);
-        }}
       />
+      <FilterPanel open={filtersOpen} activeFilters={activeFilters} onClear={clearFilters}>
+        <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
+        <OrganizationListControls
+          stage={stage}
+          status={status}
+          personalPriority={personalPriority}
+          linkedin={linkedin}
+          suppressed={suppressed}
+          sort={sort}
+          direction={dir}
+          onStageChange={setStage}
+          onStatusChange={setStatus}
+          onPriorityChange={setPersonalPriority}
+          onLinkedinChange={setLinkedin}
+          onSuppressedChange={setSuppressed}
+          onSortChange={(nextSort, nextDirection) => {
+            setSort(nextSort);
+            setDir(nextDirection);
+          }}
+        />
+      </FilterPanel>
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
@@ -152,24 +152,6 @@ export default function OrganizationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
-  searchRow: { alignItems: "center", flexDirection: "row", gap: 8, margin: 16, marginBottom: 8 },
-  search: {
-    backgroundColor: "#1a1a2e",
-    color: "#fff",
-    borderRadius: 10,
-    flex: 1,
-    padding: 12,
-    fontSize: 14,
-  },
-  add: {
-    alignItems: "center",
-    backgroundColor: "#7c6fff",
-    borderRadius: 10,
-    justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 12,
-  },
-  addText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   list: { padding: 16 },
   more: { marginVertical: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },

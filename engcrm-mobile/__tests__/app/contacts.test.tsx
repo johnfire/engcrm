@@ -4,11 +4,12 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 const mockFetch = jest.fn();
 const mockPush = jest.fn();
 const mockRole = jest.fn();
+const mockCounts = jest.fn();
 jest.mock("../../services/auth", () => ({ getRole: () => mockRole() }));
 jest.mock("../../services/contact-feed", () => ({
   ...jest.requireActual("../../services/contact-feed"),
   fetchContactFeed: (...args: unknown[]) => mockFetch(...args),
-  fetchContactCounts: () => Promise.reject(new Error("counts are optional")),
+  fetchContactCounts: (...args: unknown[]) => mockCounts(...args),
 }));
 jest.mock("../../services/deals", () => ({
   ...jest.requireActual("../../services/deals"),
@@ -35,6 +36,7 @@ const contact = (kind: ContactEntry["kind"], id: number, name: string): ContactE
 beforeEach(() => {
   jest.clearAllMocks();
   mockRole.mockResolvedValue("admin");
+  mockCounts.mockRejectedValue(new Error("counts are optional"));
   mockFetch.mockResolvedValue([contact("person", 1, "Ann Example"), contact("organization", 1, "Academy")]);
 });
 
@@ -53,6 +55,7 @@ it("combines search, contact type and stage and changes sort without losing filt
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
   fireEvent.changeText(screen.getByLabelText("Search people and organizations"), "Ann");
+  fireEvent.press(screen.getByLabelText("Filters"));
   fireEvent.press(screen.getByText("People without business"));
   fireEvent.press(screen.getAllByText("Candidate")[0]);
   fireEvent.press(screen.getByText("Name"));
@@ -61,6 +64,8 @@ it("combines search, contact type and stage and changes sort without losing filt
 
 it("shows one offer's pipeline when picked, and opens on every offer again next time", async () => {
   const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Filters"));
   await waitFor(() => expect(screen.getByText("LearnWohl")).toBeTruthy());
   fireEvent.press(screen.getByText("LearnWohl"));
   await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ offer: "learnwohl" })));
@@ -70,6 +75,43 @@ it("shows one offer's pipeline when picked, and opens on every offer again next 
   await waitFor(() => expect(mockFetch).toHaveBeenCalled());
   expect(mockFetch).toHaveBeenCalledWith(expect.objectContaining({ page: 1, offer: "all" }));
   expect(mockFetch).not.toHaveBeenCalledWith(expect.objectContaining({ offer: "learnwohl" }));
+});
+
+it("keeps the filters and counts folded away so the list has the screen", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
+  expect(screen.getByLabelText("Search people and organizations")).toBeTruthy();
+  expect(screen.queryByText("People without business")).toBeNull();
+  expect(screen.queryByText("Consulting")).toBeNull();
+  expect(mockCounts).not.toHaveBeenCalled();
+
+  mockCounts.mockResolvedValue({ business_start: "2026-01-01",
+    month: { people: 3, organizations: 2 }, since_start: { people: 30, organizations: 20 } });
+  fireEvent.press(screen.getByLabelText("Filters"));
+  expect(screen.getByText("People without business")).toBeTruthy();
+  await waitFor(() => expect(screen.getByText("This month")).toBeTruthy());
+
+  fireEvent.press(screen.getByLabelText("Filters"));
+  expect(screen.queryByText("People without business")).toBeNull();
+  expect(screen.queryByText("This month")).toBeNull();
+});
+
+it("counts the filters in use and clears them all at once, keeping the search", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
+  fireEvent.changeText(screen.getByLabelText("Search people and organizations"), "Ann");
+  fireEvent.press(screen.getByLabelText("Filters"));
+  await waitFor(() => expect(screen.getByText("LearnWohl")).toBeTruthy());
+  fireEvent.press(screen.getByText("LearnWohl"));
+  fireEvent.press(screen.getByText("People without business"));
+  fireEvent.press(screen.getAllByText("Candidate")[0]);
+  fireEvent.press(screen.getByText("Name"));
+  expect(screen.getByText("Filters (3) ▴")).toBeTruthy();
+
+  fireEvent.press(screen.getByText("Clear filters"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "", stage: "", sort: "name", page: 1, offer: "all" }));
+  expect(screen.getByText("Filters ▴")).toBeTruthy();
+  expect(screen.queryByText("Clear filters")).toBeNull();
 });
 
 it("loads another page without dropping people who share an organization ID", async () => {
@@ -103,8 +145,8 @@ it("shows an empty state when neither people nor organizations match", async () 
 
 it("opens manual business entry for admins", async () => {
   const screen = render(<ContactsScreen />);
-  await waitFor(() => expect(screen.getByText("Add business")).toBeTruthy());
-  fireEvent.press(screen.getByText("Add business"));
+  await waitFor(() => expect(screen.getByLabelText("Add business")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Add business"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/edit-organization", params: {} });
 });
 
@@ -112,7 +154,7 @@ it("hides business entry from viewers", async () => {
   mockRole.mockResolvedValue("viewer");
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
-  expect(screen.queryByText("Add business")).toBeNull();
+  expect(screen.queryByLabelText("Add business")).toBeNull();
 });
 
 it("shows the actual last contact day and opens its editor", async () => {

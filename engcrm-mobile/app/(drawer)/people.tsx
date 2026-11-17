@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   View,
   FlatList,
-  TextInput,
   Text,
   StyleSheet,
   ActivityIndicator,
@@ -15,6 +14,8 @@ import { getRole } from "../../services/auth";
 import { PIPELINE_STAGES, stageLabelKey } from "../../services/organizationState";
 import { usePagedList } from "../../services/usePagedList";
 import { ChipRow, FilterChip } from "../../components/FilterChips";
+import { FilterPanel, ListSearchRow } from "../../components/ListFilters";
+import { ListAddButton } from "../../components/add-business-button";
 import { useTranslation } from "../../i18n/I18nContext";
 import { DealChips } from "../../components/DealChips";
 import { OfferFilterChips } from "../../components/OfferFilterChips";
@@ -56,7 +57,16 @@ export default function PeopleScreen() {
   const [sort, setSort] = useState<PersonSortKey>("created_at");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const { offer, offers, choose: chooseOffer } = useOfferFilter();
+  const activeFilters = [offer !== ALL_OFFERS, stage, linkedin, rating].filter(Boolean).length;
+  const clearFilters = () => {
+    chooseOffer(ALL_OFFERS);
+    setStage("");
+    setLinkedin("");
+    setRating("");
+  };
 
   const fetchPage = useCallback(
     (page: number): Promise<Person[]> =>
@@ -77,74 +87,67 @@ export default function PeopleScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.search}
-          placeholder={t("people.searchPlaceholder")}
-          placeholderTextColor="#555"
-          value={search}
-          onChangeText={setSearch}
-          onSubmitEditing={reload}
-          returnKeyType="search"
-          autoCapitalize="none"
-          accessibilityLabel={t("people.searchPlaceholder")}
-        />
-        {isAdmin && (
-          <TouchableOpacity
-            style={styles.add}
+      <ListSearchRow
+        placeholder={t("people.searchPlaceholder")}
+        search={search}
+        onSearchChange={setSearch}
+        onSubmit={reload}
+        filtersOpen={filtersOpen}
+        activeFilters={activeFilters}
+        onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+        action={isAdmin && (
+          <ListAddButton
+            label={t("recordForm.addPerson")}
             onPress={() => router.push({ pathname: "/(drawer)/edit-person", params: {} })}
-            accessibilityRole="button"
-            accessibilityLabel={t("recordForm.addPerson")}
-          >
-            <Text style={styles.addText}>+</Text>
-          </TouchableOpacity>
+          />
         )}
-      </View>
-
-      <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
-      <ChipRow label={t("common.pipelineStage")}>
-        {STAGE_FILTERS.map((filter) => (
+      />
+      <FilterPanel open={filtersOpen} activeFilters={activeFilters} onClear={clearFilters}>
+        <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
+        <ChipRow label={t("common.pipelineStage")}>
+          {STAGE_FILTERS.map((filter) => (
+            <FilterChip
+              key={filter}
+              label={
+                filter === ""
+                  ? t("organizations.allStages")
+                  : filter === "none"
+                    ? t("people.noStage")
+                    : t(stageLabelKey(filter))
+              }
+              isActive={stage === filter}
+              onPress={() => setStage(filter)}
+            />
+          ))}
+        </ChipRow>
+        <ChipRow label={t("people.ratingFilter")}>
+          {RATING_FILTERS.map(({ value, label }) => (
+            <FilterChip key={value || "any"} label={label(t)} isActive={rating === value} onPress={() => setRating(value)} />
+          ))}
+        </ChipRow>
+        <ChipRow label={t("people.linkedinFilter")}>
+          <FilterChip label={t("people.everyone")} isActive={linkedin === ""} onPress={() => setLinkedin("")} />
+          <FilterChip label={t("people.linkedinOnly")} isActive={linkedin === "1"} onPress={() => setLinkedin("1")} />
           <FilterChip
-            key={filter}
-            label={
-              filter === ""
-                ? t("organizations.allStages")
-                : filter === "none"
-                  ? t("people.noStage")
-                  : t(stageLabelKey(filter))
-            }
-            isActive={stage === filter}
-            onPress={() => setStage(filter)}
+            label={t("people.linkedinUnlinked")}
+            isActive={linkedin === "unlinked"}
+            onPress={() => setLinkedin("unlinked")}
           />
-        ))}
-      </ChipRow>
-      <ChipRow label={t("people.ratingFilter")}>
-        {RATING_FILTERS.map(({ value, label }) => (
-          <FilterChip key={value || "any"} label={label(t)} isActive={rating === value} onPress={() => setRating(value)} />
-        ))}
-      </ChipRow>
-      <ChipRow label={t("people.linkedinFilter")}>
-        <FilterChip label={t("people.everyone")} isActive={linkedin === ""} onPress={() => setLinkedin("")} />
-        <FilterChip label={t("people.linkedinOnly")} isActive={linkedin === "1"} onPress={() => setLinkedin("1")} />
-        <FilterChip
-          label={t("people.linkedinUnlinked")}
-          isActive={linkedin === "unlinked"}
-          onPress={() => setLinkedin("unlinked")}
-        />
-      </ChipRow>
-      <ChipRow label={t("common.sortBy")}>
-        {SORT_OPTIONS.map((option) => (
-          <FilterChip
-            key={`${option.key}-${option.dir}`}
-            label={t(option.labelKey)}
-            isActive={sort === option.key && dir === option.dir}
-            onPress={() => {
-              setSort(option.key);
-              setDir(option.dir);
-            }}
-          />
-        ))}
-      </ChipRow>
+        </ChipRow>
+        <ChipRow label={t("common.sortBy")}>
+          {SORT_OPTIONS.map((option) => (
+            <FilterChip
+              key={`${option.key}-${option.dir}`}
+              label={t(option.labelKey)}
+              isActive={sort === option.key && dir === option.dir}
+              onPress={() => {
+                setSort(option.key);
+                setDir(option.dir);
+              }}
+            />
+          ))}
+        </ChipRow>
+      </FilterPanel>
 
       {loading ? (
         <View style={styles.center}>
@@ -224,24 +227,6 @@ function PersonRow({ person, onPress, showOffer }: { person: Person; onPress: (i
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" },
-  searchRow: { alignItems: "center", flexDirection: "row", gap: 8, margin: 16, marginBottom: 8 },
-  search: {
-    backgroundColor: "#1a1a2e",
-    color: "#fff",
-    borderRadius: 10,
-    flex: 1,
-    padding: 12,
-    fontSize: 14,
-  },
-  add: {
-    alignItems: "center",
-    backgroundColor: "#7c6fff",
-    borderRadius: 10,
-    justifyContent: "center",
-    minHeight: 44,
-    width: 44,
-  },
-  addText: { color: "#fff", fontSize: 24, fontWeight: "600", lineHeight: 28 },
   list: { padding: 16 },
   more: { marginVertical: 16 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },

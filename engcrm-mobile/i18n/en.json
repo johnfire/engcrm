@@ -781,5 +781,8 @@
   "sale.expectedOnLabel": "Expected on (optional)",
   "sale.moveTo": "Move to",
   "sale.status.expected": "Expected",
-  "sale.paymentOf": "payment {{part}} of {{total}}"
+  "sale.paymentOf": "payment {{part}} of {{total}}",
+  "listFilters.button": "Filters",
+  "listFilters.buttonActive": "Filters ({{count}})",
+  "listFilters.clear": "Clear filters"
 }

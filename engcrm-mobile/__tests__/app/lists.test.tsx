@@ -53,6 +53,7 @@ describe("organizations list", () => {
   it("filters to organizations where I know someone, and by a flag", async () => {
     const screen = render(<OrganizationsScreen />);
     await waitFor(() => expect(screen.getByText("Acme Salon")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Filters"));
     fireEvent.press(screen.getByText("I know someone"));
     await waitFor(() =>
       expect(mockFetchOrganizations).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, linkedin: "1" })),
@@ -108,6 +109,7 @@ describe("people list", () => {
   it("filters by stage, including people with no stage, and by LinkedIn", async () => {
     const screen = render(<PeopleScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Filters"));
     fireEvent.press(screen.getByText("No stage"));
     await waitFor(() => expect(mockFetchPeople).toHaveBeenLastCalledWith(expect.objectContaining({ stage: "none" })));
     fireEvent.press(screen.getByText("Not linked to an organization"));
@@ -119,6 +121,7 @@ describe("people list", () => {
   it("sorts by when they connected, newest first", async () => {
     const screen = render(<PeopleScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Filters"));
     fireEvent.press(screen.getByText("Recently connected"));
     await waitFor(() =>
       expect(mockFetchPeople).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "connected_on", dir: "desc" })),
@@ -128,6 +131,7 @@ describe("people list", () => {
   it("sorts by city, A to Z", async () => {
     const screen = render(<PeopleScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Filters"));
     fireEvent.press(screen.getByText("City"));
     await waitFor(() =>
       expect(mockFetchPeople).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "city", dir: "asc" })),
@@ -137,6 +141,7 @@ describe("people list", () => {
   it("finds candidates I rated 3 or better: stage and rating together", async () => {
     const screen = render(<PeopleScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Filters"));
     fireEvent.press(screen.getAllByText("Candidate")[0]);
     fireEvent.press(screen.getByText("3 Medium or better"));
     await waitFor(() =>
