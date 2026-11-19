@@ -56,10 +56,11 @@ def make_mock_conn(*fetchall_sequences, fetchone_sequence=None):
 CONTACT_ROW = {
     "id": 1, "name": "Acme GmbH", "city": "Augsburg", "country": "DE", "type": "Handwerksbetrieb",
     "pipeline_stage": "candidate", "status": "none",
+    "deals": [{"id": 1, "offer": "Consulting", "slug": "consulting", "stage": "candidate", "status": "none"}],
     "do_not_contact": False, "email_bounced": False, "research_exhausted": False,
     "email": "a@acme.de", "website": "https://acme.de", "fit_score": 80,
     "notes": "Test note", "flagged": False, "starred": False,
-    "personal_priority": None, "last_contact": None, "distance_km": None,
+    "personal_priority": None, "last_contact": None, "first_contact": None, "customer_since": None, "distance_km": None,
 }
 
 INTERACTION_ROW = {

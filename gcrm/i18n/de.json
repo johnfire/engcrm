@@ -297,6 +297,8 @@
   "organizations.colFit": "Fit",
   "organizations.colStarred": "Markiert",
   "organizations.colLastContact": "Letzter Kontakt",
+  "organizations.colDays": "Tage",
+  "organizations.colDaysHint": "Tage vom ersten Kontakt bis sie Kunde wurden, oder bis heute, solange sie es noch nicht sind. Leer bei Kandidaten und Verdachtsfällen.",
   "organizations.noContactsFound": "Keine Organisationen gefunden.",
   "organizations.deleteConfirm": "{{name}} löschen?",
   "organizations.del": "löschen",

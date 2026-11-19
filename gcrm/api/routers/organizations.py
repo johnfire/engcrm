@@ -17,6 +17,7 @@ from gcrm.organization_state import (
     PIPELINE_STAGES,
     SUPPRESSION_FLAGS,
 )
+from gcrm.pipeline_days import days_to_customer
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import (
@@ -182,6 +183,10 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
                 c.created_at, cup.priority AS personal_priority,
                 cup.short_term_value, cup.long_term_value,
                 MAX(i.interaction_date) AS last_contact,
+                MIN(i.interaction_date) AS first_contact,
+                (SELECT MAX(sc.changed_at) FROM stage_changes sc
+                  WHERE sc.entity_type = 'organization' AND sc.entity_id = c.id
+                    AND sc.to_stage = 'customer') AS customer_since,
                 (SELECT COUNT(*) FROM people lp
                   WHERE lp.contact_id = c.id AND lp.is_linkedin_contact AND lp.deleted_at IS NULL
                 ) AS linkedin_connection_count,
@@ -203,6 +208,9 @@ def _fetch_organizations_page(where, params, sort_col, sort_dir, offset, user_id
             query_params,
         )
         organizations = [dict(row) for row in cur.fetchall()]
+        for organization in organizations:
+            organization["days_to_customer"] = days_to_customer(
+                organization["deals"], organization["first_contact"], organization["customer_since"])
 
         stage_counts, status_counts = stage_and_status_counts(cur, "contacts", "c", "contact_id", offer, workspace_id)
         workspace_filter = " AND workspace_id = %s" if workspace_id is not None else ""

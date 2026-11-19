@@ -205,6 +205,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <th>{{ sort_link('personal_priority', t('personalPriority.short')) }}</th>
       <th class="nowrap">{{ sort_link('short_term_value', t('valueRating.shortTermShort'), 'desc') }} / {{ sort_link('long_term_value', t('valueRating.longTermShort'), 'desc') }}</th>
       <th>{{ sort_link('last_contact', t('organizations.colLastContact')) }}</th>
+      <th class="nowrap" title="{{ t('organizations.colDaysHint') }}">{{ t('organizations.colDays') }}</th>
       <th>{{ sort_link('distance', t('common.distanceKm')) }}</th>
       <th>{{ sort_link('created_at', t('common.added'), 'desc') }}</th>
       <th>{{ t('common.email') }}</th>
@@ -266,6 +267,7 @@ if dir == 'desc' else 'desc') if sort == col else default_dir %} {% set arrow
       <td class="muted small nowrap">
         {{ (c.last_contact|dmy) if c.last_contact else '—' }}
       </td>
+      <td class="muted small nowrap">{{ c.days_to_customer if c.days_to_customer is not none else '—' }}</td>
       <td class="muted small nowrap">
         {{ c.distance_km|round|int if c.distance_km is not none else '—' }}
       </td>

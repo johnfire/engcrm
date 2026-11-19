@@ -297,6 +297,8 @@
   "organizations.colFit": "Fit",
   "organizations.colStarred": "Starred",
   "organizations.colLastContact": "Last contact",
+  "organizations.colDays": "Days",
+  "organizations.colDaysHint": "Days from first contact until they became a customer, or until today while they are not one yet. Blank for candidates and suspects.",
   "organizations.noContactsFound": "No organizations found.",
   "organizations.deleteConfirm": "Delete {{name}}?",
   "organizations.del": "del",
