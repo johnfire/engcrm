@@ -478,6 +478,11 @@ pre {
   border: 1px solid var(--muted);
   color: var(--muted);
 }
+.badge-not_now {
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  border-style: dashed;
+}
 .badge-dropped {
   border: 1px solid var(--border);
   color: var(--muted);

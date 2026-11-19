@@ -631,6 +631,7 @@
   "status.proposal": "Angebot",
   "status.dormant": "Ruhend",
   "status.on_hold": "Pausiert",
+  "status.not_now": "Nicht jetzt",
   "status.dropped": "Verworfen",
   "status.not_interested": "Kein Interesse",
   "flag.do_not_contact": "Nicht kontaktieren",
