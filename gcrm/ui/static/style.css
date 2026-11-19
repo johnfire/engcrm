@@ -1025,6 +1025,32 @@ td.nowrap {
 .table-scroll {
   overflow-x: auto;
 }
+/* Always-visible scrollbars. Overlay scrollbars (hidden until you scroll or
+   hover) made a wide table look cut off with no way to reach the rest, so the
+   bars are painted at a fixed size. Chromium and Safari take the -webkit-
+   pseudo-elements; Firefox the standard properties. Both are never set on the
+   same browser: Chrome 121+ would ignore the -webkit- bars if scrollbar-color
+   were also present. */
+.table-scroll::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+.table-scroll::-webkit-scrollbar-track {
+  background: var(--border);
+}
+.table-scroll::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border: 2px solid var(--border);
+  border-radius: 7px;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .table-scroll {
+    scrollbar-color: var(--muted) var(--border);
+  }
+}
 /* A long unbroken value — a URL, a pasted token — must not run out of its box
    and across the page. */
 .notes-cell-inner {
@@ -1039,16 +1065,17 @@ td.nowrap {
    width its content needs, and lets Name and Notes share whatever the screen
    has left, so the table widens with the monitor instead of stretching one
    greedy column. */
-/* The organizations list is long (a page is 100 rows) and wide. As a plain
+/* Long, wide lists (the organizations list: 100 rows; the contacts feed) mark
+   their table `fit-window`. The organizations list is long (a page is 100 rows) and wide. As a plain
    overflow-x box its sideways scrollbar sat at the bottom of the whole table,
    far below the screen. Capping the box at the window's height gives it both
    scrollbars within view, and the sticky header keeps the column names on
    screen while the rows scroll. */
-.table-scroll:has(> table.orgs-table) {
+.table-scroll:has(> table.fit-window) {
   max-height: calc(100vh - 5rem);
   overflow: auto;
 }
-.orgs-table thead th {
+table.fit-window thead th {
   position: sticky;
   top: 0;
   z-index: 2;

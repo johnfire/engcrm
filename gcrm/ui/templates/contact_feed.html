@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}">{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="/static/list-controls.css?v={{ static_version }}"><script nonce="{{ csp_nonce }}" src="/static/fit-table-height.js?v={{ static_version }}" defer></script>{% endblock %}
 {% block title %}{{ t('contactFeed.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide{% endblock %}
 {% block content %}
@@ -84,7 +84,7 @@
 <th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}><a href="{{ link.path }}?{{ link.query }}">{{ label }}{% if active %} {{ '↑' if direction == 'asc' else '↓' }}{% endif %}</a></th>
 {% endmacro %}
 <div class="table-scroll">
-  <table>
+  <table class="fit-window">
     <thead><tr>
       {{ sort_th('kind', t('contactFeed.kind')) }}{{ sort_th('name', t('contactFeed.name')) }}
       <th scope="col">{{ t('contactFeed.details') }}</th>{{ sort_th('city', t('contactFeed.city')) }}
