@@ -91,6 +91,7 @@
       {{ sort_th('total_value', t('contactFeed.totalValue'), 'desc') }}{{ sort_th('priority', t('contactFeed.priority')) }}{{ sort_th('long_term_value', t('contactFeed.longTerm'), 'desc') }}{{ sort_th('short_term_value', t('contactFeed.shortTerm'), 'desc') }}
       {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}{{ sort_th('next_contact', t('contactFeed.next_contact')) }}
       {{ sort_th('last_contact', t('contactFeed.last_contact'), 'desc') }}
+      <th scope="col" class="nowrap" title="{{ t('contactFeed.daysHint') }}">{{ t('contactFeed.days') }}</th>
     </tr></thead>
     <tbody>
       {% for contact in contacts %}
@@ -126,8 +127,9 @@
           <a href="/contact-feed/{{ contact.last_contact_kind or contact.kind }}/{{ contact.last_contact_id or contact.id }}/date">{{ t('contactDate.edit') }}</a>
           {% endif %}
         </td>
+        <td class="num">{% if contact.days_to_customer is not none %}{{ contact.days_to_customer }}{% else %}<span class="muted">—</span>{% endif %}</td>
       </tr>
-      {% else %}<tr><td colspan="11" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="12" class="muted">{{ t('contactFeed.empty') }}</td></tr>{% endfor %}
     </tbody>
   </table>
 </div>

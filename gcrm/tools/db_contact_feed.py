@@ -1,6 +1,7 @@
 """Workspace-scoped businesses with contacted people grouped underneath."""
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import PIPELINE_STAGES
+from gcrm.pipeline_days import days_to_customer
 from gcrm.tools.db_contact_feed_query import contact_feed_sql
 from gcrm.tools.db_deals import CONSULTING
 
@@ -79,4 +80,7 @@ def get_contact_feed(*, search: str = "", kind: str = "", stage: str = "", sort:
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(query, [user_id, user_id] + parameters + [PAGE_SIZE + int(extra_row), (page - 1) * PAGE_SIZE])
-        return [serialize_row(dict(row)) for row in cursor.fetchall()]
+        rows = [serialize_row(dict(row)) for row in cursor.fetchall()]
+    for row in rows:
+        row["days_to_customer"] = days_to_customer(row["deals"], row["first_contact"], row["customer_since"])
+    return rows

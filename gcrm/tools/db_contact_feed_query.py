@@ -28,6 +28,13 @@ def _contacted_sql(alias: str, column: str) -> str:
             f"AND x.deleted_at IS NULL AND x.status IN ({statuses}))")
 
 
+def _customer_since_sql(alias: str) -> str:
+    """When the owner last became a customer, from the stage-change history."""
+    kind = "person" if alias == "person" else "organization"
+    return (f"(SELECT MAX(sc.changed_at) FROM stage_changes sc WHERE sc.entity_type = '{kind}' "
+            f"AND sc.entity_id = {alias}.id AND sc.to_stage = 'customer')")
+
+
 def _next_step_sql(alias: str, column: str, offer: str | None, field: str) -> str:
     """`field` (next_step_date or next_step) of the owner's dated live deal that
     is due soonest — that offer's, or across every offer's."""
@@ -68,7 +75,10 @@ WITH my_ratings AS (
            {_contacted_sql("person", "person_id")} AS contacted,
            {total_value_sql("person", "person_id", offer)} AS total_value,
            (SELECT MAX({contact_day_sql("person", "occurred_at")}) FROM people_interactions
-             WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact
+             WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS last_contact,
+           (SELECT MIN({contact_day_sql("person", "occurred_at")}) FROM people_interactions
+             WHERE person_id=person.id AND {CONTACT_HISTORY_FILTER}) AS first_contact,
+           {_customer_since_sql("person")} AS customer_since
       FROM people person
       {person_join}
       LEFT JOIN contacts organization ON organization.id=person.contact_id
@@ -81,7 +91,8 @@ WITH my_ratings AS (
                'phone', phone, 'city', city, 'pipeline_stage', pipeline_stage,
                'last_contact', last_contact
            ) ORDER BY last_contact DESC NULLS LAST, id DESC) AS people,
-           string_agg(concat_ws(' ', name, title, email, phone, city), ' ') AS searchable_people
+           string_agg(concat_ws(' ', name, title, email, phone, city), ' ') AS searchable_people,
+           MIN(first_contact) AS first_person_contact
       FROM active_people WHERE business_id IS NOT NULL AND (last_contact IS NOT NULL OR contacted)
      GROUP BY business_id
 ), business_contacts AS (
@@ -94,13 +105,15 @@ WITH my_ratings AS (
            {_contacted_sql("organization", "contact_id")} AS contacted,
            {total_value_sql("organization", "contact_id", offer)} AS total_value,
            linked.people, linked.searchable_people,
+           {_customer_since_sql("organization")} AS customer_since,
            direct.last_contact AS direct_contact,
+           direct.first_contact AS direct_first_contact, linked.first_person_contact,
            (linked.people->0->>'last_contact')::date AS person_contact
       FROM contacts organization
       {organization_join}
       LEFT JOIN business_people linked ON linked.business_id=organization.id
       LEFT JOIN LATERAL (
-          SELECT MAX(interaction_date) AS last_contact FROM interactions
+          SELECT MAX(interaction_date) AS last_contact, MIN(interaction_date) AS first_contact FROM interactions
            WHERE contact_id=organization.id AND {CONTACT_HISTORY_FILTER}
       ) direct ON TRUE
      WHERE organization.deleted_at IS NULL
@@ -108,6 +121,7 @@ WITH my_ratings AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
            city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, next_contact, next_contact_step,
            total_value, created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
+           LEAST(direct_first_contact, first_person_contact) AS first_contact, customer_since,
            contacted OR people IS NOT NULL AS contacted,
            COALESCE(people, '[]'::jsonb) AS people, searchable_people,
            CASE WHEN person_contact IS NULL OR direct_contact >= person_contact
@@ -121,12 +135,13 @@ WITH my_ratings AS (
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
            person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
            person.next_contact, person.next_contact_step, person.total_value, person.created_at, person.workspace_id, person.last_contact,
+           person.first_contact, person.customer_since,
            person.contacted,
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL
 )
 SELECT id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
-       next_contact, next_contact_step, total_value, created_at, last_contact, people, last_contact_kind, last_contact_id, last_contact_name,
+       next_contact, next_contact_step, total_value, created_at, last_contact, first_contact, customer_since, people, last_contact_kind, last_contact_id, last_contact_name,
        rating.priority, rating.short_term_value, rating.long_term_value
 FROM contact_feed
 LEFT JOIN my_ratings rating ON rating.rated_kind = contact_feed.kind AND rating.rated_id = contact_feed.id

@@ -10,6 +10,8 @@ MEASURED_STAGES = ("nibble", "prospect", "opportunity", "customer")
 
 
 def _as_date(value) -> date | None:
+    if isinstance(value, str):  # feed rows are JSON-safe ISO strings
+        return date.fromisoformat(value[:10])
     if isinstance(value, datetime):
         return value.date()
     return value

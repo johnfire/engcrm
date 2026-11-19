@@ -34,3 +34,8 @@ def test_no_contact_yet_is_blank():
 
 def test_no_deals_is_blank():
     assert days_to_customer([], date(2026, 11, 1), None, TODAY) is None
+
+
+def test_accepts_the_iso_strings_feed_rows_carry():
+    assert days_to_customer(_deals("prospect"), "2026-11-09", None, TODAY) == 10
+    assert days_to_customer(_deals("customer"), "2026-11-01", "2026-11-15T14:30:00+00:00", TODAY) == 14

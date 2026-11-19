@@ -918,6 +918,8 @@
   "businessForm.openExisting": "Open existing business",
   "businessForm.failed": "Could not save. Your entries are still here — please try again.",
   "contactFeed.last_contact": "Last contact",
+  "contactFeed.days": "Days",
+  "contactFeed.daysHint": "Days from first contact until they became a customer, or until today while they are not one yet. Blank for candidates and suspects.",
   "contactFeed.next_contact": "Next contact",
   "contactFeed.noDate": "Contacted, date not recorded",
   "date.placeholder": "DD.MM.YYYY",
