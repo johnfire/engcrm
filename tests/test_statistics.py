@@ -56,6 +56,7 @@ def test_bad_minutes_are_refused(value):
     ("prospect", "suspect", "back"),
     ("opportunity", "not_in_pipeline", "dropped"), ("not_in_pipeline", "prospect", "other"),
     (None, "candidate", "other"),
+    ("prospect", "not_now", "back"), ("not_now", "prospect", "other"),
 ])
 def test_stage_direction(before, after, direction):
     assert stage_direction(before, after) == direction

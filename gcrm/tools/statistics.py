@@ -19,7 +19,7 @@ from gcrm.tools.deal_money import insert_sale_payments, rate_text
 PERIODS = ("week", "month", "quarter", "year")
 WORKING_STAGES = ("suspect", "nibble", "prospect", "opportunity")
 STUCK_AFTER_DAYS = 28
-_FORWARD_ORDER = [s for s in PIPELINE_STAGES if s != "not_in_pipeline"]
+_FORWARD_ORDER = [s for s in PIPELINE_STAGES if s not in ("not_now", "not_in_pipeline")]
 
 
 # --- Periods -----------------------------------------------------------------
@@ -307,6 +307,8 @@ def stage_direction(from_stage: str | None, to_stage: str | None) -> str:
     """forward / back / dropped / other, along candidate → … → customer."""
     if to_stage == "not_in_pipeline":
         return "dropped"
+    if to_stage == "not_now":
+        return "back"  # stepped back; leaving it again is not a promotion, so "other"
     if from_stage in _FORWARD_ORDER and to_stage in _FORWARD_ORDER:
         return "forward" if _FORWARD_ORDER.index(to_stage) > _FORWARD_ORDER.index(from_stage) else "back"
     return "other"

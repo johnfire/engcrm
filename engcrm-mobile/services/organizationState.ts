@@ -14,6 +14,7 @@ export const PIPELINE_STAGES = [
   "prospect",
   "opportunity",
   "customer",
+  "not_now",
   "not_in_pipeline",
 ] as const;
 
@@ -26,7 +27,6 @@ export const STATUSES = [
   "customer",
   "dormant",
   "on_hold",
-  "not_now",
   "dropped",
   "not_interested",
 ] as const;
@@ -59,11 +59,12 @@ export function flagLabelKey(flag: string): string {
  *  "usual combination" hint; it never stops anyone from picking something else. */
 export const TYPICAL_STATUSES_BY_STAGE: Record<PipelineStage, readonly OrganizationStatus[]> = {
   candidate: ["none", "ready"],
-  suspect: ["ready", "contacted", "dormant", "on_hold", "not_now"],
-  nibble: ["contacted", "dormant", "on_hold", "not_now"],
-  prospect: ["contacted", "dormant", "on_hold", "not_now"],
-  opportunity: ["meeting", "proposal", "dormant", "on_hold", "not_now"],
+  suspect: ["ready", "contacted", "dormant", "on_hold"],
+  nibble: ["contacted", "dormant", "on_hold"],
+  prospect: ["contacted", "dormant", "on_hold"],
+  opportunity: ["meeting", "proposal", "dormant", "on_hold"],
   customer: ["none", "customer", "dormant", "on_hold"],
+  not_now: ["none", "dormant", "on_hold"],
   not_in_pipeline: ["not_interested", "dropped", "none"],
 };
 

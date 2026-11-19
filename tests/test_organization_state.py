@@ -108,9 +108,16 @@ def test_customer_is_a_status_as_well_as_a_pipeline_stage():
 
 def test_nibble_sits_between_suspect_and_prospect():
     assert PIPELINE_STAGES == ('candidate', 'suspect', 'nibble', 'prospect',
-                               'opportunity', 'customer', 'not_in_pipeline')
+                               'opportunity', 'customer', 'not_now', 'not_in_pipeline')
     assert PIPELINE_SORT_ORDER == ('customer', 'opportunity', 'prospect', 'nibble',
-                                   'suspect', 'candidate', 'not_in_pipeline')
+                                   'suspect', 'candidate', 'not_now', 'not_in_pipeline')
     assert coerce_stage('nibble') == 'nibble'
     assert is_typical('nibble', 'contacted')
     assert not is_typical('nibble', 'ready')
+
+
+def test_not_now_is_a_stage_not_a_status():
+    assert 'not_now' in PIPELINE_STAGES
+    assert 'not_now' not in STATUSES
+    assert coerce_stage('not_now') == 'not_now'
+    assert is_typical('not_now', 'none')

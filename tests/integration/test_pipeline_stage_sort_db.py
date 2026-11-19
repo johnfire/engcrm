@@ -10,7 +10,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db_deals import set_organization_deal, set_person_stage
 
 pytestmark = pytest.mark.integration
-EXPECTED_STAGES = ('customer', 'opportunity', 'prospect', 'nibble', 'suspect', 'candidate', 'not_in_pipeline')
+EXPECTED_STAGES = ('customer', 'opportunity', 'prospect', 'nibble', 'suspect', 'candidate', 'not_now', 'not_in_pipeline')
 
 
 @pytest.fixture

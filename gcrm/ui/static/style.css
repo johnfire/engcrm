@@ -444,6 +444,10 @@ pre {
   background: var(--success);
   color: var(--bg);
 }
+.badge-stage-not_now {
+  border: 1px dashed var(--muted);
+  color: var(--muted);
+}
 .badge-stage-not_in_pipeline {
   border: 1px solid var(--border);
   color: var(--muted);
@@ -477,11 +481,6 @@ pre {
 .badge-on_hold {
   border: 1px solid var(--muted);
   color: var(--muted);
-}
-.badge-not_now {
-  border: 1px solid var(--muted);
-  color: var(--muted);
-  border-style: dashed;
 }
 .badge-dropped {
   border: 1px solid var(--border);

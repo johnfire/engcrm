@@ -25,12 +25,13 @@ PIPELINE_STAGES = (
     "prospect",         # they engaged — a real conversation exists
     "opportunity",      # concrete deal in motion
     "customer",         # closed; working together
+    "not_now",          # got past nibble, then stepped back: no fit for now, door still open
     "not_in_pipeline",  # no fit, declined, or never going anywhere
 )
 
 # List sorting is best-first ascending, independent of progression and picker order.
 PIPELINE_SORT_ORDER = (
-    "customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_in_pipeline",
+    "customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_now", "not_in_pipeline",
 )
 
 STATUSES = (
@@ -42,7 +43,6 @@ STATUSES = (
     "customer",   # has purchased or is working with us
     "dormant",    # was active, gone quiet past the dormancy threshold
     "on_hold",    # parked on purpose — timing or budget
-    "not_now",    # they engaged, then stepped back: no fit for now, door still open
     "dropped",         # not being pursued — our decision
     "not_interested",  # they said no — their decision
 )
@@ -50,7 +50,7 @@ STATUSES = (
 # Statuses that mean we have already reached them, so they belong on the
 # Contacts list even when no dated activity was logged. "on_hold" and "dropped"
 # are left out: both are also set on leads nobody ever contacted.
-CONTACTED_STATUSES = ("contacted", "meeting", "proposal", "customer", "dormant", "not_now", "not_interested")
+CONTACTED_STATUSES = ("contacted", "meeting", "proposal", "customer", "dormant", "not_interested")
 
 SUPPRESSION_FLAGS = (
     "do_not_contact",      # opted out — blocked from all outreach
@@ -66,11 +66,12 @@ DEFAULT_STATUS = "none"
 # migration 026 is what happens when the pipeline's own writes get refused.
 TYPICAL_STATUSES_BY_STAGE = {
     "candidate":       ("none", "ready"),
-    "suspect":         ("ready", "contacted", "dormant", "on_hold", "not_now"),
-    "nibble":          ("contacted", "dormant", "on_hold", "not_now"),
-    "prospect":        ("contacted", "dormant", "on_hold", "not_now"),
-    "opportunity":     ("meeting", "proposal", "dormant", "on_hold", "not_now"),
+    "suspect":         ("ready", "contacted", "dormant", "on_hold"),
+    "nibble":          ("contacted", "dormant", "on_hold"),
+    "prospect":        ("contacted", "dormant", "on_hold"),
+    "opportunity":     ("meeting", "proposal", "dormant", "on_hold"),
     "customer":        ("none", "customer", "dormant", "on_hold"),
+    "not_now":         ("none", "dormant", "on_hold"),
     "not_in_pipeline": ("not_interested", "dropped", "none"),
 }
 

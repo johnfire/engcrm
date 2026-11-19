@@ -5,7 +5,7 @@ from gcrm.tools.db_deals import organization_deal_join
 # Anything past first contact counts as "already worked" and is excluded when
 # not_contacted=True. Stage carries that now: a candidate or suspect that is
 # only 'ready' has never been written to, everything beyond has.
-_WORKED_STAGES = ("prospect", "opportunity", "customer", "not_in_pipeline")
+_WORKED_STAGES = ("prospect", "opportunity", "customer", "not_now", "not_in_pipeline")
 _WORKED_STATUSES = ("contacted", "meeting", "proposal", "dropped")
 
 
