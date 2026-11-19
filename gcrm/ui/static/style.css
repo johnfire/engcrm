@@ -1066,15 +1066,17 @@ td.nowrap {
    has left, so the table widens with the monitor instead of stretching one
    greedy column. */
 /* Long, wide lists (the organizations list: 100 rows; the contacts feed) mark
-   their table `fit-window`. The organizations list is long (a page is 100 rows) and wide. As a plain
+   their table `fit-window` (the organizations table is matched by its own class). The organizations list is long (a page is 100 rows) and wide. As a plain
    overflow-x box its sideways scrollbar sat at the bottom of the whole table,
    far below the screen. Capping the box at the window's height gives it both
    scrollbars within view, and the sticky header keeps the column names on
    screen while the rows scroll. */
+.table-scroll:has(> table.orgs-table),
 .table-scroll:has(> table.fit-window) {
   max-height: calc(100vh - 5rem);
   overflow: auto;
 }
+table.orgs-table thead th,
 table.fit-window thead th {
   position: sticky;
   top: 0;

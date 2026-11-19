@@ -3,7 +3,7 @@
    the sideways one is never pushed below the fold by a long table. Recomputed on
    resize and on page scroll, so the box grows as the filters above scroll away. */
 (function () {
-  var table = document.querySelector("table.fit-window");
+  var table = document.querySelector("table.orgs-table, table.fit-window");
   var box = table && table.closest(".table-scroll");
   if (!box) return;
   var MIN_HEIGHT = 320;
