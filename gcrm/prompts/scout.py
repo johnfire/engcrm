@@ -56,7 +56,7 @@ def score_organization_prompt(mission, organization: dict, city_context: dict | 
         f"- employees: the head count the website or notes state, as a whole number "
         f"(for a group of companies, the group's total), or null if none is stated\n"
         f"- size_band: your estimate when no number is stated, one of "
-        f"'under_50' | '50_499' | '500_2500' | '2501_5000' | 'over_5000' | 'unknown'\n"
+        f"'under_5' | '5_49' | '50_499' | '500_2500' | '2501_5000' | 'over_5000' | 'unknown'\n"
         f"  Judge from sites, production halls, fleet, open positions. Answer 'unknown' rather than guess.\n"
         f"- reasoning: 3-5 sentences, including what the size estimate rests on. Be specific.\n\n"
         f"Return ONLY the JSON object, no other text."

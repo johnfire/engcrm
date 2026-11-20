@@ -64,10 +64,12 @@ OUTREACH_STYLE = (
 LANGUAGE_DEFAULT = "de"
 
 # Company size, applied by code in the scout (never by the LLM, which misreads thresholds):
-# 50 to 5,000 employees, sweet spot 500 to 2,500. Also shown to the research step so its
-# notes record what size evidence there is.
+# 5 to 5,000 employees (small businesses of 5 to 49, then the Mittelstand of 50 to 5,000;
+# sweet spot 500 to 2,500). Also shown to the research step so its notes record what size
+# evidence there is. Small businesses were added 2026-11-20; before that the floor was 50.
 SIZE_RULE = (
-    "Size: 50 to 5,000 employees, sweet spot 500 to 2,500. Under 50 or over 5,000 is not a fit."
+    "Size: 5 to 5,000 employees, i.e. small businesses (5 to 49) and the Mittelstand (50 to 5,000), "
+    "sweet spot 500 to 2,500. Under 5 (one-person businesses) or over 5,000 is not a fit."
 )
 
 # The research step labels every hit with exactly one of these types. Buyer types go on to
@@ -139,7 +141,7 @@ ANTI_SIGNALS = [
 ]
 
 # Scan levels — tiered by accessibility and pain intensity (per target-markets analysis).
-# Every level aims at companies of 50-5,000 employees; the scout enforces the size.
+# Every level aims at companies of 5-5,000 employees; the scout enforces the size.
 # Level 1–3: Tier 1 (high pain, reachable decision-makers — start here)
 # Level 4–6: Tier 2 (strong pain, slightly harder access)
 # Level 7–8: Tier 3 (high value, longer sales cycle)

@@ -51,7 +51,7 @@ research → enrich → scout → outreach → followup
 
 **Inputs:** `city`, `country`, `level` (1–10)
 
-**Scan levels** (defined in `gcrm/vertical.py`; every level aims at companies of 50–5,000 employees, sweet spot 500–2,500 — the scout enforces the size):
+**Scan levels** (defined in `gcrm/vertical.py`; every level aims at companies of 5–5,000 employees (small businesses and the Mittelstand), sweet spot 500–2,500 — the scout enforces the size):
 
 | Level | What it finds |
 | ----- | ------------- |
@@ -126,7 +126,7 @@ The research step labels every hit with one type from `BUYER_TYPES` or `NOT_A_BU
    - **Everything else** (scan hits, research-agent finds, LinkedIn employers) → scored below.
 3. **fetch_scored_websites** — fetches each company's website (up to 4,000 characters). No website still proceeds on the notes.
 4. **score_candidates** — the LLM returns `outcome` (fit / unsure / no_fit, judged on everything except size), `employees` (a head count the site states, or null) and `size_band` (its estimate when no number is stated).
-5. **apply_scores** — code combines them: a stated head count wins over the band; under 50 or over 5,000 is `no_fit` whatever the LLM said. Fit scores: 85 in the 500–2,500 sweet spot, 75 elsewhere in range, 65 when size is unknown; unsure 50; no fit 20.
+5. **apply_scores** — code combines them: a stated head count wins over the band; under 5 or over 5,000 is `no_fit` whatever the LLM said (small businesses of 5–49 were let in on 2026-11-20). Fit scores: 85 in the 500–2,500 sweet spot, 75 for 50–499 and 2,501–5,000, 70 for 5–49, 65 when size is unknown; unsure 50; no fit 20.
 
 **LLM:** `CHEAP_LLM` env var
 

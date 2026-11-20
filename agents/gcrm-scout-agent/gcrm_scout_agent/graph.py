@@ -38,11 +38,13 @@ STATE_BY_VERDICT = {
     "unsure": ("candidate", "none"),
     "no_fit": ("not_in_pipeline", "dropped"),
 }
-# The size band the LLM reads off the website. Outside 50-5,000 employees is never a
-# fit, whatever else the LLM liked; inside, the 500-2,500 sweet spot scores highest.
-SIZE_BANDS = ("under_50", "50_499", "500_2500", "2501_5000", "over_5000", "unknown")
-OUT_OF_RANGE_BANDS = {"under_50", "over_5000"}
-FIT_SCORE_BY_BAND = {"500_2500": 85, "50_499": 75, "2501_5000": 75, "unknown": 65}
+# The size band the LLM reads off the website. Outside 5-5,000 employees is never a fit,
+# whatever else the LLM liked (decided 2026-11-20: small businesses of 5-49 are in; below 5
+# is a one-person or micro business). Inside, the 500-2,500 sweet spot scores highest and
+# the smallest businesses a little lower, as their projects are smaller.
+SIZE_BANDS = ("under_5", "5_49", "50_499", "500_2500", "2501_5000", "over_5000", "unknown")
+OUT_OF_RANGE_BANDS = {"under_5", "over_5000"}
+FIT_SCORE_BY_BAND = {"500_2500": 85, "50_499": 75, "2501_5000": 75, "5_49": 70, "unknown": 65}
 UNSURE_SCORE, NO_FIT_SCORE = 50, 20
 
 
@@ -52,7 +54,7 @@ def band_for(employees) -> str | None:
         count = int(employees)
     except (TypeError, ValueError):
         return None
-    for band, upper in (("under_50", 49), ("50_499", 499), ("500_2500", 2500), ("2501_5000", 5000)):
+    for band, upper in (("under_5", 4), ("5_49", 49), ("50_499", 499), ("500_2500", 2500), ("2501_5000", 5000)):
         if count <= upper:
             return band
     return "over_5000"

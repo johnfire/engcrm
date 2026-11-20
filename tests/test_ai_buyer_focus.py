@@ -1,5 +1,5 @@
-"""Decided 2026-11-04: engcrm scans only for AI-consulting buyers (Mittelstand, 50-5,000
-employees). Nothing art-related is searched for, and the research step labels every hit
+"""Decided 2026-11-04, widened 2026-11-20: engcrm scans only for AI-consulting buyers (small
+businesses and the Mittelstand, 5-5,000 employees). Nothing art-related is searched for, and the research step labels every hit
 from one fixed list of types that the scout and the save step both understand."""
 import re
 
@@ -33,7 +33,8 @@ def test_small_shops_and_services_are_not_buyer_types():
 
 
 def test_the_size_rule_names_the_range_and_sweet_spot():
-    assert "50 to 5,000" in SIZE_RULE and "500 to 2,500" in SIZE_RULE
+    assert "5 to 5,000" in SIZE_RULE and "50 to 5,000" in SIZE_RULE and "500 to 2,500" in SIZE_RULE
+    assert "5 to 49" in SIZE_RULE and "Under 5" in SIZE_RULE
 
 
 def test_the_scout_text_carries_no_size_threshold_for_the_llm_to_misapply():
