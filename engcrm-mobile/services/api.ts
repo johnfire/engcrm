@@ -164,7 +164,8 @@ export async function classifyMessage(
 }
 
 // --- Contacts ---
-export type OrganizationSortKey = "created_at" | "name" | "type" | "personal_priority";
+import type { OrganizationSortKey, PersonSortKey } from "./listSortOptions";
+export type { OrganizationSortKey, PersonSortKey };
 
 export async function fetchOrganizations(params: {
   search?: string;
@@ -820,8 +821,6 @@ export async function searchAll(q: string): Promise<SearchResults> {
 }
 
 // --- People (individuals on scanned cards, linked to their company organization) ---
-export type PersonSortKey = "created_at" | "name" | "connected_on" | "company" | "city" | "value_rating";
-
 export const PEOPLE_PAGE_SIZE = 50;
 export const ORGANIZATIONS_PAGE_SIZE = 50;
 

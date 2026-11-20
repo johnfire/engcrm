@@ -1,17 +1,20 @@
 import { View } from "react-native";
 import { ChipRow, FilterChip } from "./FilterChips";
 import { useTranslation } from "../i18n/I18nContext";
-import { ContactKind, ContactSort } from "../services/contact-feed";
+import { ContactKind } from "../services/contact-feed";
+import { SortChips } from "./SortChips";
+import { SortChoice, SortOption } from "../services/listSort";
+import { CONTACT_SORTS, ContactSortKey } from "../services/listSortOptions";
 import { PIPELINE_STAGES, stageLabelKey } from "../services/organizationState";
 
 // The chip rows of the Contacts filter panel; the search box sits above, always on screen.
 interface Props {
   kind: ContactKind | "";
   stage: string;
-  sort: ContactSort;
+  sort: SortChoice<ContactSortKey>;
   onKindChange: (kind: ContactKind | "") => void;
   onStageChange: (stage: string) => void;
-  onSortChange: (sort: ContactSort) => void;
+  onSortChange: (option: SortOption<ContactSortKey>) => void;
 }
 
 export function ContactFeedControls(props: Props) {
@@ -27,10 +30,7 @@ export function ContactFeedControls(props: Props) {
           label={choice === "" ? t("contactFeed.allStages") : choice === "none" ? t("contactFeed.noStage") : t(stageLabelKey(choice))}
           isActive={props.stage === choice} onPress={() => props.onStageChange(choice)} />)}
       </ChipRow>
-      <ChipRow label={t("contactFeed.sort")}>
-        {(["last_contact", "name"] as const).map((choice) => <FilterChip key={choice} label={t(`contactFeed.${choice}`)}
-          isActive={props.sort === choice} onPress={() => props.onSortChange(choice)} />)}
-      </ChipRow>
+      <SortChips options={CONTACT_SORTS} sort={props.sort} onChoose={props.onSortChange} />
     </View>
   );
 }

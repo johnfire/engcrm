@@ -9,7 +9,10 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { fetchPeople, PEOPLE_PAGE_SIZE, Person, PersonSortKey } from "../../services/api";
+import { fetchPeople, PEOPLE_PAGE_SIZE, Person } from "../../services/api";
+import { SortChips } from "../../components/SortChips";
+import { useStoredSort } from "../../hooks/useStoredSort";
+import { PERSON_SORTS } from "../../services/listSortOptions";
 import { getRole } from "../../services/auth";
 import { PIPELINE_STAGES, stageLabelKey } from "../../services/organizationState";
 import { usePagedList } from "../../services/usePagedList";
@@ -22,15 +25,6 @@ import { OfferFilterChips } from "../../components/OfferFilterChips";
 import { useOfferFilter } from "../../hooks/useOfferFilter";
 import { ALL_OFFERS } from "../../services/deals";
 import { linkedinLabel, openWebsite } from "../../services/webLinks";
-
-const SORT_OPTIONS: { key: PersonSortKey; dir: "asc" | "desc"; labelKey: string }[] = [
-  { key: "created_at", dir: "desc", labelKey: "common.sortNewest" },
-  { key: "name", dir: "asc", labelKey: "common.sortAZ" },
-  { key: "connected_on", dir: "desc", labelKey: "people.sortConnected" },
-  { key: "value_rating", dir: "asc", labelKey: "people.sortRating" },
-  { key: "company", dir: "asc", labelKey: "people.sortCompany" },
-  { key: "city", dir: "asc", labelKey: "people.sortCity" },
-];
 
 // "" = any stage, "none" = people with no stage set, then the shared vocabulary.
 const STAGE_FILTERS = ["", "none", ...PIPELINE_STAGES];
@@ -54,8 +48,7 @@ export default function PeopleScreen() {
   const [stage, setStage] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [rating, setRating] = useState("");
-  const [sort, setSort] = useState<PersonSortKey>("created_at");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const { sort, ready: sortReady, choose: chooseSort } = useStoredSort("people", PERSON_SORTS);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -70,8 +63,9 @@ export default function PeopleScreen() {
 
   const fetchPage = useCallback(
     (page: number): Promise<Person[]> =>
-      fetchPeople({ search, sort, dir, stage, linkedin, value_rating: rating, offer, page }),
-    [search, sort, dir, stage, linkedin, rating, offer],
+      // Nothing is requested until the remembered sort is known: no wasted fetch, no flash of the wrong order.
+      !sortReady ? Promise.resolve([]) : fetchPeople({ search, sort: sort.key, dir: sort.direction, stage, linkedin, value_rating: rating, offer, page }),
+    [search, sort, sortReady, stage, linkedin, rating, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(fetchPage, PEOPLE_PAGE_SIZE);
 
@@ -134,22 +128,10 @@ export default function PeopleScreen() {
             onPress={() => setLinkedin("unlinked")}
           />
         </ChipRow>
-        <ChipRow label={t("common.sortBy")}>
-          {SORT_OPTIONS.map((option) => (
-            <FilterChip
-              key={`${option.key}-${option.dir}`}
-              label={t(option.labelKey)}
-              isActive={sort === option.key && dir === option.dir}
-              onPress={() => {
-                setSort(option.key);
-                setDir(option.dir);
-              }}
-            />
-          ))}
-        </ChipRow>
+        <SortChips options={PERSON_SORTS} sort={sort} onChoose={chooseSort} />
       </FilterPanel>
 
-      {loading ? (
+      {loading || !sortReady ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>

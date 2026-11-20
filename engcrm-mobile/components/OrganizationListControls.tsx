@@ -1,6 +1,8 @@
 import { useTranslation } from "../i18n/I18nContext";
 import { ChipRow, FilterChip } from "./FilterChips";
-import { OrganizationSortKey } from "../services/api";
+import { SortChips } from "./SortChips";
+import { SortChoice, SortOption } from "../services/listSort";
+import { ORGANIZATION_SORTS, OrganizationSortKey } from "../services/listSortOptions";
 import {
   PIPELINE_STAGES,
   STATUSES,
@@ -18,35 +20,19 @@ const FLAG_FILTERS = ["", ...SUPPRESSION_FLAGS];
 
 const PRIORITY_FILTERS = ["", "1", "2", "3", "4", "5", "unrated"];
 
-const SORT_OPTIONS: {
-  key: OrganizationSortKey;
-  direction: "asc" | "desc";
-  labelKey: string;
-}[] = [
-  { key: "created_at", direction: "desc", labelKey: "common.sortNewest" },
-  { key: "name", direction: "asc", labelKey: "common.sortAZ" },
-  { key: "type", direction: "asc", labelKey: "common.sortIndustry" },
-  {
-    key: "personal_priority",
-    direction: "asc",
-    labelKey: "organizations.sortPersonalPriority",
-  },
-];
-
 interface Props {
   stage: string;
   status: string;
   personalPriority: string;
   linkedin: string; // "" = any, "1" = I know someone there
   suppressed: string; // "" = any, or one suppression flag
-  sort: OrganizationSortKey;
-  direction: "asc" | "desc";
+  sort: SortChoice<OrganizationSortKey>;
   onStageChange: (stage: string) => void;
   onStatusChange: (status: string) => void;
   onPriorityChange: (priority: string) => void;
   onLinkedinChange: (linkedin: string) => void;
   onSuppressedChange: (suppressed: string) => void;
-  onSortChange: (sort: OrganizationSortKey, direction: "asc" | "desc") => void;
+  onSortChange: (option: SortOption<OrganizationSortKey>) => void;
 }
 
 export function OrganizationListControls({
@@ -56,7 +42,6 @@ export function OrganizationListControls({
   linkedin,
   suppressed,
   sort,
-  direction,
   onStageChange,
   onStatusChange,
   onPriorityChange,
@@ -125,16 +110,7 @@ export function OrganizationListControls({
           />
         ))}
       </ChipRow>
-      <ChipRow label={t("common.sortBy")}>
-        {SORT_OPTIONS.map((option) => (
-          <FilterChip
-            key={option.key}
-            label={t(option.labelKey)}
-            isActive={sort === option.key && direction === option.direction}
-            onPress={() => onSortChange(option.key, option.direction)}
-          />
-        ))}
-      </ChipRow>
+      <SortChips options={ORGANIZATION_SORTS} sort={sort} onChoose={onSortChange} />
     </>
   );
 }

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FlatList, Linking } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
@@ -36,7 +37,8 @@ const person = (id: number, name: string, extra = {}) => ({
   pipeline_stage: "candidate", ...extra,
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  await AsyncStorage.clear(); // the remembered sort must not leak between tests
   jest.clearAllMocks();
   mockGetRole.mockResolvedValue("viewer");
 });

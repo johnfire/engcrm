@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockFetch = jest.fn();
@@ -27,7 +28,8 @@ const person = {
   website: null, city: "Augsburg", country: "DE", relationship: null, notes: null,
 };
 
-beforeEach(() => {
+beforeEach(async () => {
+  await AsyncStorage.clear(); // the remembered sort must not leak between tests
   jest.clearAllMocks();
   mockFetch.mockResolvedValue([person]);
 });
@@ -62,4 +64,24 @@ it("narrows the list from the panel, counts the filters and clears them", async 
     offer: "all", linkedin: "", value_rating: "", stage: "", sort: "name",
   })));
   expect(screen.queryByText("Clear filters")).toBeNull();
+});
+
+it("sorts by status best first, reverses on a second tap and remembers the choice", async () => {
+  const screen = render(<PeopleScreen />);
+  await waitFor(() => expect(screen.getByText("Anka Mufti")).toBeTruthy());
+  expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "created_at", dir: "desc" }));
+  fireEvent.press(screen.getByLabelText("Filters"));
+
+  fireEvent.press(screen.getByText("Status"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "status", dir: "asc" })));
+  fireEvent.press(screen.getByText("Status ↑"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "status", dir: "desc" })));
+  expect(screen.getByText("Status ↓")).toBeTruthy();
+  screen.unmount();
+
+  // a new visit opens on the last choice, and never asks for the default order first
+  mockFetch.mockClear();
+  render(<PeopleScreen />);
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  expect(mockFetch.mock.calls.every(([params]) => params.sort === "status" && params.dir === "desc")).toBe(true);
 });

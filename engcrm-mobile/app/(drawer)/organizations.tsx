@@ -4,10 +4,11 @@ import { useRouter, useFocusEffect } from "expo-router";
 import {
   fetchOrganizations,
   Organization,
-  OrganizationSortKey,
   ORGANIZATIONS_PAGE_SIZE,
 } from "../../services/api";
 import { getRole } from "../../services/auth";
+import { useStoredSort } from "../../hooks/useStoredSort";
+import { ORGANIZATION_SORTS } from "../../services/listSortOptions";
 import { usePagedList } from "../../services/usePagedList";
 import { OrganizationListControls } from "../../components/OrganizationListControls";
 import { OrganizationRow } from "../../components/OrganizationRow";
@@ -28,8 +29,7 @@ export default function OrganizationsScreen() {
   const [personalPriority, setPersonalPriority] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [suppressed, setSuppressed] = useState("");
-  const [sort, setSort] = useState<OrganizationSortKey>("created_at");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const { sort, ready: sortReady, choose: chooseSort } = useStoredSort("organizations", ORGANIZATION_SORTS);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -47,19 +47,20 @@ export default function OrganizationsScreen() {
 
   const fetchPage = useCallback(
     (page: number): Promise<Organization[]> =>
-      fetchOrganizations({
+      // Nothing is requested until the remembered sort is known: no wasted fetch, no flash of the wrong order.
+      !sortReady ? Promise.resolve([]) : fetchOrganizations({
         search,
         stage,
         status,
-        sort,
-        dir,
+        sort: sort.key,
+        dir: sort.direction,
         personal_priority: personalPriority,
         linkedin,
         suppressed,
         offer,
         page,
       }),
-    [search, stage, status, sort, dir, personalPriority, linkedin, suppressed, offer],
+    [search, stage, status, sort, sortReady, personalPriority, linkedin, suppressed, offer],
   );
   const { items, loading, loadingMore, error, reload, loadMore } = usePagedList(
     fetchPage,
@@ -102,19 +103,15 @@ export default function OrganizationsScreen() {
           linkedin={linkedin}
           suppressed={suppressed}
           sort={sort}
-          direction={dir}
           onStageChange={setStage}
           onStatusChange={setStatus}
           onPriorityChange={setPersonalPriority}
           onLinkedinChange={setLinkedin}
           onSuppressedChange={setSuppressed}
-          onSortChange={(nextSort, nextDirection) => {
-            setSort(nextSort);
-            setDir(nextDirection);
-          }}
+          onSortChange={chooseSort}
         />
       </FilterPanel>
-      {loading ? (
+      {loading || !sortReady ? (
         <View style={styles.center}>
           <ActivityIndicator color="#7c6fff" />
         </View>

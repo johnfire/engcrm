@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FlatList } from "react-native";
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
@@ -33,7 +34,8 @@ const contact = (kind: ContactEntry["kind"], id: number, name: string): ContactE
   city: "Augsburg", email: "contact@example.test", phone: null, pipeline_stage: "candidate", created_at: "2026-10-06T10:00:00Z", last_contact: "2026-10-04",
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  await AsyncStorage.clear(); // the remembered sort must not leak between tests
   jest.clearAllMocks();
   mockRole.mockResolvedValue("admin");
   mockCounts.mockRejectedValue(new Error("counts are optional"));
@@ -44,7 +46,7 @@ it("shows both contact types and opens their correct detail screen even with the
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByLabelText("Person: Ann Example")).toBeTruthy());
   expect(screen.getByLabelText("Organization: Academy")).toBeTruthy();
-  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", page: 1, offer: "all" });
+  expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", dir: "desc", page: 1, offer: "all" });
   fireEvent.press(screen.getByLabelText("Person: Ann Example"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "1" } });
   fireEvent.press(screen.getByLabelText("Organization: Academy"));
@@ -59,7 +61,7 @@ it("combines search, contact type and stage and changes sort without losing filt
   fireEvent.press(screen.getByText("People without business"));
   fireEvent.press(screen.getAllByText("Candidate")[0]);
   fireEvent.press(screen.getByText("Name"));
-  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", page: 1, offer: "all" }));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "person", stage: "candidate", sort: "name", dir: "asc", page: 1, offer: "all" }));
 });
 
 it("shows one offer's pipeline when picked, and opens on every offer again next time", async () => {
@@ -109,7 +111,7 @@ it("counts the filters in use and clears them all at once, keeping the search", 
   expect(screen.getByText("Filters (3) ▴")).toBeTruthy();
 
   fireEvent.press(screen.getByText("Clear filters"));
-  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "", stage: "", sort: "name", page: 1, offer: "all" }));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith({ search: "Ann", kind: "", stage: "", sort: "name", dir: "asc", page: 1, offer: "all" }));
   expect(screen.getByText("Filters ▴")).toBeTruthy();
   expect(screen.queryByText("Clear filters")).toBeNull();
 });
@@ -202,4 +204,16 @@ it("keeps grouped people accessible to viewers without date edit buttons", async
   fireEvent.press(screen.getByText("Contacted people (1) ▾"));
   expect(screen.getByLabelText("Person: Anka Mufti")).toBeTruthy();
   expect(screen.queryByText("Last contact date")).toBeNull();
+});
+
+it("sorts the contact feed by status and priority, and reverses on a second tap", async () => {
+  const screen = render(<ContactsScreen />);
+  await waitFor(() => expect(screen.getByText("Ann Example")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Filters"));
+  fireEvent.press(screen.getByText("Status"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "status", dir: "asc" })));
+  fireEvent.press(screen.getByText("Priority"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "priority", dir: "asc" })));
+  fireEvent.press(screen.getByText("Priority ↑"));
+  await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "priority", dir: "desc" })));
 });

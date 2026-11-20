@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 const mockFetch = jest.fn();
@@ -29,7 +30,8 @@ const organization = {
   last_contact: null, created_at: "2026-07-01T00:00:00",
 };
 
-beforeEach(() => {
+beforeEach(async () => {
+  await AsyncStorage.clear(); // the remembered sort must not leak between tests
   jest.clearAllMocks();
   mockFetch.mockResolvedValue([organization]);
 });
@@ -66,4 +68,17 @@ it("narrows the list from the panel, counts the filters and clears them", async 
   fireEvent.press(screen.getByLabelText("Filters"));
   expect(screen.queryByText("I know someone")).toBeNull();
   expect(screen.getByText("Filters ▾")).toBeTruthy();
+});
+
+it("offers sorting by stage, status, next step and last contact", async () => {
+  const screen = render(<OrganizationsScreen />);
+  await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+  fireEvent.press(screen.getByLabelText("Filters"));
+  for (const [label, key, dir] of [
+    ["Stage", "pipeline_stage", "asc"], ["Status", "status", "asc"], ["Next step", "next_step_date", "asc"],
+    ["Last contact", "last_contact", "desc"],
+  ] as const) {
+    fireEvent.press(screen.getByText(label));
+    await waitFor(() => expect(mockFetch).toHaveBeenLastCalledWith(expect.objectContaining({ sort: key, dir })));
+  }
 });

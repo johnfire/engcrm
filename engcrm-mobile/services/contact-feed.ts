@@ -3,7 +3,8 @@ import type { DealChip } from "./deals";
 
 export const CONTACT_FEED_PAGE_SIZE = 50;
 export type ContactKind = "person" | "organization";
-export type ContactSort = "last_contact" | "newest" | "name";
+import type { ContactSortKey } from "./listSortOptions";
+export type ContactSort = ContactSortKey;
 
 export interface ContactPerson {
   id: number;
@@ -40,7 +41,7 @@ export function contactKey(contact: Pick<ContactEntry, "kind" | "id">): string {
 }
 
 export async function fetchContactFeed(filters: {
-  search: string; kind: ContactKind | ""; stage: string; sort: ContactSort; page: number;
+  search: string; kind: ContactKind | ""; stage: string; sort: ContactSort; dir?: "asc" | "desc"; page: number;
   offer?: string; // a slug: that pipeline only; "all": every offer, each deal in `deals`
 }): Promise<ContactEntry[]> {
   const response = await client.get("/api/contact-feed", { params: filters });
