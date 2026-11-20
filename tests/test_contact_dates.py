@@ -96,6 +96,17 @@ def test_web_first_contact_and_save_redirect(admin_browser):
     assert response.status_code == 303 and response.headers["location"] == "/contact-feed/"
     assert save.call_args.args[3:5] == (None, None)
 
+def test_web_first_contact_as_the_browser_posts_it_with_blank_hidden_fields(admin_browser):
+    """The form always sends interaction_id and previous_date; with no contact yet both are ''."""
+    with patch(f"{ROUTE}.get_contact_date", return_value={**RECORD, "interaction_id": None, "contact_date": None}), \
+         patch(f"{ROUTE}.set_contact_date", return_value=RECORD) as save:
+        response = admin_browser.post("/contact-feed/organization/1/date", data={
+            "contact_date": "2026-10-03", "interaction_id": "", "previous_date": "",
+        }, follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"] == "/contact-feed/"
+    assert save.call_args.args[3:5] == (None, None)
+
+
 def test_stale_web_form_keeps_the_reviewed_version_until_reopened(admin_browser):
     changed = {**RECORD, "interaction_id": 10, "contact_date": "2026-10-05"}
     with patch(f"{ROUTE}.get_contact_date", return_value=changed), \

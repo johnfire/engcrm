@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from gcrm.api.auth import require_admin
 from gcrm.api.jwt_auth import require_jwt_admin, require_jwt_payload
@@ -21,6 +21,13 @@ class ContactDateBody(BaseModel):
     contact_date: str
     interaction_id: int | None = Field(None, gt=0)
     previous_date: str | None = None
+
+    @field_validator("interaction_id", "previous_date", mode="before")
+    @classmethod
+    def blank_means_none(cls, value):
+        """An HTML form posts an unset hidden field as '', which is not an integer
+        and would never equal the "no contact yet" version (None)."""
+        return None if value == "" else value
 
 
 def save_contact_day(kind: str, contact_id: int, body: ContactDateBody, workspace_id: int | None) -> dict:
