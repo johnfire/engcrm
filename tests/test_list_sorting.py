@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from gcrm.api.routers.organizations import _sort_column
-from gcrm.tools.db_contact_feed import get_contact_feed
 from gcrm.organization_state import STATUSES
+from gcrm.tools.db_contact_feed import get_contact_feed
 from gcrm.tools.db_deals import deal_sort_sql
 from gcrm.tools.db_people import get_people
 

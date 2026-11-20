@@ -18,8 +18,8 @@ from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
     PIPELINE_SORT_ORDER,
-    STATUS_SORT_ORDER,
     PIPELINE_STAGES,
+    STATUS_SORT_ORDER,
     coerce_stage,
     coerce_status,
 )

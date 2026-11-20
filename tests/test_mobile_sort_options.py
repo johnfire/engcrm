@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from gcrm.api.routers.api_organizations import DEAL_SORTS, SORT_COLUMNS as ORGANIZATION_COLUMNS
+from gcrm.api.routers.api_organizations import DEAL_SORTS
+from gcrm.api.routers.api_organizations import SORT_COLUMNS as ORGANIZATION_COLUMNS
 from gcrm.tools.db_contact_feed import SORT_COLUMNS as FEED_COLUMNS
 from gcrm.tools.db_people import SORT_COLUMNS as PEOPLE_COLUMNS
 
