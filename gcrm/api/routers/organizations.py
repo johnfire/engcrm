@@ -20,6 +20,7 @@ from gcrm.organization_state import (
 from gcrm.pipeline_days import days_to_customer
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_contact_dates import contact_span
 from gcrm.tools.db_deals import (
     deal_filters,
     deal_sort_sql,
@@ -496,9 +497,16 @@ def organization_detail(contact_id: int, request: Request, saved: bool = Query(d
     except Exception:
         logger.exception("total value lookup failed for contact %s", contact_id)
         total_value = None
+    # The contact span is a bonus too: if it can't be read, the page still renders without it.
+    try:
+        span = contact_span("organization", contact_id)
+    except Exception:
+        logger.exception("contact span lookup failed for contact %s", contact_id)
+        span = None
     return templates.TemplateResponse("organization_detail.html", {
         "request": request,
         "organization": organization,
+        "contact_span": span,
         "total_value": total_value,
         "interactions": interactions,
         "sales": sales,

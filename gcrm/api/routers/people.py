@@ -23,6 +23,7 @@ from gcrm.tools.curiosity_email import draft_curiosity_email
 from gcrm.tools.db_approvals import queue_person_draft
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_company_web import JOB_MAX, count_web_work, is_job_running, start_web_job
+from gcrm.tools.db_contact_dates import contact_span
 from gcrm.tools.db_linkedin import (
     CITY_QUEUE_PAGE_SIZE,
     JOB_CHANGE_PAGE_SIZE,
@@ -646,9 +647,16 @@ def person_detail(
     except Exception:
         logger.exception("total value lookup failed for person %s", person_id)
         total_value = None
+    # The contact span is a bonus too: if it can't be read, the page still renders without it.
+    try:
+        span = contact_span("person", person_id)
+    except Exception:
+        logger.exception("contact span lookup failed for person %s", person_id)
+        span = None
     return templates.TemplateResponse("person_detail.html", {
         "request": request,
         "person": person,
+        "contact_span": span,
         "total_value": total_value,
         "saved": saved,
         "interactions": get_person_interactions(person_id),

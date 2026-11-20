@@ -65,6 +65,20 @@ def latest_contact(cursor, kind: str, contact_id: int) -> dict:
     return serialize_row(dict(row)) if row else {"interaction_id": None, "contact_date": None}
 
 
+def contact_span(kind: str, contact_id: int) -> dict:
+    """The first and the latest actual contact day of one organization or person, each a date or None when
+    nothing has been recorded. It counts the same history as the date editor: not deleted, and not a plan
+    (a next-step change). The caller has already checked the contact belongs to the user's workspace."""
+    _, history, foreign_key, timestamp, _ = contact_tables(kind)
+    day = contact_day_sql(kind, timestamp)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT MIN({day}) AS first, MAX({day}) AS last FROM {history} "
+                       f"WHERE {foreign_key}=%s AND {CONTACT_HISTORY_FILTER}", (contact_id,))
+        row = cursor.fetchone()
+    return {"first": row["first"], "last": row["last"]}
+
+
 def get_contact_date(kind: str, contact_id: int, workspace_id: int | None) -> dict:
     with db() as connection:
         cursor = connection.cursor()

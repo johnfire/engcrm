@@ -1,0 +1,9 @@
+{# When contact with this organization or person began and when it last happened.
+   Needs `contact_span` ({first, last}, or None when it could not be read). #}
+{% if contact_span %}
+<p class="contact-span">
+  {%- if contact_span.first %}<strong>{{ t('contactSpan.first') }}:</strong> {{ contact_span.first|dmy }}
+  {%- if contact_span.last and contact_span.last != contact_span.first %} <span class="muted">· {{ t('contactSpan.last') }}: {{ contact_span.last|dmy }}</span>{% endif %}
+  {%- else %}<span class="muted">{{ t('contactSpan.none') }}</span>{% endif %}
+</p>
+{% endif %}

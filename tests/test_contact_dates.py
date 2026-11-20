@@ -1,4 +1,5 @@
 """Contact-day validation, request authorization and stale form handling."""
+import re
 from datetime import date
 from unittest.mock import patch
 
@@ -118,3 +119,25 @@ def test_stale_web_form_keeps_the_reviewed_version_until_reopened(admin_browser)
     assert 'name="interaction_id" value="9"' in response.text
     assert 'name="previous_date" value="2026-10-04"' in response.text
     assert 'name="interaction_id" value="10"' not in response.text
+
+
+class TestContactSpanPartial:
+    @staticmethod
+    def render(span, lang="en"):
+        from gcrm.api.templates import templates
+        from gcrm.i18n import translate
+        template = templates.env.get_template("partials/contact_span.html")
+        html = template.render(contact_span=span, t=lambda key, **kw: translate(key, lang, **kw))
+        return " ".join(re.sub(r"<[^>]+>", " ", html).split())
+
+    def test_shows_first_and_later_last_contact(self):
+        text = self.render({"first": date(2026, 10, 4), "last": date(2026, 10, 20)})
+        assert "First contact: 04.10.2026" in text and "Last contact: 20.10.2026" in text
+
+    def test_a_single_contact_day_is_shown_once(self):
+        text = self.render({"first": date(2026, 10, 4), "last": date(2026, 10, 4)})
+        assert "First contact: 04.10.2026" in text and "Last contact" not in text
+
+    def test_no_contact_says_so_and_an_unreadable_span_shows_nothing(self):
+        assert "No contact recorded yet" in self.render({"first": None, "last": None})
+        assert self.render(None) == ""

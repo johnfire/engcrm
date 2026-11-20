@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
-from gcrm.tools.db_contact_dates import get_contact_date, set_contact_date
+from gcrm.tools.db_contact_dates import contact_span, get_contact_date, set_contact_date
 from gcrm.tools.db_contact_feed import get_contact_feed
 
 pytestmark = pytest.mark.integration
@@ -102,3 +102,21 @@ def test_missing_deleted_and_other_workspace_records_are_not_editable(contact_re
         get_contact_date("organization", organization_id, workspace_id)
     with pytest.raises(HTTPException):
         get_contact_date("person", person_id + 100, workspace_id)
+
+
+@pytest.mark.parametrize("kind", ["organization", "person"])
+def test_the_span_runs_from_the_first_to_the_latest_real_contact(contact_records, kind):
+    workspace_id, organization_id, person_id = contact_records
+    contact_id = person_id if kind == "person" else organization_id
+    assert contact_span(kind, contact_id) == {"first": None, "last": None}
+    history, key, stamp, note = (("people_interactions", "person_id", "occurred_at", "note") if kind == "person"
+                                 else ("interactions", "contact_id", "interaction_date", "summary"))
+    with db() as connection:
+        cursor = connection.cursor()
+        for day, method, deleted in (("2026-10-09 12:00", "visit", False), ("2026-10-04 12:00", "visit", False),
+                                     ("2026-10-20 12:00", "visit", False), ("2026-09-01 12:00", "visit", True),
+                                     ("2026-08-01 12:00", "next_step", False)):
+            cursor.execute(f"INSERT INTO {history} ({key}, {stamp}, method, {note}, deleted_at) "
+                           f"VALUES (%s, %s, %s, 'x', {'NOW()' if deleted else 'NULL'})", (contact_id, day, method))
+    # a deleted entry and a plan-only entry are not contact, so they do not move either end
+    assert contact_span(kind, contact_id) == {"first": date(2026, 10, 4), "last": date(2026, 10, 20)}

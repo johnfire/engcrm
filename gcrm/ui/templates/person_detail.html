@@ -21,6 +21,8 @@
   {{ t('sale.status.booked') }} {{ total_value.booked | eur }} · {{ t('sale.status.expected') }} {{ total_value.expected | eur }}</span></p>
 {% endif %}
 
+{% include 'partials/contact_span.html' %}
+
 {% if person.pending_company_raw %}
 <div class="linkedin-notice">
   {{ t('linkedin.jobChanges.notice', company=person.pending_company_raw) }}
