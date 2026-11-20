@@ -273,8 +273,10 @@ def test_list_badges_carry_their_level_colour():
                "priority": 6, "long_term_value": 3, "short_term_value": 1}
     app.dependency_overrides[require_login] = lambda: "admin"
     try:
-        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[contact]):
-            body = TestClient(app).get("/contact-feed/?lang=en").text.split("<tbody>")[1]
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[contact]), \
+             patch("gcrm.api.routers.contact_feed.get_stage_means", return_value=None):   # no database in this test
+            page = TestClient(app).get("/contact-feed/?lang=en").text
+        body = page[page.index('<table class="fit-window"'):].split("<tbody>")[1]       # the list, not the stage means
     finally:
         app.dependency_overrides.pop(require_login, None)
     assert 'personal-priority-badge tone-dark">P6<' in body

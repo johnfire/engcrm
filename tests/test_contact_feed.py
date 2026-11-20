@@ -1,8 +1,9 @@
 """Contact-feed validation, route wiring, tenancy and saved web filters."""
+import re
 from unittest.mock import patch
 
 import pytest
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 
 from gcrm.api.auth import require_login
@@ -13,6 +14,13 @@ from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_contact_feed import feed_predicates, validate_feed_filters
 
 AUTH = {"Authorization": f"Bearer {create_token('spectator')}"}
+
+
+@pytest.fixture(autouse=True)
+def no_stage_means_query():
+    """The web list asks the database for the mean days per stage; these tests have no database."""
+    with patch("gcrm.api.routers.contact_feed.get_stage_means", return_value=None):
+        yield
 CONTACT = {"id": 7, "kind": "person", "name": "Ann", "description": "Coordinator", "company": "Academy",
            "city": "Ulm", "email": "ann@academy.test", "phone": None,
            "pipeline_stage": "candidate", "created_at": "2026-10-06T12:00:00+00:00", "last_contact": "2026-10-04"}
@@ -48,7 +56,7 @@ def test_web_filters_are_remembered_and_clear_resets_them():
     selected = remember_feed_filters(request, q="Ann", kind="person", stage="suspect", sort="name")
     assert remember_feed_filters(request, q=None, kind=None, stage=None, sort=None) == selected
     cleared = remember_feed_filters(request, q="", kind="", stage="", sort="newest")
-    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "last_contact", "dir": ""}
+    assert cleared == {"search": "", "kind": "", "stage": "", "sort": "last_contact", "dir": "", "then": "", "then_dir": ""}
     assert "q=Ann" in feed_page_link(2, selected) and "page=2" in feed_page_link(2, selected)
 
 
@@ -198,8 +206,67 @@ def test_web_list_shows_the_first_contact_beside_the_last_in_both_languages():
         app.dependency_overrides.pop(require_login, None)
 
 
-def test_the_list_can_be_sorted_by_first_contact():
+def test_the_list_can_be_sorted_by_first_contact_and_by_days_with_a_second_sort():
     validate_feed_filters("", "", "first_contact")
+    validate_feed_filters("", "", "pipeline_stage", "days")
+    validate_feed_filters("", "", "name", "")
+    with pytest.raises(ValueError):
+        validate_feed_filters("", "", "name", "sql")
+
+
+def test_the_second_sort_is_remembered_dropped_when_it_repeats_the_first_and_checked():
+    request = Request({"type": "http", "session": {}})
+    chosen = remember_feed_filters(request, q="", kind="", stage="", sort="pipeline_stage", dir="asc", then="days", then_dir="desc")
+    assert (chosen["then"], chosen["then_dir"]) == ("days", "desc")
+    assert "then=days" in feed_page_link(2, chosen) and "then_dir=desc" in feed_page_link(2, chosen)
+    # the same column twice adds nothing, so it is dropped
+    same = remember_feed_filters(request, q="", kind="", stage="", sort="days", dir="", then="days", then_dir="asc")
+    assert (same["then"], same["then_dir"]) == ("", "")
+    with pytest.raises(HTTPException) as bad:
+        remember_feed_filters(request, q="", kind="", stage="", sort="name", dir="", then="drop table", then_dir="")
+    assert bad.value.status_code == 400
+
+
+def test_web_list_shows_the_stage_means_with_links_a_days_sort_and_the_second_sort():
+    means = {"stages": [{"stage": "nibble", "contacts": 3, "counted": 2, "mean": 11},
+                        {"stage": "prospect", "contacts": 0, "counted": 0, "mean": None},
+                        {"stage": "opportunity", "contacts": 1, "counted": 1, "mean": 40},
+                        {"stage": "customer", "contacts": 2, "counted": 2, "mean": 100}],
+             "all": {"contacts": 6, "counted": 5, "mean": 62}}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[CONTACT]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=COUNTS), \
+             patch("gcrm.api.routers.contact_feed.get_stage_means", return_value=means):
+            english = TestClient(app).get("/contact-feed/?lang=en&stage=nibble").text
+            german = TestClient(app).get("/contact-feed/?lang=de").text
+        block = english[english.index('class="stage-means'):english.index("</section>", english.index('class="stage-means'))]
+        for stage in ("nibble", "prospect", "opportunity", "customer"):
+            assert f"stage={stage}" in block                       # each stage name filters the list to it
+        assert re.search(r'stage=(&amp;|&|")', block)               # and the All row sends an empty stage, clearing it
+        assert ">11<" in block and ">40<" in block and ">100<" in block and ">62<" in block
+        assert 'class="is-active"' in block                        # the chosen stage is marked
+        assert "Mean days" in block and "With a day figure" in block
+        table = english.index('<table class="fit-window"')
+        header = english[table:english.index("</thead>", table)]
+        assert "sort=days" in header and "sort=first_contact" in header
+        assert 'name="then"' in english and 'name="then_dir"' in english and "Then by" in english
+        assert "Mittelwert Tage" in german and "Dann nach" in german
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+
+
+def test_the_list_still_loads_without_the_stage_means():
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[CONTACT]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=COUNTS), \
+             patch("gcrm.api.routers.contact_feed.get_stage_means", side_effect=RuntimeError("db")):
+            response = TestClient(app).get("/contact-feed/?lang=en")
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    assert response.status_code == 200 and 'href="/people/7"' in response.text
+    assert 'class="stage-means' not in response.text
 
 
 def test_web_list_shows_my_ratings_instead_of_email_or_phone():

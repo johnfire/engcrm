@@ -53,7 +53,8 @@ def list_browser():
          patch('gcrm.api.routers.people.get_person_cities', return_value=[]), \
          patch('gcrm.api.routers.organizations._fetch_organizations_page', return_value=([], {}, {}, [], 0)), \
          patch('gcrm.api.routers.contact_feed.get_contact_feed', return_value=[]), \
-         patch('gcrm.api.routers.contact_feed.safe_contact_counts', return_value=None):
+         patch('gcrm.api.routers.contact_feed.safe_contact_counts', return_value=None), \
+         patch('gcrm.api.routers.contact_feed.safe_stage_means', return_value=None):
         yield TestClient(app)
     app.dependency_overrides.pop(require_login, None)
 
@@ -67,7 +68,8 @@ def test_separate_forms_preserve_applied_settings(list_browser, path, language):
     forms = ListForms(page.text).forms
     filtering, sorting = forms['list-filter-form'], forms['list-sort-form']
     assert 'sort' not in filtering['visible'] and 'dir' not in filtering['visible']
-    assert sorting['visible'] == {'sort', 'dir'}
+    # the Contacts list sorts by two columns; the other lists by one
+    assert sorting['visible'] == ({'sort', 'dir', 'then', 'then_dir'} if path == '/contact-feed/' else {'sort', 'dir'})
     assert filtering['fields']['sort'] == 'city' and filtering['fields']['dir'] == 'asc'
     assert sorting['fields']['q'] == 'Ann' and sorting['fields']['stage'] == 'suspect'
     assert sorting['fields']['offer'] == 'consulting'

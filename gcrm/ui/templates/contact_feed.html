@@ -32,10 +32,11 @@
 {% endif %}
 {% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 {% set active_sort = filters.sort %}
-{% set active_dir = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
+{% set active_dir = filters.dir or ('desc' if filters.sort in descending_sorts else 'asc') %}
 {% set filter_values = dict(q=filters.search, kind=filters.kind, stage=filters.stage, offer=active_offer or 'all') %}
-{% set sort_values = dict(sort=active_sort, dir=active_dir) %}
-{% set reset_filter_values = dict(q='', kind='', stage='', offer='all', sort=active_sort, dir=active_dir) %}
+{% set sort_options = [('last_contact', 'contactFeed.last_contact'), ('first_contact', 'contactFeed.first_contact'), ('days', 'contactFeed.days'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage'), ('next_contact', 'contactFeed.next_contact'), ('priority', 'contactFeed.priority'), ('long_term_value', 'valueRating.longTerm'), ('short_term_value', 'valueRating.shortTerm')] %}
+{% set sort_values = dict(sort=active_sort, dir=active_dir, then=filters.then, then_dir=filters.then_dir) %}
+{% set reset_filter_values = dict(q='', kind='', stage='', offer='all', sort=active_sort, dir=active_dir, then=filters.then, then_dir=filters.then_dir) %}
 <div class="list-controls">
 <form id="list-filter-form" class="filter-bar list-control-group" method="get" action="/contact-feed/" aria-label="{{ t('common.filter') }}">
   <h2 class="list-control-title">{{ t('common.filter') }}</h2>
@@ -62,26 +63,72 @@
   <h2 class="list-control-title">{{ t('common.sortBy') }}</h2>
   {{ preserve_fields(filter_values) }}
   <select name="sort" aria-label="{{ t('contactFeed.sort') }}">
-    {% for key, label in [('last_contact', 'contactFeed.last_contact'), ('first_contact', 'contactFeed.first_contact'), ('name', 'common.name'), ('city', 'common.city'), ('kind', 'contactFeed.kind'), ('pipeline_stage', 'common.pipelineStage'), ('next_contact', 'contactFeed.next_contact'), ('priority', 'contactFeed.priority'), ('long_term_value', 'valueRating.longTerm'), ('short_term_value', 'valueRating.shortTerm')] %}
+    {% for key, label in sort_options %}
     <option value="{{ key }}" {% if filters.sort == key %}selected{% endif %}>{{ t(label) }}</option>
     {% endfor %}
   </select>
   <select name="dir" aria-label="{{ t('common.sortBy') }}: {{ t('common.sortAsc') }} / {{ t('common.sortDesc') }}">
-    {% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
+    {% set direction = filters.dir or ('desc' if filters.sort in descending_sorts else 'asc') %}
     <option value="asc" {% if direction == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
     <option value="desc" {% if direction == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
   </select>
+  <span class="then-by">
+    <label for="then-sort">{{ t('contactFeed.thenBy') }}</label>
+    <select id="then-sort" name="then">
+      <option value="">{{ t('contactFeed.thenNone') }}</option>
+      {% for key, label in sort_options if key != filters.sort %}
+      <option value="{{ key }}" {% if filters.then == key %}selected{% endif %}>{{ t(label) }}</option>
+      {% endfor %}
+    </select>
+    {% set then_direction = filters.then_dir or ('desc' if filters.then in descending_sorts else 'asc') %}
+    <select name="then_dir" aria-label="{{ t('contactFeed.thenBy') }}: {{ t('common.sortAsc') }} / {{ t('common.sortDesc') }}">
+      <option value="asc" {% if then_direction == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
+      <option value="desc" {% if then_direction == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
+    </select>
+  </span>
   <button type="submit" class="btn-primary">{{ t('listControls.applySort') }}</button>
-  {{ reset_link('/contact-feed/', dict(filter_values, sort='last_contact', dir='desc'), t('listControls.resetSort'), 'reset-sort') }}
+  {{ reset_link('/contact-feed/', dict(filter_values, sort='last_contact', dir='desc', then='', then_dir=''), t('listControls.resetSort'), 'reset-sort') }}
 </form>
 </div>
+{% if stage_means %}
+<section class="stage-means list-control-group" aria-label="{{ t('contactFeed.meansTitle') }}">
+  <h2 class="list-control-title">{{ t('contactFeed.meansTitle') }}</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th scope="col">{{ t('common.pipelineStage') }}</th>
+      <th scope="col" class="num">{{ t('contactFeed.meansContacts') }}</th>
+      <th scope="col" class="num" title="{{ t('contactFeed.meansCountedHint') }}">{{ t('contactFeed.meansCounted') }}</th>
+      <th scope="col" class="num">{{ t('contactFeed.meansMean') }}</th>
+    </tr></thead>
+    <tbody>
+      {% for row in stage_means.stages %}
+      {% set link = request.url.include_query_params(stage=row.stage, page=1) %}
+      <tr{% if filters.stage == row.stage %} class="is-active"{% endif %}>
+        <th scope="row"><a href="{{ link.path }}?{{ link.query }}"{% if filters.stage == row.stage %} aria-current="true"{% endif %}>{{ t('stage.' ~ row.stage) }}</a></th>
+        <td class="num">{{ row.contacts }}</td><td class="num">{{ row.counted }}</td>
+        <td class="num">{% if row.mean is not none %}{{ row.mean }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      {% set everyone = request.url.include_query_params(stage='', page=1) %}
+      <tr class="stage-means__all{% if not filters.stage %} is-active{% endif %}">
+        <th scope="row"><a href="{{ everyone.path }}?{{ everyone.query }}">{{ t('contactFeed.meansAll') }}</a></th>
+        <td class="num">{{ stage_means.all.contacts }}</td><td class="num">{{ stage_means.all.counted }}</td>
+        <td class="num">{% if stage_means.all.mean is not none %}{{ stage_means.all.mean }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="muted small">{{ t('contactFeed.meansHint') }}</p>
+</section>
+{% endif %}
 </div>
-{% macro sort_th(key, label, first_dir='asc') %}
-{% set direction = filters.dir or ('desc' if filters.sort in ('last_contact', 'long_term_value', 'short_term_value', 'total_value') else 'asc') %}
+{% macro sort_th(key, label, first_dir='asc', hint='') %}
+{% set direction = filters.dir or ('desc' if filters.sort in descending_sorts else 'asc') %}
 {% set active = filters.sort == key %}
 {% set next_dir = ('asc' if direction == 'desc' else 'desc') if active else first_dir %}
 {% set link = request.url.include_query_params(sort=key, dir=next_dir, page=1) %}
-<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}><a href="{{ link.path }}?{{ link.query }}">{{ label }}{% if active %} {{ '↑' if direction == 'asc' else '↓' }}{% endif %}</a></th>
+<th scope="col"{% if hint %} class="nowrap" title="{{ hint }}"{% endif %}{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %}><a href="{{ link.path }}?{{ link.query }}">{{ label }}{% if active %} {{ '↑' if direction == 'asc' else '↓' }}{% endif %}</a></th>
 {% endmacro %}
 <div class="table-scroll">
   <table class="fit-window">
@@ -90,9 +137,9 @@
       <th scope="col">{{ t('contactFeed.details') }}</th>{{ sort_th('city', t('contactFeed.city')) }}
       {{ sort_th('total_value', t('contactFeed.totalValue'), 'desc') }}{{ sort_th('priority', t('contactFeed.priority')) }}{{ sort_th('long_term_value', t('contactFeed.longTerm'), 'desc') }}{{ sort_th('short_term_value', t('contactFeed.shortTerm'), 'desc') }}
       {{ sort_th('pipeline_stage', t('common.pipelineStage')) }}{{ sort_th('next_contact', t('contactFeed.next_contact')) }}
-      {{ sort_th('first_contact', t('contactFeed.first_contact')) }}
+      {{ sort_th('first_contact', t('contactFeed.first_contact'), 'desc') }}
       {{ sort_th('last_contact', t('contactFeed.last_contact'), 'desc') }}
-      <th scope="col" class="nowrap" title="{{ t('contactFeed.daysHint') }}">{{ t('contactFeed.days') }}</th>
+      {{ sort_th('days', t('contactFeed.days'), 'desc', t('contactFeed.daysHint')) }}
     </tr></thead>
     <tbody>
       {% for contact in contacts %}

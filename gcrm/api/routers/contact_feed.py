@@ -14,7 +14,13 @@ from gcrm.api.templates import templates
 from gcrm.audit_context import audit_scope
 from gcrm.organization_state import PIPELINE_STAGES
 from gcrm.tools.db_contact_counts import get_contact_counts
-from gcrm.tools.db_contact_feed import PAGE_SIZE, get_contact_feed, validate_feed_filters
+from gcrm.tools.db_contact_feed import (
+    DESCENDING_SORTS,
+    PAGE_SIZE,
+    get_contact_feed,
+    get_stage_means,
+    validate_feed_filters,
+)
 from gcrm.tools.db_offline_contacts import (
     get_offline_totals,
     parse_offline_total,
@@ -25,9 +31,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["contact-feed"])
 
 
-def check_feed_filters(kind: str, stage: str, sort: str) -> None:
+def check_feed_filters(kind: str, stage: str, sort: str, then: str = "") -> None:
     try:
-        validate_feed_filters(kind, stage, sort)
+        validate_feed_filters(kind, stage, sort, then)
     except ValueError as failure:
         raise HTTPException(400, str(failure)) from failure
 
@@ -70,6 +76,15 @@ def safe_contact_counts(workspace_id: int | None, offer: str | None = None) -> d
         return None
 
 
+def safe_stage_means(search: str, kind: str, workspace_id: int | None, offer: str | None) -> dict | None:
+    """The mean days per stage is a nicety too; if it cannot be read the contact list still loads."""
+    try:
+        return get_stage_means(search=search, kind=kind, workspace_id=workspace_id, offer=offer)
+    except Exception:
+        logger.exception("stage means unavailable")
+        return None
+
+
 def safe_offline_totals() -> dict | None:
     try:
         return get_offline_totals()
@@ -97,27 +112,33 @@ def remember_feed_filters(request: Request, **selections) -> dict:
                for key, selected, default in (
                    ("search", selections["q"], ""), ("kind", selections["kind"], ""),
                    ("stage", selections["stage"], ""), ("sort", selections["sort"], "last_contact"),
-                   ("dir", selections.get("dir"), ""),
+                   ("dir", selections.get("dir"), ""), ("then", selections.get("then"), ""),
+                   ("then_dir", selections.get("then_dir"), ""),
                )}
     if filters["sort"] == "newest":
         filters["sort"] = "last_contact"
-    if filters["dir"] not in ("", "asc", "desc"):
-        filters["dir"] = ""
-    check_feed_filters(filters["kind"], filters["stage"], filters["sort"])
+    for key in ("dir", "then_dir"):
+        if filters[key] not in ("", "asc", "desc"):
+            filters[key] = ""
+    if filters["then"] == filters["sort"]:
+        filters["then"] = filters["then_dir"] = ""   # a second sort on the same column adds nothing
+    check_feed_filters(filters["kind"], filters["stage"], filters["sort"], filters["then"])
     request.session["contact_feed_filters"] = filters
     return filters
 
 
 def feed_page_link(page: int, filters: dict) -> str:
     return "/contact-feed/?" + urlencode({"q": filters["search"], "kind": filters["kind"],
-                                        "stage": filters["stage"], "sort": filters["sort"], "dir": filters["dir"], "page": page})
+                                        "stage": filters["stage"], "sort": filters["sort"], "dir": filters["dir"],
+                                        "then": filters["then"], "then_dir": filters["then_dir"], "page": page})
 
 
 @router.get("/contact-feed/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
                  kind: str | None = None, stage: str | None = None, sort: str | None = None,
-                 offer: str | None = None, page: int = Query(1, ge=1), dir: str | None = None):
-    filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort, dir=dir)
+                 offer: str | None = None, page: int = Query(1, ge=1), dir: str | None = None,
+                 then: str | None = None, then_dir: str | None = None):
+    filters = remember_feed_filters(request, q=q, kind=kind, stage=stage, sort=sort, dir=dir, then=then, then_dir=then_dir)
     active_offer, offers = web_offer_filter(request, offer)
     contacts = get_contact_feed(**filters, page=page, workspace_id=request.session.get("workspace_id"),
                                 extra_row=True, offer=active_offer,
@@ -126,6 +147,8 @@ def web_contacts(request: Request, q: str | None = Query(None, max_length=100),
         "request": request, "contacts": contacts[:PAGE_SIZE], "filters": filters,
         "stages": PIPELINE_STAGES, "page": page, "today": date.today().isoformat(), "offers": offers, "active_offer": active_offer,
         "counts": safe_contact_counts(request.session.get("workspace_id"), active_offer),
+        "stage_means": safe_stage_means(filters["search"], filters["kind"], request.session.get("workspace_id"), active_offer),
+        "descending_sorts": DESCENDING_SORTS,
         "offline_totals": safe_offline_totals(),
         "previous": feed_page_link(page - 1, filters) if page > 1 else None,
         "next": feed_page_link(page + 1, filters) if len(contacts) > PAGE_SIZE else None,

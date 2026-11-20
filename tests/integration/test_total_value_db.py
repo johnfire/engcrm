@@ -123,7 +123,8 @@ def _browser():
 
 def test_the_contacts_page_has_a_tv_column_between_city_and_priority(world):
     page = _browser().get("/contact-feed/?lang=en&offer=all").text
-    header = page[page.index("<thead>"):page.index("</thead>")]
+    table = page.index('<table class="fit-window"')                      # the list, not the stage means above it
+    header = page[page.index("<thead>", table):page.index("</thead>", table)]
     assert header.index("City") < header.index(">TV") < header.index("Priority")
     row = page[page.index("Brandt Maschinenbau"):]
     assert "1.000" in row[:row.index("</tr>")].replace("\xa0", "")

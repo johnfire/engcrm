@@ -44,13 +44,19 @@ def _next_step_sql(alias: str, column: str, offer: str | None, field: str) -> st
             "ORDER BY x.next_step_date, o.sort_order, o.id LIMIT 1)")
 
 
-def contact_feed_sql(offer: str | None = CONSULTING) -> str:
+FEED_COLUMNS = """id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
+       next_contact, next_contact_step, total_value, created_at, last_contact, first_contact, customer_since, people, last_contact_kind, last_contact_id, last_contact_name,
+       rating.priority, rating.short_term_value, rating.long_term_value"""
+
+
+def contact_feed_sql(offer: str | None = CONSULTING, columns: str = FEED_COLUMNS) -> str:
     """The feed for one offer's pipeline (`pipeline_stage` is that deal's), or
     for every offer (offer None: no single stage, `deals` lists them all).
     Every row carries `deals` and, for filtering, `deal_stages`, plus the
     signed-in user's private ratings (priority, short_term_value,
     long_term_value). The query starts with two %s placeholders, both that
-    user's id; None matches nobody, so the ratings come back empty."""
+    user's id; None matches nobody, so the ratings come back empty. `columns`
+    is the select list, for callers that aggregate the feed instead of listing it."""
     if offer:
         person_stage, person_join = "person_deal.pipeline_stage", person_deal_join("person", "person_deal", offer)
         organization_stage = "organization_deal.pipeline_stage"
@@ -142,9 +148,7 @@ WITH my_ratings AS (
            '[]'::jsonb, NULL::text, 'person', person.id, person.name
       FROM active_people person WHERE person.business_id IS NULL
 )
-SELECT id, kind, name, description, company, city, email, phone, pipeline_stage, deals,
-       next_contact, next_contact_step, total_value, created_at, last_contact, first_contact, customer_since, people, last_contact_kind, last_contact_id, last_contact_name,
-       rating.priority, rating.short_term_value, rating.long_term_value
+SELECT {columns}
 FROM contact_feed
 LEFT JOIN my_ratings rating ON rating.rated_kind = contact_feed.kind AND rating.rated_id = contact_feed.id
 """
