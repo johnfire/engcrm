@@ -9,6 +9,7 @@ PAGE_SIZE = 50
 KINDS = ("", "person", "organization")
 SORT_COLUMNS = {
     "last_contact": "last_contact",
+    "first_contact": "first_contact",
     "newest": "last_contact",  # Older mobile clients use this sort key.
     "name": "lower(name)",
     "city": "lower(city)",

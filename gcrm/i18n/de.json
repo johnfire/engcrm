@@ -917,6 +917,7 @@
   "businessForm.stage": "Pipeline-Stufe",
   "businessForm.openExisting": "Vorhandenes Unternehmen öffnen",
   "businessForm.failed": "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten — bitte erneut versuchen.",
+  "contactFeed.first_contact": "Erster Kontakt",
   "contactFeed.last_contact": "Letzter Kontakt",
   "contactFeed.days": "Tage",
   "contactFeed.daysHint": "Tage vom ersten Kontakt bis sie Kunde wurden, oder bis heute, solange sie es noch nicht sind. Leer bei Kandidaten und Verdachtsfällen.",

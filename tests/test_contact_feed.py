@@ -180,6 +180,28 @@ def test_previous_month_totals_appear_in_order_with_localized_labels_and_month_t
         app.dependency_overrides.pop(require_login, None)
 
 
+def test_web_list_shows_the_first_contact_beside_the_last_in_both_languages():
+    started = {**CONTACT, "first_contact": "2026-09-20"}
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[started, {**CONTACT, "id": 8, "first_contact": None}]), \
+             patch("gcrm.api.routers.contact_feed.get_contact_counts", return_value=COUNTS):
+            english = TestClient(app).get("/contact-feed/?lang=en").text
+            german = TestClient(app).get("/contact-feed/?lang=de").text
+        header = english[english.index("<thead"):english.index("</thead>")]
+        assert header.index("First contact") < header.index("Last contact")
+        assert "20.09.2026" in english and "04.10.2026" in english
+        assert "Erster Kontakt" in german and "20.09.2026" in german
+        # the second row has no first-contact day (its last contact is dated): one dash with the "date not recorded" hint
+        assert english.count('<span class="sr-only"> Contacted, date not recorded</span>') == 1
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+
+
+def test_the_list_can_be_sorted_by_first_contact():
+    validate_feed_filters("", "", "first_contact")
+
+
 def test_web_list_shows_my_ratings_instead_of_email_or_phone():
     rated = {**CONTACT, "priority": 2, "long_term_value": 3, "short_term_value": 0}
     app.dependency_overrides[require_login] = lambda: "admin"

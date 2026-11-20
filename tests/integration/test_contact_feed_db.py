@@ -189,6 +189,7 @@ ACADEMY, OTHER, NO_STAGE = ("organization", 1), ("organization", 2), ("person", 
     ("city", [ACADEMY, OTHER, NO_STAGE], [OTHER, ACADEMY, NO_STAGE]),  # no city: last both ways
     ("kind", [ACADEMY, OTHER, NO_STAGE], [NO_STAGE, ACADEMY, OTHER]),
     ("last_contact", [NO_STAGE, ACADEMY, OTHER], [OTHER, ACADEMY, NO_STAGE]),
+    ("first_contact", [NO_STAGE, ACADEMY, OTHER], [OTHER, ACADEMY, NO_STAGE]),
     ("pipeline_stage", [OTHER, ACADEMY, NO_STAGE], [ACADEMY, OTHER, NO_STAGE]),  # no deal: last both ways
 ])
 def test_requested_sorts_use_actual_values(mixed_contacts, sort, ascending, descending):
@@ -311,3 +312,24 @@ def test_next_contact_is_the_soonest_dated_live_deal_and_sorts_blanks_last(mixed
         ("Other company", "2026-11-05", "Visit"),
         ("Academy", "2026-11-10", "Call about course"),
         ("No stage", None, None)]
+
+
+def test_first_contact_is_the_earliest_real_contact_of_a_business_or_its_people(mixed_contacts):
+    workspace_id, _ = mixed_contacts
+    academy = get_contact_feed(workspace_id=workspace_id, search="Academy")[0]
+    assert (academy["first_contact"], academy["last_contact"]) == ("2026-10-03", "2026-10-04")
+    with db() as connection:
+        cursor = connection.cursor()
+        # an earlier call by a linked person moves the business's first contact back, not its last
+        cursor.execute("UPDATE people_interactions SET occurred_at='2026-09-20T10:00:00Z' WHERE person_id=1")
+        # a plan-only entry and a deleted one are not contact
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note) VALUES "
+                       "(1,'2026-08-01T10:00:00Z','next_step','Plan')")
+        cursor.execute("INSERT INTO people_interactions (person_id,occurred_at,method,note,deleted_at) VALUES "
+                       "(1,'2026-07-01T10:00:00Z','call','Deleted',NOW())")
+    academy = get_contact_feed(workspace_id=workspace_id, search="Academy")[0]
+    assert (academy["first_contact"], academy["last_contact"]) == ("2026-09-20", "2026-10-03")
+    # first-contact order now differs from last-contact order: Academy began earliest
+    for direction, expected in (("asc", [ACADEMY, NO_STAGE, OTHER]), ("desc", [OTHER, NO_STAGE, ACADEMY])):
+        rows = get_contact_feed(workspace_id=workspace_id, sort="first_contact", dir=direction)
+        assert [(row["kind"], row["id"]) for row in rows] == expected, direction
