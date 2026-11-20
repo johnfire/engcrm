@@ -791,6 +791,8 @@
   "activity.video": "Videocall",
   "activity.email": "E-Mail",
   "activity.post_mail": "Briefpost",
+  "activity.linkedin": "LinkedIn-Nachricht",
+  "activity.linkedin_reply": "LinkedIn-Antwort",
   "activity.note": "Notiz",
   "activity.typeLabel": "Art",
   "activity.minutesLabel": "Minuten (optional)",

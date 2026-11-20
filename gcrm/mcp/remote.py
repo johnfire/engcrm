@@ -118,7 +118,7 @@ async def log_activity(note: str, organization_id: int | None = None, person_id:
                  my_read: list[str] | None = None, materials_left: str = "", follow_up_promised: str = "",
                  follow_up_date: str = "", offer: str | None = None, occurred_on: str = "") -> dict:
     """Log what happened, on one organization or one person. kind: drop_in, meeting, phone,
-    video, email, post_mail, note. attitude (how they seemed to feel about Chris): warm,
+    video, email, post_mail, linkedin, linkedin_reply, note. attitude (how they seemed to feel about Chris): warm,
     neutral, cold, skeptical. my_read (how they seemed to him): trustworthy, straightforward,
     cant_tell, holding_back, story_doesnt_add_up, not_truthful, indecisive, confused, nh, cf.
     materials_left, follow_up_promised, follow_up_date and occurred_on are for organizations."""

@@ -50,9 +50,11 @@ class FieldError(ValueError):
 
 # The activity kinds Claude may name, in the words of each vocabulary.
 _ORGANIZATION_KIND = {"drop_in": "in_person", "meeting": "meeting", "phone": "phone", "video": "video",
-                      "email": "email", "post_mail": "letter", "note": None}
+                      "email": "email", "post_mail": "letter", "linkedin": "linkedin", "linkedin_reply": "linkedin_reply",
+                      "note": None}
 _PERSON_KIND = {"drop_in": "visit", "meeting": "meeting", "phone": "call", "video": "video",
-                "email": "email", "post_mail": "letter", "note": None}
+                "email": "email", "post_mail": "letter", "linkedin": "linkedin", "linkedin_reply": "linkedin_reply",
+                "note": None}
 KINDS = tuple(_ORGANIZATION_KIND)
 assert set(_ORGANIZATION_KIND.values()) - {None} <= set(ORGANIZATION_METHODS)
 assert set(_PERSON_KIND.values()) - {None} <= set(PERSON_METHODS)

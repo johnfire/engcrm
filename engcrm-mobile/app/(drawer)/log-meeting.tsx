@@ -41,6 +41,8 @@ const METHODS: { value: MeetingMethod; labelKey: string }[] = [
   { value: "video", labelKey: "meeting.methodVideo" },
   { value: "email", labelKey: "meeting.methodEmail" },
   { value: "letter", labelKey: "meeting.methodPostMail" },
+  { value: "linkedin", labelKey: "meeting.methodLinkedin" },
+  { value: "linkedin_reply", labelKey: "meeting.methodLinkedinReply" },
   { value: "other", labelKey: "meeting.methodOther" },
 ];
 
@@ -52,6 +54,8 @@ const PERSON_METHOD: Record<MeetingMethod, string> = {
   video: "video",
   email: "email",
   letter: "letter",
+  linkedin: "linkedin",
+  linkedin_reply: "linkedin_reply",
   other: "other",
 };
 

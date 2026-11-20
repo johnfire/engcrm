@@ -791,6 +791,8 @@
   "activity.video": "Video call",
   "activity.email": "Email",
   "activity.post_mail": "Post mail",
+  "activity.linkedin": "LinkedIn message",
+  "activity.linkedin_reply": "LinkedIn reply",
   "activity.note": "Note",
   "activity.typeLabel": "Type",
   "activity.minutesLabel": "Minutes (optional)",

@@ -13,6 +13,8 @@ export const METHOD_TYPES: Record<string, string> = {
   video: "video",
   email: "email",
   letter: "post_mail",
+  linkedin: "linkedin",
+  linkedin_reply: "linkedin_reply",
 };
 
 // Log entries a next-step change wrote: a plan, not work done.

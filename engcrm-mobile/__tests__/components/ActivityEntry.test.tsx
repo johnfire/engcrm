@@ -11,6 +11,13 @@ describe("methodLabelKey — names a method as the web pages do", () => {
     expect(methodLabelKey("letter", "organization")).toBe("activity.post_mail");
   });
 
+  it("names a LinkedIn message and a LinkedIn reply on both owners", () => {
+    expect(methodLabelKey("linkedin", "organization")).toBe("activity.linkedin");
+    expect(methodLabelKey("linkedin", "person")).toBe("activity.linkedin");
+    expect(methodLabelKey("linkedin_reply", "organization")).toBe("activity.linkedin_reply");
+    expect(methodLabelKey("linkedin_reply", "person")).toBe("activity.linkedin_reply");
+  });
+
   it("names next-step entries", () => {
     expect(methodLabelKey("next_step", "person")).toBe("nextStep.title");
     expect(methodLabelKey("next_step_done", "organization")).toBe("nextStep.doneLog");

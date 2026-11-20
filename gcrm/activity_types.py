@@ -9,11 +9,15 @@ from datetime import date
 
 from gcrm.dates import parse_day
 
-ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "post_mail", "note")
+ACTIVITY_TYPES = ("drop_in", "meeting", "phone", "video", "email", "post_mail", "linkedin", "note")
 
 # Minutes an activity counts for when no duration was typed. Each workspace can
 # change these in Settings (activity_minute_defaults); these are the fallback.
-DEFAULT_MINUTES = {"drop_in": 15, "meeting": 45, "phone": 15, "video": 30, "email": 10, "post_mail": 10, "note": 0}
+DEFAULT_MINUTES = {"drop_in": 15, "meeting": 45, "phone": 15, "video": 30, "email": 10, "post_mail": 10, "linkedin": 5, "note": 0}
+
+# What a person's reply is named. Not a type of work (so not in ACTIVITY_TYPES): like an inbound message it is not
+# effort, and statistics leave it out; it is only recorded and shown, so a batch's reply rate can be counted.
+REPLY_TYPE = "linkedin_reply"
 
 # Stored method value -> activity type. Anything else (other, none) is a plain note.
 _METHOD_TYPES = {
@@ -23,6 +27,7 @@ _METHOD_TYPES = {
     "video": "video",
     "email": "email",
     "letter": "post_mail",
+    "linkedin": "linkedin", "linkedin_reply": REPLY_TYPE,
 }
 
 # Log entries that record a plan, not work done.
@@ -30,8 +35,8 @@ NOT_ACTIVITIES = ("next_step", "next_step_done")
 
 # Methods each form may store. Organizations and people keep their own words for
 # the older types; the new ones are shared.
-ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "letter", "other")
-PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "letter", "other")
+ORGANIZATION_METHODS = ("in_person", "meeting", "phone", "video", "email", "letter", "linkedin", "linkedin_reply", "other")
+PERSON_METHODS = ("visit", "meeting", "call", "video", "email", "letter", "linkedin", "linkedin_reply", "other")
 
 # How they appear to feel about me, best first. Several may apply at once.
 ATTITUDES = ("warm", "neutral", "cold", "skeptical")
