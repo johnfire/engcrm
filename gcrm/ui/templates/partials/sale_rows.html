@@ -6,8 +6,9 @@
 {% from 'partials/date_field.html' import date_field with context %}
 
 {% macro sale_item(sale, deal_id, page, show_offer=False) -%}
-{%- if sale.contract and sale.contract.open %}
+{%- if sale.contract %}
 <li class="sale-contract">
+  {%- if sale.contract.open %}
   <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move">
     <input type="hidden" name="next" value="{{ page }}" />
     <strong>{% if sale.contract.hours %}{{ t('sale.contractLineHours', hours=sale.contract.hours | hrs, rate=sale.contract.rate_eur | hrs, total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% else %}{{ t('sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% endif %}</strong>
@@ -29,6 +30,12 @@
     <label>{{ t('sale.workFrom') }} {{ date_field('work_from', None, label=t('sale.workFrom')) }}</label>
     <label>{{ t('sale.workTo') }} {{ date_field('work_to', None, label=t('sale.workTo')) }}</label>
     <button type="submit" class="btn-secondary btn-tiny">{{ t('sale.workSave') }}</button>
+  </form>
+  {%- endif %}
+  <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/delete" style="display:inline"
+        data-confirm="{{ t('sale.deleteContractConfirm', payments=sale.contract.payments) }}">
+    <input type="hidden" name="next" value="{{ page }}" />
+    <button class="btn-danger btn-tiny">{{ t('sale.deleteContract') }}</button>
   </form>
 </li>
 {%- endif %}

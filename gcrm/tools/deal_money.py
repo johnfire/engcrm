@@ -244,6 +244,20 @@ def delete_deal_sale(deal_id: int, sale_id: int, workspace_id: int | None = None
     return deleted
 
 
+def delete_series(deal_id: int, series_id: str, workspace_id: int | None = None) -> int:
+    """Remove every payment of a contract at once (soft delete), received ones too: the whole block was
+    a mistake. Returns how many payments went; 0 when this deal has no such contract. Raises DealNotFound."""
+    with db() as conn:
+        cur = conn.cursor()
+        get_deal(cur, deal_id, workspace_id)
+        cur.execute("UPDATE sales SET deleted_at = NOW() WHERE deal_id = %s AND series_id = %s::uuid AND deleted_at IS NULL",
+                    (deal_id, str(series_id)))
+        deleted = cur.rowcount
+    if deleted:
+        log_audit(None, None, "sale.series_deleted", f"deal:{deal_id}", f"{series_id} ({deleted})")
+    return deleted
+
+
 # --- Subscriptions -----------------------------------------------------------
 
 def start_subscription(deal_id: int, amount_eur_month, started_on: date, note: str = "",

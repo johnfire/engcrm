@@ -20,6 +20,7 @@ from gcrm.tools.deal_money import (
     add_deal_sale,
     deal_money,
     delete_deal_sale,
+    delete_series,
     delete_subscription,
     end_subscription,
     set_sale_due_day,
@@ -315,6 +316,22 @@ def deal_series_status(
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+    return _back(next, "/organizations/")
+
+
+@router.post("/{deal_id}/series/{series_id}/delete")
+def deal_series_delete(request: Request, deal_id: int, series_id: str, next: str = Form(""),
+                       _admin: str = Depends(require_admin)):
+    """Remove all payments of a contract in one go."""
+    try:
+        series = str(uuid.UUID(series_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    try:
+        if not delete_series(deal_id, series, request.session.get("workspace_id")):
+            raise HTTPException(status_code=404, detail="Contract not found")
+    except DealNotFound:
+        raise HTTPException(status_code=404, detail="Deal not found")
     return _back(next, "/organizations/")
 
 

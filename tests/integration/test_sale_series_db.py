@@ -7,7 +7,13 @@ import pytest
 
 from gcrm.db.connection import db
 from gcrm.tools.db_organizations import save_organization
-from gcrm.tools.deal_money import add_deal_sale, deal_money, set_sale_status, set_series_status
+from gcrm.tools.deal_money import (
+    add_deal_sale,
+    deal_money,
+    delete_series,
+    set_sale_status,
+    set_series_status,
+)
 from gcrm.tools.deal_records import DealNotFound, get_deals
 from gcrm.tools.statistics import add_sale, get_sales, get_statistics
 
@@ -89,6 +95,18 @@ def test_the_whole_contract_moves_together_but_a_received_payment_stays_received
     assert [r["status"] for r in _rows(firm["deal"])] == ["collected", "cancelled", "cancelled", "cancelled"]
     assert set_series_status(firm["deal"], series, "booked", workspace_id=firm["workspace"]) == 3   # undo
     assert [r["status"] for r in _rows(firm["deal"])] == ["collected", "booked", "booked", "booked"]
+
+
+def test_the_whole_contract_is_deleted_in_one_go_and_only_through_its_own_deal(firm):
+    _, rows = _contract(firm)
+    series = rows[0]["series_id"]
+    assert delete_series(firm["other_deal"], series, workspace_id=firm["workspace"]) == 0
+    assert len(_rows(firm["deal"])) == 4
+    assert delete_series(firm["deal"], series, workspace_id=firm["workspace"]) == 4
+    assert _rows(firm["deal"]) == []
+    assert delete_series(firm["deal"], series, workspace_id=firm["workspace"]) == 0
+    with pytest.raises(DealNotFound):
+        delete_series(999999, series, workspace_id=firm["workspace"])
 
 
 def test_the_whole_contract_cannot_be_marked_collected_in_one_go(firm):
@@ -208,4 +226,6 @@ def test_the_whole_contract_control_follows_the_payments_still_to_come(firm):
     # once every payment is received there is nothing left to move
     for row in rows[1:]:
         set_sale_status(firm["deal"], row["id"], "collected", collected_on=date(2027, 3, 3), workspace_id=firm["workspace"])
-    assert "sale-contract" not in browser.get(page_url).text
+    done = browser.get(page_url).text            # nothing left to move or reprice, but the contract can still be deleted
+    assert f"/series/{series}/status" not in done and f"/series/{series}/work" not in done
+    assert f"/series/{series}/delete" in done

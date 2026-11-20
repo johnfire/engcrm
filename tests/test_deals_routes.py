@@ -330,6 +330,18 @@ class TestPaymentSchedules:
         with patch("gcrm.api.routers.deals.set_series_status", side_effect=ValueError("collected")):
             assert post("/deals/9/series/6f1c2f1e-0a5b-4b7e-9a39-0c1f2d3e4a5b/status", {"status": "collected"}).status_code == 400
 
+    def test_the_whole_contract_is_deleted_together(self, admin_web):
+        sid = "6f1c2f1e-0a5b-4b7e-9a39-0c1f2d3e4a5b"
+        with patch("gcrm.api.routers.deals.delete_series", return_value=3) as gone:
+            response = post(f"/deals/9/series/{sid}/delete", {"next": "/organizations/4"})
+        assert response.headers["location"] == "/organizations/4"
+        assert gone.call_args.args[:2] == (9, sid)
+        with patch("gcrm.api.routers.deals.delete_series", return_value=0):
+            assert post(f"/deals/9/series/{sid}/delete", {}).status_code == 404
+        with patch("gcrm.api.routers.deals.delete_series") as gone:
+            assert post("/deals/9/series/not-a-uuid/delete", {}).status_code == 404
+        gone.assert_not_called()
+
     def test_a_malformed_contract_id_is_a_404_before_touching_anything(self, admin_web):
         with patch("gcrm.api.routers.deals.set_series_status") as move:
             assert post("/deals/9/series/not-a-uuid/status", {"status": "booked"}).status_code == 404

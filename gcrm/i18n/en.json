@@ -1068,6 +1068,8 @@
   "revenue.columnsHint": "Revenue by sale status, in €. Total leaves out cancelled.",
   "sale.paymentOf": "payment {{part}} of {{total}}",
   "sale.contractMove": "Move the payments still to come to",
+  "sale.deleteContract": "Delete the whole contract",
+  "sale.deleteContractConfirm": "Delete all {{payments}} payments of this contract, including any already received?",
   "sale.monthsLabel": "If monthly: for how many months",
   "nav.forecast": "Forecast",
   "forecast.title": "Forecast",

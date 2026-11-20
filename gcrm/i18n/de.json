@@ -1068,6 +1068,8 @@
   "revenue.columnsHint": "Umsatz nach Verkaufsstatus, in €. Gesamt ohne storniert.",
   "sale.paymentOf": "Rate {{part}} von {{total}}",
   "sale.contractMove": "Noch offene Raten verschieben nach",
+  "sale.deleteContract": "Ganzen Vertrag löschen",
+  "sale.deleteContractConfirm": "Alle {{payments}} Raten dieses Vertrags löschen, auch bereits erhaltene?",
   "sale.monthsLabel": "Wenn monatlich: für wie viele Monate",
   "nav.forecast": "Prognose",
   "forecast.title": "Prognose",
