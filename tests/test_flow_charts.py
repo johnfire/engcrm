@@ -200,9 +200,9 @@ def test_the_expected_new_sales_are_a_blue_smooth_line_between_the_projection_an
 def test_the_tooltips_name_the_total_with_the_new_sales_you_expect():
     svg = str(build_flow_charts(_outlook(new=D(1000)), "en", money)[2]["svg"])
     assert "10.2026: €2,100 in so far · target €5,000" in svg                           # a past month is unchanged
-    assert ("11.2026: €3,000 in so far · projected €4,300 by month end · with expected new sales €5,300 · target €10,000 · "
+    assert ("11.2026: €3,000 in so far · projected €4,300 by month end · with possible new sales €5,300 · target €10,000 · "
             "this month: scheduled sales €700 + other income €1,500") in svg
-    assert ("12.2026: projected €5,800 by month end · with expected new sales €7,800 · target €15,000 · "
+    assert ("12.2026: projected €5,800 by month end · with possible new sales €7,800 · target €15,000 · "
             "this month: scheduled sales €0 + other income €1,500") in svg
 
 
@@ -222,7 +222,7 @@ def test_the_note_says_what_the_blue_line_assumes_and_without_a_target_it_still_
 
 def test_the_new_sales_line_in_german():
     chart = build_flow_charts(_outlook(new=D(1000)), "de", money)[2]
-    assert "mit erwarteten Neuverkäufen €5,300" in str(chart["svg"]) and "€1,000 pro Monat" in chart["note"]
+    assert "mit möglichen Neuverkäufen €5,300" in str(chart["svg"]) and "€1,000 pro Monat" in chart["note"]
 
 
 def test_the_note_says_how_long_each_booking_keeps_paying():
@@ -256,7 +256,7 @@ def test_the_total_won_chart_gets_a_blue_year_line_from_this_month_on_even_in_th
     chart = build_flow_charts(_with_years(), "en", money)[1]
     svg = str(chart["svg"])
     assert svg.count("<path") == 1 and "chart-line--assumed" in svg                       # one smooth blue path (two points); black is straight
-    assert "12.2026: the 2026 total is heading for €60,000 (known €36,000 + expected new sales €24,000)" in svg
+    assert "12.2026: the 2026 total is heading for €60,000 (known €36,000 + possible new sales €24,000)" in svg
     assert chart["rows"][2] == ["12.2026", "—", "€60,000"] and chart["rows"][0][2] == "—"
     assert "calendar year of each month is heading" in chart["note"]
 
@@ -301,7 +301,7 @@ def test_new_business_runs_six_months_ahead_with_the_expected_sales_stacked_in_b
     labels = [row[0] for row in chart["rows"]]
     assert labels[-1] == "05.2027" and "06.2027" not in labels                      # this month (11.2026) + 6
     assert [row[2] for row in chart["rows"][:3]] == ["—", "—", "€1,000"]                    # October, this November: no blue; December, the first of next month: blue
-    assert "expected new sales €1,000" in svg and "Yellow: business you have entered" in chart["note"]
+    assert "possible new sales €1,000" in svg and "Yellow: business you have entered" in chart["note"]
 
 
 def test_without_expected_sales_new_business_stops_today_and_has_no_blue():

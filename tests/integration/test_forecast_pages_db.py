@@ -316,8 +316,8 @@ def test_an_admin_enters_the_new_sales_he_expects_and_the_outlook_gets_a_blue_li
         assert get_plan()["expected_new_monthly"] == Decimal("1306.50") and get_plan()["monthly_need"] is None
         assert (get_plan()["expected_new_hours"], get_plan()["expected_new_rate"]) == (Decimal("3.00"), Decimal("100.50"))
     page = admin.get(outlook).text.replace("\xa0", " ")
-    assert "chart-line--assumed" in section(page) and "with expected new sales" in section(page)
-    assert "a month of new sales you expect to book" in section(page)
+    assert "chart-line--assumed" in section(page) and "with possible new sales" in section(page)
+    assert "a month of possible new sales" in section(page)
     assert "chart-line--assumed" not in section(admin.get("/forecast?flow=3m&lang=en").text)    # only the outlook has the line
     assert 'name="expected_new_hours"' in page and 'value="100.50"' in page and 'value="3.00"' in page
     assert "1.306,50" in page.replace("\xa0", "")                                        # the monthly value it works out to
@@ -346,9 +346,9 @@ def test_the_blue_line_follows_the_language_and_a_viewer_sees_the_figure(world):
     admin.post("/forecast/new-sales", data={**NEW}, follow_redirects=False)
     admin.post("/settings/language", data={"ui_language": "de"})
     german = admin.get("/forecast?flow=outlook").text.replace("\xa0", " ")
-    assert "mit erwarteten Neuverkäufen" in german and "Arbeitsstunden pro Woche" in german
+    assert "mit möglichen Neuverkäufen" in german and "Arbeitsstunden pro Woche" in german
     viewer = _browser("viewer@first.example").get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " ")
-    assert "Expected new sales per month" in viewer and 'name="expected_new_hours"' not in viewer
+    assert "Possible new sales per month" in viewer and 'name="expected_new_hours"' not in viewer
 
 
 def test_the_months_each_booking_pays_are_a_number_or_the_letter_i_and_zero_is_refused(world):
@@ -370,12 +370,12 @@ def test_the_table_has_a_projected_column_between_subtotal_and_other_income_once
     admin = _browser("owner@first.example")
     before = admin.get("/forecast?lang=en").text
     head = before[before.index("<thead>"):before.index("</thead>")]
-    assert "Projected" not in head                                                  # nothing assumed: no column
+    assert "Possible" not in head                                                  # nothing assumed: no column
     admin.post("/forecast/new-sales", data={**NEW, "new_sales_delay": "1"}, follow_redirects=False)
     page = admin.get("/forecast?lang=en").text
     head = page[page.index("<thead>"):page.index("</thead>")]
-    assert head.index("Subtotal") < head.index("Projected") < head.index("Other income") < head.index("Grand total")
-    assert "Projected = the new sales you expect" in page
+    assert head.index("Subtotal") < head.index("Possible") < head.index("Other income") < head.index("Grand total")
+    assert "Possible = the possible new sales" in page
 
 
 def test_the_delay_is_a_whole_number_of_months_and_blank_means_one(world):
@@ -396,7 +396,7 @@ def test_the_total_won_chart_shows_where_the_year_is_heading_once_new_sales_are_
     assert "is heading for" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
     admin.post("/forecast/new-sales", data={**NEW, "new_sales_months": "i"}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
-    assert "total is heading for" in page and "expected new sales" in page
+    assert "total is heading for" in page and "possible new sales" in page
     assert "calendar year of each month is heading" in page
     assert "is heading for" not in section(admin.get("/forecast?flow=3m&lang=en").text)           # only the outlook
 
