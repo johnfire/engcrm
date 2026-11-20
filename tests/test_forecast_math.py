@@ -216,3 +216,25 @@ def test_without_a_work_window_the_hours_fall_in_the_month_the_payment_is_due():
     assert hours_window(None, None, date(2026, 11, 18)) == (date(2026, 11, 1), date(2026, 11, 30))
     assert hours_window(date(2026, 12, 7), date(2027, 1, 15), date(2026, 11, 18)) == (date(2026, 12, 7), date(2027, 1, 15))
     assert hours_window(date(2026, 12, 7), None, date(2026, 11, 18)) == (date(2026, 11, 1), date(2026, 11, 30))     # half a window is no window
+
+
+def test_the_expected_new_bookings_start_on_the_first_of_next_month():
+    from gcrm.forecast_math import first_booking_month
+    assert first_booking_month(date(2026, 11, 20)) == date(2026, 12, 1)
+    assert first_booking_month(date(2026, 11, 1)) == date(2026, 12, 1)
+    assert first_booking_month(date(2026, 12, 31)) == date(2027, 1, 1)        # December rolls into the next year
+    assert first_booking_month(date(2027, 1, 15)) == date(2027, 2, 1)
+    assert first_booking_month(date(2027, 2, 28)) == date(2027, 3, 1)
+
+
+def test_from_the_first_booking_month_the_first_payment_is_delay_months_later():
+    from decimal import Decimal
+
+    from gcrm.forecast_math import first_booking_month, new_sales_cash
+    start = first_booking_month(date(2026, 11, 20))
+    months = [date(2026, 11, 1), date(2026, 12, 1), date(2027, 1, 1), date(2027, 2, 1)]
+    cash = new_sales_cash(Decimal("1000"), None, 1, start, months)
+    # booked in December, first paid in January (delay 1): nothing in November or December
+    assert [cash[m] for m in months] == [0, 0, Decimal("1000"), Decimal("2000")]
+    paid_at_once = new_sales_cash(Decimal("1000"), 1, 0, start, months)
+    assert [paid_at_once[m] for m in months] == [0, Decimal("1000"), Decimal("1000"), Decimal("1000")]

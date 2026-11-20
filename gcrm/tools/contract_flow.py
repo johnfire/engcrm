@@ -19,7 +19,7 @@ from decimal import Decimal
 
 from gcrm.db.connection import db
 from gcrm.flow_math import bucket_end, bucket_start, daily_pace, flow_buckets
-from gcrm.forecast_math import live_bookings, month_targets, new_sales_in_year
+from gcrm.forecast_math import first_booking_month, live_bookings, month_targets, new_sales_in_year
 from gcrm.sale_series import shift_months
 from gcrm.tools.income_plan import get_plan
 from gcrm.tools.revenue import live_sales_sql
@@ -132,6 +132,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
         per_bucket[bucket_start(granularity, day)]["sales"] += euros
     collected_total = sum(collected_by_day.values(), _ZERO)
     this_month, last_month = today.replace(day=1), shift_months(today.replace(day=1), -1)
+    first_booking = first_booking_month(today)               # the expected new bookings start next month
     buckets, running, money_in, target = [], base, _ZERO, _ZERO
     other_through, scheduled_through = _ZERO, _ZERO
     expected_new = (plan["expected_new_monthly"] or None) if outlook else None             # 0 draws nothing
@@ -159,7 +160,7 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             "year_known": None, "year_new": None, "year_total": None,
         }
         if outlook and expected_new and start >= this_month:      # where the calendar year of this month is heading
-            new_in_year = new_sales_in_year(expected_new, paying_months, delay, this_month, start, start.year, campaign)
+            new_in_year = new_sales_in_year(expected_new, paying_months, delay, first_booking, start, start.year, campaign)
             bucket.update(year_known=year_known[start.year].quantize(_CENT), year_new=new_in_year.quantize(_CENT),
                           year_total=(year_known[start.year] + new_in_year).quantize(_CENT))
         if outlook:
@@ -167,10 +168,11 @@ def get_contract_flow(workspace_id: int, range_key: str, today: date | None = No
             scheduled_through += scheduled.get(start, _ZERO)
             bucket["proj_sales"] = scheduled.get(start, _ZERO).quantize(_CENT)
             bucket["proj_other"] = flows["other_full"].quantize(_CENT)
-            if start >= this_month:
+            if start >= first_booking:
                 months_of_new += 1
                 if expected_new:        # bookings still paying this month: this month's and the earlier ones within the run
                     new_total += expected_new * live_bookings(months_of_new - 1, paying_months, delay, campaign)
+            if start >= this_month:
                 bucket["projection"] = (collected_total + other_through + scheduled_through).quantize(_CENT)
                 if expected_new:
                     bucket["with_new"] = (bucket["projection"] + new_total).quantize(_CENT)

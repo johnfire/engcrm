@@ -407,7 +407,7 @@ def test_the_new_business_chart_runs_six_months_ahead_with_blue_on_top_once_new_
     assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=outlook&lang=en").text)
     admin.post("/forecast/new-sales", data={**NEW}, follow_redirects=False)
     page = section(admin.get("/forecast?flow=outlook&lang=en").text.replace("\xa0", " "))
-    assert page.count("chart-bar--assumed") == 7                                          # this month and six more
+    assert page.count("chart-bar--assumed") == 6                                          # the six months from next month on
     assert "Yellow: business you have entered" in page
     assert "chart-bar--assumed" not in section(admin.get("/forecast?flow=year&lang=en").text)
 

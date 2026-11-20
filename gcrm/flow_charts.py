@@ -3,7 +3,7 @@ the running total, and money in against the target. In the outlook the first two
 the third runs twelve months on, with a projection line. Text comes from the translation catalogs;
 the tooltips carry the number of deals and the split by status."""
 from gcrm.charts import bar_chart, line_chart
-from gcrm.forecast_math import month_index
+from gcrm.forecast_math import first_booking_month, month_index
 from gcrm.i18n import translate
 from gcrm.sale_series import shift_months
 
@@ -129,8 +129,8 @@ def build_flow_charts(flow: dict, lang: str, money) -> list[dict]:
         row = [label(b), money(b["entered_total"]), str(b["deals"])]
         if expected_new:
             campaign = flow.get("expected_new_campaign")
-            this_month = flow["today"].replace(day=1)
-            has_blue = b["end"] >= flow["today"] and (campaign is None or month_index(this_month, b["start"]) < campaign)
+            first_booking = first_booking_month(flow["today"])
+            has_blue = b["end"] >= first_booking and (campaign is None or month_index(first_booking, b["start"]) < campaign)
             if has_blue:
                 parts.append(t("flow.part.newExpected", amount=money(expected_new)))
                 point["assumed"] = float(expected_new)

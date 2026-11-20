@@ -10,7 +10,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from gcrm.db.connection import db
-from gcrm.forecast_math import hours_window, live_bookings, month_index, spread_hours, week_start
+from gcrm.forecast_math import (
+    first_booking_month,
+    hours_window,
+    live_bookings,
+    month_index,
+    spread_hours,
+    week_start,
+)
 from gcrm.tools.income_plan import get_plan
 from gcrm.tools.revenue import live_sales_sql
 
@@ -42,13 +49,13 @@ def get_weekly_hours(workspace_id: int, today: date | None = None, weeks: int = 
                     entered[monday] += hours
     per_booking = plan["expected_new_hours"]
     has_expected = bool(plan["expected_new_monthly"]) and bool(per_booking)
-    this_month = today.replace(day=1)
+    first_booking = first_booking_month(today)
     result = []
     for start in starts:
         thursday = start + timedelta(days=3)              # the week belongs to the month most of it is in
         expected = _ZERO
         if has_expected:
-            index = month_index(this_month, thursday.replace(day=1))
+            index = month_index(first_booking, thursday.replace(day=1))
             if index >= 0:
                 expected = Decimal(per_booking) * live_bookings(index, plan["expected_new_months"], plan["expected_new_delay"],
                                                                 plan["expected_new_campaign"])

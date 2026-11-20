@@ -349,19 +349,20 @@ def test_the_projected_column_is_the_cash_from_the_new_sales_you_expect_and_coun
         forecast = get_forecast(world["first"], "month", date(2026, 11, 8))
         by_month = {p["start"]: p for p in forecast["periods"]}
         assert by_month[date(2026, 10, 1)]["projected"] == D("0")
-        assert by_month[date(2026, 11, 1)]["projected"] == D("0")                       # booked now, paid from December
-        assert by_month[date(2026, 12, 1)]["projected"] == D("1000")
+        assert by_month[date(2026, 11, 1)]["projected"] == D("0")                       # this month: the first booking is next month's
+        assert by_month[date(2026, 12, 1)]["projected"] == D("0")                       # booked in December, paid from January
+        assert by_month[date(2027, 1, 1)]["projected"] == D("1000")
         assert by_month[date(2027, 12, 1)]["projected"] == D("1000")
-        december = by_month[date(2026, 12, 1)]
-        assert december["total"] == december["subtotal"] + D("1000") + december["covered"]
-        assert december["gap_total"] == december["target"] - december["total"]
+        january = by_month[date(2027, 1, 1)]
+        assert january["total"] == january["subtotal"] + D("1000") + january["covered"]
+        assert january["gap_total"] == january["target"] - january["total"]
         quarter = {p["start"]: p for p in get_forecast(world["first"], "quarter", date(2026, 11, 8))["periods"]}
-        assert quarter[date(2026, 10, 1)]["projected"] == D("1000")                      # Dec only
+        assert quarter[date(2026, 10, 1)]["projected"] == D("0")                         # nothing paid before January
         assert quarter[date(2027, 1, 1)]["projected"] == D("3000")
         year = {p["start"]: p for p in get_forecast(world["first"], "year", date(2026, 11, 8))["periods"]}
-        assert year[date(2026, 1, 1)]["projected"] == D("1000") and year[date(2027, 1, 1)]["projected"] == D("12000")
+        assert year[date(2026, 1, 1)]["projected"] == D("0") and year[date(2027, 1, 1)]["projected"] == D("12000")
         this_year = next(t for t in get_forecast(world["first"], "month", date(2026, 11, 8))["tiles"] if t["key"] == "this_year")
-        assert this_year["projected"] == D("1000") and this_year["total"] == this_year["subtotal"] + D("1000") + this_year["covered"]
+        assert this_year["projected"] == D("0") and this_year["total"] == this_year["subtotal"] + this_year["covered"]
 
 
 def test_bookings_that_keep_paying_stack_in_the_projected_column(world):
@@ -369,7 +370,7 @@ def test_bookings_that_keep_paying_stack_in_the_projected_column(world):
         save_expected_new_sales(D("1000"), None, 1)                                      # for ever, from the month after
         months = {p["start"]: p["projected"] for p in get_forecast(world["first"], "month", date(2026, 11, 8))["periods"]}
         assert [months[date(2026, 11, 1)], months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)]] == \
-            [D("0"), D("1000"), D("2000"), D("3000")]
+            [D("0"), D("0"), D("1000"), D("2000")]
 
 
 def test_without_an_expectation_projected_is_zero_and_totals_are_unchanged(world):
@@ -395,11 +396,11 @@ def test_the_campaign_length_is_saved_checked_and_blank_means_no_end(world):
 
 def test_the_projected_column_stops_growing_when_the_campaign_ends(world):
     with workspace_scope(world["first"]):
-        save_expected_new_sales(D("1000"), None, 1, 4)                                  # Nov, Dec, Jan, Feb; paid for ever
+        save_expected_new_sales(D("1000"), None, 1, 4)                                  # Dec, Jan, Feb, Mar; paid for ever
         months = {p["start"]: p["projected"] for p in get_forecast(world["first"], "month", date(2026, 11, 8))["periods"]}
-    assert [months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)], months[date(2027, 3, 1)]] == \
-        [D("1000"), D("2000"), D("3000"), D("4000")]
-    assert months[date(2027, 4, 1)] == months[date(2027, 11, 1)] == D("4000")          # no new sales after February
+    assert [months[date(2026, 12, 1)], months[date(2027, 1, 1)], months[date(2027, 2, 1)], months[date(2027, 3, 1)],
+            months[date(2027, 4, 1)]] == [D("0"), D("1000"), D("2000"), D("3000"), D("4000")]
+    assert months[date(2027, 5, 1)] == months[date(2027, 11, 1)] == D("4000")          # no new sales after March
 
 
 def test_hours_a_week_and_a_rate_make_the_monthly_value_and_are_remembered(world):

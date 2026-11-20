@@ -300,7 +300,7 @@ def test_new_business_runs_six_months_ahead_with_the_expected_sales_stacked_in_b
     assert svg.count("chart-bar--assumed") >= 6 and 'class="chart-bar"' in svg
     labels = [row[0] for row in chart["rows"]]
     assert labels[-1] == "05.2027" and "06.2027" not in labels                      # this month (11.2026) + 6
-    assert chart["rows"][0][2] == "—" and chart["rows"][1][2] == "€1,000"                    # past month: no blue; this month: blue
+    assert [row[2] for row in chart["rows"][:3]] == ["—", "—", "€1,000"]                    # October, this November: no blue; December, the first of next month: blue
     assert "expected new sales €1,000" in svg and "Yellow: business you have entered" in chart["note"]
 
 
@@ -311,12 +311,12 @@ def test_without_expected_sales_new_business_stops_today_and_has_no_blue():
 
 def test_the_blue_bars_stop_when_the_campaign_ends_and_the_note_says_so():
     flow = _big_outlook()
-    flow["expected_new_campaign"] = 2                                               # this month and the next only
+    flow["expected_new_campaign"] = 2                                               # the first two months of the campaign: December and January
     flow["buckets"] += [{**flow["buckets"][2], "start": date(2027, month, 1), "end": date(2027, month, 28), "future": True,
                          "entered_total": D(0), "deals": 0} for month in range(1, 9)]
     chart = build_flow_charts(flow, "en", money)[0]
     assert str(chart["svg"]).count("chart-bar--assumed") == 2
-    assert [row[2] for row in chart["rows"][:5]] == ["—", "€1,000", "€1,000", "—", "—"]       # Oct (past), Nov, Dec, then none
+    assert [row[2] for row in chart["rows"][:5]] == ["—", "—", "€1,000", "€1,000", "—"]       # Oct (past), Nov (this month, not yet), Dec, Jan, then none
     assert "for 2 months" in chart["note"]
     other = build_flow_charts(_outlook(new=D(1000)), "en", money)[1]["note"]
     assert "campaign" not in other

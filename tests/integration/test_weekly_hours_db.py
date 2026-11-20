@@ -96,10 +96,12 @@ def test_a_persons_deal_counts_too(world):
 def test_the_expected_new_bookings_add_their_hours_a_week_in_blue_and_stop_with_the_campaign(world):
     with workspace_scope(world["first"]):
         save_expected_new_hours(D("3"), D("100"), None, 1, 2)                           # 3 h a week each, 2 months, from next month
-    result = _weeks(world, weeks=8)
+    result = _weeks(world, weeks=14)
     expected = [w["expected"] for w in result["weeks"]]
-    # weeks 9 and 16 Nov: November, nothing yet; 23 Nov: November; 30 Nov: December (1 booking, 3 h); January: 2 bookings (6 h)
-    assert expected[:4] == [D("0"), D("0"), D("0"), D("3")] and result["has_expected"] is True
+    # bookings start in December and each is first paid a month later: the eight weeks of November and December
+    # have none (the week of 30 Nov belongs to December); the four weeks of January have 1 booking (3 h); the
+    # first two of February have 2 (6 h), and the campaign's two months add no more after that
+    assert expected == [D("0")] * 8 + [D("3")] * 4 + [D("6")] * 2 and result["has_expected"] is True
     assert all(w["total"] == w["entered"] + w["expected"] for w in result["weeks"])
 
 

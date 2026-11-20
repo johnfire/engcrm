@@ -325,12 +325,12 @@ def test_expected_new_sales_add_up_month_by_month_on_top_of_the_projection(world
     assert flow["expected_new"] == D("1000.00")
     october, november, december = flow["buckets"][:3]
     assert october["with_new"] == october["projection"] == D("2100.00")           # the last month already behind us: what really came in
-    assert november["with_new"] - november["projection"] == D("1000.00")          # this month counts too
-    assert december["with_new"] - december["projection"] == D("2000.00")
-    last = flow["buckets"][-1]                                                    # November 2027 is the 13th month from now on
-    assert last["start"] == date(2027, 11, 1) and last["with_new"] - last["projection"] == D("13000.00")
+    assert november["with_new"] - november["projection"] == D("0.00")             # this month is not counted: the first booking is next month's
+    assert december["with_new"] - december["projection"] == D("1000.00")
+    last = flow["buckets"][-1]                                                    # November 2027 is the 12th month of bookings, from December
+    assert last["start"] == date(2027, 11, 1) and last["with_new"] - last["projection"] == D("12000.00")
     steps = [b["with_new"] - b["projection"] for b in flow["buckets"][1:]]
-    assert steps == [D("1000.00") * n for n in range(1, 14)]
+    assert steps == [D("0.00")] + [D("1000.00") * n for n in range(1, 13)]
 
 
 def test_the_expectation_never_changes_the_scheduled_projection_or_the_money_in(world):
@@ -363,8 +363,8 @@ def test_a_booking_that_keeps_paying_for_three_months_stacks_up_then_levels_off(
     flow = _outlook(world)
     assert flow["expected_new_months"] == 3
     one, two, three, four, five = _extra(flow)[:5]
-    # months 1..5 of cumulative money: 1000, 3000, 6000, then each month adds 3 live bookings = 3000
-    assert [one, two, three, four, five] == [D("1000.00"), D("3000.00"), D("6000.00"), D("9000.00"), D("12000.00")]
+    # this month nothing; then months 1..4 of cumulative money: 1000, 3000, 6000, then each month adds 3 live bookings = 3000
+    assert [one, two, three, four, five] == [D("0.00"), D("1000.00"), D("3000.00"), D("6000.00"), D("9000.00")]
 
 
 def test_a_booking_that_pays_for_ever_grows_by_one_more_stream_every_month(world):
@@ -373,30 +373,30 @@ def test_a_booking_that_pays_for_ever_grows_by_one_more_stream_every_month(world
     flow = _outlook(world)
     assert flow["expected_new_months"] is None
     extra = _extra(flow)
-    assert extra[:4] == [D("1000.00"), D("3000.00"), D("6000.00"), D("10000.00")]
-    assert extra[-1] == D("1000.00") * 13 * 14 / 2                                       # 13 months: 1000 * k(k+1)/2
+    assert extra[:4] == [D("0.00"), D("1000.00"), D("3000.00"), D("6000.00")]
+    assert extra[-1] == D("1000.00") * 12 * 13 / 2                                       # 12 months of bookings: 1000 * k(k+1)/2
 
 
 def test_one_month_is_the_one_off_version_and_a_long_run_never_pays_before_it_is_booked(world):
     with workspace_scope(world["first"]):
         save_expected_new_sales(D("1000"), 1, 0)
-        assert _extra(_outlook(world))[:3] == [D("1000.00"), D("2000.00"), D("3000.00")]
+        assert _extra(_outlook(world))[:4] == [D("0.00"), D("1000.00"), D("2000.00"), D("3000.00")]
         save_expected_new_sales(D("1000"), 120, 0)
     assert _extra(_outlook(world)) == _extra_forever_for_13_months()
 
 
 def _extra_forever_for_13_months():
-    return [D("1000.00") * k * (k + 1) / 2 for k in range(1, 14)]
+    return [D("0.00")] + [D("1000.00") * k * (k + 1) / 2 for k in range(1, 13)]
 
 
 def test_the_first_payment_comes_after_the_delay_so_the_blue_line_starts_later(world):
     with workspace_scope(world["first"]):
         save_expected_new_sales(D("1000"))                                      # the default: one month after it is booked
         assert get_plan()["expected_new_delay"] == 1
-    assert _extra(_outlook(world))[:4] == [D("0.00"), D("1000.00"), D("2000.00"), D("3000.00")]
+    assert _extra(_outlook(world))[:4] == [D("0.00"), D("0.00"), D("1000.00"), D("2000.00")]
     with workspace_scope(world["first"]):
         save_expected_new_sales(D("1000"), None, 2)                             # for ever, first payment two months on
-    assert _extra(_outlook(world))[:5] == [D("0.00"), D("0.00"), D("1000.00"), D("3000.00"), D("6000.00")]
+    assert _extra(_outlook(world))[:5] == [D("0.00"), D("0.00"), D("0.00"), D("1000.00"), D("3000.00")]
 
 
 def test_the_year_total_is_what_is_known_for_the_year_plus_the_new_sales_started_by_that_month(world):
@@ -408,7 +408,7 @@ def test_the_year_total_is_what_is_known_for_the_year_plus_the_new_sales_started
     assert by_month[date(2026, 10, 1)]["year_total"] is None                      # months behind us: not drawn
     november, january, february, march = (by_month[date(*m, 1)] for m in ((2026, 11), (2027, 1), (2027, 2), (2027, 3)))
     assert november["year_new"] == D("0.00")                                      # nothing booked has started paying yet
-    assert [january["year_new"], february["year_new"], march["year_new"]] == [D("24000.00"), D("35000.00"), D("45000.00")]
+    assert [january["year_new"], february["year_new"], march["year_new"]] == [D("12000.00"), D("23000.00"), D("33000.00")]
     assert january["year_known"] == february["year_known"] == march["year_known"]     # the known part does not move within a year
     assert january["year_total"] == january["year_known"] + january["year_new"]
     with workspace_scope(world["first"]):
@@ -427,8 +427,9 @@ def test_a_campaign_that_stops_flattens_the_blue_lines(world):
     flow = _outlook(world)
     assert flow["expected_new_campaign"] == 4
     extra = _extra(flow)
-    # cash per month 0, 1000, 2000, 3000, 4000, 4000 ... so the running total gains 4000 a month once it stops growing
-    assert extra[:6] == [D("0.00"), D("1000.00"), D("3000.00"), D("6000.00"), D("10000.00"), D("14000.00")]
+    # bookings December to March, first paid a month on: cash per month 0, 0, 1000, 2000, 3000, 4000, 4000 ... so the
+    # running total gains 4000 a month once it stops growing
+    assert extra[:6] == [D("0.00"), D("0.00"), D("1000.00"), D("3000.00"), D("6000.00"), D("10000.00")]
     assert extra[-1] - extra[-2] == D("4000.00")
     by_month = {b["start"]: b for b in flow["buckets"]}
-    assert [by_month[date(2027, m, 1)]["year_new"] for m in (1, 2, 3, 4, 11)] == [D("24000.00"), D("35000.00")] + [D("45000.00")] * 3
+    assert [by_month[date(2027, m, 1)]["year_new"] for m in (1, 2, 3, 4, 11)] == [D("12000.00"), D("23000.00"), D("33000.00")] + [D("42000.00")] * 2

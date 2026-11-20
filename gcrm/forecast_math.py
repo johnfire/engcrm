@@ -132,6 +132,12 @@ def new_sales_cash(monthly: Decimal | None, paying_months: int | None, delay: in
     return cash
 
 
+def first_booking_month(today: date) -> date:
+    """The month the expected new bookings start: the first day of the month after today's (the 1st of
+    December while it is November, the 1st of January in December)."""
+    return date(today.year + (today.month == 12), today.month % 12 + 1, 1)
+
+
 def month_index(this_month: date, month: date) -> int:
     """How many months `month` is after `this_month` (negative before it)."""
     return (month.year - this_month.year) * 12 + month.month - this_month.month
