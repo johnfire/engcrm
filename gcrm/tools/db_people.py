@@ -342,7 +342,7 @@ def get_people(
     and/or `city` (exact match ignoring case and surrounding spaces, "" = any),
     sorted by `sort` (created_at|name|last_name|company|city|met_at|
     opportunity_score|company_priority|value_rating|distance|connected_on|
-    pipeline_stage|last_contact|next_step_date; default newest-added-first).
+    pipeline_stage|status|last_contact|next_step_date; default newest-added-first).
     Each row is annotated with its linked company's name, pipeline stage,
     opportunity score, most recent logged interaction date, and (when user_id
     is given) that user's private company-priority and person-value ratings.
@@ -352,8 +352,8 @@ def get_people(
     them together), and without a unique last key two pages could repeat or skip
     a person."""
     sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
-    if sort == "pipeline_stage":
-        sort_col = deal_sort_sql("person", "person_id", offer, "pipeline_stage")
+    if sort in ("pipeline_stage", "status"):
+        sort_col = deal_sort_sql("person", "person_id", offer, sort)
     sort_dir = "DESC" if dir == "desc" else "ASC"
     rating_joins, rating_params = _rating_joins(user_id)
     select = _select_with_company(offer) + rating_joins

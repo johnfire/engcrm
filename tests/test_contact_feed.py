@@ -58,8 +58,16 @@ def test_mobile_contacts_pass_filters_and_signed_in_workspace_to_query():
         response = TestClient(app).get("/api/contact-feed?search=Ann&kind=person&stage=candidate&sort=name&page=2", headers=AUTH)
     assert response.status_code == 200 and response.json() == [CONTACT]
     # no offer asked for: the Consulting view, nobody hidden — what the installed app expects
-    fetch.assert_called_once_with(search="Ann", kind="person", stage="candidate", sort="name", page=2, workspace_id=3,
-                                  offer="consulting")
+    # the signed-in user rides along so "my priority" and "my value" sorts have ratings to sort on
+    fetch.assert_called_once_with(search="Ann", kind="person", stage="candidate", sort="name", dir=None, page=2,
+                                  workspace_id=3, offer="consulting", user_id=9)
+
+
+def test_mobile_contacts_pass_the_requested_direction():
+    with patch("gcrm.api.routers.contact_feed.get_contact_feed", return_value=[]) as fetch, \
+         patch("gcrm.api.routers.contact_feed._personal_identity", return_value=(9, 3)):
+        TestClient(app).get("/api/contact-feed?sort=status&dir=desc", headers=AUTH)
+    assert fetch.call_args.kwargs["sort"] == "status" and fetch.call_args.kwargs["dir"] == "desc"
 
 
 def test_contacts_outside_the_pipeline_are_neither_hidden_nor_moved():

@@ -21,7 +21,7 @@ from gcrm.geo import distance_km_sql
 from gcrm.organization_state import SUPPRESSION_FLAGS
 from gcrm.supervisor.organization_opportunity_analysis import analyse_organization_opportunity
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_deals import deal_filters, deals_json_sql, organization_deal_join
+from gcrm.tools.db_deals import deal_filters, deal_sort_sql, deals_json_sql, organization_deal_join
 from gcrm.tools.db_interactions import delete_meeting_note, get_visit_summary, log_meeting_note
 from gcrm.tools.db_linkedin import get_known_people_for_org, get_reachable_fits
 from gcrm.tools.db_opportunities import get_latest_opportunity_analysis
@@ -49,7 +49,11 @@ SORT_COLUMNS = {
     "personal_priority": "cup.priority",
     "short_term_value": "cup.short_term_value",
     "long_term_value": "cup.long_term_value",
+    "last_contact": "MAX(i.interaction_date)",
 }
+
+# Sorted on the deals shown: best stage, best status, soonest next step.
+DEAL_SORTS = ("pipeline_stage", "status", "next_step_date")
 
 
 class PersonalPriorityBody(BaseModel):
@@ -130,13 +134,14 @@ def list_organizations(
     and `deals` listing them. No `offer` is the Consulting view the installed app
     expects (everyone listed); `offer=<slug>` lists only those pitched it;
     `offer=all` lists everyone with every deal and no single stage."""
-    sort_col = SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"])
     sort_dir = "DESC" if dir == "desc" else "ASC"
     user_id, workspace_id = _personal_identity(payload)
     try:
         chosen = api_offer_filter(offer, workspace_id)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+    sort_col = (deal_sort_sql("c", "contact_id", chosen, sort) if sort in DEAL_SORTS
+                else SORT_COLUMNS.get(sort, SORT_COLUMNS["created_at"]))
     deal_join = organization_deal_join("c", "d", chosen) if chosen else ""
     stage_columns = "d.pipeline_stage, d.status" if chosen else "NULL::text AS pipeline_stage, NULL::text AS status"
     priority_join, priority_params = _priority_join(user_id)

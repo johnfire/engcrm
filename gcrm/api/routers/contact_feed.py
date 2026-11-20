@@ -46,18 +46,19 @@ def mobile_contact_counts(offer: str | None = None, payload: dict = Depends(requ
 
 @router.get("/api/contact-feed")
 def mobile_contacts(search: str = Query("", max_length=100), kind: str = "", stage: str = "",
-                    sort: str = "last_contact", page: int = Query(1, ge=1), offer: str | None = None,
+                    sort: str = "last_contact", dir: str | None = None, page: int = Query(1, ge=1),
+                    offer: str | None = None,
                     payload: dict = Depends(require_jwt_payload)) -> list[dict]:
     """Without `offer` this is the Consulting view the installed app expects;
     `offer=<slug>` is that offer's pipeline, `offer=all` every offer."""
     check_feed_filters(kind, stage, sort)
-    _, workspace_id = _personal_identity(payload)
+    user_id, workspace_id = _personal_identity(payload)
     try:
         chosen = api_offer_filter(offer, workspace_id)
     except ValueError as failure:
         raise HTTPException(400, str(failure)) from failure
-    return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort, page=page,
-                            workspace_id=workspace_id, offer=chosen)
+    return get_contact_feed(search=search, kind=kind, stage=stage, sort=sort, dir=dir, page=page,
+                            workspace_id=workspace_id, offer=chosen, user_id=user_id)
 
 
 def safe_contact_counts(workspace_id: int | None, offer: str | None = None) -> dict | None:

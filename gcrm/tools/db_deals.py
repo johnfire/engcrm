@@ -18,6 +18,7 @@ from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
     PIPELINE_SORT_ORDER,
+    STATUS_SORT_ORDER,
     PIPELINE_STAGES,
     coerce_stage,
     coerce_status,
@@ -241,27 +242,30 @@ def deal_filters(alias: str, column: str, offer: str | None, stage: str = "",
     return conditions, params
 
 
+_RANKED_FIELDS = {"pipeline_stage": PIPELINE_SORT_ORDER, "status": STATUS_SORT_ORDER}
+# Stage ranks span every offer (an established behavior); status follows the offer shown.
+_OFFER_SCOPED = ("status", "next_step_date")
+
+
 def deal_sort_sql(alias: str, column: str, offer: str | None, field: str) -> str:
-    """Sort key for a deal field (pipeline_stage, status, next_step_date): that
-    offer's value, or across every offer the values in offer order. Stages use
-    best-first business ranks across all offers, even in an offer-filtered list;
-    missing or unknown stages remain NULL."""
+    """Sort key for a deal field (pipeline_stage, status, next_step_date). Stages
+    and statuses use best-first business ranks, the best of the owner's deals
+    (status: of the offer shown); missing or unknown values stay NULL.
+    next_step_date is the soonest one."""
     alias, column = _owner(alias, column)
     if field not in ("pipeline_stage", "status", "next_step_date"):
         raise ValueError(f"not a sortable deal field: {field!r}")
-    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer else ""
-    if field == "pipeline_stage":
-        ranks = " ".join(f"WHEN '{stage}' THEN {rank}" for rank, stage in enumerate(PIPELINE_SORT_ORDER, 1))
-        known = ", ".join(f"'{stage}'" for stage in PIPELINE_SORT_ORDER)
-        return (f"(SELECT MIN(CASE x.pipeline_stage {ranks} END) "
+    only = f"AND x.offer_id = {offer_id_sql(f'{alias}.workspace_id', offer)}" if offer and field in _OFFER_SCOPED else ""
+    if field in _RANKED_FIELDS:
+        order = _RANKED_FIELDS[field]
+        ranks = " ".join(f"WHEN '{value}' THEN {rank}" for rank, value in enumerate(order, 1))
+        known = ", ".join(f"'{value}'" for value in order)
+        return (f"(SELECT MIN(CASE x.{field} {ranks} END) "
                 f"FROM deals x WHERE x.{column} = {alias}.id "
                 f"AND x.workspace_id = {alias}.workspace_id "
-                f"AND x.deleted_at IS NULL AND x.pipeline_stage IN ({known}))")
-    if field == "next_step_date":  # the soonest one
-        return (f"(SELECT MIN(x.next_step_date) FROM deals x WHERE x.{column} = {alias}.id "
-                f"AND x.deleted_at IS NULL {only})")
-    return (f"(SELECT string_agg(x.{field}, ',' ORDER BY o.sort_order, o.id) FROM deals x "
-            f"JOIN offers o ON o.id = x.offer_id WHERE x.{column} = {alias}.id AND x.deleted_at IS NULL {only})")
+                f"AND x.deleted_at IS NULL AND x.{field} IN ({known}) {only})")
+    return (f"(SELECT MIN(x.next_step_date) FROM deals x WHERE x.{column} = {alias}.id "
+            f"AND x.deleted_at IS NULL {only})")  # the soonest one
 
 
 def stage_and_status_counts(cur, table: str, alias: str, column: str, offer: str | None,

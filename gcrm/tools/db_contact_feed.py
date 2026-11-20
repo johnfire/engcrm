@@ -14,6 +14,7 @@ SORT_COLUMNS = {
     "city": "lower(city)",
     "kind": "kind",
     "pipeline_stage": "stage_sort_key",
+    "status": "status_sort_key",
     "next_contact": "next_contact",
     "total_value": "total_value",
     "priority": "rating.priority",

@@ -34,6 +34,13 @@ PIPELINE_SORT_ORDER = (
     "customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_now", "not_in_pipeline",
 )
 
+# Statuses best-first for list sorting: how solid the relationship is right now.
+# Live business first, then anything we started, then parked, then closed doors.
+STATUS_SORT_ORDER = (
+    "customer", "proposal", "meeting", "contacted", "ready", "on_hold", "dormant", "none",
+    "dropped", "not_interested",
+)
+
 STATUSES = (
     "none",       # nothing is going on right now
     "ready",      # scored a fit, first outreach not yet sent

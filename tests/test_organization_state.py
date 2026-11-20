@@ -9,6 +9,7 @@ from gcrm.organization_state import (
     DEFAULT_STAGE,
     DEFAULT_STATUS,
     PIPELINE_SORT_ORDER,
+    STATUS_SORT_ORDER,
     PIPELINE_STAGES,
     STATUSES,
     SUPPRESSION_FLAGS,
@@ -121,3 +122,7 @@ def test_not_now_is_a_stage_not_a_status():
     assert 'not_now' not in STATUSES
     assert coerce_stage('not_now') == 'not_now'
     assert is_typical('not_now', 'none')
+
+
+def test_every_status_has_exactly_one_place_in_the_sort_order():
+    assert sorted(STATUS_SORT_ORDER) == sorted(STATUSES)

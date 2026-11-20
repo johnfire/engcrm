@@ -136,6 +136,22 @@ class TestOrganizationList:
         _, (sql, _) = self.get({})
         assert "NULLS LAST, c.id" in sql
 
+    @pytest.mark.parametrize("sort,expected", [
+        ("status", "x.status"), ("pipeline_stage", "x.pipeline_stage"), ("next_step_date", "x.next_step_date"),
+        ("last_contact", "MAX(i.interaction_date)"), ("personal_priority", "cup.priority"),
+        ("short_term_value", "cup.short_term_value"), ("long_term_value", "cup.long_term_value"),
+    ])
+    @pytest.mark.parametrize("direction", ["asc", "desc"])
+    def test_every_offered_sort_reaches_the_order_by(self, sort, expected, direction):
+        _, (sql, _) = self.get({"sort": sort, "dir": direction})
+        order = sql.split("ORDER BY")[-1]
+        assert expected in order and f"{direction.upper()} NULLS LAST, c.id" in order
+        assert "c.created_at" not in order
+
+    def test_an_unknown_sort_falls_back_to_newest(self):
+        _, (sql, _) = self.get({"sort": "1; DROP TABLE contacts"})
+        assert "ORDER BY c.created_at" in sql and "DROP" not in sql
+
 
 class TestReachable:
     def test_returns_the_work_list_and_is_not_read_as_an_organization_id(self):

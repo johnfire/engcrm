@@ -70,6 +70,7 @@ WITH my_ratings AS (
            {deals_json_sql("person", "person_id", offer)} AS deals,
            {_stages_sql("person", "person_id", offer)} AS deal_stages,
            {deal_sort_sql("person", "person_id", offer, "pipeline_stage")} AS stage_sort_key,
+           {deal_sort_sql("person", "person_id", offer, "status")} AS status_sort_key,
            {_next_step_sql("person", "person_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("person", "person_id", offer, "next_step")} AS next_contact_step,
            {_contacted_sql("person", "person_id")} AS contacted,
@@ -100,6 +101,7 @@ WITH my_ratings AS (
            {deals_json_sql("organization", "contact_id", offer)} AS deals,
            {_stages_sql("organization", "contact_id", offer)} AS deal_stages,
            {deal_sort_sql("organization", "contact_id", offer, "pipeline_stage")} AS stage_sort_key,
+           {deal_sort_sql("organization", "contact_id", offer, "status")} AS status_sort_key,
            {_next_step_sql("organization", "contact_id", offer, "next_step_date")} AS next_contact,
            {_next_step_sql("organization", "contact_id", offer, "next_step")} AS next_contact_step,
            {_contacted_sql("organization", "contact_id")} AS contacted,
@@ -119,7 +121,7 @@ WITH my_ratings AS (
      WHERE organization.deleted_at IS NULL
 ), contact_feed AS (
     SELECT id, 'organization' AS kind, name, type AS description, NULL::text AS company,
-           city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, next_contact, next_contact_step,
+           city, email, phone, pipeline_stage, deals, deal_stages, stage_sort_key, status_sort_key, next_contact, next_contact_step,
            total_value, created_at, workspace_id, GREATEST(direct_contact, person_contact) AS last_contact,
            LEAST(direct_first_contact, first_person_contact) AS first_contact, customer_since,
            contacted OR people IS NOT NULL AS contacted,
@@ -133,7 +135,7 @@ WITH my_ratings AS (
       FROM business_contacts
     UNION ALL
     SELECT person.id, 'person', person.name, person.title, person.company_raw,
-           person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key,
+           person.city, person.email, person.phone, person.pipeline_stage, person.deals, person.deal_stages, person.stage_sort_key, person.status_sort_key,
            person.next_contact, person.next_contact_step, person.total_value, person.created_at, person.workspace_id, person.last_contact,
            person.first_contact, person.customer_since,
            person.contacted,
