@@ -179,14 +179,13 @@ function PersonRow({ person, onPress, showOffer }: { person: Person; onPress: (i
         {!!person.is_linkedin_contact && !profile && (
           <Text style={styles.linkedin}>{t("search.linkedinPerson")}</Text>
         )}
-        {!!shownStage && <Text style={styles.stage}>{t(stageLabelKey(shownStage))}</Text>}
         {person.value_rating != null && (
           <Text style={styles.rating}>
             {t("people.ratingBadge", { rating: person.value_rating, label: t(RATING_LABELS[person.value_rating - 1]) })}
           </Text>
         )}
       </View>
-      <DealChips deals={person.deals} showOffer={showOffer} />
+      <DealChips deals={person.deals} showOffer={showOffer} fallbackStage={shownStage} />
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {!!meta && <Text style={styles.meta}>{meta}</Text>}
       {!!profile && (
@@ -232,7 +231,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  stage: { color: "#7c6fff", fontSize: 12, fontWeight: "600" },
   rating: { color: "#e0b84a", fontSize: 12, fontWeight: "700" },
   profileButton: {
     alignItems: "center",

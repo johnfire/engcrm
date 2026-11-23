@@ -104,7 +104,7 @@ describe("people list", () => {
     const screen = render(<PeopleScreen />);
     await waitFor(() => expect(screen.getByText("Anna Roth")).toBeTruthy());
     expect(screen.getAllByText("in")).toHaveLength(1);
-    expect(screen.getAllByText("Candidate").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Pipeline stage: Candidate")).toBeTruthy();
     expect(mockFetchPeople).toHaveBeenCalledWith(expect.objectContaining({ page: 1, stage: "", linkedin: "" }));
   });
 

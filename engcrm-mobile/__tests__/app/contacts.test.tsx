@@ -46,6 +46,7 @@ it("shows both contact types and opens their correct detail screen even with the
   const screen = render(<ContactsScreen />);
   await waitFor(() => expect(screen.getByLabelText("Person: Ann Example")).toBeTruthy());
   expect(screen.getByLabelText("Organization: Academy")).toBeTruthy();
+  expect(screen.getAllByLabelText("Pipeline stage: Candidate")).toHaveLength(2);
   expect(mockFetch).toHaveBeenLastCalledWith({ search: "", kind: "", stage: "", sort: "last_contact", dir: "desc", page: 1, offer: "all" });
   fireEvent.press(screen.getByLabelText("Person: Ann Example"));
   expect(mockPush).toHaveBeenLastCalledWith({ pathname: "/(drawer)/person-detail", params: { id: "1" } });

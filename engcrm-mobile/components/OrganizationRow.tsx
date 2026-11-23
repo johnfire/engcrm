@@ -23,10 +23,10 @@ export function OrganizationRow({ item, onPress, showOffer = false }: Props) {
     <TouchableOpacity style={styles.row} onPress={() => onPress(item.id)}>
       <View style={styles.info}>
         <NameWithId id={item.id}><Text style={styles.name}>{item.name}</Text></NameWithId>
+        <DealChips deals={item.deals} showOffer={showOffer} fallbackStage={item.pipeline_stage} />
         <Text style={styles.sub}>
           {item.city} · {item.type}
         </Text>
-        <DealChips deals={item.deals} showOffer={showOffer} />
       </View>
       <View style={styles.badges}>
         {(item.linkedin_connection_count ?? 0) > 0 && (
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   badges: { alignItems: "center", flexDirection: "row", gap: 6 },
   name: { color: "#fff", fontSize: 14, fontWeight: "600", marginBottom: 2 },
-  sub: { color: "#888", fontSize: 12 },
+  sub: { color: "#888", fontSize: 12, marginTop: 6 },
   badge: {
     borderRadius: 12,
     paddingHorizontal: 10,

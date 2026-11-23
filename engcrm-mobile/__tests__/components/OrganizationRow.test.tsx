@@ -25,6 +25,12 @@ const ORG = {
 } as Organization;
 
 describe("OrganizationRow — LinkedIn badge", () => {
+  it("shows the pipeline stage on the list row", () => {
+    const screen = render(<OrganizationRow item={ORG} onPress={() => {}} />);
+
+    expect(screen.getByLabelText("Pipeline stage: Suspect")).toBeTruthy();
+  });
+
   it("shows how many LinkedIn connections you have there", () => {
     const screen = render(
       <OrganizationRow item={{ ...ORG, linkedin_connection_count: 3 }} onPress={() => {}} />,
