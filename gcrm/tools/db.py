@@ -131,6 +131,7 @@ def log_voice_interaction(
     outcome: str | None = None,
     next_action: str | None = None,
     next_action_date: str | None = None,
+    follow_up_type: str | None = None,
 ) -> None:
     """Log a voice-memo interaction (method='voice'), with an optional follow-up date."""
     with db() as conn:
@@ -138,9 +139,12 @@ def log_voice_interaction(
         cur.execute(
             "INSERT INTO interactions "
             "(contact_id, interaction_date, method, direction, summary, outcome, next_action, next_action_date) "
-            "VALUES (%s, CURRENT_DATE, 'voice', NULL, %s, %s, %s, %s)",
+            "VALUES (%s, CURRENT_DATE, 'voice', NULL, %s, %s, %s, %s) RETURNING id",
             (contact_id, summary, outcome, next_action, next_action_date or None),
         )
+        from gcrm.tools.follow_ups import record_activity_follow_up
+
+        record_activity_follow_up(cur, cur.fetchone()["id"], follow_up_type)
         cur.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))
 
 

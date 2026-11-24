@@ -276,6 +276,7 @@ def link_organization(
 class NextStepBody(BaseModel):
     next_step: str | None = None  # blank or null clears it (logged as done)
     next_step_date: date | None = None
+    task_type: str | None = None
 
 
 @router.put("/{person_id}/next-step")
@@ -283,7 +284,8 @@ def set_next_step(person_id: int, body: NextStepBody, _role: str = Depends(requi
     """Set or clear what happens next with a person. Each change is also written to
     their note log."""
     try:
-        result = set_person_next_step(person_id, body.next_step or "", body.next_step_date)
+        result = set_person_next_step(person_id, body.next_step or "", body.next_step_date,
+                                      **({"task_type": body.task_type} if body.task_type else {}))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     if result is None:

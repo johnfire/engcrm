@@ -760,6 +760,7 @@ export async function confirmVoice(body: {
   summary: string;
   follow_up_date?: string | null;
   follow_up_text?: string | null;
+  follow_up_type?: "commitment" | "check_in" | null;
 }): Promise<{ contact_id: number }> {
   const resp = await client.post("/api/voice/confirm", body);
   return resp.data;
@@ -935,6 +936,7 @@ export async function addOrganizationNote(
     method: MeetingMethod | null;
     follow_up_date: string | null; // YYYY-MM-DD
     follow_up_text: string | null;
+    follow_up_type?: "commitment" | "check_in" | null;
     duration_minutes?: number | null; // how long it took; blank uses the type's default
     offer?: string; // what it was about: an offer's slug or "general"; absent: the server picks
     attitude?: string[]; // how they seemed to feel about me (services/judgments ATTITUDES)
@@ -980,10 +982,12 @@ export async function setPersonNextStep(
   personId: number,
   nextStep: string | null,
   nextStepDate: string | null,
+  taskType?: "commitment" | "check_in" | null,
 ): Promise<{ next_step: string | null; next_step_date: string | null; logged: boolean }> {
   const resp = await client.put(`/api/people/${personId}/next-step`, {
     next_step: nextStep,
     next_step_date: nextStepDate,
+    ...(taskType ? { task_type: taskType } : {}),
   });
   return resp.data;
 }

@@ -49,6 +49,7 @@ from gcrm.api.routers import (
     contact_feed,
     deals,
     drafts,
+    follow_ups,
     forecast,
     help,
     inbox,
@@ -208,6 +209,7 @@ app.include_router(api_people.router)
 app.include_router(api_people_interactions.router)
 app.include_router(api_search.router)
 app.include_router(contact_feed.router)
+app.include_router(follow_ups.router)
 app.include_router(contact_dates.router)
 app.include_router(api_pipeline.router)
 app.include_router(api_areas.router)

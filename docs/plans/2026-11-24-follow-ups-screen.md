@@ -1,13 +1,13 @@
 # Follow-ups screen
 
-Date: 2026-11-24 · Status: product design agreed; implementation not started
+Date: 2026-11-24 · Status: implemented locally; awaiting push
 
 ## Purpose and scope
 
 Add a Follow-ups screen to the web app so Chris can see and manage outstanding
 commitments and planned check-ins across organizations, people and offers.
-This session authorizes planning only. Building, database changes and deployment
-require a subsequent instruction to implement.
+Chris authorized implementation on 2026-11-24; pushing and deployment still
+require his separate instruction.
 
 ## Agreed behavior
 
@@ -121,8 +121,13 @@ shared persistence service. Existing web, mobile, MCP and voice entry paths must
 use or adapt to that service so the screen cannot miss newly recorded promises.
 Keep existing clients working; do not silently overwrite several tasks with the
 legacy single-next-step field. A compatibility response may present the earliest
-active task, but a legacy update must identify which task it changes and must
-never clear all siblings. Resolve that contract explicitly before coding.
+active task. Chris chose the compatibility behavior on 2026-11-24: older
+clients without a task ID edit or complete the earliest active task on the deal
+(dated first, then undated, with ID as a stable tie-breaker), never its siblings.
+Updated clients should identify the task and detect stale writes.
+
+Add a Commitment/Check-in choice to activity and voice capture forms. Existing
+clients that cannot provide a choice send unclassified promises to review.
 
 Coordinate this work with the separate offline mobile sync plan. The new screen
 is web-only; a mobile Follow-ups screen is outside this first delivery. Existing
@@ -152,6 +157,35 @@ task to import. Match sources by durable identity where available. Similar text
 and dates may suggest a duplicate during review, but must not automatically
 merge distinct promises to different decision makers. Completion must not revive
 a task from its unchanged historical source.
+
+## Integration inventory (implementation preparation)
+
+- Deal next steps: `deal_records.set_deal_next_step` serves the web deal form,
+  mobile deal API and field MCP; `people_next_step.set_person_next_step` is a
+  separate legacy mobile person API and calls `write_next_step` directly.
+  Field MCP undo currently restores the old text and date by deal ID alone.
+- Organization activities: `db_interactions.log_meeting_note` serves mobile
+  activity capture, the web statistics form, field MCP and the interview
+  supervisor. `db.log_voice_interaction`, called by the voice API, writes
+  `interactions.next_action` independently and needs the same treatment.
+- Deal and next-step summaries are read by the deal panels, People,
+  Organizations, Contacts, mobile lists, exports and merge handling. A person
+  stage-clear can soft-delete a deal unless its legacy next-step fields are set;
+  this protection must account for every outstanding canonical task.
+- The separate offline plan allows offline edits to deal next steps and new
+  organization activities. Its future mutation format must carry a stable task
+  identity and preserve conflict handling when that plan is implemented.
+
+These paths are an inventory, not evidence that the compatibility contract or
+workspace isolation has already been implemented or verified.
+
+Implementation: migration 099 snapshots existing sources for review; the shared
+task service keeps individual lifecycle states, scopes tasks to a workspace,
+and exposes the earliest active task to old next-step clients. New activity and
+voice forms offer a type choice; unclassified old-client entries go to review.
+Field MCP undo stores the task identity and version. Follow-ups are included in
+workspace exports and follow the existing owner-erasure rules. The web worklist
+supports review, creation, independent edits, completion and dismissal.
 
 ## Delivery and verification
 

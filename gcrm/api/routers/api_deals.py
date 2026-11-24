@@ -128,13 +128,15 @@ def change_offer(deal_id: int, body: OfferChange, _role: str = Depends(require_j
 class NextStep(BaseModel):
     next_step: str | None = None  # blank or null clears it (logged as done)
     next_step_date: date | None = None
+    task_type: str | None = None
 
 
 @router.put("/deals/{deal_id}/next-step")
 def deal_next_step(deal_id: int, body: NextStep, _role: str = Depends(require_jwt_admin),
                    payload: dict = Depends(require_jwt_payload)) -> dict:
     try:
-        result = set_deal_next_step(deal_id, body.next_step or "", body.next_step_date, _workspace(payload))
+        result = set_deal_next_step(deal_id, body.next_step or "", body.next_step_date, _workspace(payload),
+                                    **({"task_type": body.task_type} if body.task_type else {}))
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:

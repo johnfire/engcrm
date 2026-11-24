@@ -106,6 +106,16 @@ describe("log a meeting — organization", () => {
     mockChangeDeal.mockResolvedValue(deal(70, "organization", "suspect", "ready"));
   });
 
+  it("sends the chosen follow-up type with the promise", async () => {
+    const screen = setup();
+    await typeNote(screen, "Met the owner");
+    fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "Send quote");
+    fireEvent.press(screen.getByLabelText("Commitment"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalledWith(42,
+      expect.objectContaining({ follow_up_text: "Send quote", follow_up_type: "commitment" })));
+  });
+
   it.each(["organization", "person"] as const)("logs Post mail for a %s", async (kind) => {
     mockAddPersonNote.mockResolvedValue({ id: 1 });
     const screen = setup(kind);
@@ -383,6 +393,27 @@ describe("log a meeting — person", () => {
     expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null, "consulting", { attitude: [], my_read: [] });
     // on the deal the note is about
     expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Invite to coffee", dateInDays(7));
+  });
+
+  it("sends the selected type for a person's follow-up", async () => {
+    mockSetDealNextStep.mockResolvedValue({ next_step: "Call", next_step_date: dateInDays(7), logged: true });
+    const screen = setup("person");
+    await screen.findByLabelText("Prospect");
+    fireEvent.press(screen.getByLabelText("1 week"));
+    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Call");
+    fireEvent.press(screen.getByLabelText("Check-in"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Call", dateInDays(7), "check_in"));
+  });
+
+  it("allows a person's follow-up with no date", async () => {
+    mockSetDealNextStep.mockResolvedValue({ next_step: "Send details", next_step_date: null, logged: true });
+    const screen = setup("person");
+    await screen.findByLabelText("Prospect");
+    fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Send details");
+    fireEvent.press(screen.getByLabelText("Commitment"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Send details", null, "commitment"));
   });
 
   it("can set only a next step, with no note", async () => {

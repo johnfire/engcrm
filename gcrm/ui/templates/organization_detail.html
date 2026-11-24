@@ -23,6 +23,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 {% if request.session.get('role') == 'admin' %}
 <p><a class="btn-primary" href="/people/new?contact_id={{ organization.id }}">{{ t('personNew.addContactHere') }}</a>
 <a class="btn-secondary" href="/contact-feed/organization/{{ organization.id }}/date">{{ t('contactDate.title') }}</a></p>
+<p><a class="btn-secondary" href="/follow-ups/?target=organization:{{ organization.id }}">{{ t('followUp.add') }}</a></p>
 {% endif %}
 
 {% if saved %}
@@ -379,6 +380,13 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
       </label>
       <label>{{ t('activity.followupDateLabel') }}
         {{ date_field('followup_date') }}
+      </label>
+      <label>{{ t('followUp.type') }}
+        <select name="followup_type">
+          <option value="">{{ t('followUp.unclassified') }}</option>
+          <option value="commitment">{{ t('followUp.commitment') }}</option>
+          <option value="check_in">{{ t('followUp.check_in') }}</option>
+        </select>
       </label>
       <label class="record-form__wide">{{ t('activity.noteLabel') }}
         <textarea name="note" rows="2" required placeholder="{{ t('activity.notePlaceholder') }}"></textarea>

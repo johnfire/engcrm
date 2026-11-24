@@ -161,7 +161,13 @@ def set_person_stage(cur, person_id: int, stage: str | None, offer: str = CONSUL
     if stage is None:
         if deal is None:
             return None
-        if deal["next_step"] or deal["next_step_date"]:
+        cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal["id"],))
+        deal = get_person_deal(cur, person_id, offer)
+        if deal is None:
+            return None
+        cur.execute("SELECT 1 FROM follow_ups WHERE deal_id=%s AND status IN ('active','review') LIMIT 1",
+                    (deal["id"],))
+        if deal["next_step"] or deal["next_step_date"] or cur.fetchone():
             if deal["pipeline_stage"] != DEFAULT_STAGE:
                 cur.execute("UPDATE deals SET pipeline_stage = %s WHERE id = %s", (DEFAULT_STAGE, deal["id"]))
             return DEFAULT_STAGE

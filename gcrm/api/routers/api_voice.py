@@ -8,6 +8,7 @@ POST /api/voice/confirm  apply: log the interaction on the chosen/new contact,
 import logging
 import os
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -74,6 +75,7 @@ class VoiceConfirm(BaseModel):
     summary: str
     follow_up_date: str | None = None
     follow_up_text: str | None = None
+    follow_up_type: Literal["commitment", "check_in"] | None = None
 
 
 @router.post("/confirm")
@@ -97,6 +99,7 @@ def confirm_voice(body: VoiceConfirm, _role: str = Depends(require_jwt_admin)) -
         outcome="follow_up_needed" if fu_date else None,
         next_action=(body.follow_up_text or "").strip() or None,
         next_action_date=fu_date,
+        **({"follow_up_type": body.follow_up_type} if body.follow_up_type else {}),
     )
     log_audit(None, None, "voice.confirmed", f"contact:{contact_id}", "interaction_logged")
     return {"contact_id": contact_id}

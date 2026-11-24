@@ -7,6 +7,8 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.tools.db_deals import person_deal_join
 from gcrm.tools.db_people import save_person
+from gcrm.tools.deal_records import get_deals
+from gcrm.tools.follow_ups import create_follow_up
 from gcrm.tools.people_next_step import set_person_next_step
 
 pytestmark = pytest.mark.integration
@@ -73,3 +75,14 @@ def test_a_date_without_a_step_is_refused(clean_database):
     with pytest.raises(ValueError):
         set_person_next_step(person, " ", date(2026, 10, 15))
     assert _state(person) == ((None, None), [])
+
+
+def test_old_person_endpoint_returns_the_next_sibling_after_completion(clean_database):
+    person = save_person("Anna Huber", allow_duplicate=True, source="test_fixture")
+    set_person_next_step(person, "First", date(2026, 12, 1))
+    deal = get_deals("person", person)[0]
+    create_follow_up(deal_id=deal["id"], task_type="check_in", task_text="Second", due_date=date(2026, 12, 2))
+    # The original legacy entry is unclassified, so add two active tasks explicitly.
+    create_follow_up(deal_id=deal["id"], task_type="commitment", task_text="Active first", due_date=date(2026, 12, 1))
+    saved = set_person_next_step(person, "", None)
+    assert (saved["next_step"], saved["next_step_date"]) == ("Second", date(2026, 12, 2))

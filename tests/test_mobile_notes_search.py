@@ -117,6 +117,12 @@ class TestOrganizationNotes:
                                     offer_id=None, occurred_on=None, attitude=None, my_read=None,
                                     materials_left=None)
 
+    def test_passes_chosen_follow_up_type(self):
+        response, log = self.add({"note": "Met owner", "follow_up_text": "Send quote",
+                                  "follow_up_type": "commitment"})
+        assert response.status_code == 200
+        assert log.call_args.kwargs["follow_up_type"] == "commitment"
+
     def test_with_a_follow_up_date(self):
         when = (date.today() + timedelta(days=7)).isoformat()
         response, log = self.add({"note": "Call back", "follow_up_date": when, "follow_up_text": " send quote "})

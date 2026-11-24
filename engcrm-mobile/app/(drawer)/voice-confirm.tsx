@@ -23,6 +23,7 @@ export default function VoiceConfirmScreen() {
   const [summary, setSummary] = useState("");
   const [followDate, setFollowDate] = useState("");
   const [followText, setFollowText] = useState("");
+  const [followUpType, setFollowUpType] = useState<"commitment" | "check_in" | null>(null);
   const [selected, setSelected] = useState<number | "new">("new");
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,6 +41,7 @@ export default function VoiceConfirmScreen() {
       setSummary(next.summary || "");
       setFollowDate(formatDay(next.follow_up_date));
       setFollowText(next.follow_up_text || "");
+      setFollowUpType(null);
       setSelected(nextCandidates.length > 0 && !next.is_new_lead ? nextCandidates[0].id : "new");
       setNewName(next.contact_query || "");
       setSaving(false);
@@ -64,6 +66,7 @@ export default function VoiceConfirmScreen() {
         summary: summary.trim(),
         follow_up_date: followUpDay,
         follow_up_text: followText.trim() || null,
+        ...(followUpType ? { follow_up_type: followUpType } : {}),
       });
       Alert.alert(
         t("voiceConfirm.savedTitle"),
@@ -143,6 +146,15 @@ export default function VoiceConfirmScreen() {
           placeholder={t("voiceConfirm.none")}
           placeholderTextColor="#555"
         />
+
+        {!!followText.trim() && !followUpType && <Text style={styles.label}>{t("followUp.reviewHint")}</Text>}
+        {!!followText.trim() && (["commitment", "check_in"] as const).map((type) => (
+          <TouchableOpacity key={type} style={[styles.option, followUpType === type && styles.optionActive]}
+            accessibilityRole="radio" accessibilityLabel={t(`followUp.${type}`)}
+            accessibilityState={{ selected: followUpType === type }} onPress={() => setFollowUpType(type)}>
+            <Text style={styles.optionText}>{t(`followUp.${type}`)}</Text>
+          </TouchableOpacity>
+        ))}
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{t("common.save")}</Text>}

@@ -54,7 +54,7 @@ def test_attitude_and_my_read_take_several_known_values_or_none():
 def _web_log(**fields):
     form = {"method": "in_person", "duration_minutes": "", "note": "Met Anna", "offer": None,
             "occurred_on": "", "attitude": [], "my_read": [], "materials_left": "", "followup_promised": "",
-            "followup_date": ""}
+            "followup_date": "", "followup_type": ""}
     form.update(fields)
     connection = MagicMock()
     connection.cursor.return_value.fetchone.return_value = {"?column?": 1}
@@ -84,6 +84,11 @@ def test_web_form_with_only_the_basics_stores_blanks_as_none():
     kwargs = log.call_args.kwargs
     assert kwargs["occurred_on"] is None and kwargs["attitude"] is None and kwargs["my_read"] is None
     assert kwargs["materials_left"] is None and kwargs["follow_up_text"] is None
+
+
+def test_web_form_passes_the_chosen_follow_up_type():
+    logged = _web_log(followup_promised="Send quote", followup_type="commitment")
+    assert logged.call_args.kwargs["follow_up_type"] == "commitment"
 
 
 @pytest.mark.parametrize("fields", [

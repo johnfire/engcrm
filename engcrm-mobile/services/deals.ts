@@ -102,8 +102,11 @@ export async function setDealNextStep(
   id: number,
   nextStep: string | null,
   date: string | null,
+  taskType?: "commitment" | "check_in" | null,
 ): Promise<{ next_step: string | null; next_step_date: string | null }> {
-  return (await client.put(`/api/deals/${id}/next-step`, { next_step: nextStep, next_step_date: date })).data;
+  return (await client.put(`/api/deals/${id}/next-step`, {
+    next_step: nextStep, next_step_date: date, ...(taskType ? { task_type: taskType } : {}),
+  })).data;
 }
 
 export async function removeDeal(id: number): Promise<void> {

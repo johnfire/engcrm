@@ -209,6 +209,7 @@ def log_activity(
     materials_left: str = Form(""),
     followup_promised: str = Form(""),
     followup_date: str = Form(""),
+    followup_type: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
     """Log a drop-in, meeting, call, video call, email or plain note on an
@@ -216,6 +217,9 @@ def log_activity(
     behind, any follow-up promised, and which offer it was about (0: general;
     absent: picked from the open deals)."""
     method = method.strip() or None
+    followup_type = followup_type if isinstance(followup_type, str) else ""
+    if followup_type not in ("", "commitment", "check_in"):
+        raise HTTPException(status_code=400, detail="Unknown follow-up type")
     if method is not None and method not in ORGANIZATION_METHODS:
         raise HTTPException(status_code=400, detail="Unknown activity type")
     try:
@@ -249,5 +253,6 @@ def log_activity(
     log_meeting_note(contact_id, method, note.strip(), follow_up_date=follow_up_day,
                      follow_up_text=followup_promised.strip() or None, duration_minutes=minutes,
                      offer_id=offer_id, occurred_on=day, attitude=attitudes, my_read=reads,
-                     materials_left=materials_left.strip() or None)
+                     materials_left=materials_left.strip() or None,
+                     **({"follow_up_type": followup_type} if followup_type else {}))
     return local_redirect(f"/organizations/{contact_id}", saved="1")

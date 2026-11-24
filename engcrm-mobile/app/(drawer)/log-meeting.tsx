@@ -100,6 +100,7 @@ export default function LogMeetingScreen() {
   const [myRead, setMyRead] = useState<MyRead[]>([]);
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
+  const [followUpType, setFollowUpType] = useState<"commitment" | "check_in" | null>(null);
   // An organization's activity, as on the web: the day it happened and what was left there.
   const [occurredOn, setOccurredOn] = useState("");
   const [materialsLeft, setMaterialsLeft] = useState("");
@@ -147,6 +148,7 @@ export default function LogMeetingScreen() {
         setMethod(METHODS.some((m) => m.value === draft.method) ? (draft.method as MeetingMethod) : null);
         setFollowUp(FOLLOW_UPS.some((f) => f.id === draft.followUp) ? draft.followUp : "none");
         setFollowUpText(draft.followUpText);
+        setFollowUpType(draft.followUpType ?? null);
         setOccurredOn(draft.occurredOn ?? "");
         setMaterialsLeft(draft.materialsLeft ?? "");
         setRestored(draft.note.trim().length > 0);
@@ -158,8 +160,8 @@ export default function LogMeetingScreen() {
   // Keep what is typed on the phone until the server has it.
   useEffect(() => {
     if (!draftReady || finished.current) return;
-    void saveDraft(draftKey, { note, method, followUp, followUpText, occurredOn, materialsLeft });
-  }, [draftReady, draftKey, note, method, followUp, followUpText, occurredOn, materialsLeft]);
+    void saveDraft(draftKey, { note, method, followUp, followUpText, followUpType, occurredOn, materialsLeft });
+  }, [draftReady, draftKey, note, method, followUp, followUpText, followUpType, occurredOn, materialsLeft]);
 
   const dictation = useVoiceDictation({
     transcribe: (uri) =>
@@ -171,7 +173,8 @@ export default function LogMeetingScreen() {
 
   const hasNote = note.trim().length > 0;
   // Something to send: a note, or a stage change (alone, or left over after the note went through).
-  const canSave = !saving && (hasNote || !!pendingChange || (kind === "person" && followUp !== "none"));
+  const canSave = !saving && (hasNote || !!pendingChange ||
+    (kind === "person" && (followUp !== "none" || !!followUpText.trim())));
   const title = params.name ? `${params.name}` : t(kind === "organization" ? "drawer.organization" : "drawer.person");
 
   function finish() {
@@ -205,6 +208,7 @@ export default function LogMeetingScreen() {
             method,
             follow_up_date: date,
             follow_up_text: followUpText.trim() || null,
+            ...(followUpType ? { follow_up_type: followUpType } : {}),
             occurred_on: day,
             materials_left: materialsLeft.trim() || null,
             duration_minutes: typedMinutes(minutes),
@@ -231,11 +235,17 @@ export default function LogMeetingScreen() {
     }
     // 2. a person's follow-up becomes their next step. Saving the same step again
     //    changes nothing on the server, so a retry is safe.
-    if (kind === "person" && followUp !== "none") {
+    if (kind === "person" && (followUp !== "none" || !!followUpText.trim())) {
       try {
         const step = followUpText.trim() || t("meeting.followUp");
-        if (aboutDeal) await setDealNextStep(aboutDeal.id, step, followUpDate(followUp));
-        else await setPersonNextStep(targetId, step, followUpDate(followUp)); // their Consulting deal
+        if (aboutDeal) {
+          if (followUpType) await setDealNextStep(aboutDeal.id, step, followUpDate(followUp), followUpType);
+          else await setDealNextStep(aboutDeal.id, step, followUpDate(followUp));
+        } else if (followUpType) {
+          await setPersonNextStep(targetId, step, followUpDate(followUp), followUpType);
+        } else {
+          await setPersonNextStep(targetId, step, followUpDate(followUp));
+        }
       } catch (err: any) {
         setError(err?.response?.data?.detail || t("meeting.nextStepFailedNoteSaved"));
         setSaving(false);
@@ -379,6 +389,27 @@ export default function LogMeetingScreen() {
                 accessibilityLabel={t("organizationBrief.followupPromised")}
               />
             )}
+            {kind === "person" && (
+              <TextInput
+                style={styles.smallInput}
+                value={followUpText}
+                onChangeText={setFollowUpText}
+                placeholder={t("meeting.followUpAbout")}
+                placeholderTextColor="#666"
+                editable={!saving}
+              />
+            )}
+            {(!!followUpText.trim() || (kind === "person" && followUp !== "none")) && (
+              <>
+              {!followUpType && <Text style={styles.hint}>{t("followUp.reviewHint")}</Text>}
+              <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("followUp.type")}>
+                {(["commitment", "check_in"] as const).map((type) => (
+                  <Chip key={type} label={t(`followUp.${type}`)} selected={followUpType === type}
+                    disabled={saving} onPress={() => setFollowUpType(type)} />
+                ))}
+              </View>
+              </>
+            )}
             <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("meeting.followUp")}>
               {FOLLOW_UPS.map(({ id, labelKey }) => (
                 <Chip
@@ -395,16 +426,6 @@ export default function LogMeetingScreen() {
                 <Text style={styles.hint}>
                   {t("meeting.followUpOn", { date: formatDay(followUpDate(followUp)) })}
                 </Text>
-                {kind === "person" && (
-                  <TextInput
-                    style={styles.smallInput}
-                    value={followUpText}
-                    onChangeText={setFollowUpText}
-                    placeholder={t("meeting.followUpAbout")}
-                    placeholderTextColor="#666"
-                    editable={!saving}
-                  />
-                )}
               </>
             )}
           </View>

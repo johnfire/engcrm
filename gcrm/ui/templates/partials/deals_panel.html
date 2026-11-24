@@ -57,6 +57,7 @@
       </form>
 
       <div class="deal-card__next">
+        {% if request.session.get('role') == 'admin' %}<p><a href="/follow-ups/?target=deal:{{ deal.id }}">{{ t('followUp.add') }}</a></p>{% endif %}
         {% if deal.next_step %}
         <p class="next-step__current">
           <strong>{{ deal.next_step }}</strong>

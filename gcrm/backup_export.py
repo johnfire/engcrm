@@ -65,6 +65,20 @@ FILES: dict[str, str] = {
           LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id
          WHERE d.workspace_id = %(ws)s AND d.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY d.id""",
+    "follow_ups.csv": """
+        SELECT f.id, f.contact_id AS organization_id, c.name AS organization_name,
+               f.person_id, p.name AS person_name, f.contact_person_id, cp.name AS contact_person_name,
+               f.deal_id, o.name AS offer, f.task_type, f.task_text, f.due_date, f.status,
+               f.source_kind, f.source_id, f.source_date, f.linked_task_id,
+               f.created_at, f.updated_at, f.completed_at, f.dismissed_at
+          FROM follow_ups f
+          LEFT JOIN contacts c ON c.id=f.contact_id
+          LEFT JOIN people p ON p.id=f.person_id
+          LEFT JOIN people cp ON cp.id=f.contact_person_id AND cp.deleted_at IS NULL
+          LEFT JOIN deals d ON d.id=f.deal_id
+          LEFT JOIN interactions i ON f.source_kind='interaction' AND i.id=f.source_id
+          LEFT JOIN offers o ON o.id=COALESCE(d.offer_id,i.offer_id)
+         WHERE f.workspace_id=%(ws)s AND COALESCE(c.deleted_at,p.deleted_at) IS NULL ORDER BY f.id""",
     "sales.csv": """
         SELECT s.id, s.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
                COALESCE(c.name, p.name) AS owner_name, s.amount_eur, s.status,
@@ -105,6 +119,7 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   people.csv          people, with their organization when they have one
   activities.csv      calls, visits, emails and notes (kind = organization or person)
   deals.csv           what you pitch to each organization or person, and where it stands
+  follow_ups.csv      commitments and check-ins, including their review and completion history
   sales.csv           sales; status is expected, booked, contracted, collected or cancelled. A contract paid in
                       monthly payments is one row per payment, tied by contract_id (payment_number of
                       payments_in_contract); expected_on is the day that payment is due; hours is the work

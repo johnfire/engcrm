@@ -85,6 +85,14 @@ class TestVoiceEndpoints:
         assert r.json()["contact_id"] == 9
         assert mlog.call_args.kwargs["next_action_date"] == "2026-07-07"
 
+    def test_confirm_passes_selected_followup_type(self):
+        with patch("gcrm.api.routers.api_voice.log_voice_interaction") as logged:
+            response = client.post("/api/voice/confirm", headers=AUTH, json={
+                "contact_id": 9, "summary": "Met Anna", "follow_up_text": "Call",
+                "follow_up_type": "check_in"})
+        assert response.status_code == 200
+        assert logged.call_args.kwargs["follow_up_type"] == "check_in"
+
     def test_confirm_new_organization_creates(self):
         with patch("gcrm.api.routers.api_voice.save_organization", return_value=42) as msave, \
              patch("gcrm.api.routers.api_voice.log_voice_interaction"):

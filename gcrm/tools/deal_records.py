@@ -11,6 +11,7 @@ from datetime import date
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import DEFAULT_STAGE, DEFAULT_STATUS, coerce_stage, coerce_status
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.follow_ups import TASK_TYPES, record_unclassified_deal_step, refresh_deal_projection
 
 OWNERS = {"organization": "contact_id", "person": "person_id"}
 NEXT_STEP_MAX = 500
@@ -176,11 +177,27 @@ def log_entry(text: str, due: date | None) -> str:
     return f"{text} ({due.isoformat()})" if due else text
 
 
-def write_next_step(cur, deal: dict, text: str, due: date | None) -> bool:
+def write_next_step(cur, deal: dict, text: str, due: date | None, task_type: str | None = None) -> bool:
     """Store a deal's next step and log the change on its owner (a cleared step
     is logged as done). Returns whether anything was logged. The caller has
     validated `text` and `due` and checked they differ from what is stored."""
     previous = (deal["next_step"] or "").strip()
+    cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal["id"],))
+    cur.execute("SELECT id FROM follow_ups WHERE deal_id=%s AND status='active' "
+                "ORDER BY due_date ASC NULLS LAST, id LIMIT 1 FOR UPDATE", (deal["id"],))
+    task = cur.fetchone()
+    if task is not None:
+        if text:
+            cur.execute("UPDATE follow_ups SET task_text=%s, due_date=%s, task_type=COALESCE(%s,task_type), "
+                        "updated_at=clock_timestamp() WHERE id=%s", (text, due, task_type, task["id"]))
+        else:
+            cur.execute("UPDATE follow_ups SET status='completed', completed_at=NOW(), updated_at=clock_timestamp() "
+                        "WHERE id=%s", (task["id"],))
+    else:
+        task_id = record_unclassified_deal_step(cur, deal["id"], text, due)
+        if text and task_type and task_id:
+            cur.execute("UPDATE follow_ups SET status='active', task_type=%s, updated_at=clock_timestamp() WHERE id=%s",
+                        (task_type, task_id))
     cur.execute("UPDATE deals SET next_step = %s, next_step_date = %s WHERE id = %s",
                 (text or None, due, deal["id"]))
     if not (text or previous):
@@ -197,6 +214,8 @@ def write_next_step(cur, deal: dict, text: str, due: date | None) -> bool:
             "SELECT id, CURRENT_DATE, %s, %s, %s, workspace_id FROM contacts WHERE id = %s",
             (method, note, deal["offer_id"], deal["contact_id"]),
         )
+    if task is not None or (text and task_type):
+        refresh_deal_projection(cur, deal["id"])
     return True
 
 
@@ -209,19 +228,57 @@ def check_next_step(text: str | None, due: date | None) -> str:
     return text
 
 
+def next_step_matches(cur, deal: dict | None, text: str, due: date | None, task_type: str | None) -> bool:
+    stored = ((deal or {}).get("next_step") or "").strip(), (deal or {}).get("next_step_date")
+    if stored != (text, due):
+        return False
+    if task_type is None or not text:
+        return True
+    if deal is None:
+        return False
+    cur.execute("SELECT task_type FROM follow_ups WHERE deal_id=%s AND status='active' "
+                "ORDER BY due_date ASC NULLS LAST, id LIMIT 1", (deal["id"],))
+    task = cur.fetchone()
+    return task is not None and task["task_type"] == task_type
+
+
 def set_deal_next_step(deal_id: int, text: str | None, due: date | None,
-                       workspace_id: int | None = None) -> dict:
+                       workspace_id: int | None = None, *, capture_undo: bool = False,
+                       task_type: str | None = None) -> dict:
     """Set a deal's next step, or clear it with a blank `text`. Saving what is
     already there writes nothing. Returns {next_step, next_step_date, logged}."""
     text = check_next_step(text, due)
+    if task_type is not None and task_type not in TASK_TYPES:
+        raise ValueError("Choose Commitment or Check-in")
     with db() as conn:
         cur = conn.cursor()
+        cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal_id,))
         deal = get_deal(cur, deal_id, workspace_id)
-        if ((deal["next_step"] or "").strip(), deal["next_step_date"]) == (text, due):
-            return {"next_step": text or None, "next_step_date": due, "logged": False}
-        logged = write_next_step(cur, deal, text, due)
+        if next_step_matches(cur, deal, text, due, task_type):
+            return {"next_step": text or None, "next_step_date": due, "logged": False,
+                    **({"undo": {"unchanged": True}} if capture_undo else {})}
+        if capture_undo:
+            cur.execute("SELECT * FROM follow_ups WHERE deal_id=%s AND (status='active' OR "
+                        "(status='review' AND (source_kind='deal' OR source_kind IS NULL))) "
+                        "ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, due_date ASC NULLS LAST, id "
+                        "LIMIT 1 FOR UPDATE", (deal_id,))
+            task_before = cur.fetchone()
+        logged = write_next_step(cur, deal, text, due, task_type)
+        undo = None
+        if capture_undo:
+            cur.execute("SELECT id, updated_at FROM follow_ups WHERE deal_id=%s "
+                        "AND (%s IS NULL OR id=%s) ORDER BY id DESC LIMIT 1",
+                        (deal_id, task_before["id"] if task_before else None, task_before["id"] if task_before else None))
+            changed_task = cur.fetchone()
+            undo = {"task_id": changed_task["id"], "after_version": changed_task["updated_at"].isoformat(),
+                    "task_before": serialize_row(dict(task_before)) if task_before else None,
+                    "next_step": deal["next_step"],
+                    "next_step_date": deal["next_step_date"].isoformat() if deal["next_step_date"] else None}
+        cur.execute("SELECT next_step, next_step_date FROM deals WHERE id=%s", (deal_id,))
+        current = cur.fetchone()
     log_audit(None, None, "deal.next_step", f"deal:{deal_id}", "set" if text else "cleared")
-    return {"next_step": text or None, "next_step_date": due, "logged": logged}
+    return {"next_step": current["next_step"], "next_step_date": current["next_step_date"], "logged": logged,
+            **({"undo": undo} if capture_undo else {})}
 
 
 def contact_people(contact_id: int) -> list[dict]:

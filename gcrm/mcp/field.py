@@ -11,7 +11,6 @@ allowed values, audit log) stay in one place. Everything saved is journalled in
 See docs/plans/2026-11-03-field-mode-and-remote-mcp-plan.md.
 """
 from dataclasses import dataclass
-from datetime import date
 
 from psycopg2.extras import Json
 
@@ -28,13 +27,14 @@ from gcrm.dates import parse_day
 from gcrm.db.connection import db
 from gcrm.sources import CLAUDE_FIELD
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.db_interactions import delete_meeting_note, log_meeting_note
+from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import find_existing_person, save_person, set_person_rating
 from gcrm.tools.db_people_interactions import delete_person_interaction, log_person_note
 from gcrm.tools.db_personal_priorities import set_organization_rating
-from gcrm.tools.deal_records import get_deal, get_deals, resolve_log_offer, set_deal_next_step
+from gcrm.tools.deal_records import get_deals, resolve_log_offer, set_deal_next_step
 from gcrm.tools.field_locations import latest_point
+from gcrm.tools.follow_ups import undo_activity_follow_up, undo_legacy_follow_up
 from gcrm.tools.search import PlacesUnavailable, places_nearby, reverse_geocode
 
 
@@ -250,10 +250,11 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
             offer_id = resolve_log_offer("organization", organization_id, offer, user.workspace_id)
         except ValueError:
             raise FieldError(f"There is no offer called {offer}.")
-        note_id = log_meeting_note(
+        note_id, follow_up_snapshot = log_meeting_note(
             organization_id, _ORGANIZATION_KIND[kind], note.strip(), follow_up_date=follow_up,
             follow_up_text=follow_up_promised.strip() or None, duration_minutes=duration, offer_id=offer_id,
-            occurred_on=day, attitude=attitudes, my_read=reads, materials_left=materials_left.strip() or None)
+            occurred_on=day, attitude=attitudes, my_read=reads, materials_left=materials_left.strip() or None,
+            capture_undo=True)
         said = f"Logged a {kind.replace('_', '-')} at {organization['name']}"
         journal_kind, owner = "organization_activity", organization_id
     else:
@@ -273,7 +274,8 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
         said += "; follow-up" + (f" {follow_up_promised.strip()}" if follow_up_promised else "") + (
             f" on {follow_up.strftime('%d.%m.%Y')}" if follow_up else "")
     said += "."
-    _journal(user, journal_kind, note_id, said, owner_id=owner)
+    _journal(user, journal_kind, note_id, said, owner_id=owner,
+             before={"follow_up": follow_up_snapshot} if organization_id is not None else None)
     return {"saved": True, "activity_id": note_id, "said": said}
 
 
@@ -294,13 +296,13 @@ def set_next_step(user: FieldUser, step: str, due: str = "", organization_id: in
     deal = deals[0]
     try:
         when = parse_day(due) if due else None
-        result = set_deal_next_step(deal["id"], step, when, user.workspace_id)
+        result = set_deal_next_step(deal["id"], step, when, user.workspace_id, capture_undo=True)
     except ValueError as error:
         raise FieldError(f"Not saved: {error}.")
     said = f"Next step on {deal['offer_name']}: {result['next_step'] or 'cleared'}" + (
         f", by {when.strftime('%d.%m.%Y')}" if when else "") + "."
     _journal(user, "next_step", deal["id"], said,
-             before={"next_step": deal["next_step"], "next_step_date": deal["next_step_date"]})
+             before={"follow_up_undo": result["undo"]})
     return {"saved": True, "said": said}
 
 
@@ -366,15 +368,21 @@ def undo_last(user: FieldUser) -> dict:
             conn.cursor().execute("UPDATE people SET deleted_at = NOW() WHERE id = %s AND workspace_id = %s",
                                   (target, user.workspace_id))
     elif kind == "organization_activity":
-        delete_meeting_note(action["owner_id"], target)
+        try:
+            undo_activity_follow_up(action["owner_id"], target, (action["before"] or {}).get("follow_up"),
+                                    user.workspace_id)
+        except ValueError as error:
+            raise FieldError(str(error)) from error
     elif kind == "person_activity":
         delete_person_interaction(action["owner_id"], target)
     elif kind == "next_step":
         before = action["before"] or {}
-        with db() as conn:
-            deal = get_deal(conn.cursor(), target, user.workspace_id)
-        previous_date = date.fromisoformat(before["next_step_date"]) if before.get("next_step_date") else None
-        set_deal_next_step(deal["id"], before.get("next_step") or "", previous_date, user.workspace_id)
+        if "follow_up_undo" not in before:
+            raise FieldError("This older next-step action has no task identity and cannot be undone safely.")
+        try:
+            undo_legacy_follow_up(target, before["follow_up_undo"], user.workspace_id)
+        except ValueError as error:
+            raise FieldError(str(error)) from error
     else:  # ratings
         before = action["before"] or {}
         setter = set_organization_rating if kind == "organization_ratings" else set_person_rating

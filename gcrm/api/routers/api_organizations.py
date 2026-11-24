@@ -363,6 +363,7 @@ class MeetingNoteBody(BaseModel):
     method: str | None = None
     follow_up_date: str | None = None   # YYYY-MM-DD
     follow_up_text: str | None = None
+    follow_up_type: str | None = None
     duration_minutes: int | None = None  # how long it took; blank uses the type's default
     offer: str | None = None  # the offer's slug, "general", or absent: picked from the open deals
     occurred_on: str | None = None  # YYYY-MM-DD, today or earlier; absent means today
@@ -398,6 +399,8 @@ def add_organization_note(
     what was left behind, and an optional follow-up. Changes no stage or status
     — that is a separate, explicit call."""
     note = body.note.strip()
+    if body.follow_up_type not in (None, "commitment", "check_in"):
+        raise HTTPException(status_code=400, detail="Unknown follow-up type")
     if not note:
         raise HTTPException(status_code=400, detail="Note is required")
     method = (body.method or "").strip() or None
@@ -432,7 +435,8 @@ def add_organization_note(
         raise HTTPException(status_code=400, detail="Unknown offer")
     note_id = log_meeting_note(contact_id, method, note, follow_up, (body.follow_up_text or "").strip() or None,
                                duration_minutes=minutes, offer_id=offer_id, occurred_on=occurred_on,
-                               attitude=attitude, my_read=my_read, materials_left=(body.materials_left or "").strip() or None)
+                               attitude=attitude, my_read=my_read, materials_left=(body.materials_left or "").strip() or None,
+                               **({"follow_up_type": body.follow_up_type} if body.follow_up_type else {}))
     return {"id": note_id, "follow_up_date": follow_up.isoformat() if follow_up else None}
 
 

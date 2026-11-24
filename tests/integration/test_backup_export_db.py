@@ -15,6 +15,7 @@ from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
 from gcrm.tools.deal_money import add_deal_sale, start_subscription
 from gcrm.tools.deal_records import get_deals
+from gcrm.tools.follow_ups import create_follow_up
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -100,6 +101,21 @@ def test_one_workspaces_backup_never_contains_another_workspaces_data(two_worksp
             everything = " ".join(z.read(n).decode("utf-8-sig") for n in z.namelist())
         for word in theirs_words:
             assert word not in everything, f"workspace {mine}'s backup leaked {word!r}"
+
+
+def test_backup_includes_every_follow_up_without_cross_workspace_leaks(two_workspaces):
+    first, second = two_workspaces
+    for workspace, owner, text in [(first, "Brandt Maschinenbau", "Send private proposal"),
+                                   (second, "Kessler Logistik", "Call private contact")]:
+        with workspace_scope(workspace), db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT id FROM contacts WHERE name=%s", (owner,))
+            organization = cursor.fetchone()["id"]
+        with workspace_scope(workspace):
+            deal = get_deals("organization", organization)[0]
+            create_follow_up(deal_id=deal["id"], task_type="commitment", task_text=text)
+    rows = _read(build_backup(first)[0])["follow_ups.csv"]
+    assert [row["task_text"] for row in rows] == ["Send private proposal"]
 
 
 def test_the_backup_runs_with_the_workspace_enforced_by_the_database(two_workspaces):

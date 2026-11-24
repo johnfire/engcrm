@@ -9,7 +9,9 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.mcp import field
 from gcrm.mcp.field import FieldError, FieldUser
+from gcrm.tools.deal_records import get_deals
 from gcrm.tools.field_locations import record_points
+from gcrm.tools.follow_ups import create_follow_up, list_follow_ups, resolve_review
 from gcrm.workspace_context import set_workspace_id
 
 pytestmark = pytest.mark.integration
@@ -55,6 +57,54 @@ def test_without_a_fresh_position_claude_asks_for_the_address(chris):
     _stand_here(chris, minutes_ago=30)
     with pytest.raises(FieldError, match="30 minutes old"):
         field.businesses_here(chris)
+
+
+def test_undo_restores_the_task_actually_completed_not_its_next_sibling(chris):
+    organization = field.add_organization(chris, "Example GmbH", city="Augsburg")["organization_id"]
+    deal = get_deals("organization", organization, chris.workspace_id)[0]
+    first = create_follow_up(deal_id=deal["id"], task_type="commitment", task_text="Send proposal",
+                             due_date=datetime(2026, 12, 1).date(), workspace_id=chris.workspace_id)
+    second = create_follow_up(deal_id=deal["id"], task_type="check_in", task_text="Call",
+                              due_date=datetime(2026, 12, 2).date(), workspace_id=chris.workspace_id)
+    field.set_next_step(chris, "", organization_id=organization)
+    assert [task["id"] for task in list_follow_ups(chris.workspace_id)] == [second]
+    field.undo_last(chris)
+    assert [(task["id"], task["task_text"]) for task in list_follow_ups(chris.workspace_id)] == [
+        (first, "Send proposal"), (second, "Call")]
+
+
+def test_undo_activity_dismisses_its_promise_without_reviving_it(chris):
+    organization = field.add_organization(chris, "Example GmbH", city="Augsburg")["organization_id"]
+    activity = field.log_activity(chris, "Spoke to the owner", organization_id=organization,
+                                  follow_up_promised="Send quote")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, status FROM follow_ups WHERE source_kind='interaction' AND source_id=%s",
+                       (activity["activity_id"],))
+        task = cursor.fetchone()
+        assert task["status"] == "review"
+    field.undo_last(chris)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT status FROM follow_ups WHERE id=%s", (task["id"],))
+        assert cursor.fetchone()["status"] == "dismissed"
+
+
+def test_undo_activity_refuses_to_discard_a_changed_promise(chris):
+    organization = field.add_organization(chris, "Example GmbH", city="Augsburg")["organization_id"]
+    activity = field.log_activity(chris, "Spoke to the owner", organization_id=organization,
+                                  follow_up_promised="Send quote")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, updated_at FROM follow_ups WHERE source_kind='interaction' AND source_id=%s",
+                       (activity["activity_id"],))
+        task = cursor.fetchone()
+    resolve_review(task["id"], "keep", task["updated_at"], task_type="commitment", task_text="Send quote",
+                   workspace_id=chris.workspace_id)
+    with pytest.raises(FieldError, match="changed"):
+        field.undo_last(chris)
+    assert _live("interactions", activity["activity_id"])
+    assert [task["id"] for task in list_follow_ups(chris.workspace_id)] == [task["id"]]
 
 
 def test_the_whole_first_visit_and_undo_of_each_step(chris):

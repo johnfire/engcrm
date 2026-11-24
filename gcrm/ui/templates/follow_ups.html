@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block extra_head %}<link rel="stylesheet" href="/static/follow-ups.css?v={{ static_version }}">{% endblock %}
+{% block title %}{{ t('followUp.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+{% from 'partials/date_field.html' import date_field with context %}
+<div class="page-header follow-up-heading"><h1>{{ t('followUp.title') }}</h1>
+  {% if filters.view == 'review' %}<a href="/follow-ups/">{{ t('followUp.active') }}</a>
+  {% else %}<a href="/follow-ups/?view=review">{{ t('followUp.review') }}</a>{% endif %}
+</div>
+{% if filters.view == 'active' %}
+<form method="get" action="/follow-ups/" class="follow-up-filters">
+  <label>{{ t('followUp.search') }}<input type="search" name="q" value="{{ filters.q }}"></label>
+  <label>{{ t('followUp.type') }}<select name="task_type">
+    <option value="">{{ t('followUp.allTypes') }}</option>
+    {% for type in ['commitment', 'check_in'] %}<option value="{{ type }}" {% if filters.task_type == type %}selected{% endif %}>{{ t('followUp.' ~ type) }}</option>{% endfor %}
+  </select></label>
+  <label>{{ t('common.pipelineStage') }}<select name="stage"><option value="">{{ t('followUp.allStages') }}</option>
+    {% for stage in stages %}<option value="{{ stage }}" {% if filters.stage == stage %}selected{% endif %}>{{ t('stage.' ~ stage) }}</option>{% endfor %}
+  </select></label>
+  <label>{{ t('deals.offer') }}<select name="offer"><option value="">{{ t('followUp.allOffers') }}</option>
+    {% for offer in offers %}<option value="{{ offer.id }}" {% if filters.offer == offer.id|string %}selected{% endif %}>{{ offer.name }}</option>{% endfor %}
+  </select></label>
+  <label>{{ t('followUp.from') }}{{ date_field('date_from', filters.date_from) }}</label>
+  <label>{{ t('followUp.to') }}{{ date_field('date_to', filters.date_to) }}</label>
+  <label>{{ t('common.sortBy') }}<select name="direction"><option value="asc" {% if filters.direction == 'asc' %}selected{% endif %}>{{ t('followUp.oldest') }}</option><option value="desc" {% if filters.direction == 'desc' %}selected{% endif %}>{{ t('followUp.newest') }}</option></select></label>
+  <button class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+</form><p class="muted">{{ t('followUp.undatedFilter') }}</p>
+{% if request.session.get('role') == 'admin' %}
+<details class="follow-up-create" {% if selected_target %}open{% endif %}><summary>{{ t('followUp.add') }}</summary>
+  <form method="post" action="/follow-ups/new" class="follow-up-edit">
+    <label>{{ t('followUp.target') }}<select name="target" required><option value="">{{ t('followUp.chooseTarget') }}</option>{% for target in targets %}<option value="{{ target.target }}" {% if selected_target == target.target %}selected{% endif %}>{{ target.label }}{% if not target.deal_id %} · {{ t('followUp.general') }}{% endif %}</option>{% endfor %}</select></label>
+    <label>{{ t('deals.contactPerson') }}<select name="contact_person_id"><option value="">—</option>{% for person in people %}<option value="{{ person.id }}">{{ person.organization_name }} · {{ person.name }}</option>{% endfor %}</select></label>
+    <label>{{ t('followUp.type') }}<select name="task_type" required><option value="">{{ t('followUp.chooseType') }}</option><option value="commitment">{{ t('followUp.commitment') }}</option><option value="check_in">{{ t('followUp.check_in') }}</option></select></label>
+    <label>{{ t('followUp.text') }}<input name="task_text" maxlength="500" required></label>
+    <label>{{ t('followUp.date') }}{{ date_field('due_date') }}</label>
+    <button class="btn-primary">{{ t('followUp.add') }}</button>
+  </form>
+</details>{% endif %}
+{% else %}<p>{{ t('followUp.reviewHelp') }}</p>{% endif %}
+<div class="table-scroll"><table class="follow-up-table"><thead><tr>
+  <th>{{ t('followUp.date') }}</th><th>{{ t('followUp.owner') }}</th><th>{{ t('followUp.type') }}</th>
+  <th>{{ t('deals.offer') }}</th><th>{{ t('common.pipelineStage') }}</th><th>{{ t('common.status') }}</th>
+  <th>{{ t('followUp.text') }}</th><th>{{ t('followUp.actions') }}</th>
+</tr></thead><tbody>
+{% for task in tasks %}
+  {% if task.due_date is none and (loop.first or loop.previtem.due_date is not none) %}<tr class="follow-up-group"><th colspan="8">{{ t('followUp.undated') }}</th></tr>{% endif %}
+  <tr><td data-label="{{ t('followUp.date') }}">{% if task.due_date %}{{ task.due_date|dmy }}{% if task.due_date < today %}<strong class="follow-up-overdue"> · {{ t('followUp.overdue') }}</strong>{% elif task.due_date == today %}<strong> · {{ t('followUp.today') }}</strong>{% endif %}{% else %}—{% endif %}</td>
+  <td data-label="{{ t('followUp.owner') }}">{% if task.contact_id %}<a href="/organizations/{{ task.contact_id }}">{{ task.organization_name }}</a>{% else %}{% if task.person_organization_id %}<a href="/organizations/{{ task.person_organization_id }}">{{ task.person_organization_name }}</a><br>{% endif %}<a href="/people/{{ task.person_id }}">{{ task.person_name }}</a>{% endif %}
+      {% if task.contact_person_id %}<br><a href="/people/{{ task.contact_person_id }}">{{ task.contact_person_name }}</a>{% endif %}</td>
+  <td data-label="{{ t('followUp.type') }}">{{ t('followUp.' ~ task.task_type) if task.task_type else '—' }}</td><td data-label="{{ t('deals.offer') }}">{% if task.deal_id %}<a href="{{ '/organizations/' ~ task.contact_id if task.contact_id else '/people/' ~ task.person_id }}#deal-{{ task.deal_id }}">{{ task.offer_name }}</a>{% else %}{{ task.offer_name or t('followUp.general') }}{% endif %}</td>
+  <td data-label="{{ t('common.pipelineStage') }}">{% if task.pipeline_stage %}<span class="badge badge-stage-{{ task.pipeline_stage }}">{{ t('stage.' ~ task.pipeline_stage) }}</span>{% else %}—{% endif %}</td>
+  <td data-label="{{ t('common.status') }}">{{ t('status.' ~ task.deal_status) if task.deal_status else '—' }}</td><td data-label="{{ t('followUp.text') }}">{{ task.task_text }} <small class="muted">#{{ task.id }}</small>{% if filters.view == 'review' and task.source_date %}<br><small>{{ t('followUp.dealUpdated' if task.source_kind == 'deal' else 'followUp.sourceDate') }}: {{ task.source_date|dmy }}</small>{% endif %}</td>
+  <td data-label="{{ t('followUp.actions') }}">{% if request.session.get('role') == 'admin' %}
+    {% if filters.view == 'review' %}
+    <details><summary>{{ t('followUp.reviewAction') }}</summary>
+      <form method="post" action="/follow-ups/{{ task.id }}/review" class="follow-up-edit">
+        <input type="hidden" name="version" value="{{ task.updated_at.isoformat() }}">
+        <label>{{ t('followUp.text') }}<input name="task_text" value="{{ task.task_text }}" maxlength="500"></label>
+        <label>{{ t('followUp.date') }}{{ date_field('due_date', task.due_date) }}</label>
+        <label>{{ t('followUp.type') }}<select name="task_type"><option value="">{{ t('followUp.chooseType') }}</option><option value="commitment">{{ t('followUp.commitment') }}</option><option value="check_in">{{ t('followUp.check_in') }}</option></select></label>
+        <label>{{ t('deals.offer') }}<select name="deal_id"><option value="0">{{ task.source_offer_name or t('followUp.general') }}</option>{% for target in targets if target.deal_id and target.contact_id == task.contact_id and target.person_id == task.person_id %}<option value="{{ target.deal_id }}" {% if target.deal_id == task.deal_id %}selected{% endif %}>{{ target.label }}</option>{% endfor %}</select></label>
+        {% if task.contact_id %}<label>{{ t('deals.contactPerson') }}<select name="contact_person_id"><option value="0">—</option>{% for person in people if person.contact_id == task.contact_id %}<option value="{{ person.id }}" {% if person.id == task.contact_person_id %}selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>{% endif %}
+        <button class="btn-primary" name="decision" value="keep">{{ t('followUp.keep') }}</button>
+        <button class="btn-secondary" name="decision" value="dismiss">{{ t('followUp.dismiss') }}</button>
+        <label>{{ t('followUp.linkId') }}<select name="linked_task_id"><option value="">—</option>{% for candidate in review_candidates if candidate.contact_id == task.contact_id and candidate.person_id == task.person_id %}<option value="{{ candidate.id }}">#{{ candidate.id }} · {{ candidate.task_text }}{% if candidate.due_date %} · {{ candidate.due_date|dmy }}{% endif %}</option>{% endfor %}</select></label><button class="btn-secondary" name="decision" value="link">{{ t('followUp.link') }}</button>
+      </form>
+    </details>
+    {% else %}
+    <details><summary>{{ t('followUp.edit') }}</summary>
+      <form method="post" action="/follow-ups/{{ task.id }}/edit" class="follow-up-edit">
+        <input type="hidden" name="version" value="{{ task.updated_at.isoformat() }}">
+        <label>{{ t('followUp.text') }}<input name="task_text" value="{{ task.task_text }}" maxlength="500" required></label>
+        <label>{{ t('followUp.date') }}{{ date_field('due_date', task.due_date) }}</label>
+        <label>{{ t('followUp.type') }}<select name="task_type"><option value="commitment" {% if task.task_type == 'commitment' %}selected{% endif %}>{{ t('followUp.commitment') }}</option><option value="check_in" {% if task.task_type == 'check_in' %}selected{% endif %}>{{ t('followUp.check_in') }}</option></select></label>
+        <label>{{ t('deals.offer') }}<select name="deal_id"><option value="0">{{ task.source_offer_name or t('followUp.general') }}</option>{% for target in targets if target.deal_id and target.contact_id == task.contact_id and target.person_id == task.person_id %}<option value="{{ target.deal_id }}" {% if target.deal_id == task.deal_id %}selected{% endif %}>{{ target.label }}</option>{% endfor %}</select></label>
+        {% if task.contact_id %}<label>{{ t('deals.contactPerson') }}<select name="contact_person_id"><option value="0">—</option>{% for person in people if person.contact_id == task.contact_id %}<option value="{{ person.id }}" {% if person.id == task.contact_person_id %}selected{% endif %}>{{ person.name }}</option>{% endfor %}</select></label>{% endif %}
+        <button class="btn-primary">{{ t('common.save') }}</button>
+      </form>
+    </details>
+    <form method="post" action="/follow-ups/{{ task.id }}/status"><input type="hidden" name="version" value="{{ task.updated_at.isoformat() }}"><button class="btn-secondary" name="status" value="completed">{{ t('followUp.done') }}</button><button class="btn-secondary" name="status" value="dismissed">{{ t('followUp.dismiss') }}</button></form>
+    {% endif %}{% endif %}</td></tr>
+{% else %}<tr><td colspan="8">{{ t('followUp.empty') }}</td></tr>{% endfor %}
+</tbody></table></div>
+<nav class="follow-up-pages" aria-label="{{ t('followUp.pages') }}">{% if previous %}<a href="{{ previous }}">{{ t('followUp.previous') }}</a>{% endif %} <span>{{ page }}</span> {% if next_page %}<a href="{{ next_page }}">{{ t('followUp.next') }}</a>{% endif %}</nav>
+{% endblock %}

@@ -3,6 +3,7 @@
 from gcrm.activity_types import VISIT_METHODS
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.follow_ups import record_activity_follow_up
 
 
 def log_interaction(
@@ -33,14 +34,17 @@ def log_meeting_note(
     attitude: list[str] | None = None,
     my_read: list[str] | None = None,
     materials_left: str | None = None,
-) -> int:
+    follow_up_type: str | None = None,
+    capture_undo: bool = False,
+) -> int | tuple[int, dict | None]:
     """Record a note about a meeting, call or visit on an organization: when it
     happened (`occurred_on`, default today), how they seemed to feel about me
     (`attitude`) and how they seemed to me (`my_read`), what was left behind,
     any follow-up promised (with an optional date) and the offer it was about
     (None: general). Direction is left empty (it is neither an outbound nor
     an inbound message) and no status changes: only an explicit stage change does that.
-    The organization is touched so it sorts as recently active. Returns the row id."""
+    The organization is touched so it sorts as recently active. Returns the row id;
+    with capture_undo, also returns the newly created follow-up's identity and version."""
     with db() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -53,8 +57,9 @@ def log_meeting_note(
         )
         note_id = cursor.fetchone()["id"]
         cursor.execute("UPDATE contacts SET updated_at = NOW() WHERE id = %s", (contact_id,))
+        follow_up_snapshot = record_activity_follow_up(cursor, note_id, follow_up_type, capture_undo)
     log_audit(None, None, "interaction.note_added", f"contact:{contact_id}", method or "note")
-    return note_id
+    return (note_id, follow_up_snapshot) if capture_undo else note_id
 
 
 def get_visit_summary(contact_id: int) -> dict:
