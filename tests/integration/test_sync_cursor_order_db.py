@@ -40,3 +40,21 @@ def test_cursor_cannot_pass_an_uncommitted_change(clean_database, migrated_datab
             finally:
                 first.commit()
             assert pending.result(timeout=5) > first_sequence
+
+
+def test_cursor_high_water_survives_deletion_of_a_users_private_events(clean_database, migrated_database):
+    with psycopg2.connect(migrated_database) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) "
+                       "VALUES ('cursor-user@example.test','hash',%s) RETURNING id", (workspace,))
+        user_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO contacts(name) VALUES ('Rated') RETURNING id")
+        contact_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO contact_user_priorities(workspace_id,user_id,contact_id,priority) "
+                       "VALUES (%s,%s,%s,1)", (workspace, user_id, contact_id))
+        cursor.execute("SELECT max(sequence) FROM sync_entity_changes WHERE workspace_id=%s", (workspace,))
+        high_water = cursor.fetchone()[0]
+        cursor.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        cursor.execute("SELECT last_sequence FROM sync_workspace_cursors WHERE workspace_id=%s", (workspace,))
+        assert cursor.fetchone()[0] == high_water

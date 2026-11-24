@@ -110,3 +110,19 @@ def test_hard_erasure_removes_previously_provisional_personal_values(clean_datab
         cursor.execute("DELETE FROM people WHERE id=%s", (person_id,))
         cursor.execute("SELECT COUNT(*) FROM provisional_mobile_changes WHERE entity_sync_id=%s", (person_sync_id,))
         assert cursor.fetchone()[0] == 0
+
+
+def test_private_rating_change_targets_only_its_owner(clean_database, migrated_database):
+    with psycopg2.connect(migrated_database) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('sync-rating@example.test','hash',%s) RETURNING id", (workspace_id,))
+        user_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO contacts(name) VALUES ('Rated') RETURNING id,sync_id")
+        contact_id, sync_id = cursor.fetchone()
+        cursor.execute("INSERT INTO contact_user_priorities(workspace_id,user_id,contact_id,priority) "
+                       "VALUES (%s,%s,%s,1)", (workspace_id, user_id, contact_id))
+        cursor.execute("SELECT entity_sync_id,target_user_id FROM sync_entity_changes "
+                       "WHERE target_user_id IS NOT NULL")
+        assert cursor.fetchall() == [(sync_id, user_id)]
