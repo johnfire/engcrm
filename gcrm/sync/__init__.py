@@ -1,0 +1,1 @@
+"""Mobile synchronization domain logic."""
