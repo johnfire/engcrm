@@ -65,3 +65,11 @@ def test_row_bookkeeping_columns_are_never_copied():
     drop = _person(182, updated_at=datetime(2026, 10, 1, tzinfo=timezone.utc), workspace_id=1)
     updates, conflicts = plan_field_merge(_person(57, updated_at=None), drop, TODAY)
     assert updates == {} and conflicts == []
+
+
+def test_distinct_sync_identities_are_not_merged_into_person_fields_or_notes():
+    keep = _person(57, sync_id="00000000-0000-0000-0000-000000000001")
+    drop = _person(182, sync_id="00000000-0000-0000-0000-000000000002")
+    updates, conflicts = plan_field_merge(keep, drop, TODAY)
+    assert updates == {}
+    assert conflicts == []

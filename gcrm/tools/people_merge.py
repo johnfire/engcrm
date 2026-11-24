@@ -21,7 +21,7 @@ from gcrm.tools.follow_ups import refresh_deal_projection
 
 # Columns that describe the row rather than the person. (The stage and next
 # step live on deals, which are moved below.)
-_ROW_COLUMNS = {"id", "created_at", "updated_at", "deleted_at", "workspace_id"}
+_ROW_COLUMNS = {"id", "sync_id", "created_at", "updated_at", "deleted_at", "workspace_id"}
 
 # Every table with a foreign key to people(id), and how a clash on the kept
 # person is resolved. An unlisted table stops the merge: moving rows blindly
