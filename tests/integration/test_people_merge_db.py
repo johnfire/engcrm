@@ -1,5 +1,6 @@
 """Merging a duplicate person against the real schema: every linked row moves,
 the duplicate is gone, and a preview writes nothing."""
+from contextlib import nullcontext
 from datetime import date
 
 import pytest
@@ -7,7 +8,11 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.tools.db_people import save_person
 from gcrm.tools.db_people_interactions import log_person_note
+from gcrm.tools.deal_records import get_deals, set_deal_next_step
+from gcrm.tools.follow_up_queries import find_follow_ups
+from gcrm.tools.follow_ups import create_follow_up, resolve_review
 from gcrm.tools.people_merge import MergeRefused, merge_people
+from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
 
@@ -132,3 +137,67 @@ def test_a_second_run_is_refused_because_the_duplicate_is_gone(clean_database):
 
     with pytest.raises(MergeRefused):
         merge_people(ids["keep"], ids["drop"], apply=True)
+
+
+@pytest.mark.parametrize("scoped", [False, True])
+def test_merge_preserves_follow_ups_when_person_deals_clash(clean_database, scoped):
+    ids = _setup_pair()
+    kept_deal = next(deal for deal in get_deals("person", ids["keep"]) if deal["offer_slug"] == "consulting")
+    dropped_deal = next(deal for deal in get_deals("person", ids["drop"]) if deal["offer_slug"] == "consulting")
+    other_deal = next(deal for deal in get_deals("person", ids["drop"]) if deal["offer_slug"] == "learnwohl")
+    set_deal_next_step(dropped_deal["id"], "Review old promise", None)
+    kept_task = create_follow_up(deal_id=kept_deal["id"], task_type="commitment", task_text="Kept task")
+    dropped_task = create_follow_up(deal_id=dropped_deal["id"], task_type="check_in", task_text="Dropped task")
+    other_task = create_follow_up(deal_id=other_deal["id"], task_type="check_in", task_text="Other offer task")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, workspace_id FROM contacts WHERE name='Huber GmbH'")
+        owner = cursor.fetchone()
+        organization = owner["id"]
+        cursor.execute("UPDATE people SET contact_id=%s WHERE id IN (%s,%s)",
+                       (organization, ids["keep"], ids["drop"]))
+    named_task = create_follow_up(contact_id=organization, contact_person_id=ids["drop"],
+                                  task_type="commitment", task_text="Send Anna the details")
+
+    with workspace_scope(owner["workspace_id"]) if scoped else nullcontext():
+        preview = merge_people(ids["keep"], ids["drop"], apply=False)
+        assert preview["applied"] is False
+        assert dropped_task in {row["id"] for row in preview["moved"]["follow_ups.person_id"]}
+        assert named_task in {row["id"] for row in preview["moved"]["follow_ups.contact_person_id"]}
+        assert {task["id"] for task in find_follow_ups()} == {kept_task, dropped_task, named_task, other_task}
+        merge_people(ids["keep"], ids["drop"], apply=True)
+
+    tasks = {task["id"]: task for task in find_follow_ups()}
+    assert set(tasks) == {kept_task, dropped_task, named_task, other_task}
+    assert (tasks[dropped_task]["person_id"], tasks[dropped_task]["deal_id"]) == (ids["keep"], kept_deal["id"])
+    assert tasks[named_task]["contact_person_id"] == ids["keep"]
+    assert (tasks[other_task]["person_id"], tasks[other_task]["deal_id"]) == (ids["keep"], other_deal["id"])
+    review = find_follow_ups(status="review")
+    assert len(review) == 1 and review[0]["task_text"] == "Review old promise"
+    assert (review[0]["person_id"], review[0]["deal_id"], review[0]["source_id"]) == (
+        ids["keep"], kept_deal["id"], dropped_deal["id"])
+    with workspace_scope(owner["workspace_id"]):
+        resolve_review(review[0]["id"], "keep", review[0]["updated_at"], task_type="commitment",
+                       task_text="Review old promise")
+        assert {task["id"] for task in find_follow_ups()} == {
+            kept_task, dropped_task, named_task, other_task, review[0]["id"]}
+
+
+def test_merge_refuses_to_attach_named_follow_up_to_wrong_company(clean_database):
+    ids = _setup_pair()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, workspace_id FROM contacts WHERE name='Huber GmbH'")
+        organization = cursor.fetchone()
+        cursor.execute("INSERT INTO contacts (name, workspace_id) VALUES ('Other GmbH', %s) RETURNING id",
+                       (organization["workspace_id"],))
+        other = cursor.fetchone()["id"]
+        cursor.execute("UPDATE people SET contact_id=%s WHERE id=%s", (other, ids["keep"]))
+        cursor.execute("UPDATE people SET contact_id=%s WHERE id=%s", (organization["id"], ids["drop"]))
+    task_id = create_follow_up(contact_id=organization["id"], contact_person_id=ids["drop"],
+                               task_type="commitment", task_text="Send Anna the details")
+
+    with workspace_scope(organization["workspace_id"]), pytest.raises(MergeRefused, match="different organization"):
+        merge_people(ids["keep"], ids["drop"], apply=True)
+    assert _counts(ids["drop"])["people"] == 1
+    assert find_follow_ups()[0]["id"] == task_id

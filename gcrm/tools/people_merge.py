@@ -17,6 +17,7 @@ from datetime import date
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_personal_ratings import RATING_RANGES
+from gcrm.tools.follow_ups import refresh_deal_projection
 
 # Columns that describe the row rather than the person. (The stage and next
 # step live on deals, which are moved below.)
@@ -37,6 +38,8 @@ _CHILD_TABLES = {
     ("deals", "person_id"): "offer_id",
     # Being the contact person on an organization's deal clashes with nothing.
     ("deals", "contact_person_id"): None,
+    ("follow_ups", "person_id"): None,
+    ("follow_ups", "contact_person_id"): None,
 }
 
 # Rows that only clash while both are live: a soft-deleted deal blocks nothing.
@@ -128,6 +131,40 @@ def _move_children(cur, table: str, column: str, keep_id: int, drop_id: int) -> 
     return rows, clashes
 
 
+def _move_person_deals(cur, keep_id: int, drop_id: int) -> tuple[list, list, list]:
+    """Retain clashing deals as source history and move their tasks to the kept deal."""
+    cur.execute("SELECT * FROM deals WHERE person_id=%s", (drop_id,))
+    rows = [serialize_row(dict(row)) for row in cur.fetchall()]
+    cur.execute(
+        "SELECT d.*, k.id AS kept_deal_id FROM deals d JOIN deals k ON k.offer_id=d.offer_id "
+        "AND k.person_id=%s AND k.deleted_at IS NULL "
+        "WHERE d.person_id=%s AND d.deleted_at IS NULL ORDER BY d.id FOR UPDATE OF d, k",
+        (keep_id, drop_id),
+    )
+    collisions = [dict(row) for row in cur.fetchall()]
+    moved_follow_ups = []
+    for collision in collisions:
+        cur.execute("SELECT * FROM follow_ups WHERE deal_id=%s AND person_id=%s", (collision["id"], drop_id))
+        moved_follow_ups.extend(serialize_row(dict(row)) for row in cur.fetchall())
+        cur.execute("UPDATE deals SET person_id=%s, deleted_at=NOW() WHERE id=%s", (keep_id, collision["id"]))
+        cur.execute("UPDATE follow_ups SET person_id=%s, deal_id=%s, updated_at=clock_timestamp() "
+                    "WHERE deal_id=%s AND person_id=%s",
+                    (keep_id, collision["kept_deal_id"], collision["id"], drop_id))
+        cur.execute("SELECT 1 FROM follow_ups WHERE deal_id=%s AND status='active' LIMIT 1",
+                    (collision["kept_deal_id"],))
+        if cur.fetchone():
+            refresh_deal_projection(cur, collision["kept_deal_id"])
+    cur.execute("UPDATE deals SET person_id=%s WHERE person_id=%s", (keep_id, drop_id))
+    return rows, [serialize_row(collision) for collision in collisions], moved_follow_ups
+
+
+def _check_follow_up_companies(cur, drop_id: int, company_id: int | None) -> None:
+    cur.execute("SELECT 1 FROM follow_ups WHERE contact_person_id=%s AND contact_id IS DISTINCT FROM %s LIMIT 1",
+                (drop_id, company_id))
+    if cur.fetchone():
+        raise MergeRefused("follow-ups name the duplicate at a different organization; resolve their company first")
+
+
 def _load_pair(cur, keep_id: int, drop_id: int) -> tuple[dict, dict]:
     if keep_id == drop_id:
         raise MergeRefused("a person cannot be merged into themselves")
@@ -154,10 +191,20 @@ def merge_people(keep_id: int, drop_id: int, apply: bool = False, today: date | 
         cur = conn.cursor()
         keep, drop = _load_pair(cur, keep_id, drop_id)
         updates, conflicts = plan_field_merge(keep, drop, today)
+        _check_follow_up_companies(cur, drop_id, updates.get("contact_id", keep.get("contact_id")))
+        if "contact_id" in updates:
+            cur.execute("UPDATE people SET contact_id=%s WHERE id=%s", (updates["contact_id"], keep_id))
         moved, clashes = {}, {}
+        deal_follow_ups = []
         for table, column in _child_tables(cur):
-            rows, left = _move_children(cur, table, column, keep_id, drop_id)
-            moved[table], clashes[table] = rows, left
+            if (table, column) == ("deals", "person_id"):
+                rows, left, deal_follow_ups = _move_person_deals(cur, keep_id, drop_id)
+            else:
+                rows, left = _move_children(cur, table, column, keep_id, drop_id)
+            report_key = f"{table}.{column}" if table == "follow_ups" else table
+            if (table, column) == ("follow_ups", "person_id"):
+                rows = deal_follow_ups + rows
+            moved[report_key], clashes[report_key] = rows, left
             if table == "person_user_priorities" and left:
                 updates["notes"] = _note_rating_clash(updates.get("notes", keep.get("notes")), left)
             if table == "deals" and column == "person_id" and left:
