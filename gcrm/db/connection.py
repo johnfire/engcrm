@@ -4,6 +4,7 @@ from datetime import date, datetime
 import psycopg2
 import psycopg2.extras
 
+from gcrm.audit_context import current_audit_context
 from gcrm.config import DATABASE_URL
 from gcrm.workspace_context import get_workspace_id, has_workspace_scope
 
@@ -25,6 +26,13 @@ def db():
     """Context manager for a single connection with auto-commit on success."""
     conn = get_connection()
     try:
+        audit = current_audit_context()
+        if audit:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT set_config('app.audit_actor', %s, TRUE), "
+                               "set_config('app.audit_actor_type', %s, TRUE), "
+                               "set_config('app.audit_correlation_id', %s, TRUE)",
+                               (audit.actor, audit.actor_type, audit.correlation_id or ""))
         workspace_id = get_workspace_id()
         if has_workspace_scope():
             cursor = conn.cursor()

@@ -215,9 +215,11 @@ def merge_people(keep_id: int, drop_id: int, apply: bool = False, today: date | 
                 f"UPDATE people SET {assignments}, updated_at = NOW() WHERE id = %s",
                 [*updates.values(), keep_id],
             )
+        cur.execute("SELECT set_config('app.sync_merge_target', %s, TRUE)", (str(keep["sync_id"]),))
         cur.execute("DELETE FROM people WHERE id = %s AND name = %s", (drop_id, drop["name"]))
         if cur.rowcount != 1:
             raise MergeRefused(f"person #{drop_id} changed while merging")
+        cur.execute("SELECT set_config('app.sync_merge_target', '', TRUE)")
         if not apply:
             conn.rollback()
 

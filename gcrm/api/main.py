@@ -41,6 +41,7 @@ from gcrm.api.routers import (
     api_saved_messages,
     api_search,
     api_signs,
+    api_sync,
     api_voice,
     approval,
     areas,
@@ -192,6 +193,7 @@ app.include_router(help.router)
 
 # Mobile JSON API (bearer-JWT, under /api/*)
 app.include_router(api_auth.router)
+app.include_router(api_sync.router)
 app.include_router(api_account.router)
 app.include_router(api_push.router)
 app.include_router(api_approvals.router)
