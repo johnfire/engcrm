@@ -9,6 +9,11 @@ CREATE TABLE bootstrap_generations (
 );
 CREATE UNIQUE INDEX one_active_generation ON bootstrap_generations(status) WHERE status = 'active';
 
+CREATE TABLE local_offers (
+  slug TEXT PRIMARY KEY, server_id INTEGER NOT NULL, name TEXT NOT NULL, website TEXT,
+  revenue_kind TEXT NOT NULL, display_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+);
+
 CREATE TABLE local_organizations (
   row_id INTEGER PRIMARY KEY,
   generation INTEGER NOT NULL REFERENCES bootstrap_generations(id),

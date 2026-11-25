@@ -52,5 +52,6 @@ export function createBoundSyncNetwork(token: string, environment: Server, devic
     reviewOutcomes: (mutationIds) => guarded(async () => (await client.post("/api/sync/review-outcomes", {
       device_id: deviceId, server_environment: environment, mutation_ids: mutationIds,
     })).data),
+    offers: () => guarded(async () => (await client.get("/api/offers")).data),
   };
 }

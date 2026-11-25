@@ -1,4 +1,5 @@
 import { withLocalRead, withLocalWrite } from "./local-transaction";
+import { saveLocalOffers } from "./local-offers";
 import { synchronizeBootstrap } from "./sync-bootstrap-worker";
 import { synchronizePull } from "./sync-pull-worker";
 import { type OutboxDatabase, synchronizeOutbox } from "./sync-push-worker";
@@ -10,6 +11,7 @@ export interface SyncNetwork {
   pull(cursor: number): Promise<unknown>;
   push?(mutations: Record<string, unknown>[]): Promise<unknown>;
   reviewOutcomes?(mutationIds: string[]): Promise<unknown>;
+  offers?(): Promise<unknown>;
 }
 
 const activeCycles = new WeakMap<OutboxDatabase, { deviceId: string; promise: Promise<void> }>();
@@ -32,6 +34,7 @@ async function runCycle(database: OutboxDatabase, deviceId: string, network: Syn
   if (!state?.active_generation || loading) await synchronizeBootstrap(database, deviceId, network.bootstrap);
   await synchronizePull(database, network.pull);
   if (network.reviewOutcomes) await synchronizeReviewOutcomes(database, network.reviewOutcomes);
+  if (network.offers) await saveLocalOffers(database, await network.offers());
   await withLocalWrite(database, async () => {
     const unsent = await database.getFirstAsync<{ count: number }>("SELECT count(*) AS count FROM sync_outbox");
     if (unsent?.count === 0) await database.runAsync("UPDATE sync_state SET last_success_at=CURRENT_TIMESTAMP WHERE singleton=1");

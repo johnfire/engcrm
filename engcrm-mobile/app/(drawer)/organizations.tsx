@@ -18,8 +18,15 @@ import { useTranslation } from "../../i18n/I18nContext";
 import { OfferFilterChips } from "../../components/OfferFilterChips";
 import { useOfferFilter } from "../../hooks/useOfferFilter";
 import { ALL_OFFERS } from "../../services/deals";
+import { useOffline } from "../../services/offline-context";
+import { LocalEntitiesScreen } from "../../components/local-entities-screen";
 
 export default function OrganizationsScreen() {
+  const offline = useOffline();
+  return offline.state === "disabled" ? <OnlineOrganizationsScreen /> : <LocalEntitiesScreen kind="organization" />;
+}
+
+function OnlineOrganizationsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [isAdmin, setIsAdmin] = useState(false);

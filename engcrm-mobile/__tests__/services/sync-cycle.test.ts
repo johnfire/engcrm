@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 
 import { LOCAL_SCHEMA_V1 } from "../../services/local-schema";
+import { readLocalOffers } from "../../services/local-offers";
 import { withLocalWrite } from "../../services/local-transaction";
 import { synchronizeCycle } from "../../services/sync-cycle";
 
@@ -32,6 +33,19 @@ it("registers, bootstraps, then pulls once even when multiple triggers fire", as
     expect(network.bootstrap).toHaveBeenCalledTimes(1);
     expect(network.pull).toHaveBeenCalledWith(4);
     expect(sqlite.prepare("SELECT cursor,last_success_at FROM sync_state").get()).toMatchObject({ cursor: 5, last_success_at: expect.any(String) });
+  } finally { sqlite.close(); }
+});
+
+it("refreshes the complete offer cache as part of a successful sync", async () => {
+  const { sqlite, database } = setup();
+  const offers = [{ id: 1, slug: "training", name: "Training", website: null, revenue_kind: "one_off" }];
+  const network = { register: jest.fn(async () => {}),
+    bootstrap: jest.fn(async () => ({ high_water: 0, next_token: null, entities: [] })),
+    pull: jest.fn(async () => ({ changes: [], next_cursor: 0, has_more: false })),
+    offers: jest.fn(async () => offers) };
+  try {
+    await synchronizeCycle(database, "phone", network);
+    expect(await readLocalOffers(database)).toEqual(offers);
   } finally { sqlite.close(); }
 });
 

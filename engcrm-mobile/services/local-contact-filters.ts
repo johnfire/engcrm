@@ -10,10 +10,10 @@ interface ContactFilters {
   direction: "asc" | "desc";
 }
 
-const STAGES = ["customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_now", "not_in_pipeline"];
-const STATUSES = ["customer", "proposal", "meeting", "contacted", "ready", "on_hold", "dormant", "none", "dropped", "not_interested"];
+export const STAGE_RANKS = ["customer", "opportunity", "prospect", "nibble", "suspect", "candidate", "not_now", "not_in_pipeline"];
+export const STATUS_RANKS = ["customer", "proposal", "meeting", "contacted", "ready", "on_hold", "dormant", "none", "dropped", "not_interested"];
 
-function ranked(deals: LocalRecord[], field: string, ranks: string[]): number | null {
+export function ranked(deals: LocalRecord[], field: string, ranks: string[]): number | null {
   const values = deals.map((deal) => ranks.indexOf(String(deal.fields[field]))).filter((rank) => rank >= 0);
   return values.length ? Math.min(...values) : null;
 }
@@ -25,8 +25,8 @@ function sortValue(contact: LocalContact, sort: ContactSortKey): string | number
     case "city": return typeof contact.fields.city === "string" ? contact.fields.city.toLocaleLowerCase() : null;
     case "priority": return Number.isInteger(contact.fields[contact.kind === "person" ? "value_rating" : "personal_priority"])
       ? contact.fields[contact.kind === "person" ? "value_rating" : "personal_priority"] as number : null;
-    case "pipeline_stage": return ranked(contact.allDeals, "pipeline_stage", STAGES);
-    case "status": return ranked(contact.deals, "status", STATUSES);
+    case "pipeline_stage": return ranked(contact.allDeals, "pipeline_stage", STAGE_RANKS);
+    case "status": return ranked(contact.deals, "status", STATUS_RANKS);
     case "next_contact": {
       const dates = contact.deals.map((deal) => deal.fields.next_step_date).filter((value): value is string => typeof value === "string" && !!value).sort();
       return dates[0] ?? null;

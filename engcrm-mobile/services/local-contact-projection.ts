@@ -2,7 +2,7 @@ import type { LocalRecord } from "./local-records";
 import type { SyncEntityKind } from "./sync-contracts";
 export { filterLocalContacts } from "./local-contact-filters";
 
-type Snapshot = Record<SyncEntityKind, LocalRecord[]>;
+export type LocalSnapshot = Record<SyncEntityKind, LocalRecord[]>;
 type ContactKind = "person" | "organization";
 export interface LocalContact {
   kind: ContactKind;
@@ -37,7 +37,7 @@ function day(value: unknown, kind: ContactKind): string | null {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
-function recordsByOwner(records: LocalRecord[], ownerField: string): Map<string, LocalRecord[]> {
+export function recordsByOwner(records: LocalRecord[], ownerField: string): Map<string, LocalRecord[]> {
   const result = new Map<string, LocalRecord[]>();
   for (const record of records) {
     const owner = text(record.fields[ownerField]);
@@ -56,7 +56,7 @@ function latestContact(history: LocalRecord[], kind: ContactKind): string | null
   return dates.at(-1) ?? null;
 }
 
-function projectRecord(record: LocalRecord, kind: ContactKind, allDeals: LocalRecord[], history: LocalRecord[], offer: string): LocalContact {
+export function projectRecord(record: LocalRecord, kind: ContactKind, allDeals: LocalRecord[], history: LocalRecord[], offer: string): LocalContact {
   const deals = offer === "all" ? allDeals : allDeals.filter((deal) => deal.fields.offer_slug === offer);
   const totalValue = deals.reduce((sum, deal) => {
     const value = Number(deal.fields.total_value ?? 0);
@@ -72,7 +72,7 @@ function wasContacted(contact: LocalContact, allDeals: LocalRecord[]): boolean {
   return contact.lastContact !== null || allDeals.some((deal) => CONTACTED.has(text(deal.fields.status) ?? ""));
 }
 
-export function projectLocalContacts(snapshot: Snapshot, offer: string): LocalContact[] {
+export function projectLocalContacts(snapshot: LocalSnapshot, offer: string): LocalContact[] {
   const personDeals = recordsByOwner(snapshot.deal, "person_sync_id");
   const organizationDeals = recordsByOwner(snapshot.deal, "organization_sync_id");
   const notes = recordsByOwner(snapshot.person_note, "person_sync_id");

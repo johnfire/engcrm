@@ -90,6 +90,8 @@ it("creates a local person and its pending operation atomically", async () => {
       changedAt: "2026-11-25T10:00:00Z", patch: { name: "Offline person", phone: "123" } });
     expect(sqlite.prepare("SELECT name,server_id,is_local_only FROM local_people WHERE sync_id=?").get(newPerson))
       .toEqual({ name: "Offline person", server_id: null, is_local_only: 1 });
+    const canonical = sqlite.prepare("SELECT canonical_json FROM local_people WHERE sync_id=?").get(newPerson) as { canonical_json: string };
+    expect(JSON.parse(canonical.canonical_json).created_at).toBe("2026-11-25T10:00:00.000Z");
     expect(sqlite.prepare("SELECT operation,entity_sync_id FROM sync_outbox WHERE mutation_id=?").get(mutationId))
       .toEqual({ operation: "create", entity_sync_id: newPerson });
     await expect(queueLocalCreate(database, { mutationId, deviceId, entityKind: "organization",

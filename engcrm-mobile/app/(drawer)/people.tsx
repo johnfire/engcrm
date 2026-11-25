@@ -10,13 +10,11 @@ import {
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { fetchPeople, PEOPLE_PAGE_SIZE, Person } from "../../services/api";
-import { SortChips } from "../../components/SortChips";
+import { PeopleListControls, RATING_LABELS } from "../../components/PeopleListControls";
 import { useStoredSort } from "../../hooks/useStoredSort";
 import { PERSON_SORTS } from "../../services/listSortOptions";
 import { getRole } from "../../services/auth";
-import { PIPELINE_STAGES, stageLabelKey } from "../../services/organizationState";
 import { usePagedList } from "../../services/usePagedList";
-import { ChipRow, FilterChip } from "../../components/FilterChips";
 import { FilterPanel, ListSearchRow } from "../../components/ListFilters";
 import { ListAddButton } from "../../components/add-business-button";
 import { useTranslation } from "../../i18n/I18nContext";
@@ -25,22 +23,15 @@ import { OfferFilterChips } from "../../components/OfferFilterChips";
 import { useOfferFilter } from "../../hooks/useOfferFilter";
 import { ALL_OFFERS } from "../../services/deals";
 import { linkedinLabel, openWebsite } from "../../services/webLinks";
-
-// "" = any stage, "none" = people with no stage set, then the shared vocabulary.
-const STAGE_FILTERS = ["", "none", ...PIPELINE_STAGES];
-
-// My rating runs 1 (exceptional) .. 5 (minimal), so "or better" is that number or lower.
-const RATING_LABELS = ["contactValue.exceptional", "contactValue.high", "contactValue.medium",
-  "contactValue.low", "contactValue.minimal"];
-const RATING_FILTERS: { value: string; label: (t: (key: string, vars?: Record<string, unknown>) => string) => string }[] = [
-  { value: "", label: (t) => t("people.anyRating") },
-  { value: "1", label: (t) => `1 ${t(RATING_LABELS[0])}` },
-  { value: "2+", label: (t) => `2 ${t("people.ratingOrBetter", { label: t(RATING_LABELS[1]) })}` },
-  { value: "3+", label: (t) => `3 ${t("people.ratingOrBetter", { label: t(RATING_LABELS[2]) })}` },
-  { value: "unrated", label: (t) => t("people.unrated") },
-];
+import { useOffline } from "../../services/offline-context";
+import { LocalEntitiesScreen } from "../../components/local-entities-screen";
 
 export default function PeopleScreen() {
+  const offline = useOffline();
+  return offline.state === "disabled" ? <OnlinePeopleScreen /> : <LocalEntitiesScreen kind="person" />;
+}
+
+function OnlinePeopleScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -98,37 +89,8 @@ export default function PeopleScreen() {
       />
       <FilterPanel open={filtersOpen} activeFilters={activeFilters} onClear={clearFilters}>
         <OfferFilterChips offer={offer} offers={offers} onChange={chooseOffer} />
-        <ChipRow label={t("common.pipelineStage")}>
-          {STAGE_FILTERS.map((filter) => (
-            <FilterChip
-              key={filter}
-              label={
-                filter === ""
-                  ? t("organizations.allStages")
-                  : filter === "none"
-                    ? t("people.noStage")
-                    : t(stageLabelKey(filter))
-              }
-              isActive={stage === filter}
-              onPress={() => setStage(filter)}
-            />
-          ))}
-        </ChipRow>
-        <ChipRow label={t("people.ratingFilter")}>
-          {RATING_FILTERS.map(({ value, label }) => (
-            <FilterChip key={value || "any"} label={label(t)} isActive={rating === value} onPress={() => setRating(value)} />
-          ))}
-        </ChipRow>
-        <ChipRow label={t("people.linkedinFilter")}>
-          <FilterChip label={t("people.everyone")} isActive={linkedin === ""} onPress={() => setLinkedin("")} />
-          <FilterChip label={t("people.linkedinOnly")} isActive={linkedin === "1"} onPress={() => setLinkedin("1")} />
-          <FilterChip
-            label={t("people.linkedinUnlinked")}
-            isActive={linkedin === "unlinked"}
-            onPress={() => setLinkedin("unlinked")}
-          />
-        </ChipRow>
-        <SortChips options={PERSON_SORTS} sort={sort} onChoose={chooseSort} />
+        <PeopleListControls stage={stage} rating={rating} linkedin={linkedin} sort={sort} onStageChange={setStage}
+          onRatingChange={setRating} onLinkedinChange={setLinkedin} onSortChange={chooseSort} />
       </FilterPanel>
 
       {loading || !sortReady ? (

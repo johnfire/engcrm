@@ -153,7 +153,7 @@ async function insertLocalCreation(database: LocalDatabase, creation: LocalCreat
     if (!organization) throw new Error("Linked organization is not available offline");
   }
   await storeLocalEntity(database, state.active_generation, { entity_kind: creation.entityKind, sync_id: creation.entitySyncId,
-    server_id: null, fields: creation.patch, field_versions: {} });
+    server_id: null, fields: { ...creation.patch, created_at: new Date(creation.changedAt).toISOString() }, field_versions: {} });
   await database.runAsync("INSERT INTO sync_outbox(mutation_id,device_id,entity_kind,entity_sync_id,operation,changed_at,patch_json) " +
     "VALUES (?,?,?,?,'create',?,?)", creation.mutationId, creation.deviceId, creation.entityKind,
     creation.entitySyncId, new Date(creation.changedAt).toISOString(), JSON.stringify(creation.patch));

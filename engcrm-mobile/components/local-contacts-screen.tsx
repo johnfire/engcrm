@@ -1,20 +1,20 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { useStoredSort } from "../hooks/useStoredSort";
+import { useLocalSnapshot } from "../hooks/useLocalSnapshot";
 import { useTranslation } from "../i18n/I18nContext";
 import type { ContactKind } from "../services/contact-feed";
 import { filterLocalContacts, projectLocalContacts, type LocalContact } from "../services/local-contact-projection";
-import { readLocalWorkspace } from "../services/local-records";
 import { useOffline } from "../services/offline-context";
+import { useAdminRole } from "../services/use-admin-role";
 import { CONTACT_SORTS } from "../services/listSortOptions";
 import { stageLabelKey } from "../services/organizationState";
 import { ContactFeedControls } from "./contact-feed-controls";
-import { ChipRow, FilterChip } from "./FilterChips";
 import { FilterPanel, ListSearchRow } from "./ListFilters";
-
-type Snapshot = Awaited<ReturnType<typeof readLocalWorkspace>>;
+import { LocalOfferChips } from "./LocalOfferChips";
+import { ListAddButton } from "./add-business-button";
 
 function ContactRow({ contact, open }: { contact: LocalContact; open: (contact: LocalContact) => void }) {
   const { t } = useTranslation();
@@ -40,10 +40,9 @@ function ContactRow({ contact, open }: { contact: LocalContact; open: (contact: 
 export function LocalContactsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { session, status, state, requestSync, retryOpen } = useOffline();
-  const [loaded, setLoaded] = useState<{ database: object; snapshot: Snapshot } | null>(null);
-  const snapshot = session && loaded?.database === session.database ? loaded.snapshot : null;
-  const [error, setError] = useState(false);
+  const admin = useAdminRole();
+  const { session, state, requestSync, retryOpen } = useOffline();
+  const { snapshot, error } = useLocalSnapshot();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<ContactKind | "">("");
   const [stage, setStage] = useState("");
@@ -51,23 +50,6 @@ export function LocalContactsScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { sort, ready, choose } = useStoredSort("contacts", CONTACT_SORTS);
 
-  useFocusEffect(useCallback(() => {
-    let active = true;
-    if (session && status?.ready) {
-      readLocalWorkspace(session.database).then((value) => { if (active) { setLoaded({ database: session.database, snapshot: value }); setError(false); } })
-        .catch(() => { if (active) setError(true); });
-    }
-    return () => { active = false; };
-  }, [session, status]));
-
-  const offers = useMemo(() => {
-    const found = new Map<string, string>();
-    for (const deal of snapshot?.deal ?? []) {
-      const slug = deal.fields.offer_slug, name = deal.fields.offer_name;
-      if (typeof slug === "string") found.set(slug, typeof name === "string" ? name : slug);
-    }
-    return [...found.entries()];
-  }, [snapshot]);
   const contacts = useMemo(() => snapshot ? filterLocalContacts(projectLocalContacts(snapshot, offer),
     { search, kind, stage, sort: sort.key, direction: sort.direction }) : [], [snapshot, offer, search, kind, stage, sort]);
   const activeFilters = [kind, stage, offer !== "all"].filter(Boolean).length;
@@ -75,10 +57,11 @@ export function LocalContactsScreen() {
     params: { sync_id: contact.syncId } });
   return <View style={styles.container}>
     <ListSearchRow placeholder={t("contactFeed.search")} search={search} onSearchChange={setSearch} onSubmit={() => {}}
-      filtersOpen={filtersOpen} activeFilters={activeFilters} onToggleFilters={() => setFiltersOpen(!filtersOpen)} />
+      filtersOpen={filtersOpen} activeFilters={activeFilters} onToggleFilters={() => setFiltersOpen(!filtersOpen)} action={admin &&
+        <ListAddButton label={t("businessForm.add")} onPress={() => router.push({ pathname: "/(drawer)/edit-organization",
+          params: { offline_create: "1" } })} />} />
     <FilterPanel open={filtersOpen} activeFilters={activeFilters} onClear={() => { setKind(""); setStage(""); setOffer("all"); }}>
-      <ChipRow label={t("offerFilter.label")}><FilterChip label={t("offerFilter.all")} isActive={offer === "all"} onPress={() => setOffer("all")} />
-        {offers.map(([slug, name]) => <FilterChip key={slug} label={name} isActive={offer === slug} onPress={() => setOffer(slug)} />)}</ChipRow>
+      <LocalOfferChips offer={offer} onChange={setOffer} />
       <ContactFeedControls kind={kind} stage={stage} sort={sort} onKindChange={setKind} onStageChange={setStage} onSortChange={choose} />
     </FilterPanel>
     {!snapshot && state === "needs_auth" ? <Text style={styles.detail}>{t("offlineStatus.needsAuth")}</Text>

@@ -13,7 +13,7 @@ jest.mock("../../services/sync-status", () => ({ readSyncStatus: jest.fn() }));
 
 function Consumer() {
   const offline = useOffline();
-  return <Text>{offline.session ? "local-ready" : "local-loading"}</Text>;
+  return <Text>{offline.session ? offline.status?.ready ? "data-ready" : "local-ready" : "local-loading"}</Text>;
 }
 
 beforeEach(() => jest.clearAllMocks());
@@ -24,8 +24,19 @@ it("exposes the local account without waiting for synchronization", async () => 
   jest.mocked(synchronizeOfflineSession).mockReturnValue(new Promise(() => {}));
   jest.mocked(readSyncStatus).mockResolvedValue({ ready: true, pending: 0, failed: 0, review: 0, lastSuccessAt: null, upToDate: false });
   const view = render(<OfflineProvider enabled><Consumer /></OfflineProvider>);
-  await waitFor(() => expect(screen.getByText("local-ready")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("data-ready")).toBeTruthy());
   expect(synchronizeOfflineSession).toHaveBeenCalled();
+  view.unmount();
+});
+
+it("exposes a completed bootstrap even if a later network request fails", async () => {
+  const offline = { identity: { environment: "production", workspaceId: 1, userId: 2 }, database: {} };
+  jest.mocked(openOfflineSession).mockResolvedValue(offline as never);
+  jest.mocked(synchronizeOfflineSession).mockRejectedValue(new Error("offline"));
+  const status = { pending: 0, failed: 0, review: 0, lastSuccessAt: null, upToDate: false };
+  jest.mocked(readSyncStatus).mockResolvedValueOnce({ ...status, ready: false }).mockResolvedValue({ ...status, ready: true });
+  const view = render(<OfflineProvider enabled><Consumer /></OfflineProvider>);
+  await waitFor(() => expect(screen.getByText("data-ready")).toBeTruthy());
   view.unmount();
 });
 

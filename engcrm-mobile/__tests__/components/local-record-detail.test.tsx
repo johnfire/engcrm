@@ -29,3 +29,18 @@ it("shows an offline person's fields, deal and saved history", async () => {
   fireEvent.press(view.getByText("Edit"));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-person", params: { sync_id: "person" } });
 });
+
+it("shows linked people and opens the offline add-person form from an organization", async () => {
+  const record = (syncId: string, fields: Record<string, unknown>) => ({ syncId, fields, serverId: null,
+    isLocalOnly: true, pendingCount: 0, failedCount: 0 });
+  jest.mocked(useOffline).mockReturnValue({ session: { database: {} } as never, status: { ready: true, pending: 0,
+    failed: 0, review: 0, lastSuccessAt: null, upToDate: false }, state: "idle", requestSync: jest.fn(),
+    retryOpen: jest.fn(), refreshStatus: jest.fn() });
+  jest.mocked(readLocalWorkspace).mockResolvedValue({ organization: [record("org", { name: "Company" })],
+    person: [record("p", { name: "Pat", organization_sync_id: "org" })], deal: [], person_note: [], organization_activity: [] });
+  const view = render(<LocalRecordDetail kind="organization" syncId="org" />);
+  await waitFor(() => expect(view.getByText("Pat")).toBeTruthy());
+  fireEvent.press(view.getByText("Add person"));
+  expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-person",
+    params: { offline_create: "1", organization_sync_id: "org" } });
+});

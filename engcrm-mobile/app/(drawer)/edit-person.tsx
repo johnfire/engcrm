@@ -13,6 +13,7 @@ import { useCreationOffer } from "../../hooks/useCreationOffer";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 import { LocalRecordEdit } from "../../components/local-record-edit";
+import { LocalRecordCreate } from "../../components/local-record-create";
 
 const VALUE_KEYS = PERSON_FIELDS.map((field) => field.key);
 
@@ -30,8 +31,10 @@ function valuesOf(person: Person): Values {
  *  with a starting stage, or change one (id). Admin only. An existing person's
  *  stage is set on their detail screen, where a tap saves it at once. */
 export default function EditPersonScreen() {
-  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
-  return syncId ? <LocalRecordEdit kind="person" syncId={syncId} /> : <OnlineEditPersonScreen />;
+  const { sync_id: syncId, offline_create: create, organization_sync_id: organizationSyncId, name } =
+    useLocalSearchParams<{ sync_id?: string; offline_create?: string; organization_sync_id?: string; name?: string }>();
+  if (syncId) return <LocalRecordEdit kind="person" syncId={syncId} />;
+  return create === "1" ? <LocalRecordCreate kind="person" organizationSyncId={organizationSyncId} initialName={name} /> : <OnlineEditPersonScreen />;
 }
 
 function OnlineEditPersonScreen() {

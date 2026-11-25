@@ -20,6 +20,7 @@ import { PipelineStage } from "../../services/organizationState";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
 import { LocalRecordEdit } from "../../components/local-record-edit";
+import { LocalRecordCreate } from "../../components/local-record-create";
 
 const VALUE_KEYS = ORGANIZATION_FIELDS.map((field) => field.key);
 
@@ -57,8 +58,9 @@ function valuesOf(organization: OrganizationDetail): Values {
 
 /** Add an organization by hand (no id), or change one (id). Admin only. */
 export default function EditOrganizationScreen() {
-  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
-  return syncId ? <LocalRecordEdit kind="organization" syncId={syncId} /> : <OnlineEditOrganizationScreen />;
+  const { sync_id: syncId, offline_create: create, name } = useLocalSearchParams<{ sync_id?: string; offline_create?: string; name?: string }>();
+  if (syncId) return <LocalRecordEdit kind="organization" syncId={syncId} />;
+  return create === "1" ? <LocalRecordCreate kind="organization" initialName={name} /> : <OnlineEditOrganizationScreen />;
 }
 
 function OnlineEditOrganizationScreen() {

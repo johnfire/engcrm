@@ -52,9 +52,12 @@ function EnabledProvider({ children }: { children: ReactNode }) {
       if (!live) return;
       setStatus(initialStatus);
       coordinator.current = createSyncCoordinator(async () => {
-        await synchronizeOfflineSession(opened, Constants.expoConfig?.version ?? "unknown");
-        const current = await readSyncStatus(opened.database);
-        if (live) setStatus(current);
+        try {
+          await synchronizeOfflineSession(opened, Constants.expoConfig?.version ?? "unknown");
+        } finally {
+          const current = await readSyncStatus(opened.database);
+          if (live) setStatus(current);
+        }
       }, (next) => { if (live) setState(next); });
       network = Network.addNetworkStateListener((connection) => {
         if (connection.isConnected && connection.isInternetReachable !== false) coordinator.current?.trigger();

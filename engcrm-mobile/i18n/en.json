@@ -11,6 +11,8 @@
   "offlineDetail.notes": "Notes",
   "offlineDetail.deals": "Deals",
   "offlineDetail.history": "Activity history",
+  "offlineDetail.people": "People",
+  "offlineDetail.offerUnavailable": "That offer is no longer available. Choose another offer before saving.",
   "offlineStatus.opening": "Opening offline data",
   "offlineStatus.syncing": "Syncing",
   "offlineStatus.needsAuth": "Sign in again to sync; your edits are saved on this phone.",

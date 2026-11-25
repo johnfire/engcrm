@@ -1,32 +1,18 @@
-import { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { useTranslation } from "../i18n/I18nContext";
-import { readLocalWorkspace } from "../services/local-records";
-import { useOffline } from "../services/offline-context";
+import { useLocalSnapshot } from "../hooks/useLocalSnapshot";
 import { stageLabelKey, statusLabelKey } from "../services/organizationState";
 import { useAdminRole } from "../services/use-admin-role";
 
-type Snapshot = Awaited<ReturnType<typeof readLocalWorkspace>>;
 type Kind = "person" | "organization";
 
 export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string }) {
   const { t } = useTranslation();
   const router = useRouter();
   const admin = useAdminRole();
-  const { session, status } = useOffline();
-  const [loaded, setLoaded] = useState<{ database: object; snapshot: Snapshot } | null>(null);
-  const [error, setError] = useState(false);
-  const snapshot = session && loaded?.database === session.database ? loaded.snapshot : null;
-  useFocusEffect(useCallback(() => {
-    let active = true;
-    if (session && status?.ready) {
-      readLocalWorkspace(session.database).then((value) => { if (active) { setLoaded({ database: session.database, snapshot: value }); setError(false); } })
-        .catch(() => { if (active) setError(true); });
-    }
-    return () => { active = false; };
-  }, [session, status]));
+  const { snapshot, error } = useLocalSnapshot();
   if (!snapshot) return error ? <Text style={styles.text}>{t("common.couldntLoadRefresh")}</Text>
     : <ActivityIndicator style={styles.loading} color="#7c6fff" />;
   const item = snapshot[kind].find((record) => record.syncId === syncId);
@@ -37,6 +23,7 @@ export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string
     .sort((a, b) => String(b.fields.occurred_at ?? b.fields.interaction_date ?? "")
       .localeCompare(String(a.fields.occurred_at ?? a.fields.interaction_date ?? "")));
   const deals = snapshot.deal.filter((entry) => entry.fields[parentField] === syncId);
+  const linkedPeople = kind === "organization" ? snapshot.person.filter((entry) => entry.fields.organization_sync_id === syncId) : [];
   return <ScrollView style={styles.container} contentContainerStyle={styles.content}>
     <Text style={styles.name}>{String(item.fields.name ?? "")}</Text>
     {admin && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({
@@ -54,6 +41,14 @@ export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string
       {typeof deal.fields.pipeline_stage === "string" && <Text style={styles.label}>{t(stageLabelKey(deal.fields.pipeline_stage))}</Text>}
       {typeof deal.fields.status === "string" && <Text style={styles.label}>{t(statusLabelKey(deal.fields.status))}</Text>}
     </View>)}
+    {kind === "organization" && <>
+      <Text style={styles.heading}>{t("offlineDetail.people")}</Text>
+      {linkedPeople.map((person) => <TouchableOpacity key={person.syncId} accessibilityRole="button"
+        onPress={() => router.push({ pathname: "/(drawer)/person-detail", params: { sync_id: person.syncId } })} style={styles.section}>
+        <Text style={styles.text}>{String(person.fields.name ?? "")}</Text></TouchableOpacity>)}
+      {admin && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/(drawer)/edit-person",
+        params: { offline_create: "1", organization_sync_id: syncId } })}><Text style={styles.pending}>{t("recordForm.addPerson")}</Text></TouchableOpacity>}
+    </>}
     <Text style={styles.heading}>{t("offlineDetail.history")}</Text>
     {history.length ? history.map((entry) => <View key={entry.syncId} style={styles.section}>
       <Text style={styles.label}>{String(entry.fields.occurred_at ?? entry.fields.interaction_date ?? "")}</Text>

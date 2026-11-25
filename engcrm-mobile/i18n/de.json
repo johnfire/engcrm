@@ -11,6 +11,8 @@
   "offlineDetail.notes": "Notizen",
   "offlineDetail.deals": "Deals",
   "offlineDetail.history": "Aktivitätsverlauf",
+  "offlineDetail.people": "Personen",
+  "offlineDetail.offerUnavailable": "Dieses Angebot ist nicht mehr verfügbar. Bitte wählen Sie vor dem Speichern ein anderes Angebot.",
   "offlineStatus.opening": "Offline-Daten werden geöffnet",
   "offlineStatus.syncing": "Synchronisierung läuft",
   "offlineStatus.needsAuth": "Zum Synchronisieren erneut anmelden; Ihre Änderungen sind auf diesem Handy gespeichert.",
