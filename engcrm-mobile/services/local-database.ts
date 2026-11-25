@@ -28,8 +28,10 @@ function databaseNames(identity: LocalDatabaseIdentity): { file: string; secret:
 async function getDatabaseKey(fileName: string, secretName: string): Promise<string> {
   let key = await SecureStore.getItemAsync(secretName, secureOptions);
   if (key === null) {
+    const directory = SQLite.defaultDatabaseDirectory.startsWith("file://")
+      ? SQLite.defaultDatabaseDirectory : `file://${SQLite.defaultDatabaseDirectory}`;
     const databaseExists = ["", "-wal", "-shm"].some(
-      (suffix) => new File(SQLite.defaultDatabaseDirectory, fileName + suffix).exists,
+      (suffix) => new File(directory, fileName + suffix).exists,
     );
     if (databaseExists) throw new Error("The offline database key is missing; local data has been preserved");
     const bytes = await Crypto.getRandomBytesAsync(32);

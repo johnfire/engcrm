@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react-native";
 import { Text } from "react-native";
+import * as Network from "expo-network";
 
 import { OfflineProvider, useOffline } from "../../services/offline-context";
 import { openOfflineSession } from "../../services/offline-session";
@@ -43,4 +44,22 @@ it("exposes a completed bootstrap even if a later network request fails", async 
 it("does not open a database while the feature is disabled", () => {
   render(<OfflineProvider enabled={false}><Consumer /></OfflineProvider>);
   expect(openOfflineSession).not.toHaveBeenCalled();
+});
+
+it("synchronizes once when connectivity returns, even if Android repeats the same network state", async () => {
+  const offline = { identity: { environment: "production", workspaceId: 1, userId: 2 }, database: {} };
+  jest.mocked(openOfflineSession).mockResolvedValue(offline as never);
+  jest.mocked(synchronizeOfflineSession).mockResolvedValue();
+  jest.mocked(readSyncStatus).mockResolvedValue({ ready: true, pending: 0, failed: 0, review: 0, lastSuccessAt: null, upToDate: false });
+  const view = render(<OfflineProvider enabled><Consumer /></OfflineProvider>);
+  await waitFor(() => expect(synchronizeOfflineSession).toHaveBeenCalledTimes(1));
+  const listener = jest.mocked(Network.addNetworkStateListener).mock.calls[0][0];
+  listener({ isConnected: false, isInternetReachable: false } as Network.NetworkState);
+  listener({ isConnected: true, isInternetReachable: true } as Network.NetworkState);
+  await waitFor(() => expect(synchronizeOfflineSession).toHaveBeenCalledTimes(2));
+  listener({ isConnected: true, isInternetReachable: true } as Network.NetworkState);
+  listener({ isConnected: true, isInternetReachable: true } as Network.NetworkState);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(synchronizeOfflineSession).toHaveBeenCalledTimes(2);
+  view.unmount();
 });

@@ -30,6 +30,7 @@ it("creates a per-account key and opens an encrypted database before reading it"
     "engcrm_db_production_301_401", "ab".repeat(32), expect.any(Object),
   );
   expect(SQLite.openDatabaseAsync).toHaveBeenCalledWith("engcrm-production-301-401.db");
+  expect(File).toHaveBeenCalledWith("file:///private/SQLite", "engcrm-production-301-401.db");
   expect(execute.mock.calls[0][0]).toBe(`PRAGMA key = "x'${"ab".repeat(32)}'"`);
   expect(first).toHaveBeenCalledWith("PRAGMA cipher_version");
 });

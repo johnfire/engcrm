@@ -43,6 +43,7 @@ function EnabledProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
+    let connected: boolean | null = null;
     let network: { remove(): void } | null = null;
     let foreground: { remove(): void } | null = null;
     openOfflineSession().then(async (opened) => {
@@ -60,7 +61,9 @@ function EnabledProvider({ children }: { children: ReactNode }) {
         }
       }, (next) => { if (live) setState(next); });
       network = Network.addNetworkStateListener((connection) => {
-        if (connection.isConnected && connection.isInternetReachable !== false) coordinator.current?.trigger();
+        const online = !!connection.isConnected && connection.isInternetReachable !== false;
+        if (online && connected !== true) coordinator.current?.trigger();
+        connected = online;
       });
       foreground = AppState.addEventListener("change", (next) => { if (next === "active") coordinator.current?.trigger(); });
       coordinator.current.trigger();
