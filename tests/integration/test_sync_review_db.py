@@ -6,12 +6,16 @@ from psycopg2.extras import Json
 
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
+from gcrm.sync.contracts import SyncUpdate
+from gcrm.tools.db_sync_push import apply_sync_update
 from gcrm.tools.db_sync_review import (
+    apply_merged_provisional_change,
     discard_provisional_change,
     list_provisional_changes,
     read_review_outcomes,
     restore_provisional_change,
 )
+from gcrm.tools.people_merge import merge_people
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -151,3 +155,35 @@ def test_phone_can_read_only_its_own_review_outcomes_without_patch_values(clean_
             assert discard_provisional_change(workspace, user, proposal)
         assert read_review_outcomes(workspace, user, str(device), "production", [str(mutation)]) == [
             {"mutation_id": str(mutation), "status": "discarded"}]
+
+
+def test_review_applies_only_selected_fields_to_merge_survivor(clean_database):
+    device = uuid4()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('review-merge@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user, str(device)))
+        cursor.execute("INSERT INTO people(name,title) VALUES ('Keep','Original'),('Duplicate',NULL) RETURNING id,sync_id")
+        keep, duplicate = cursor.fetchall()
+    with workspace_scope(workspace), audit_scope(f"user:{user}", "user", "review-merge"):
+        merge_people(keep["id"], duplicate["id"], apply=True)
+        update = SyncUpdate(mutation_id=uuid4(), device_id=device, entity_kind="person", entity_sync_id=duplicate["sync_id"],
+                            operation="update", changed_at=datetime.now(UTC) + timedelta(minutes=1),
+                            patch={"phone": "new phone", "title": "Unselected"})
+        assert apply_sync_update(workspace, user, "production", update)["status"] == "provisional"
+        proposal = list_provisional_changes(workspace, user)[0]["id"]
+        with pytest.raises(ValueError):
+            apply_merged_provisional_change(workspace, user, proposal, ["phone", "workspace_id"])
+        assert apply_merged_provisional_change(workspace, user, proposal, ["phone"])
+        assert not apply_merged_provisional_change(workspace, user, proposal, ["phone"])
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT phone,title FROM people WHERE id=%s", (keep["id"],))
+        assert dict(cursor.fetchone()) == {"phone": "new phone", "title": "Original"}
+        cursor.execute("SELECT status,decision FROM provisional_mobile_changes WHERE id=%s", (proposal,))
+        assert dict(cursor.fetchone()) == {"status": "applied", "decision": "merge"}

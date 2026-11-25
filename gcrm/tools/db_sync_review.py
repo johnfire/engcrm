@@ -10,6 +10,7 @@ from gcrm.tools.db_sync_push import (
     TABLES,
     _apply_winners,
     _desired_next_step,
+    _resolve_merge_target,
     _split_winning_fields,
 )
 
@@ -102,5 +103,41 @@ def restore_provisional_change(workspace_id: int, reviewer_id: int, proposal_id:
                        "reviewed_by=%s,decision='restore' WHERE id=%s AND workspace_id=%s", (reviewer_id, proposal_id, workspace_id))
         cursor.execute("INSERT INTO audit_log(actor,actor_type,action,target,outcome,correlation_id) "
                        "VALUES (%s,%s,'sync.review_restore',%s,'applied',%s)",
+                       (audit.actor, audit.actor_type, f"offline-change:{proposal_id}", audit.correlation_id))
+        return True
+
+
+def apply_merged_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int, fields: list[str]) -> bool:
+    audit = current_audit_context()
+    if audit is None:
+        raise RuntimeError("Offline review requires an audit identity")
+    with db() as connection:
+        cursor = connection.cursor()
+        _require_workspace_admin(cursor, workspace_id, reviewer_id)
+        cursor.execute("SELECT * FROM provisional_mobile_changes WHERE workspace_id=%s AND id=%s AND status='pending' FOR UPDATE",
+                       (workspace_id, proposal_id))
+        proposal = cursor.fetchone()
+        if not proposal:
+            return False
+        if proposal["reason"] != "merged" or proposal["entity_kind"] != "person" or proposal["parent_kind"] is not None:
+            raise ValueError("This change cannot be applied to a merged person")
+        if not fields or len(fields) != len(set(fields)) or set(fields) - proposal["patch"].keys():
+            raise ValueError("Choose fields from the proposed change")
+        patch = validate_sync_patch("person", {field: proposal["patch"][field] for field in fields})
+        reason, target = _resolve_merge_target(cursor, workspace_id, proposal["merge_target_sync_id"])
+        if reason != "merged":
+            raise ValueError("The surviving person is no longer available")
+        cursor.execute("SELECT * FROM people WHERE workspace_id=%s AND sync_id=%s AND deleted_at IS NULL FOR UPDATE", (workspace_id, target))
+        entity = cursor.fetchone()
+        if not entity:
+            raise ValueError("The surviving person is no longer available")
+        mutation = SyncUpdate(mutation_id=proposal["mutation_id"], device_id=proposal["device_id"], entity_kind="person",
+                              entity_sync_id=target, operation="update", changed_at=proposal["changed_at"], patch=patch)
+        winning, _ignored = _split_winning_fields(cursor, workspace_id, mutation, patch)
+        _apply_winners(cursor, workspace_id, mutation, patch, winning, entity)
+        cursor.execute("UPDATE provisional_mobile_changes SET status='applied',reviewed_at=clock_timestamp(),"
+                       "reviewed_by=%s,decision='merge' WHERE id=%s AND workspace_id=%s", (reviewer_id, proposal_id, workspace_id))
+        cursor.execute("INSERT INTO audit_log(actor,actor_type,action,target,outcome,correlation_id) "
+                       "VALUES (%s,%s,'sync.review_merge',%s,'applied',%s)",
                        (audit.actor, audit.actor_type, f"offline-change:{proposal_id}", audit.correlation_id))
         return True
