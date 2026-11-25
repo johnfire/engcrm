@@ -5,17 +5,37 @@ import {
   type DrawerContentComponentProps,
 } from "expo-router/drawer";
 import { useEffect } from "react";
-import { AppState, TouchableOpacity, Text, View } from "react-native";
+import { Alert, AppState, TouchableOpacity, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
+import { OfflineProvider, useOffline } from "../../services/offline-context";
+import { OfflineStatus } from "../../components/offline-status";
+import { readSyncStatus } from "../../services/sync-status";
 
-function LogoutButton() {
+export function LogoutButton() {
   const router = useRouter();
   const { t } = useTranslation();
-  async function handleLogout() {
+  const offline = useOffline();
+  async function finishLogout() {
     await clearToken();
     router.replace("/login");
+  }
+  async function handleLogout() {
+    if (offline.state === "disabled") return finishLogout();
+    let pending: number | null = null;
+    try {
+      if (offline.session) {
+        const status = await readSyncStatus(offline.session.database);
+        pending = status.pending + status.failed;
+      }
+    } catch { /* Preserve the database even if its status cannot be read. */ }
+    if (pending === 0) return finishLogout();
+    Alert.alert(t("offlineStatus.logoutTitle"), pending === null ? t("offlineStatus.logoutUnknown")
+      : t("offlineStatus.logoutPending", { count: pending }), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("offlineStatus.logoutKeep"), onPress: () => { void finishLogout(); } },
+    ]);
   }
   return (
     <TouchableOpacity onPress={handleLogout} style={{ padding: 16 }}>
@@ -77,6 +97,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
       </TouchableOpacity>
       <DrawerContentScrollView {...props}>
         <DrawerItemList {...props} />
+        <OfflineStatus />
       </DrawerContentScrollView>
     </View>
   );
@@ -85,6 +106,7 @@ function CustomDrawerContent(props: DrawerContentComponentProps) {
 export default function DrawerLayout() {
   const { t } = useTranslation();
   return (
+    <OfflineProvider>
     <Drawer
       backBehavior="history"
       drawerContent={(props) => <CustomDrawerContent {...props} />}
@@ -251,5 +273,6 @@ export default function DrawerLayout() {
         }}
       />
     </Drawer>
+    </OfflineProvider>
   );
 }
