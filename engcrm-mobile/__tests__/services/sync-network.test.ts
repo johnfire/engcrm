@@ -1,5 +1,6 @@
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
+import axios from "axios";
 
 import { client } from "../../services/api";
 import { getSession } from "../../services/auth";
@@ -8,10 +9,12 @@ import { fetchSyncIdentity, getSyncDeviceId, requestBootstrapPage, requestPushBa
 
 jest.mock("../../services/api", () => ({ client: { get: jest.fn(), post: jest.fn() } }));
 jest.mock("../../services/auth", () => ({ getSession: jest.fn() }));
+jest.mock("axios", () => ({ __esModule: true, default: { create: jest.fn() } }));
 jest.mock("expo-crypto", () => ({ randomUUID: jest.fn() }));
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(axios.create).mockReturnValue(client as never);
   jest.mocked(getSession).mockResolvedValue({ token: "verified-token", role: "admin", server: "production" });
 });
 
@@ -20,6 +23,8 @@ it("uses a server-verified account and workspace identity", async () => {
     .mockResolvedValueOnce({ token: "verified-token", role: "admin", server: "reviewer" });
   jest.mocked(client.get).mockResolvedValueOnce({ data: { user_id: 12, workspace_id: 3 } });
   await expect(fetchSyncIdentity("reviewer")).resolves.toEqual({ environment: "reviewer", userId: 12, workspaceId: 3 });
+  expect(axios.create).toHaveBeenCalledWith(expect.objectContaining({ baseURL: expect.stringContaining("/reviewer"),
+    headers: expect.objectContaining({ Authorization: "Bearer verified-token" }) }));
   jest.mocked(client.get).mockResolvedValueOnce({ data: { user_id: 12, workspace_id: null } });
   await expect(fetchSyncIdentity("production")).rejects.toThrow("identity");
 });

@@ -1,11 +1,12 @@
 import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
+import axios from "axios";
 
-import { client } from "./api";
+import { baseForServer } from "./api-origin";
 import { getSession } from "./auth";
+import { createBoundSyncNetwork } from "./bound-sync-network";
 import type { LocalDatabaseIdentity } from "./local-database";
 import type { Server } from "./reviewer-routing";
-import { BootstrapExpiredError } from "./sync-bootstrap-worker";
 
 const DEVICE_KEY = "engcrm_sync_device_id";
 let devicePromise: Promise<string> | null = null;
@@ -33,7 +34,8 @@ export function getSyncDeviceId(): Promise<string> {
 export async function fetchSyncIdentity(environment: Server): Promise<LocalDatabaseIdentity> {
   const session = await getSession();
   if (!session.token || session.server !== environment) throw new Error("Sync session does not match the selected environment");
-  const response = await client.get("/api/sync/identity");
+  const identityClient = axios.create({ baseURL: baseForServer(environment), headers: { Authorization: `Bearer ${session.token}` } });
+  const response = await identityClient.get("/api/sync/identity");
   const current = await getSession();
   if (current.token !== session.token || current.server !== session.server) throw new Error("Sync session changed during identity verification");
   const identity = response.data;
@@ -44,60 +46,28 @@ export async function fetchSyncIdentity(environment: Server): Promise<LocalDatab
   return { environment, userId: identity.user_id, workspaceId: identity.workspace_id };
 }
 
+async function currentNetwork(deviceId: string, environment: Server, appVersion = "unknown") {
+  const session = await getSession();
+  if (!session.token || session.server !== environment) throw new Error("Sync session does not match the selected environment");
+  return createBoundSyncNetwork(session.token, environment, deviceId, appVersion);
+}
+
 export async function registerSyncDevice(deviceId: string, environment: Server, appVersion: string): Promise<void> {
-  const response = await client.post("/api/sync/devices", {
-    device_id: deviceId, server_environment: environment, app_version: appVersion, schema_version: 1,
-  });
-  if (response.data?.protocol_version !== 1 || typeof response.data.bootstrap_required !== "boolean") {
-    throw new Error("Server returned an unsupported sync protocol");
-  }
+  return (await currentNetwork(deviceId, environment, appVersion)).register();
 }
 
 export async function requestBootstrapPage(deviceId: string, environment: Server, token: string | null): Promise<unknown> {
-  try {
-    const response = await client.get("/api/sync/bootstrap", {
-      params: { device_id: deviceId, server_environment: environment, ...(token ? { token } : {}) },
-    });
-    return response.data;
-  } catch (error) {
-    if (isExpiredBootstrap(error)) throw new BootstrapExpiredError("Bootstrap continuation expired");
-    throw error;
-  }
-}
-
-function isExpiredBootstrap(error: unknown): boolean {
-  if (!error || typeof error !== "object" || !("response" in error)) return false;
-  const response = error.response;
-  if (!response || typeof response !== "object" || !("status" in response) || !("data" in response)) return false;
-  const body = response.data;
-  if (!body || typeof body !== "object" || !("detail" in body)) return false;
-  return response.status === 400 && ["Invalid or expired bootstrap token", "Bootstrap token has expired"].includes(String(body.detail));
+  return (await currentNetwork(deviceId, environment)).bootstrap(token);
 }
 
 export async function requestChangePage(deviceId: string, environment: Server, cursor: number): Promise<unknown> {
-  const response = await client.get("/api/sync/changes", {
-    params: { device_id: deviceId, server_environment: environment, after: cursor },
-  });
-  return response.data;
+  return (await currentNetwork(deviceId, environment)).pull(cursor);
 }
 
 export async function requestReviewOutcomes(deviceId: string, environment: Server, mutationIds: string[]): Promise<unknown> {
-  const response = await client.post("/api/sync/review-outcomes", {
-    device_id: deviceId, server_environment: environment, mutation_ids: mutationIds,
-  });
-  return response.data;
+  return (await currentNetwork(deviceId, environment)).reviewOutcomes!(mutationIds);
 }
 
 export async function requestPushBatch(environment: Server, mutations: Record<string, unknown>[]): Promise<unknown> {
-  try {
-    const response = await client.post("/api/sync/push", { server_environment: environment, mutations });
-    return response.data;
-  } catch (error) {
-    if (mutations.length === 1 && error && typeof error === "object" && "response" in error &&
-        error.response && typeof error.response === "object" && "status" in error.response &&
-        error.response.status === 409 && typeof mutations[0].mutation_id === "string") {
-      return { outcomes: [{ mutation_id: mutations[0].mutation_id, status: "conflict", entity: null }] };
-    }
-    throw error;
-  }
+  return (await currentNetwork("", environment)).push!(mutations);
 }

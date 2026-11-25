@@ -5,13 +5,9 @@ import { SaleStatus } from "./saleStatus";
 import { Server, serverForEmail } from "./reviewer-routing";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
 import type { DealChip } from "./deals";
+import { API_BASE, baseForServer } from "./api-origin";
 
-export const API_BASE = "https://engcrm.christopherrehm.de";
-const REVIEWER_API_BASE = `${API_BASE}/reviewer`;
-
-function baseForServer(server: Server): string {
-  return server === "reviewer" ? REVIEWER_API_BASE : API_BASE;
-}
+export { API_BASE } from "./api-origin";
 
 export function buildHeaders(token: string | null): Record<string, string> {
   const headers: Record<string, string> = {
