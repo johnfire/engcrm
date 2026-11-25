@@ -26,6 +26,10 @@ def test_device_registration_is_account_scoped_and_revocation_is_respected(clean
         response = client.post('/api/sync/devices', json=body, headers=headers)
         assert response.status_code == 200
         assert response.json() == {"protocol_version": 1, "bootstrap_required": True}
+        identity = client.get('/api/sync/identity', headers=headers)
+        assert identity.status_code == 200
+        assert identity.json()["user_id"] == user_id
+        assert identity.json()["workspace_id"] > 0
         assert client.post('/api/sync/devices', json=body, headers=headers).status_code == 200
         with db() as connection:
             cursor = connection.cursor()

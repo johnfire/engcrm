@@ -23,14 +23,21 @@ DECLARE
     change_entity_kind TEXT := TG_ARGV[0];
     changed_field TEXT;
     event_kind TEXT := 'upsert';
-    event_time TIMESTAMPTZ := clock_timestamp();
+    mobile_time TIMESTAMPTZ := NULLIF(current_setting('app.sync_changed_at', TRUE), '')::TIMESTAMPTZ;
+    event_device UUID := NULLIF(current_setting('app.sync_device_id', TRUE), '')::UUID;
+    event_mutation UUID := NULLIF(current_setting('app.sync_mutation_id', TRUE), '')::UUID;
+    event_time TIMESTAMPTZ := COALESCE(mobile_time, clock_timestamp());
     event_actor TEXT := NULLIF(current_setting('app.audit_actor', TRUE), '');
     event_correlation TEXT := NULLIF(current_setting('app.audit_correlation_id', TRUE), '');
-    event_source TEXT := CASE current_setting('app.audit_actor_type', TRUE)
-                             WHEN 'ai' THEN 'agent' WHEN 'mcp' THEN 'mcp' ELSE 'web' END;
+    event_source TEXT := CASE WHEN mobile_time IS NOT NULL THEN 'mobile' ELSE CASE current_setting('app.audit_actor_type', TRUE)
+                             WHEN 'ai' THEN 'agent' WHEN 'mcp' THEN 'mcp' ELSE 'web' END END;
     target UUID;
     has_changes BOOLEAN := FALSE;
 BEGIN
+    IF (mobile_time IS NOT NULL OR event_device IS NOT NULL OR event_mutation IS NOT NULL)
+       AND (mobile_time IS NULL OR event_device IS NULL OR event_mutation IS NULL) THEN
+        RAISE EXCEPTION 'incomplete mobile sync context';
+    END IF;
     IF TG_OP = 'DELETE' THEN
         target := NULLIF(current_setting('app.sync_merge_target', TRUE), '')::UUID;
         event_kind := CASE WHEN change_entity_kind = 'person' AND target IS NOT NULL
@@ -40,10 +47,24 @@ BEGIN
            AND entity_kind = change_entity_kind
            AND entity_sync_id = (entity_values->>'sync_id')::UUID;
         IF event_kind = 'hard_erase' THEN
+            UPDATE sync_mutations mutation SET status='erased'
+             WHERE mutation.workspace_id = (entity_values->>'workspace_id')::INTEGER
+               AND mutation.status = 'provisional'
+               AND ((mutation.entity_kind = change_entity_kind
+                     AND mutation.entity_sync_id = (entity_values->>'sync_id')::UUID)
+                    OR EXISTS (SELECT 1 FROM provisional_mobile_changes proposal
+                        WHERE proposal.workspace_id = mutation.workspace_id
+                          AND proposal.device_id = mutation.device_id AND proposal.mutation_id = mutation.mutation_id
+                          AND ((proposal.parent_kind = change_entity_kind
+                                AND proposal.parent_sync_id = (entity_values->>'sync_id')::UUID)
+                               OR (change_entity_kind = 'person'
+                                   AND proposal.merge_target_sync_id = (entity_values->>'sync_id')::UUID))));
             DELETE FROM provisional_mobile_changes
              WHERE workspace_id = (entity_values->>'workspace_id')::INTEGER
                AND ((entity_kind = change_entity_kind
                      AND entity_sync_id = (entity_values->>'sync_id')::UUID)
+                    OR (parent_kind = change_entity_kind
+                        AND parent_sync_id = (entity_values->>'sync_id')::UUID)
                     OR (change_entity_kind = 'person'
                         AND merge_target_sync_id = (entity_values->>'sync_id')::UUID));
         END IF;
@@ -61,8 +82,8 @@ BEGIN
                                             changed_at, device_id, mutation_id, source)
             VALUES ((entity_values->>'workspace_id')::INTEGER, change_entity_kind,
                     (entity_values->>'sync_id')::UUID, changed_field, event_time,
-                    '00000000-0000-0000-0000-000000000000',
-                    '00000000-0000-0000-0000-000000000000', event_source)
+                    COALESCE(event_device, '00000000-0000-0000-0000-000000000000'),
+                    COALESCE(event_mutation, '00000000-0000-0000-0000-000000000000'), event_source)
             ON CONFLICT (workspace_id, entity_kind, entity_sync_id, field_name) DO UPDATE
                 SET changed_at = EXCLUDED.changed_at, device_id = EXCLUDED.device_id,
                     mutation_id = EXCLUDED.mutation_id, source = EXCLUDED.source;
@@ -72,10 +93,10 @@ BEGIN
         RETURN NEW;
     END IF;
     INSERT INTO sync_entity_changes(workspace_id, entity_kind, entity_sync_id, operation,
-                                    changed_at, actor, correlation_id, merge_target_sync_id)
+                                    changed_at, actor, correlation_id, merge_target_sync_id,device_id,mutation_id)
     VALUES ((entity_values->>'workspace_id')::INTEGER, change_entity_kind,
             (entity_values->>'sync_id')::UUID, event_kind, event_time,
-            event_actor, event_correlation, CASE WHEN event_kind = 'merge_redirect' THEN target END);
+            event_actor, event_correlation, CASE WHEN event_kind = 'merge_redirect' THEN target END,event_device,event_mutation);
     RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END $$;
 

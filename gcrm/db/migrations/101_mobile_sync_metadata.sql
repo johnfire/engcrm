@@ -43,14 +43,16 @@ CREATE TABLE sync_field_versions (
 
 CREATE TABLE sync_mutations (
     workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     device_id UUID NOT NULL,
     mutation_id UUID NOT NULL,
     entity_kind TEXT NOT NULL CHECK (entity_kind IN
         ('organization', 'person', 'deal', 'organization_activity', 'person_note')),
     entity_sync_id UUID NOT NULL,
+    operation TEXT NOT NULL CHECK (operation IN ('create', 'update')),
     request_hash TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN
-        ('applied', 'partially_applied', 'ignored_older', 'provisional', 'rejected_validation', 'rejected_clock')),
+        ('applied', 'partially_applied', 'ignored_older', 'provisional', 'rejected_validation', 'rejected_clock', 'erased')),
     winning_fields TEXT[] NOT NULL DEFAULT '{}',
     ignored_fields TEXT[] NOT NULL DEFAULT '{}',
     server_id BIGINT,
@@ -69,6 +71,8 @@ CREATE TABLE provisional_mobile_changes (
     entity_kind TEXT NOT NULL CHECK (entity_kind IN
         ('organization', 'person', 'deal', 'organization_activity', 'person_note')),
     entity_sync_id UUID NOT NULL,
+    parent_kind TEXT CHECK (parent_kind IN ('organization', 'person')),
+    parent_sync_id UUID,
     reason TEXT NOT NULL CHECK (reason IN ('soft_deleted', 'merged')),
     patch JSONB,
     changed_at TIMESTAMPTZ NOT NULL,
@@ -80,7 +84,8 @@ CREATE TABLE provisional_mobile_changes (
     reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     decision TEXT,
     UNIQUE (workspace_id, device_id, mutation_id),
-    CHECK (status NOT IN ('discarded', 'expired') OR patch IS NULL)
+    CHECK (status NOT IN ('discarded', 'expired') OR patch IS NULL),
+    CHECK ((parent_kind IS NULL) = (parent_sync_id IS NULL))
 );
 
 DO $$

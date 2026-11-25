@@ -34,7 +34,8 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-maps"
+      "expo-maps",
+      ["expo-sqlite", { "useSQLCipher": true }]
     ],
     "experiments": {
       "typedRoutes": true
