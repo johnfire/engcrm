@@ -57,6 +57,7 @@ from gcrm.api.routers import (
     legal,
     marketing,
     offers,
+    offline_changes,
     organization_create,
     organizations,
     people,
@@ -176,6 +177,7 @@ app.include_router(backups.router)
 app.include_router(forecast.router)
 app.include_router(two_factor.router)
 app.include_router(approval.router)
+app.include_router(offline_changes.router)
 app.include_router(activity.router)
 app.include_router(organization_create.router)
 app.include_router(organizations.router)

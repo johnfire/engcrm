@@ -25,10 +25,16 @@ def list_provisional_changes(workspace_id: int, reviewer_id: int) -> list[dict]:
     with db() as connection:
         cursor = connection.cursor()
         _require_workspace_admin(cursor, workspace_id, reviewer_id)
-        cursor.execute("SELECT id,user_id,device_id,mutation_id,entity_kind,entity_sync_id,parent_kind,parent_sync_id,"
-                       "reason,patch,changed_at,recorded_at,expires_at,merge_target_sync_id "
-                       "FROM provisional_mobile_changes WHERE workspace_id=%s AND status='pending' "
-                       "ORDER BY recorded_at,id", (workspace_id,))
+        cursor.execute("SELECT p.id,p.user_id,p.device_id,p.mutation_id,p.entity_kind,p.entity_sync_id,p.parent_kind,p.parent_sync_id,"
+                       "p.reason,p.patch,p.changed_at,p.recorded_at,p.expires_at,p.merge_target_sync_id, "
+                       "COALESCE(org.name,person.name,parent_org.name,parent_person.name) AS target_name, survivor.name AS survivor_name "
+                       "FROM provisional_mobile_changes p "
+                       "LEFT JOIN contacts org ON p.entity_kind='organization' AND org.workspace_id=p.workspace_id AND org.sync_id=p.entity_sync_id "
+                       "LEFT JOIN people person ON p.entity_kind='person' AND person.workspace_id=p.workspace_id AND person.sync_id=p.entity_sync_id "
+                       "LEFT JOIN contacts parent_org ON p.parent_kind='organization' AND parent_org.workspace_id=p.workspace_id AND parent_org.sync_id=p.parent_sync_id "
+                       "LEFT JOIN people parent_person ON p.parent_kind='person' AND parent_person.workspace_id=p.workspace_id AND parent_person.sync_id=p.parent_sync_id "
+                       "LEFT JOIN people survivor ON survivor.workspace_id=p.workspace_id AND survivor.sync_id=p.merge_target_sync_id "
+                       "WHERE p.workspace_id=%s AND p.status='pending' ORDER BY p.recorded_at,p.id", (workspace_id,))
         return [dict(row) for row in cursor.fetchall()]
 
 

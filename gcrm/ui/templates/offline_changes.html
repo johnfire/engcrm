@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ t('offlineReview.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t('offlineReview.title') }}</h1></div>
+<p>{{ t('offlineReview.intro') }}</p>
+{% for item in items %}
+<section class="card" aria-labelledby="offline-change-{{ item.id }}">
+  <h2 id="offline-change-{{ item.id }}">{{ t('offlineReview.change') }} #{{ item.id }}</h2>
+  <p>{{ t('offlineReview.target') }}: {{ item.target_name or item.entity_kind }} · {{ item.entity_sync_id }}<br>
+     {{ t('offlineReview.reason') }}: {{ t('offlineReview.' ~ item.reason) }}<br>
+     {{ t('offlineReview.saved') }}: {{ item.changed_at|dmy_time }} · {{ t('offlineReview.received') }}: {{ item.recorded_at|dmy_time }}<br>
+     {{ t('offlineReview.device') }}: {{ item.device_id }}</p>
+  {% if item.merge_target_sync_id %}<p>{{ t('offlineReview.survivor') }}: {{ item.survivor_name or '—' }} · {{ item.merge_target_sync_id }}</p>{% endif %}
+  <h3>{{ t('offlineReview.proposed') }}</h3>
+  <dl>{% for field, value in item.patch.items() %}<dt>{{ field }}</dt><dd>{{ value if value is not none else '—' }}</dd>{% endfor %}</dl>
+  {% if item.reason == 'soft_deleted' and not item.parent_kind and item.entity_kind in ['person', 'organization', 'deal'] %}
+  <form method="post" action="/offline-changes/{{ item.id }}/restore"><button class="btn-primary">{{ t('offlineReview.restore') }}</button></form>
+  {% endif %}
+  {% if item.reason == 'merged' and not item.parent_kind and item.entity_kind == 'person' %}
+  <form method="post" action="/offline-changes/{{ item.id }}/merge">
+    <fieldset><legend>{{ t('offlineReview.selectFields') }}</legend>
+      {% for field, value in item.patch.items() %}<label><input type="checkbox" name="fields" value="{{ field }}"> {{ field }}: {{ value if value is not none else '—' }}</label><br>{% endfor %}
+    </fieldset><button class="btn-primary">{{ t('offlineReview.applyMerged') }}</button>
+  </form>
+  {% endif %}
+  <details><summary>{{ t('offlineReview.discard') }}</summary>
+    <p>{{ t('offlineReview.discardWarning') }}</p>
+    <form method="post" action="/offline-changes/{{ item.id }}/discard"><button class="btn-secondary">{{ t('offlineReview.discardConfirm') }}</button></form>
+  </details>
+</section>
+{% else %}<p>{{ t('offlineReview.empty') }}</p>{% endfor %}
+{% endblock %}
