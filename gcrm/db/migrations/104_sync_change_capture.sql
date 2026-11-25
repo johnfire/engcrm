@@ -46,6 +46,15 @@ BEGIN
          WHERE workspace_id = (entity_values->>'workspace_id')::INTEGER
            AND entity_kind = change_entity_kind
            AND entity_sync_id = (entity_values->>'sync_id')::UUID;
+        IF event_kind = 'merge_redirect' THEN
+            UPDATE provisional_mobile_changes
+               SET merge_target_sync_id = target,
+                   reason = CASE WHEN status = 'pending' THEN 'merged' ELSE reason END
+             WHERE workspace_id = (entity_values->>'workspace_id')::INTEGER
+               AND ((entity_kind = 'person' AND entity_sync_id = (entity_values->>'sync_id')::UUID)
+                    OR (parent_kind = 'person' AND parent_sync_id = (entity_values->>'sync_id')::UUID)
+                    OR merge_target_sync_id = (entity_values->>'sync_id')::UUID);
+        END IF;
         IF event_kind = 'hard_erase' THEN
             UPDATE sync_mutations mutation SET status='erased'
              WHERE mutation.workspace_id = (entity_values->>'workspace_id')::INTEGER

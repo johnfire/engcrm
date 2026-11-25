@@ -230,3 +230,31 @@ def test_retry_after_applied_record_is_soft_deleted_includes_marker(clean_databa
         assert replay["status"] == "applied"
         assert replay["entity"] is None
         assert replay["target_state"]["operation"] == "soft_delete"
+
+
+def test_erasure_after_multiple_merges_purges_an_existing_proposal(clean_database):
+    device_id = uuid4()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('merge-chain-review@example.test','hash',%s) RETURNING id", (workspace,))
+        user_id = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user_id, str(device_id)))
+        cursor.execute("INSERT INTO people(name) VALUES ('First'),('Second'),('Third') RETURNING id,sync_id")
+        first, second, third = cursor.fetchall()
+    with workspace_scope(workspace), audit_scope(f"user:{user_id}", "user", "merge-chain-review"):
+        merge_people(second["id"], first["id"], apply=True)
+        update = SyncUpdate(mutation_id=uuid4(), device_id=device_id, entity_kind="person", entity_sync_id=first["sync_id"],
+                            operation="update", changed_at=datetime.now(UTC), patch={"phone": "private"})
+        assert apply_sync_update(workspace, user_id, "production", update)["status"] == "provisional"
+        merge_people(third["id"], second["id"], apply=True)
+        with db() as connection:
+            connection.cursor().execute("DELETE FROM people WHERE id=%s", (third["id"],))
+        assert apply_sync_update(workspace, user_id, "production", update)["status"] == "erased"
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT count(*) AS n FROM provisional_mobile_changes WHERE mutation_id=%s", (str(update.mutation_id),))
+        assert cursor.fetchone()["n"] == 0
