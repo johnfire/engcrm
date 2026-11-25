@@ -1,0 +1,87 @@
+"""Read and review offline changes without restoring records implicitly."""
+
+from psycopg2 import sql
+
+from gcrm.audit_context import current_audit_context
+from gcrm.db.connection import db
+from gcrm.sync.contracts import SyncUpdate
+from gcrm.sync.validation import validate_sync_patch
+from gcrm.tools.db_sync_push import (
+    TABLES,
+    _apply_winners,
+    _desired_next_step,
+    _split_winning_fields,
+)
+
+
+def _require_workspace_admin(cursor, workspace_id: int, reviewer_id: int) -> None:
+    cursor.execute("SELECT 1 FROM users WHERE id=%s AND workspace_id=%s AND role='admin' AND is_active FOR SHARE", (reviewer_id, workspace_id))
+    if cursor.fetchone() is None:
+        raise PermissionError("An active workspace administrator is required")
+
+
+def list_provisional_changes(workspace_id: int, reviewer_id: int) -> list[dict]:
+    with db() as connection:
+        cursor = connection.cursor()
+        _require_workspace_admin(cursor, workspace_id, reviewer_id)
+        cursor.execute("SELECT id,user_id,device_id,mutation_id,entity_kind,entity_sync_id,parent_kind,parent_sync_id,"
+                       "reason,patch,changed_at,recorded_at,expires_at,merge_target_sync_id "
+                       "FROM provisional_mobile_changes WHERE workspace_id=%s AND status='pending' "
+                       "ORDER BY recorded_at,id", (workspace_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def discard_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int) -> bool:
+    audit = current_audit_context()
+    if audit is None:
+        raise RuntimeError("Offline review requires an audit identity")
+    with db() as connection:
+        cursor = connection.cursor()
+        _require_workspace_admin(cursor, workspace_id, reviewer_id)
+        cursor.execute("UPDATE provisional_mobile_changes SET status='discarded',patch=NULL,reviewed_at=clock_timestamp(),"
+                       "reviewed_by=%s,decision='discard' WHERE workspace_id=%s AND id=%s AND status='pending' RETURNING id",
+                       (reviewer_id, workspace_id, proposal_id))
+        if cursor.fetchone() is None:
+            return False
+        cursor.execute("INSERT INTO audit_log(actor,actor_type,action,target,outcome,correlation_id) "
+                       "VALUES (%s,%s,'sync.review_discard',%s,'discarded',%s)",
+                       (audit.actor, audit.actor_type, f"offline-change:{proposal_id}", audit.correlation_id))
+        return True
+
+
+def restore_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int) -> bool:
+    audit = current_audit_context()
+    if audit is None:
+        raise RuntimeError("Offline review requires an audit identity")
+    with db() as connection:
+        cursor = connection.cursor()
+        _require_workspace_admin(cursor, workspace_id, reviewer_id)
+        cursor.execute("SELECT * FROM provisional_mobile_changes WHERE workspace_id=%s AND id=%s AND status='pending' FOR UPDATE",
+                       (workspace_id, proposal_id))
+        proposal = cursor.fetchone()
+        if not proposal:
+            return False
+        kind = proposal["entity_kind"]
+        if proposal["reason"] != "soft_deleted" or proposal["parent_kind"] is not None or kind not in ("person", "organization", "deal"):
+            raise ValueError("This change cannot restore a record")
+        patch = validate_sync_patch(kind, proposal["patch"])
+        mutation = SyncUpdate(mutation_id=proposal["mutation_id"], device_id=proposal["device_id"],
+                              entity_kind=kind, entity_sync_id=proposal["entity_sync_id"],
+                              operation="update", changed_at=proposal["changed_at"], patch=patch)
+        cursor.execute(sql.SQL("SELECT * FROM {} WHERE workspace_id=%s AND sync_id=%s FOR UPDATE")
+                       .format(sql.Identifier(TABLES[kind])), (workspace_id, proposal["entity_sync_id"]))
+        entity = cursor.fetchone()
+        if not entity or entity["deleted_at"] is None:
+            raise ValueError("The deleted record is no longer available for restoration")
+        winning, _ignored = _split_winning_fields(cursor, workspace_id, mutation, patch)
+        if kind == "deal" and any(field in winning for field in ("next_step", "next_step_date")):
+            _desired_next_step(entity, patch, winning)
+        cursor.execute(sql.SQL("UPDATE {} SET deleted_at=NULL WHERE workspace_id=%s AND sync_id=%s")
+                       .format(sql.Identifier(TABLES[kind])), (workspace_id, proposal["entity_sync_id"]))
+        _apply_winners(cursor, workspace_id, mutation, patch, winning, entity)
+        cursor.execute("UPDATE provisional_mobile_changes SET status='applied',reviewed_at=clock_timestamp(),"
+                       "reviewed_by=%s,decision='restore' WHERE id=%s AND workspace_id=%s", (reviewer_id, proposal_id, workspace_id))
+        cursor.execute("INSERT INTO audit_log(actor,actor_type,action,target,outcome,correlation_id) "
+                       "VALUES (%s,%s,'sync.review_restore',%s,'applied',%s)",
+                       (audit.actor, audit.actor_type, f"offline-change:{proposal_id}", audit.correlation_id))
+        return True
