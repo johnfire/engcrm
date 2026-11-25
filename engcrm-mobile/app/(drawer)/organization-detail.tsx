@@ -40,8 +40,14 @@ import { NameWithId } from "../../components/NameWithId";
 import { ValueRatings } from "../../components/ValueRatings";
 import { ActivityEntry } from "../../components/ActivityEntry";
 import { SalesCard } from "../../components/SalesCard";
+import { LocalRecordDetail } from "../../components/local-record-detail";
 
 export default function OrganizationDetailScreen() {
+  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
+  return syncId ? <LocalRecordDetail kind="organization" syncId={syncId} /> : <OnlineOrganizationDetailScreen />;
+}
+
+function OnlineOrganizationDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [organization, setContact] = useState<OrganizationDetail | null>(null);

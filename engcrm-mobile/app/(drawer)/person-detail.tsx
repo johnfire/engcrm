@@ -31,8 +31,14 @@ import { PersonalPrioritySelector } from "../../components/PersonalPrioritySelec
 import { NameWithId } from "../../components/NameWithId";
 import { formatDay } from "../../services/dates";
 import { ValueRatings } from "../../components/ValueRatings";
+import { LocalRecordDetail } from "../../components/local-record-detail";
 
 export default function PersonDetailScreen() {
+  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
+  return syncId ? <LocalRecordDetail kind="person" syncId={syncId} /> : <OnlinePersonDetailScreen />;
+}
+
+function OnlinePersonDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [person, setPerson] = useState<Person | null>(null);

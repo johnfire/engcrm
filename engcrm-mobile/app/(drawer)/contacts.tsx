@@ -15,8 +15,15 @@ import { useStoredSort } from "../../hooks/useStoredSort";
 import { CONTACT_SORTS } from "../../services/listSortOptions";
 import { useAdminRole } from "../../services/use-admin-role";
 import { usePagedList } from "../../services/usePagedList";
+import { useOffline } from "../../services/offline-context";
+import { LocalContactsScreen } from "../../components/local-contacts-screen";
 
 export default function ContactsScreen() {
+  const offline = useOffline();
+  return offline.state === "disabled" ? <OnlineContactsScreen /> : <LocalContactsScreen />;
+}
+
+function OnlineContactsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const isAdmin = useAdminRole();

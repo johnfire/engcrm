@@ -9,6 +9,8 @@ export interface LocalContact {
   syncId: string;
   serverId: number | null;
   name: string;
+  pendingCount: number;
+  failedCount: number;
   fields: Record<string, unknown>;
   lastContact: string | null;
   deals: LocalRecord[];
@@ -62,6 +64,7 @@ function projectRecord(record: LocalRecord, kind: ContactKind, allDeals: LocalRe
     return sum + value;
   }, 0);
   return { kind, syncId: record.syncId, serverId: record.serverId, name: text(record.fields.name) ?? "",
+    pendingCount: record.pendingCount, failedCount: record.failedCount,
     fields: record.fields, lastContact: latestContact(history, kind), deals, allDeals, totalValue, people: [] };
 }
 

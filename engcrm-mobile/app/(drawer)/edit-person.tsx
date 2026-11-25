@@ -12,6 +12,7 @@ import { OfferPicker } from "../../components/OfferPicker";
 import { useCreationOffer } from "../../hooks/useCreationOffer";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
+import { LocalRecordEdit } from "../../components/local-record-edit";
 
 const VALUE_KEYS = PERSON_FIELDS.map((field) => field.key);
 
@@ -29,6 +30,11 @@ function valuesOf(person: Person): Values {
  *  with a starting stage, or change one (id). Admin only. An existing person's
  *  stage is set on their detail screen, where a tap saves it at once. */
 export default function EditPersonScreen() {
+  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
+  return syncId ? <LocalRecordEdit kind="person" syncId={syncId} /> : <OnlineEditPersonScreen />;
+}
+
+function OnlineEditPersonScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; name?: string; companyId?: string; companyName?: string }>();

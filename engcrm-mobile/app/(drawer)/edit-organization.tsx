@@ -19,6 +19,7 @@ import { useCreationOffer } from "../../hooks/useCreationOffer";
 import { PipelineStage } from "../../services/organizationState";
 import { RecordForm, Values } from "../../components/RecordForm";
 import { useTranslation } from "../../i18n/I18nContext";
+import { LocalRecordEdit } from "../../components/local-record-edit";
 
 const VALUE_KEYS = ORGANIZATION_FIELDS.map((field) => field.key);
 
@@ -56,6 +57,11 @@ function valuesOf(organization: OrganizationDetail): Values {
 
 /** Add an organization by hand (no id), or change one (id). Admin only. */
 export default function EditOrganizationScreen() {
+  const { sync_id: syncId } = useLocalSearchParams<{ sync_id?: string }>();
+  return syncId ? <LocalRecordEdit kind="organization" syncId={syncId} /> : <OnlineEditOrganizationScreen />;
+}
+
+function OnlineEditOrganizationScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; name?: string }>();
