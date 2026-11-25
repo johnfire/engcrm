@@ -1,6 +1,7 @@
 """Read bounded, explicitly projected pages for the first mobile sync."""
 
 from gcrm.db.connection import db
+from gcrm.sync.validation import PRIVATE_FIELDS
 
 PROJECTIONS = (
     ("organization", "contacts", "t.name,t.type,t.city,t.country,t.address,t.website,t.email,t.phone,"
@@ -72,7 +73,7 @@ def _read_page(cursor, workspace_id: int, user_id: int, position: dict, limit: i
         )
         rows = cursor.fetchall()
         for row in rows:
-            envelope = project_sync_entity(cursor, workspace_id, kind, row)
+            envelope = project_sync_entity(cursor, workspace_id, user_id, kind, row)
             entries.append(envelope)
             after_id = envelope["server_id"]
         if len(entries) < limit:
@@ -82,7 +83,7 @@ def _read_page(cursor, workspace_id: int, user_id: int, position: dict, limit: i
     return entries, next_position
 
 
-def project_sync_entity(cursor, workspace_id: int, kind: str, row) -> dict:
+def project_sync_entity(cursor, workspace_id: int, user_id: int, kind: str, row) -> dict:
     fields = dict(row)
     server_id, sync_id = fields.pop("server_id"), fields.pop("sync_id")
     cursor.execute("SELECT field_name,changed_at,device_id,mutation_id FROM sync_field_versions "
@@ -90,7 +91,14 @@ def project_sync_entity(cursor, workspace_id: int, kind: str, row) -> dict:
                    (workspace_id, kind, sync_id))
     clocks = {clock["field_name"]: {"changed_at": clock["changed_at"], "device_id": clock["device_id"],
                                      "mutation_id": clock["mutation_id"]} for clock in cursor.fetchall()
-              if clock["field_name"] in fields}
+              if clock["field_name"] in fields and clock["field_name"] not in PRIVATE_FIELDS.get(kind, set())}
+    if PRIVATE_FIELDS.get(kind):
+        cursor.execute("SELECT field_name,changed_at,device_id,mutation_id FROM sync_private_field_versions "
+                       "WHERE workspace_id=%s AND user_id=%s AND entity_kind=%s AND entity_sync_id=%s",
+                       (workspace_id, user_id, kind, sync_id))
+        clocks.update({clock["field_name"]: {"changed_at": clock["changed_at"], "device_id": clock["device_id"],
+                                             "mutation_id": clock["mutation_id"]} for clock in cursor.fetchall()
+                       if clock["field_name"] in fields})
     return {"entity_kind": kind, "sync_id": sync_id, "server_id": server_id,
             "fields": fields, "field_versions": clocks}
 
@@ -109,4 +117,4 @@ def find_sync_entity(cursor, workspace_id: int, user_id: int, kind: str, sync_id
     cursor.execute(f"SELECT t.id AS server_id,t.sync_id,{fields} FROM {table} t {joins} "
                    f"WHERE t.workspace_id=%s AND t.sync_id=%s AND t.deleted_at IS NULL {owner_filter}", arguments)
     row = cursor.fetchone()
-    return project_sync_entity(cursor, workspace_id, kind, row) if row else None
+    return project_sync_entity(cursor, workspace_id, user_id, kind, row) if row else None

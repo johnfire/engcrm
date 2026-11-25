@@ -1,4 +1,5 @@
 {
+  "nav.offlineReview": "Offline changes to review",
   "offlineReview.title": "Offline changes to review",
   "offlineReview.intro": "These phone edits arrived after a record was deleted or merged. Review each one before applying it.",
   "offlineReview.change": "Phone change",

@@ -103,6 +103,13 @@ CREATE TABLE local_provisional_changes (
   mutation_id TEXT PRIMARY KEY, entity_kind TEXT NOT NULL, entity_sync_id TEXT NOT NULL,
   changed_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'review'
 );
+CREATE TABLE local_activity_drafts (
+  draft_id TEXT PRIMARY KEY, entity_kind TEXT NOT NULL CHECK (entity_kind IN ('person_note', 'organization_activity')),
+  parent_sync_id TEXT NOT NULL, draft_json TEXT NOT NULL CHECK (json_valid(draft_json)),
+  state TEXT NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'saved')),
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX one_active_activity_draft ON local_activity_drafts(entity_kind,parent_sync_id) WHERE state='active';
 CREATE TABLE local_tombstones (
   entity_kind TEXT NOT NULL, sync_id TEXT NOT NULL, operation TEXT NOT NULL,
   changed_at TEXT NOT NULL, merge_target_sync_id TEXT, PRIMARY KEY(entity_kind,sync_id)

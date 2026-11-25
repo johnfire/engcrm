@@ -3,8 +3,9 @@ import { useRouter } from "expo-router";
 
 import { useTranslation } from "../i18n/I18nContext";
 import { useLocalSnapshot } from "../hooks/useLocalSnapshot";
-import { stageLabelKey, statusLabelKey } from "../services/organizationState";
 import { useAdminRole } from "../services/use-admin-role";
+import { LocalDealCard } from "./local-deal-card";
+import { LocalRatings } from "./local-ratings";
 
 type Kind = "person" | "organization";
 
@@ -31,16 +32,16 @@ export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string
     })}><Text style={styles.pending}>{t("recordForm.edit")}</Text></TouchableOpacity>}
     {(item.pendingCount > 0 || item.failedCount > 0) && <Text style={styles.pending}>
       {t(item.failedCount > 0 ? "offlineDetail.failed" : "offlineDetail.pending")}</Text>}
+    {admin && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/(drawer)/log-meeting",
+      params: { kind, sync_id: syncId, name: String(item.fields.name ?? "") } })}>
+      <Text style={styles.pending}>{t("meeting.logButton")}</Text></TouchableOpacity>}
     {["title", "city", "country", "email", "phone", "website", "notes"].map((field) =>
       typeof item.fields[field] === "string" && item.fields[field] ? <View key={field} style={styles.section}>
         <Text style={styles.label}>{t(`offlineDetail.${field}`)}</Text><Text style={styles.text}>{String(item.fields[field])}</Text>
       </View> : null)}
+    {admin && <LocalRatings item={item} kind={kind} />}
     <Text style={styles.heading}>{t("offlineDetail.deals")}</Text>
-    {deals.map((deal) => <View key={deal.syncId} style={styles.section}>
-      <Text style={styles.text}>{String(deal.fields.offer_name ?? deal.fields.offer_slug ?? "")}</Text>
-      {typeof deal.fields.pipeline_stage === "string" && <Text style={styles.label}>{t(stageLabelKey(deal.fields.pipeline_stage))}</Text>}
-      {typeof deal.fields.status === "string" && <Text style={styles.label}>{t(statusLabelKey(deal.fields.status))}</Text>}
-    </View>)}
+    {deals.map((deal) => <View key={deal.syncId} style={styles.section}><LocalDealCard deal={deal} canEdit={!!admin} /></View>)}
     {kind === "organization" && <>
       <Text style={styles.heading}>{t("offlineDetail.people")}</Text>
       {linkedPeople.map((person) => <TouchableOpacity key={person.syncId} accessibilityRole="button"

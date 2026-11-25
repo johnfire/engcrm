@@ -13,7 +13,7 @@ import { formatDay } from "../services/dates";
 type Saved = { next_step: string | null; next_step_date: string | null };
 
 type Props = {
-  personId: number;
+  personId?: number;
   step: string | null;
   date: string | null;
   canEdit: boolean;
@@ -36,10 +36,13 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
     setSaving(true);
     setFailed(false);
     try {
-      const write = store ?? ((s: string | null, d: string | null) => setPersonNextStep(personId, s, d));
+      const write = store ?? ((s: string | null, d: string | null) => {
+        if (personId === undefined) throw new Error("A person identity is required");
+        return setPersonNextStep(personId, s, d);
+      });
       const stored = await write(nextText.trim() || null, nextText.trim() ? nextDate : null);
       onSaved(stored.next_step, stored.next_step_date);
-      notifyChanged(personKey(personId));
+      if (personId !== undefined) notifyChanged(personKey(personId));
       setEditing(false);
     } catch {
       setFailed(true);

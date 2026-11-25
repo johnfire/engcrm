@@ -111,12 +111,12 @@ def _restore_existing(cursor, workspace_id: int, proposal) -> None:
     entity = cursor.fetchone()
     if not entity or entity["deleted_at"] is None:
         raise ValueError("The deleted record is no longer available for restoration")
-    winning, _ignored = _split_winning_fields(cursor, workspace_id, mutation, patch)
+    winning, _ignored = _split_winning_fields(cursor, workspace_id, proposal["user_id"], mutation, patch)
     if kind == "deal" and any(field in winning for field in ("next_step", "next_step_date")):
         _desired_next_step(entity, patch, winning)
     cursor.execute(sql.SQL("UPDATE {} SET deleted_at=NULL WHERE workspace_id=%s AND sync_id=%s")
                    .format(sql.Identifier(TABLES[kind])), (workspace_id, proposal["entity_sync_id"]))
-    _apply_winners(cursor, workspace_id, mutation, patch, winning, entity)
+    _apply_winners(cursor, workspace_id, proposal["user_id"], mutation, patch, winning, entity)
 
 
 def restore_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int) -> bool:
@@ -163,8 +163,8 @@ def _apply_fields_to_survivor(cursor, workspace_id: int, proposal, target: str, 
     patch = validate_sync_patch("person", {field: proposal["patch"][field] for field in fields})
     mutation = SyncUpdate(mutation_id=proposal["mutation_id"], device_id=proposal["device_id"], entity_kind="person",
                           entity_sync_id=target, operation="update", changed_at=proposal["changed_at"], patch=patch)
-    winning, _ignored = _split_winning_fields(cursor, workspace_id, mutation, patch)
-    _apply_winners(cursor, workspace_id, mutation, patch, winning, entity)
+    winning, _ignored = _split_winning_fields(cursor, workspace_id, proposal["user_id"], mutation, patch)
+    _apply_winners(cursor, workspace_id, proposal["user_id"], mutation, patch, winning, entity)
 
 
 def apply_merged_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int, fields: list[str]) -> bool:

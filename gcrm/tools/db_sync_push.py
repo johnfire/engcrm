@@ -16,8 +16,9 @@ from gcrm.sync.conflict_resolution import (
     is_valid_edit_time,
 )
 from gcrm.sync.contracts import SyncUpdate
-from gcrm.sync.validation import validate_sync_patch
+from gcrm.sync.validation import PRIVATE_FIELDS, validate_sync_patch
 from gcrm.tools.db_sync_bootstrap import find_sync_entity
+from gcrm.tools.db_sync_private import apply_private_winners, private_winners
 from gcrm.tools.deal_records import check_next_step, write_next_step
 
 TABLES = {"organization": "contacts", "person": "people", "deal": "deals",
@@ -146,25 +147,32 @@ def _store_provisional(cursor, workspace_id: int, user_id: int, update: SyncUpda
                     recorded + timedelta(days=30), target, parent_kind, parent_sync_id))
 
 
-def _split_winning_fields(cursor, workspace_id: int, update: SyncUpdate, patch: dict) -> tuple[list[str], list[str]]:
+def _split_winning_fields(cursor, workspace_id: int, user_id: int, update: SyncUpdate, patch: dict) -> tuple[list[str], list[str]]:
+    private = sorted(set(patch) & PRIVATE_FIELDS.get(update.entity_kind, set()))
+    shared = sorted(set(patch) - set(private))
     cursor.execute("SELECT field_name,changed_at,device_id,mutation_id FROM sync_field_versions "
                    "WHERE workspace_id=%s AND entity_kind=%s AND entity_sync_id=%s AND field_name=ANY(%s)",
-                   (workspace_id, update.entity_kind, str(update.entity_sync_id), list(patch)))
+                   (workspace_id, update.entity_kind, str(update.entity_sync_id), shared))
     versions = {row["field_name"]: FieldVersion(row["changed_at"], UUID(str(row["device_id"])),
                                                  UUID(str(row["mutation_id"]))) for row in cursor.fetchall()}
     incoming = FieldVersion(update.changed_at, update.device_id, update.mutation_id)
-    winning = sorted(field for field in patch if field not in versions or is_incoming_version_newer(incoming, versions[field]))
+    winning = [field for field in shared if field not in versions or is_incoming_version_newer(incoming, versions[field])]
+    if private:
+        private_winning, _ = private_winners(cursor, workspace_id, user_id, update, private)
+        winning.extend(private_winning)
+    winning.sort()
     return winning, sorted(set(patch) - set(winning))
 
 
-def _apply_winners(cursor, workspace_id: int, update: SyncUpdate, patch: dict, winning: list[str], entity) -> None:
+def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, patch: dict, winning: list[str], entity) -> None:
     if not winning:
         return
     cursor.execute("SELECT set_config('app.sync_changed_at',%s,true),set_config('app.sync_device_id',%s,true),"
                    "set_config('app.sync_mutation_id',%s,true)",
                    (update.changed_at.isoformat(), str(update.device_id), str(update.mutation_id)))
-    changed = [field for field in winning if _value_changed(entity[field], patch[field])]
-    ordinary = [field for field in winning if update.entity_kind != "deal" or field not in ("next_step", "next_step_date")]
+    shared = [field for field in winning if field not in PRIVATE_FIELDS.get(update.entity_kind, set())]
+    changed = [field for field in shared if _value_changed(entity[field], patch[field])]
+    ordinary = [field for field in shared if update.entity_kind != "deal" or field not in ("next_step", "next_step_date")]
     if update.entity_kind == "deal" and any(field in changed for field in ("next_step", "next_step_date")):
         text, due = _desired_next_step(entity, patch, winning)
         write_next_step(cursor, entity, text, due)
@@ -173,13 +181,14 @@ def _apply_winners(cursor, workspace_id: int, update: SyncUpdate, patch: dict, w
         cursor.execute(sql.SQL("UPDATE {} SET {},updated_at=clock_timestamp() WHERE workspace_id=%s AND sync_id=%s")
                        .format(sql.Identifier(TABLES[update.entity_kind]), assignments),
                        [patch[field] for field in ordinary] + [workspace_id, str(update.entity_sync_id)])
-    for field in winning:
+    for field in shared:
         cursor.execute("INSERT INTO sync_field_versions(workspace_id,entity_kind,entity_sync_id,field_name,changed_at,device_id,mutation_id,source) "
                        "VALUES (%s,%s,%s,%s,%s,%s,%s,'mobile') ON CONFLICT (workspace_id,entity_kind,entity_sync_id,field_name) "
                        "DO UPDATE SET changed_at=EXCLUDED.changed_at,device_id=EXCLUDED.device_id,mutation_id=EXCLUDED.mutation_id,source='mobile'",
                        (workspace_id, update.entity_kind, str(update.entity_sync_id), field, update.changed_at,
                         str(update.device_id), str(update.mutation_id)))
-    if not changed:
+    apply_private_winners(cursor, workspace_id, user_id, update, patch, winning, entity)
+    if shared and not changed:
         audit = current_audit_context()
         cursor.execute("INSERT INTO sync_entity_changes(workspace_id,entity_kind,entity_sync_id,operation,changed_at,device_id,mutation_id,actor,correlation_id) "
                        "VALUES (%s,%s,%s,'upsert',%s,%s,%s,%s,%s)",
@@ -218,14 +227,14 @@ def _apply_new_update(cursor, workspace_id: int, user_id: int, update: SyncUpdat
         elif reason:
             status = "erased" if reason == "erased" else "rejected_validation"
         else:
-            winning, ignored = _split_winning_fields(cursor, workspace_id, update, patch)
+            winning, ignored = _split_winning_fields(cursor, workspace_id, user_id, update, patch)
             try:
                 if update.entity_kind == "deal" and any(field in winning for field in ("next_step", "next_step_date")):
                     _desired_next_step(entity, patch, winning)
             except ValueError:
                 status, winning, ignored = "rejected_validation", [], []
             else:
-                _apply_winners(cursor, workspace_id, update, patch, winning, entity)
+                _apply_winners(cursor, workspace_id, user_id, update, patch, winning, entity)
                 status = "partially_applied" if winning and ignored else "applied" if winning else "ignored_older"
     _record_outcome(cursor, workspace_id, user_id, update, request_hash, status, winning, ignored, entity["id"] if entity else None)
     return _response(cursor, workspace_id, user_id, update, status, winning, ignored)

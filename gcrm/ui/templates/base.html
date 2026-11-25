@@ -31,7 +31,10 @@
     {'href': '/settings', 'prefix': '/settings', 'label': t('nav.settings')}
   ] %}
   {% if request.session.get('role') == 'admin' %}
-  {% set admin_tabs = admin_tabs + [{'href': '/users/', 'prefix': '/users', 'label': t('nav.users')}] %}
+  {% set admin_tabs = admin_tabs + [
+    {'href': '/offline-changes/', 'prefix': '/offline-changes', 'label': t('nav.offlineReview')},
+    {'href': '/users/', 'prefix': '/users', 'label': t('nav.users')}
+  ] %}
   {% endif %}
   {% set admin_tabs = admin_tabs + [
     {'href': '/impressum', 'prefix': '/impressum', 'label': t('nav.impressum')},

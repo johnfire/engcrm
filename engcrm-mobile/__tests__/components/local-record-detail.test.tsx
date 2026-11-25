@@ -28,6 +28,9 @@ it("shows an offline person's fields, deal and saved history", async () => {
   expect(view.getByText("Met offline")).toBeTruthy();
   fireEvent.press(view.getByText("Edit"));
   expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/edit-person", params: { sync_id: "person" } });
+  fireEvent.press(view.getByText("Log a meeting"));
+  expect(mockPush).toHaveBeenCalledWith({ pathname: "/(drawer)/log-meeting",
+    params: { kind: "person", sync_id: "person", name: "Pat" } });
 });
 
 it("shows linked people and opens the offline add-person form from an organization", async () => {

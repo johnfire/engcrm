@@ -33,31 +33,8 @@ import { JudgmentChips } from "../../components/JudgmentChips";
 import { ATTITUDES, Attitude, MY_READS, MyRead } from "../../services/judgments";
 import { changeDeal, Deal, defaultLogOffer, fetchDeals, fetchOffers, Offer, setDealNextStep } from "../../services/deals";
 import { formatDay, parseDay } from "../../services/dates";
-
-const METHODS: { value: MeetingMethod; labelKey: string }[] = [
-  { value: "in_person", labelKey: "meeting.methodVisit" },
-  { value: "meeting", labelKey: "meeting.methodMeeting" },
-  { value: "phone", labelKey: "meeting.methodCall" },
-  { value: "video", labelKey: "meeting.methodVideo" },
-  { value: "email", labelKey: "meeting.methodEmail" },
-  { value: "letter", labelKey: "meeting.methodPostMail" },
-  { value: "linkedin", labelKey: "meeting.methodLinkedin" },
-  { value: "linkedin_reply", labelKey: "meeting.methodLinkedinReply" },
-  { value: "other", labelKey: "meeting.methodOther" },
-];
-
-// People keep their own, older note vocabulary for the first types.
-const PERSON_METHOD: Record<MeetingMethod, string> = {
-  in_person: "visit",
-  meeting: "meeting",
-  phone: "call",
-  video: "video",
-  email: "email",
-  letter: "letter",
-  linkedin: "linkedin",
-  linkedin_reply: "linkedin_reply",
-  other: "other",
-};
+import { ACTIVITY_METHODS as METHODS, PERSON_ACTIVITY_METHOD as PERSON_METHOD } from "../../services/activityMethods";
+import { LocalActivityForm } from "../../components/local-activity-form";
 
 /** The typed day as ISO for the server: null for blank (today), undefined when it is
  *  not a day, or is in the future. */
@@ -85,6 +62,12 @@ type Kind = "organization" | "person";
  * has it, so a dropped connection loses nothing.
  */
 export default function LogMeetingScreen() {
+  const params = useLocalSearchParams<{ kind?: Kind; sync_id?: string }>();
+  return params.sync_id ? <LocalActivityForm kind={params.kind === "person" ? "person" : "organization"} syncId={params.sync_id} />
+    : <OnlineLogMeetingScreen />;
+}
+
+function OnlineLogMeetingScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ kind: Kind; id: string; name?: string }>();

@@ -25,6 +25,7 @@ export interface LocalActivity {
   entitySyncId: string;
   changedAt: string;
   patch: Record<string, unknown>;
+  draftId?: string;
 }
 
 export interface InitialDeal {
@@ -42,9 +43,9 @@ interface OverlayDatabase extends LocalDatabase {
 const EDITABLE_FIELDS: Record<EditableKind, readonly string[]> = {
   organization: ["name", "type", "city", "country", "website", "email", "phone", "decision_maker",
     "preferred_contact_method", "notes", "best_visit_time", "access_notes", "space_notes", "price_sensitivity",
-    "fit_score", "do_not_contact", "email_bounced", "research_exhausted"],
+    "fit_score", "do_not_contact", "email_bounced", "research_exhausted", "personal_priority", "short_term_value", "long_term_value"],
   person: ["name", "title", "email", "phone", "website", "city", "country", "relationship", "met_at", "notes",
-    "linkedin_url", "is_linkedin_contact", "retention_hold"],
+    "linkedin_url", "is_linkedin_contact", "retention_hold", "value_rating", "short_term_value", "long_term_value"],
   deal: ["pipeline_stage", "status", "next_step", "next_step_date"],
 };
 const ENTITY_TABLES: Record<EditableKind, string> = {
@@ -107,6 +108,11 @@ export async function queueLocalActivity(database: LocalDatabase, activity: Loca
     await database.runAsync("INSERT INTO sync_outbox(mutation_id,device_id,entity_kind,entity_sync_id,operation,changed_at,patch_json) " +
       "VALUES (?,?,?,?,'create',?,?)", activity.mutationId, activity.deviceId, activity.entityKind,
       activity.entitySyncId, new Date(activity.changedAt).toISOString(), JSON.stringify(patch));
+    if (activity.draftId) {
+      const saved = await database.runAsync("UPDATE local_activity_drafts SET state='saved',updated_at=CURRENT_TIMESTAMP " +
+        "WHERE draft_id=? AND entity_kind=? AND parent_sync_id=? AND state='active'", activity.draftId, activity.entityKind, patch[parentField] as string);
+      if (saved.changes !== 1) throw new Error("Offline activity draft is no longer active");
+    }
   });
 }
 

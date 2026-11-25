@@ -54,11 +54,14 @@ it("purges erased data and its pending mutation across generations", async () =>
   try {
     sqlite.exec("INSERT INTO bootstrap_generations(id,status) VALUES (2,'retired')");
     sqlite.prepare("INSERT INTO local_people(generation,sync_id,name,canonical_json) VALUES (2,?,?,?)").run(personId, "Old copy", '{}');
+    sqlite.prepare("INSERT INTO local_activity_drafts(draft_id,entity_kind,parent_sync_id,draft_json) VALUES ('draft','person_note',?,?)")
+      .run(personId, '{"note":"Private draft"}');
     const page = parsePullPage({ next_cursor: 6, has_more: false, changes: [{ sequence: 6, operation: "hard_erase",
       entity_kind: "person", sync_id: personId, changed_at: "2026-11-25T12:00:00Z" }] });
     await savePullPage(adapter, 5, page);
     expect(sqlite.prepare("SELECT count(*) AS n FROM local_people WHERE sync_id=?").get(personId)).toEqual({ n: 0 });
     expect(sqlite.prepare("SELECT count(*) AS n FROM sync_outbox").get()).toEqual({ n: 0 });
+    expect(sqlite.prepare("SELECT count(*) AS n FROM local_activity_drafts").get()).toEqual({ n: 0 });
     expect(sqlite.prepare("SELECT cursor FROM sync_state").get()).toEqual({ cursor: 6 });
   } finally { sqlite.close(); }
 });

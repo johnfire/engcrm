@@ -53,7 +53,7 @@ export function LocalRecordEdit({ kind, syncId }: { kind: Kind; syncId: string }
       await queueLocalUpdate(session.database, { mutationId: Crypto.randomUUID(), deviceId: await getSyncDeviceId(),
         entityKind: kind, entitySyncId: syncId, changedAt, patch: changed });
       notifyChanged(localRecordKey(kind, syncId));
-      void refreshStatus();
+      void Promise.resolve(refreshStatus()).catch(() => {});
       requestSync();
       router.back();
     } catch {

@@ -1,4 +1,5 @@
 {
+  "nav.offlineReview": "Offline-Änderungen prüfen",
   "offlineReview.title": "Offline-Änderungen prüfen",
   "offlineReview.intro": "Diese Änderungen vom Handy trafen ein, nachdem ein Datensatz gelöscht oder zusammengeführt wurde. Prüfen Sie jede Änderung vor der Übernahme.",
   "offlineReview.change": "Änderung vom Handy",

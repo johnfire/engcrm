@@ -18,7 +18,7 @@ from gcrm.db.connection import db
 from gcrm.sources import MANUAL_MOBILE
 from gcrm.sync.conflict_resolution import is_valid_edit_time
 from gcrm.sync.contracts import SyncCreate
-from gcrm.sync.validation import validate_sync_patch
+from gcrm.sync.validation import PRIVATE_FIELDS, validate_sync_patch
 from gcrm.tools.db_sync_push import (
     TABLES,
     _authorize_device,
@@ -77,6 +77,8 @@ def _validate_create(cursor, workspace_id: int, user_id: int, creation: SyncCrea
     if creation.entity_kind == "deal":
         return _initial_deal_fields(cursor, workspace_id, user_id, creation)
     patch = dict(creation.patch)
+    if set(patch) & PRIVATE_FIELDS.get(creation.entity_kind, set()):
+        raise ValueError("Private ratings must be saved after creation")
     parent = patch.pop("organization_sync_id", None) if creation.entity_kind == "person" else None
     values = validate_sync_patch(creation.entity_kind, patch)
     if not values.get("name"):

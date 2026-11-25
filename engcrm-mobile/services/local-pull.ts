@@ -14,6 +14,7 @@ export async function purgeErasedEntity(database: LocalDatabase, kind: SyncEntit
     const historyKind = kind === "person" ? "person_note" : "organization_activity";
     await database.runAsync(`DELETE FROM sync_outbox WHERE entity_kind=? AND entity_sync_id IN (SELECT sync_id FROM ${history} WHERE ${parent}=?)`, historyKind, syncId);
     await database.runAsync(`DELETE FROM sync_outbox WHERE entity_kind='deal' AND entity_sync_id IN (SELECT sync_id FROM local_deals WHERE ${parent}=?)`, syncId);
+    await database.runAsync("DELETE FROM local_activity_drafts WHERE entity_kind=? AND parent_sync_id=?", historyKind, syncId);
     await database.runAsync(`DELETE FROM ${history} WHERE ${parent}=?`, syncId);
     await database.runAsync(`DELETE FROM local_deals WHERE ${parent}=?`, syncId);
   }

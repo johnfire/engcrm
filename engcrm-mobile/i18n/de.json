@@ -1,4 +1,7 @@
 {
+  "offlineActivity.note": "Was ist passiert?",
+  "offlineActivity.badMinutes": "Bitte Minuten zwischen 0 und 1440 eingeben.",
+  "offlineActivity.draftError": "Der Entwurf konnte auf diesem Handy nicht gespeichert werden.",
   "offlineDetail.notFound": "Dieser Offline-Datensatz ist nicht verfügbar.",
   "offlineDetail.pending": "Änderungen warten auf Synchronisierung",
   "offlineDetail.failed": "Eine Änderung muss geprüft werden",

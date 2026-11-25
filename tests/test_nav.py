@@ -118,6 +118,8 @@ def test_admin_groups_the_requested_links_in_order(language, role):
     keys = ["activity", "dropped", "help", "offers", "settings"]
     hrefs = ["/activity/", "/approvals/dropped/", "/help/", "/offers/", "/settings"]
     if role == "admin":
+        keys.append("offlineReview")
+        hrefs.append("/offline-changes/")
         keys.append("users")
         hrefs.append("/users/")
     keys.extend(["impressum", "privacy"])

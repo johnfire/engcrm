@@ -1,4 +1,7 @@
 {
+  "offlineActivity.note": "What happened",
+  "offlineActivity.badMinutes": "Enter minutes from 0 to 1440.",
+  "offlineActivity.draftError": "Couldn't save the draft on this phone.",
   "offlineDetail.notFound": "This offline record is not available.",
   "offlineDetail.pending": "Changes waiting to sync",
   "offlineDetail.failed": "A change needs attention",

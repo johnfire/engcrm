@@ -64,7 +64,7 @@ export function LocalRecordCreate({ kind, organizationSyncId, initialName }: { k
       return;
     }
     if (stage) void setLastOffer(chosen);
-    void refreshStatus();
+    void Promise.resolve(refreshStatus()).catch(() => {});
     requestSync();
     router.replace({ pathname: kind === "person" ? "/(drawer)/person-detail" : "/(drawer)/organization-detail", params: { sync_id: syncId } });
   }
