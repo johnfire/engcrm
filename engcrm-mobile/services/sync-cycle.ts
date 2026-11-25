@@ -1,4 +1,4 @@
-import { withLocalWrite } from "./local-transaction";
+import { withLocalRead, withLocalWrite } from "./local-transaction";
 import { synchronizeBootstrap } from "./sync-bootstrap-worker";
 import { synchronizePull } from "./sync-pull-worker";
 import { type OutboxDatabase, synchronizeOutbox } from "./sync-push-worker";
@@ -13,18 +13,18 @@ export interface SyncNetwork {
 const activeCycles = new WeakMap<OutboxDatabase, { deviceId: string; promise: Promise<void> }>();
 
 async function runCycle(database: OutboxDatabase, deviceId: string, network: SyncNetwork): Promise<void> {
-  const pending = await database.getFirstAsync<{ count: number }>("SELECT count(*) AS count FROM sync_outbox");
+  const pending = await withLocalRead(database, () => database.getFirstAsync<{ count: number }>("SELECT count(*) AS count FROM sync_outbox"));
   if (pending && pending.count > 0 && !network.push) throw new Error("Cannot synchronize pending edits until offline writes are enabled");
   await network.register();
-  const state = await database.getFirstAsync<{ active_generation: number | null }>(
+  const state = await withLocalRead(database, () => database.getFirstAsync<{ active_generation: number | null }>(
     "SELECT active_generation FROM sync_state WHERE singleton=1",
-  );
-  const loading = await database.getFirstAsync<{ id: number }>(
+  ));
+  const loading = await withLocalRead(database, () => database.getFirstAsync<{ id: number }>(
     "SELECT id FROM bootstrap_generations WHERE status='loading' LIMIT 1",
-  );
+  ));
   if (pending && pending.count > 0 && network.push) await synchronizeOutbox(database, network.push);
   if ((!state?.active_generation || loading) && pending && pending.count > 0) {
-    const remaining = await database.getFirstAsync<{ count: number }>("SELECT count(*) AS count FROM sync_outbox");
+    const remaining = await withLocalRead(database, () => database.getFirstAsync<{ count: number }>("SELECT count(*) AS count FROM sync_outbox"));
     if (remaining && remaining.count > 0) throw new Error("Cannot switch bootstrap generation while edits are pending");
   }
   if (!state?.active_generation || loading) await synchronizeBootstrap(database, deviceId, network.bootstrap);

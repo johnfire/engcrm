@@ -1,14 +1,14 @@
 import { savePullPage } from "./local-pull";
-import type { LocalDatabase } from "./local-transaction";
+import { type LocalDatabase, withLocalRead } from "./local-transaction";
 import { parsePullPage } from "./sync-contracts";
 
 type ChangeFetcher = (cursor: number) => Promise<unknown>;
 const activePulls = new WeakMap<LocalDatabase, Promise<void>>();
 
 async function pullUntilCurrent(database: LocalDatabase, fetchPage: ChangeFetcher): Promise<void> {
-  const state = await database.getFirstAsync<{ cursor: number; active_generation: number | null }>(
+  const state = await withLocalRead(database, () => database.getFirstAsync<{ cursor: number; active_generation: number | null }>(
     "SELECT cursor,active_generation FROM sync_state WHERE singleton=1",
-  );
+  ));
   if (!state || state.active_generation === null) throw new Error("Offline database needs its first bootstrap");
   let cursor = state.cursor;
   while (true) {

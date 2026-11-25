@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 
 import { LOCAL_SCHEMA_V1 } from "../../services/local-schema";
+import { withLocalWrite } from "../../services/local-transaction";
 import { synchronizeCycle } from "../../services/sync-cycle";
 
 function setup() {
@@ -67,5 +68,33 @@ it("does not report success or discard pending changes when writes are not yet s
     expect(sqlite.prepare("SELECT count(*) AS n FROM sync_outbox").get()).toEqual({ n: 1 });
     expect(sqlite.prepare("SELECT last_success_at FROM sync_state").get()).toEqual({ last_success_at: null });
     expect(network.pull).not.toHaveBeenCalled();
+  } finally { sqlite.close(); }
+});
+
+it("waits for a local transaction before checking for pending work", async () => {
+  const { sqlite, database } = setup();
+  let entered!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  const wait = new Promise<void>((resolve) => { release = resolve; });
+  const network = {
+    register: jest.fn(async () => {}),
+    bootstrap: jest.fn(async () => ({ high_water: 0, next_token: null, entities: [] })),
+    pull: jest.fn(async () => ({ changes: [], next_cursor: 0, has_more: false })),
+  };
+  try {
+    const transaction = withLocalWrite(database, async () => {
+      await database.runAsync("INSERT INTO sync_outbox(mutation_id,device_id,entity_kind,entity_sync_id,operation,changed_at,patch_json) " +
+        "VALUES ('m','phone','person','p','update','2026-11-25T10:00:00Z','{}')");
+      entered();
+      await wait;
+      throw new Error("rolled back");
+    }).catch(() => undefined);
+    await started;
+    const cycle = synchronizeCycle(database, "phone", network);
+    release();
+    await transaction;
+    await expect(cycle).resolves.toBeUndefined();
+    expect(network.register).toHaveBeenCalledTimes(1);
   } finally { sqlite.close(); }
 });
