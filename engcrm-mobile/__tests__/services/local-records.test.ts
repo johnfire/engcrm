@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { listLocalRecords, readLocalRecord } from "../../services/local-records";
+import { listLocalRecords, readLocalRecord, readLocalWorkspace } from "../../services/local-records";
 import { LOCAL_SCHEMA_V1 } from "../../services/local-schema";
 
 const syncId = "fb4fa281-8a94-4726-9ce7-02c18c90aa90";
@@ -54,5 +54,20 @@ it("lists only active records with their own pending overlays", async () => {
     const records = await listLocalRecords(database, "person");
     expect(records.map((record) => [record.syncId, record.fields.name, record.pendingCount, record.isLocalOnly]))
       .toEqual([[syncId, "Edited", 1, false], ["new", "New", 0, true]]);
+  } finally { sqlite.close(); }
+});
+
+it("reads people, their deals and notes from one local snapshot", async () => {
+  const { sqlite, database } = setup();
+  try {
+    sqlite.prepare("INSERT INTO local_deals(generation,sync_id,person_sync_id,canonical_json) VALUES (1,'deal',?,?)")
+      .run(syncId, JSON.stringify({ person_sync_id: syncId, pipeline_stage: "prospect" }));
+    sqlite.prepare("INSERT INTO local_person_notes(generation,sync_id,person_sync_id,canonical_json) VALUES (1,'note',?,?)")
+      .run(syncId, JSON.stringify({ person_sync_id: syncId, note: "A visit" }));
+    const snapshot = await readLocalWorkspace(database);
+    expect(snapshot.person[0].syncId).toBe(syncId);
+    expect(snapshot.deal[0].fields.person_sync_id).toBe(syncId);
+    expect(snapshot.person_note[0].fields.note).toBe("A visit");
+    expect(snapshot.organization).toEqual([]);
   } finally { sqlite.close(); }
 });

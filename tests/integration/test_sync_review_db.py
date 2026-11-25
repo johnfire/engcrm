@@ -9,6 +9,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db_sync_review import (
     discard_provisional_change,
     list_provisional_changes,
+    read_review_outcomes,
     restore_provisional_change,
 )
 from gcrm.workspace_context import workspace_scope
@@ -118,3 +119,35 @@ def test_erased_record_cannot_be_restored_from_review(clean_database):
         cursor = connection.cursor()
         cursor.execute("SELECT count(*) AS n FROM provisional_mobile_changes WHERE id=%s", (proposal,))
         assert cursor.fetchone()["n"] == 0
+
+
+def test_phone_can_read_only_its_own_review_outcomes_without_patch_values(clean_database):
+    device, other_device, mutation, entity = uuid4(), uuid4(), uuid4(), uuid4()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('phone-review@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        for registered in (device, other_device):
+            cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                           "VALUES (%s,%s,%s,'production','1',1)", (workspace, user, str(registered)))
+        cursor.execute("INSERT INTO sync_mutations(workspace_id,user_id,device_id,mutation_id,entity_kind,entity_sync_id,"
+                       "operation,request_hash,status) VALUES (%s,%s,%s,%s,'person',%s,'update','hash','provisional')",
+                       (workspace, user, str(device), str(mutation), str(entity)))
+        cursor.execute("INSERT INTO provisional_mobile_changes(workspace_id,user_id,device_id,mutation_id,entity_kind,"
+                       "entity_sync_id,reason,patch,changed_at,expires_at) VALUES "
+                       "(%s,%s,%s,%s,'person',%s,'soft_deleted',%s,now(),now()+interval '30 days')",
+                       (workspace, user, str(device), str(mutation), str(entity), Json({"phone": "private"})))
+    with workspace_scope(workspace):
+        assert read_review_outcomes(workspace, user, str(device), "production", [str(mutation)]) == [
+            {"mutation_id": str(mutation), "status": "pending"}]
+        assert read_review_outcomes(workspace, user, str(other_device), "production", [str(mutation)]) == []
+        with pytest.raises(PermissionError):
+            read_review_outcomes(workspace, user, str(uuid4()), "production", [str(mutation)])
+        with audit_scope(f"user:{user}", "user", "review-outcome"):
+            proposal = list_provisional_changes(workspace, user)[0]["id"]
+            assert discard_provisional_change(workspace, user, proposal)
+        assert read_review_outcomes(workspace, user, str(device), "production", [str(mutation)]) == [
+            {"mutation_id": str(mutation), "status": "discarded"}]

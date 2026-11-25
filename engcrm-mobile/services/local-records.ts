@@ -43,11 +43,10 @@ export function readLocalRecord(database: RecordsDatabase, kind: SyncEntityKind,
   });
 }
 
-export function listLocalRecords(database: RecordsDatabase, kind: "person" | "organization"): Promise<LocalRecord[]> {
-  return withLocalRead(database, async () => {
+async function listActiveRecords(database: RecordsDatabase, kind: SyncEntityKind): Promise<LocalRecord[]> {
     const rows = await database.getAllAsync<RecordRow>(
       `SELECT sync_id,server_id,is_local_only,canonical_json FROM ${TABLES[kind]} WHERE is_deleted=0 ` +
-      "AND generation=(SELECT active_generation FROM sync_state WHERE singleton=1) ORDER BY row_id",
+      "AND generation=(SELECT active_generation FROM sync_state WHERE singleton=1) ORDER BY sync_id",
     );
     const queued = await database.getAllAsync<PendingRow>(
       "SELECT entity_sync_id,patch_json,state FROM sync_outbox WHERE entity_kind=? ORDER BY changed_at,device_id,mutation_id", kind,
@@ -59,5 +58,18 @@ export function listLocalRecords(database: RecordsDatabase, kind: "person" | "or
       byId.set(item.entity_sync_id, entries);
     }
     return rows.map((row) => overlayRecord(row, byId.get(row.sync_id) ?? []));
-  });
+}
+
+export function listLocalRecords(database: RecordsDatabase, kind: "person" | "organization"): Promise<LocalRecord[]> {
+  return withLocalRead(database, () => listActiveRecords(database, kind));
+}
+
+export function readLocalWorkspace(database: RecordsDatabase): Promise<Record<SyncEntityKind, LocalRecord[]>> {
+  return withLocalRead(database, async () => ({
+    organization: await listActiveRecords(database, "organization"),
+    person: await listActiveRecords(database, "person"),
+    deal: await listActiveRecords(database, "deal"),
+    organization_activity: await listActiveRecords(database, "organization_activity"),
+    person_note: await listActiveRecords(database, "person_note"),
+  }));
 }

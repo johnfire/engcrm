@@ -47,6 +47,14 @@ class SyncPushBatch(BaseModel):
     mutations: list[Any] = Field(min_length=1, max_length=100)
 
 
+class ReviewOutcomeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: UUID
+    server_environment: Literal["production", "reviewer"] = "production"
+    mutation_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+
 class SyncCreate(SyncUpdate):
     entity_kind: Literal["organization", "person", "deal", "person_note", "organization_activity"]
     operation: Literal["create"]

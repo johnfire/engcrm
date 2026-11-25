@@ -31,6 +31,25 @@ def list_provisional_changes(workspace_id: int, reviewer_id: int) -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
+def read_review_outcomes(workspace_id: int, user_id: int, device_id: str, environment: str,
+                         mutation_ids: list[str]) -> list[dict]:
+    if not 1 <= len(mutation_ids) <= 100:
+        raise ValueError("Request between one and 100 review outcomes")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT 1 FROM mobile_sync_devices WHERE workspace_id=%s AND user_id=%s AND device_id=%s "
+                       "AND server_environment=%s AND revoked_at IS NULL FOR SHARE", (workspace_id, user_id, device_id, environment))
+        if cursor.fetchone() is None:
+            raise PermissionError("Sync device is unregistered or revoked")
+        cursor.execute("SELECT m.mutation_id,CASE WHEN m.status='erased' THEN 'erased' ELSE p.status END AS status "
+                       "FROM sync_mutations m LEFT JOIN provisional_mobile_changes p ON "
+                       "(p.workspace_id,p.device_id,p.mutation_id)=(m.workspace_id,m.device_id,m.mutation_id) "
+                       "WHERE m.workspace_id=%s AND m.user_id=%s AND m.device_id=%s AND m.mutation_id=ANY(%s::uuid[]) "
+                       "AND (m.status='erased' OR (m.status='provisional' AND p.status IS NOT NULL)) ORDER BY m.mutation_id",
+                       (workspace_id, user_id, device_id, mutation_ids))
+        return [{"mutation_id": str(row["mutation_id"]), "status": row["status"]} for row in cursor.fetchall()]
+
+
 def discard_provisional_change(workspace_id: int, reviewer_id: int, proposal_id: int) -> bool:
     audit = current_audit_context()
     if audit is None:

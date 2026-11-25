@@ -81,6 +81,13 @@ export async function requestChangePage(deviceId: string, environment: Server, c
   return response.data;
 }
 
+export async function requestReviewOutcomes(deviceId: string, environment: Server, mutationIds: string[]): Promise<unknown> {
+  const response = await client.post("/api/sync/review-outcomes", {
+    device_id: deviceId, server_environment: environment, mutation_ids: mutationIds,
+  });
+  return response.data;
+}
+
 export async function requestPushBatch(environment: Server, mutations: Record<string, unknown>[]): Promise<unknown> {
   try {
     const response = await client.post("/api/sync/push", { server_environment: environment, mutations });

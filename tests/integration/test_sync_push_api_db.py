@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from psycopg2.extras import Json
 
 from gcrm.api.jwt_auth import create_token
 from gcrm.api.main import app
@@ -57,3 +58,32 @@ def test_push_batch_is_disabled_by_default_and_isolates_invalid_mutations(clean_
         cursor = connection.cursor()
         cursor.execute("SELECT phone FROM contacts WHERE sync_id=%s", (sync_id,))
         assert cursor.fetchone()["phone"] == "123"
+
+
+def test_review_outcomes_are_scoped_to_the_authenticated_device(clean_database):
+    device, mutation, entity = str(uuid4()), str(uuid4()), str(uuid4())
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('review-api@example.test','hash',%s) RETURNING id", (workspace,))
+        user_id = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user_id, device))
+        cursor.execute("INSERT INTO sync_mutations(workspace_id,user_id,device_id,mutation_id,entity_kind,entity_sync_id,"
+                       "operation,request_hash,status) VALUES (%s,%s,%s,%s,'person',%s,'update','hash','provisional')",
+                       (workspace, user_id, device, mutation, entity))
+        cursor.execute("INSERT INTO provisional_mobile_changes(workspace_id,user_id,device_id,mutation_id,entity_kind,"
+                       "entity_sync_id,reason,patch,changed_at,expires_at) VALUES "
+                       "(%s,%s,%s,%s,'person',%s,'soft_deleted',%s,now(),now()+interval '30 days')",
+                       (workspace, user_id, device, mutation, entity, Json({"phone": "private"})))
+    headers = {"Authorization": f"Bearer {create_token('admin', user_id=user_id)}"}
+    body = {"device_id": device, "server_environment": "production", "mutation_ids": [mutation]}
+    with TestClient(app) as client:
+        assert client.post("/api/sync/review-outcomes", json=body).status_code == 401
+        response = client.post("/api/sync/review-outcomes", headers=headers, json=body)
+        assert response.status_code == 200
+        assert response.json() == {"outcomes": [{"mutation_id": mutation, "status": "pending"}]}
+        assert client.post("/api/sync/review-outcomes", headers=headers, json={**body, "device_id": str(uuid4())}).status_code == 403
+        assert client.post("/api/sync/review-outcomes", headers=headers, json={**body, "mutation_ids": [mutation] * 101}).status_code == 422

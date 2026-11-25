@@ -15,6 +15,7 @@ from gcrm.config import JWT_SECRET
 from gcrm.sync.contracts import (
     DeviceRegistration,
     DeviceRegistrationResponse,
+    ReviewOutcomeRequest,
     SyncCreate,
     SyncPushBatch,
     SyncUpdate,
@@ -25,6 +26,7 @@ from gcrm.tools.db_sync_create import apply_sync_create
 from gcrm.tools.db_sync_devices import register_sync_device
 from gcrm.tools.db_sync_pull import read_sync_changes
 from gcrm.tools.db_sync_push import apply_sync_update
+from gcrm.tools.db_sync_review import read_review_outcomes
 from gcrm.workspace_context import get_workspace_id
 
 router = APIRouter(prefix="/api/sync", tags=["mobile-sync"])
@@ -39,6 +41,19 @@ def sync_identity(payload: dict = Depends(require_jwt_payload)):
     if user_id is None or workspace_id is None:
         raise HTTPException(403, "A personal account is required for sync")
     return {"user_id": user_id, "workspace_id": workspace_id}
+
+
+@router.post("/review-outcomes")
+def review_outcomes(body: ReviewOutcomeRequest, payload: dict = Depends(require_jwt_payload)):
+    user_id, workspace_id = payload.get("uid"), get_workspace_id()
+    if user_id is None or workspace_id is None:
+        raise HTTPException(403, "A personal account is required for sync")
+    try:
+        outcomes = read_review_outcomes(workspace_id, user_id, str(body.device_id), body.server_environment,
+                                        [str(mutation_id) for mutation_id in body.mutation_ids])
+    except PermissionError as error:
+        raise HTTPException(403, str(error)) from error
+    return {"outcomes": outcomes}
 
 
 @router.post("/devices", response_model=DeviceRegistrationResponse)
