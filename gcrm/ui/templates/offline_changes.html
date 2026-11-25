@@ -13,7 +13,7 @@
   {% if item.merge_target_sync_id %}<p>{{ t('offlineReview.survivor') }}: {{ item.survivor_name or '—' }} · {{ item.merge_target_sync_id }}</p>{% endif %}
   <h3>{{ t('offlineReview.proposed') }}</h3>
   <dl>{% for field, value in item.patch.items() %}<dt>{{ field }}</dt><dd>{{ value if value is not none else '—' }}</dd>{% endfor %}</dl>
-  {% if item.reason == 'soft_deleted' and not item.parent_kind and item.entity_kind in ['person', 'organization', 'deal'] %}
+  {% if item.reason == 'soft_deleted' and (item.parent_kind or item.entity_kind in ['person', 'organization', 'deal']) %}
   <form method="post" action="/offline-changes/{{ item.id }}/restore"><button class="btn-primary">{{ t('offlineReview.restore') }}</button></form>
   {% endif %}
   {% if item.reason == 'merged' and not item.parent_kind and item.entity_kind == 'person' %}
@@ -22,6 +22,20 @@
       {% for field, value in item.patch.items() %}<label><input type="checkbox" name="fields" value="{{ field }}"> {{ field }}: {{ value if value is not none else '—' }}</label><br>{% endfor %}
     </fieldset><button class="btn-primary">{{ t('offlineReview.applyMerged') }}</button>
   </form>
+  {% endif %}
+  {% if item.reason == 'merged' and item.parent_kind == 'person' and item.entity_kind == 'person_note' %}
+  <form method="post" action="/offline-changes/{{ item.id }}/merge">
+    <button class="btn-primary">{{ t('offlineReview.applyMergedNote') }}</button>
+  </form>
+  {% endif %}
+  {% if not item.parent_kind and item.entity_kind in ['person', 'organization'] %}
+  <details><summary>{{ t('offlineReview.recreate') }}</summary>
+    <p>{{ t('offlineReview.recreateHelp') }}</p>
+    <form method="post" action="/offline-changes/{{ item.id }}/recreate">
+      <label>{{ t('offlineReview.newName') }} <input name="name" value="{{ item.target_name or '' }}" maxlength="200" required></label>
+      <button class="btn-secondary">{{ t('offlineReview.recreate') }}</button>
+    </form>
+  </details>
   {% endif %}
   <details><summary>{{ t('offlineReview.discard') }}</summary>
     <p>{{ t('offlineReview.discardWarning') }}</p>

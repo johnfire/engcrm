@@ -6,13 +6,15 @@ from psycopg2.extras import Json
 
 from gcrm.audit_context import audit_scope
 from gcrm.db.connection import db
-from gcrm.sync.contracts import SyncUpdate
+from gcrm.sync.contracts import SyncCreate, SyncUpdate
+from gcrm.tools.db_sync_create import apply_sync_create
 from gcrm.tools.db_sync_push import apply_sync_update
 from gcrm.tools.db_sync_review import (
     apply_merged_provisional_change,
     discard_provisional_change,
     list_provisional_changes,
     read_review_outcomes,
+    recreate_provisional_change,
     restore_provisional_change,
 )
 from gcrm.tools.people_merge import merge_people
@@ -187,3 +189,114 @@ def test_review_applies_only_selected_fields_to_merge_survivor(clean_database):
         assert dict(cursor.fetchone()) == {"phone": "new phone", "title": "Original"}
         cursor.execute("SELECT status,decision FROM provisional_mobile_changes WHERE id=%s", (proposal,))
         assert dict(cursor.fetchone()) == {"status": "applied", "decision": "merge"}
+
+
+def test_recreate_preserves_the_deleted_original_and_proposed_values(clean_database):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('recreate-review@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO people(name,phone,deleted_at) VALUES ('Original','old',now()) RETURNING id,sync_id")
+        original = cursor.fetchone()
+        cursor.execute("INSERT INTO provisional_mobile_changes(workspace_id,user_id,device_id,mutation_id,entity_kind,"
+                       "entity_sync_id,reason,patch,changed_at,expires_at) VALUES "
+                       "(%s,%s,%s,%s,'person',%s,'soft_deleted',%s,now(),now()+interval '30 days') RETURNING id",
+                       (workspace, user, str(uuid4()), str(uuid4()), original["sync_id"], Json({"phone": "new"})))
+        proposal = cursor.fetchone()["id"]
+    with workspace_scope(workspace), audit_scope(f"user:{user}", "user", "review-recreate"):
+        new_sync_id = recreate_provisional_change(workspace, user, proposal, "New person")
+        assert new_sync_id and new_sync_id != str(original["sync_id"])
+        assert recreate_provisional_change(workspace, user, proposal, "New person") is None
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT name,phone,deleted_at FROM people WHERE sync_id=%s", (new_sync_id,))
+        assert dict(cursor.fetchone()) == {"name": "New person", "phone": "new", "deleted_at": None}
+        cursor.execute("SELECT name,phone,deleted_at FROM people WHERE id=%s", (original["id"],))
+        preserved = cursor.fetchone()
+        assert preserved["name"] == "Original" and preserved["phone"] == "old" and preserved["deleted_at"] is not None
+        cursor.execute("SELECT status,patch FROM provisional_mobile_changes WHERE id=%s", (proposal,))
+        assert dict(cursor.fetchone()) == {"status": "recreated", "patch": {"phone": "new"}}
+
+
+def test_restore_parent_and_create_offline_note_transactionally(clean_database):
+    device, note = uuid4(), uuid4()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('restore-note@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user, str(device)))
+        cursor.execute("INSERT INTO people(name,deleted_at) VALUES ('Person',now()) RETURNING id,sync_id")
+        person = cursor.fetchone()
+    mutation = SyncCreate(mutation_id=uuid4(), device_id=device, entity_kind="person_note", entity_sync_id=note,
+                          operation="create", changed_at=datetime.now(UTC),
+                          patch={"person_sync_id": str(person["sync_id"]), "note": "Met offline"})
+    with workspace_scope(workspace), audit_scope(f"user:{user}", "user", "restore-note"):
+        assert apply_sync_create(workspace, user, "production", mutation)["status"] == "provisional"
+        proposal = list_provisional_changes(workspace, user)[0]["id"]
+        assert restore_provisional_change(workspace, user, proposal)
+        assert not restore_provisional_change(workspace, user, proposal)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT deleted_at FROM people WHERE id=%s", (person["id"],))
+        assert cursor.fetchone()["deleted_at"] is None
+        cursor.execute("SELECT note FROM people_interactions WHERE sync_id=%s", (str(note),))
+        assert cursor.fetchone()["note"] == "Met offline"
+
+
+def test_failed_note_validation_rolls_back_parent_restoration(clean_database):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('restore-invalid-note@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO people(name,deleted_at) VALUES ('Person',now()) RETURNING id,sync_id")
+        person = cursor.fetchone()
+        cursor.execute("INSERT INTO provisional_mobile_changes(workspace_id,user_id,device_id,mutation_id,entity_kind,"
+                       "entity_sync_id,parent_kind,parent_sync_id,reason,patch,changed_at,expires_at) VALUES "
+                       "(%s,%s,%s,%s,'person_note',%s,'person',%s,'soft_deleted',%s,now(),now()+interval '30 days') RETURNING id",
+                       (workspace, user, str(uuid4()), str(uuid4()), str(uuid4()), person["sync_id"],
+                        Json({"person_sync_id": str(person["sync_id"]), "note": ""})))
+        proposal = cursor.fetchone()["id"]
+    with workspace_scope(workspace), audit_scope(f"user:{user}", "user", "restore-invalid-note"):
+        with pytest.raises(ValueError):
+            restore_provisional_change(workspace, user, proposal)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT deleted_at FROM people WHERE id=%s", (person["id"],))
+        assert cursor.fetchone()["deleted_at"] is not None
+
+
+def test_review_can_attach_an_offline_note_to_the_merge_survivor(clean_database):
+    device, note_id = uuid4(), uuid4()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('merged-note@example.test','hash',%s) RETURNING id", (workspace,))
+        user = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user, str(device)))
+        cursor.execute("INSERT INTO people(name) VALUES ('Survivor'),('Duplicate') RETURNING id,sync_id")
+        survivor, duplicate = cursor.fetchall()
+    with workspace_scope(workspace), audit_scope(f"user:{user}", "user", "review-merged-note"):
+        merge_people(survivor["id"], duplicate["id"], apply=True)
+        creation = SyncCreate(mutation_id=uuid4(), device_id=device, entity_kind="person_note", entity_sync_id=note_id,
+                              operation="create", changed_at=datetime.now(UTC),
+                              patch={"person_sync_id": str(duplicate["sync_id"]), "note": "Met offline"})
+        assert apply_sync_create(workspace, user, "production", creation)["status"] == "provisional"
+        proposal = list_provisional_changes(workspace, user)[0]["id"]
+        assert apply_merged_provisional_change(workspace, user, proposal, [])
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT person_id,note FROM people_interactions WHERE sync_id=%s", (str(note_id),))
+        assert dict(cursor.fetchone()) == {"person_id": survivor["id"], "note": "Met offline"}

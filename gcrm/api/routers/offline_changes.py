@@ -9,6 +9,7 @@ from gcrm.tools.db_sync_review import (
     apply_merged_provisional_change,
     discard_provisional_change,
     list_provisional_changes,
+    recreate_provisional_change,
     restore_provisional_change,
 )
 
@@ -54,6 +55,12 @@ def restore(request: Request, proposal_id: int):
 def discard(request: Request, proposal_id: int):
     workspace, user = _identity(request)
     return _review_result(discard_provisional_change, workspace, user, proposal_id)
+
+
+@router.post("/{proposal_id}/recreate")
+def recreate(request: Request, proposal_id: int, name: str = Form(...)):
+    workspace, user = _identity(request)
+    return _review_result(recreate_provisional_change, workspace, user, proposal_id, name)
 
 
 @router.post("/{proposal_id}/merge")
