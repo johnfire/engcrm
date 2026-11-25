@@ -69,3 +69,42 @@ def test_pull_pagination_has_no_duplicates_or_skipped_changes(clean_database):
     assert names == ["One", "Two", "Three"]
     assert empty["changes"] == []
     assert empty["next_cursor"] == cursor_value
+
+
+def test_sales_changes_refresh_only_the_derived_deal_total(clean_database):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES "
+                       "('sync-value@example.test','hash',%s) RETURNING id", (workspace,))
+        user_id = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO contacts(name) VALUES ('Company') RETURNING id")
+        organization = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO deals(workspace_id,offer_id,contact_id) "
+                       "VALUES (%s,offer_id_for(%s,'consulting'),%s) RETURNING id,sync_id", (workspace, workspace, organization))
+        deal = cursor.fetchone()
+    headers = {"Authorization": f"Bearer {create_token('admin', user_id=user_id)}"}
+    device_id = str(uuid4())
+    with TestClient(app) as client:
+        assert client.post("/api/sync/devices", headers=headers, json={"device_id": device_id,
+                           "server_environment": "production", "app_version": "1", "schema_version": 1}).status_code == 200
+        before = client.get("/api/sync/changes", headers=headers, params={"device_id": device_id, "after": 0}).json()["next_cursor"]
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("INSERT INTO sales(workspace_id,deal_id,amount_eur,won_on,status,description) VALUES "
+                           "(%s,%s,100,'2026-11-01','booked','private details'),"
+                           "(%s,%s,50,'2026-11-01','cancelled','do not sync')",
+                           (workspace, deal["id"], workspace, deal["id"]))
+        response = client.get("/api/sync/changes", headers=headers, params={"device_id": device_id, "after": before})
+        assert response.status_code == 200
+        changes = response.json()["changes"]
+        assert changes and all(change["sync_id"] == str(deal["sync_id"]) for change in changes)
+        assert float(changes[-1]["fields"]["total_value"]) == 100
+        assert "private details" not in response.text and "do not sync" not in response.text
+        with db() as connection:
+            cursor = connection.cursor()
+            cursor.execute("UPDATE sales SET status='cancelled' WHERE deal_id=%s AND status='booked'", (deal["id"],))
+        changed = client.get("/api/sync/changes", headers=headers,
+                             params={"device_id": device_id, "after": response.json()["next_cursor"]}).json()["changes"]
+        assert changed and float(changed[-1]["fields"]["total_value"]) == 0

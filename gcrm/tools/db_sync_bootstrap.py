@@ -17,6 +17,8 @@ PROJECTIONS = (
      "LEFT JOIN contacts organization ON organization.id=t.contact_id AND organization.deleted_at IS NULL "
      "LEFT JOIN person_user_priorities rating ON rating.person_id=t.id AND rating.user_id=%s"),
     ("deal", "deals", "t.pipeline_stage,t.status,t.next_step,t.next_step_date,t.notes,t.created_at,"
+     "(SELECT COALESCE(SUM(s.amount_eur),0) FROM sales s WHERE s.deal_id=t.id AND s.deleted_at IS NULL "
+     "AND s.status IN ('expected','booked','contracted','collected')) AS total_value,"
      "offer.slug AS offer_slug,offer.name AS offer_name,organization.sync_id AS organization_sync_id,"
      "person.sync_id AS person_sync_id,contact_person.sync_id AS contact_person_sync_id",
      "JOIN offers offer ON offer.id=t.offer_id LEFT JOIN contacts organization ON organization.id=t.contact_id "
