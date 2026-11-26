@@ -3,8 +3,10 @@ Email tools: SMTP sending and IMAP inbox reading over standard SMTP/IMAP
 (the christopherrehm.de mail server).
 """
 import email as email_lib
+import html as html_mod
 import imaplib
 import logging
+import re
 import smtplib
 import ssl
 import time
@@ -162,8 +164,6 @@ def _parse_message(parsed) -> dict:
         body = payload.decode("utf-8", errors="replace") if payload is not None else ""
 
     if not body.strip() and html_body:
-        import html as html_mod
-        import re
         text = re.sub(r"<[^>]+>", " ", html_body)
         body = re.sub(r" {2,}", " ", html_mod.unescape(text)).strip()
 
