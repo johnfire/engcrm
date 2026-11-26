@@ -12,6 +12,7 @@ business-card photos. Soft-deleted rows are left out.
 import csv
 import io
 import json
+import re
 import zipfile
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -21,7 +22,10 @@ from gcrm.workspace_context import workspace_scope
 
 FORMAT_VERSION = 1
 
-_SIGN_THEN_SAFE = "0123456789 .,"
+# A leading + or - is left alone only when the whole text is digits, spaces and . , ( ) / + -
+# (a number, a phone number, plain arithmetic): with no letters or | ; ! it cannot call a function
+# or run a command. A sign followed by a digit is NOT enough: "+1+cmd|..." is a payload.
+_PLAIN_SIGNED_NUMBER = re.compile(r"^[+-][0-9][0-9 .,()/+-]*$")
 
 # filename -> SQL. `%(ws)s` is the workspace id. Deleted records are filtered here, not later.
 FILES: dict[str, str] = {
@@ -165,7 +169,7 @@ def neutralize_formula(value) -> str:
         return ""
     if text[0] in "=@\t\r":
         return "'" + text
-    if text[0] in "+-" and len(text) > 1 and text[1] not in _SIGN_THEN_SAFE:
+    if text[0] in "+-" and not _PLAIN_SIGNED_NUMBER.match(text):
         return "'" + text
     return text
 
