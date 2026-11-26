@@ -2,4 +2,9 @@
 <full-backup-content>
   <exclude domain="file" path="SQLite/" />
   <exclude domain="sharedpref" path="SecureStore" />
+  <exclude domain="database" path="RKStorage" />
+  <exclude domain="database" path="RKStorage-journal" />
+  <exclude domain="database" path="RKStorage-wal" />
+  <exclude domain="database" path="RKStorage-shm" />
+  <exclude domain="file" path="card-queue/" />
 </full-backup-content>

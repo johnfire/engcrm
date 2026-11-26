@@ -12,6 +12,7 @@
         "backgroundColor": "#1a1a2e"
       },
       "package": "de.christopherrehm.engcrm",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCZp74uJJrU5XdQXIT6smN9vXhqPLBvWB0"
