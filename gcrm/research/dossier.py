@@ -511,6 +511,12 @@ def get_or_create_dossier(contact_id: int) -> dict | None:
     return _generate_dossier(contact)
 
 
+def get_existing_dossier(contact_id: int) -> dict | None:
+    """The stored dossier for a contact, or None. Never crawls, never calls a model,
+    never writes: safe for read-only callers."""
+    return _get_active_dossier(contact_id)
+
+
 def _get_active_dossier(contact_id: int) -> dict | None:
     with db() as conn:
         cur = conn.cursor()

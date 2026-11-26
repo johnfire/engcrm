@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from gcrm.api.jwt_auth import require_jwt, require_jwt_payload
-from gcrm.research import get_or_create_dossier
+from gcrm.research import get_existing_dossier, get_or_create_dossier
 from gcrm.supervisor.job_environment import job_environment
 from gcrm.tools.db import build_research_overview
 from gcrm.tools.db_audit import log_audit
@@ -56,8 +56,9 @@ def run_research(
 @router.get("/dossier/{contact_id}")
 def get_dossier(contact_id: int, _role: str = Depends(require_jwt)) -> dict:
     """Retrieve an existing research dossier for a contact.
-    Returns the dossier or 404 if none exists."""
-    dossier = get_or_create_dossier(contact_id)
+    Returns the dossier or 404 if none exists. Read-only: generating one costs
+    crawling and model calls, so that stays the admin-only POST below."""
+    dossier = get_existing_dossier(contact_id)
     if dossier is None:
         raise HTTPException(status_code=404, detail="No dossier available for this contact")
     return {"status": "ok", "dossier": dossier}
