@@ -49,8 +49,18 @@ def test_untrusted_peer_cannot_supply_client_ip(monkeypatch):
 
 def test_trusted_proxy_can_supply_client_ip(monkeypatch):
     monkeypatch.setattr("gcrm.config.TRUSTED_PROXY_IPS", frozenset({"127.0.0.1"}))
-    request = _request_with_peer("127.0.0.1", [(b"x-forwarded-for", b"203.0.113.9, 127.0.0.1")])
+    request = _request_with_peer("127.0.0.1", [(b"x-forwarded-for", b"203.0.113.9")])
     assert client_key(request) == "203.0.113.9"
+
+
+def test_the_client_cannot_choose_its_own_bucket_by_prepending_addresses(monkeypatch):
+    """Apache appends the address it saw to whatever X-Forwarded-For the client sent, so the
+    first entry is client-controlled and the last is the one the trusted proxy observed."""
+    monkeypatch.setattr("gcrm.config.TRUSTED_PROXY_IPS", frozenset({"127.0.0.1"}))
+    real = b"198.51.100.7"
+    first = _request_with_peer("127.0.0.1", [(b"x-forwarded-for", b"1.1.1.1, " + real)])
+    second = _request_with_peer("127.0.0.1", [(b"x-forwarded-for", b"2.2.2.2, 3.3.3.3, " + real)])
+    assert client_key(first) == client_key(second) == "198.51.100.7"
 
 
 def test_socket_peer_is_used_without_forwarding_header():

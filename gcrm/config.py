@@ -122,6 +122,10 @@ CARD_IMAGE_RETENTION_DAYS: int = int(os.getenv("CARD_IMAGE_RETENTION_DAYS", "0")
 # exhaustion from an oversized multipart body.
 MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 
+# Max accepted size of any other request body (forms, JSON). The largest legitimate one is a
+# sync push: 100 mutations of four 20,000-character text fields is about 8 MB of JSON.
+MAX_BODY_BYTES: int = int(os.getenv("MAX_BODY_BYTES", str(16 * 1024 * 1024)))
+
 # --- Scout threshold ---
 # Contacts scoring below this are dropped. Start high, lower when you need more volume.
 SCOUT_THRESHOLD: int = int(os.getenv("SCOUT_THRESHOLD", "75"))

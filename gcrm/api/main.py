@@ -12,6 +12,7 @@ from psycopg2.errors import InsufficientPrivilege
 from starlette.middleware.sessions import SessionMiddleware
 
 from gcrm.api import auth
+from gcrm.api.body_limit import BodyLimitMiddleware
 from gcrm.api.browser_headers import BrowserHeadersMiddleware
 from gcrm.api.browser_sessions import refresh_browser_session
 from gcrm.api.csrf import accepts_browser_write
@@ -163,6 +164,9 @@ app.add_middleware(
     https_only=SESSION_COOKIE_SECURE,
     same_site="lax",
 )
+# Inside BrowserHeaders (so a 413 still carries the security headers) and outside the session
+# and CSRF layers (so an oversized body is refused before either reads it).
+app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(BrowserHeadersMiddleware)
 
 UI_DIR = Path(__file__).parent.parent / "ui"

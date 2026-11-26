@@ -46,13 +46,16 @@ _auth_limiter = FixedWindowRateLimiter(max_attempts=10, window_seconds=60.0)
 
 
 def client_key(request: Request) -> str:
-    """Return the forwarded client only when a trusted proxy supplied it."""
+    """Return the forwarded client only when a trusted proxy supplied it.
+
+    The last entry is the address the trusted proxy itself observed: Apache appends it to
+    whatever X-Forwarded-For the client sent, so the first entry is client-controlled."""
     from gcrm.config import TRUSTED_PROXY_IPS
 
     peer = request.client.host if request.client else "unknown"
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded and peer in TRUSTED_PROXY_IPS:
-        return forwarded.split(",")[0].strip()
+        return forwarded.split(",")[-1].strip()
     return peer
 
 
