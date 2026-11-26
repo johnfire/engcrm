@@ -5,13 +5,13 @@ import {
   type DrawerContentComponentProps,
 } from "expo-router/drawer";
 import { useEffect } from "react";
-import { Alert, AppState, TouchableOpacity, Text, View } from "react-native";
+import { AppState, TouchableOpacity, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { clearToken } from "../../services/auth";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OfflineProvider, useOffline } from "../../services/offline-context";
 import { OfflineStatus } from "../../components/offline-status";
-import { readSyncStatus } from "../../services/sync-status";
+import { requestGuardedLogout } from "../../services/guarded-logout";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -22,20 +22,7 @@ export function LogoutButton() {
     router.replace("/login");
   }
   async function handleLogout() {
-    if (offline.state === "disabled") return finishLogout();
-    let pending: number | null = null;
-    try {
-      if (offline.session) {
-        const status = await readSyncStatus(offline.session.database);
-        pending = status.pending + status.failed;
-      }
-    } catch { /* Preserve the database even if its status cannot be read. */ }
-    if (pending === 0) return finishLogout();
-    Alert.alert(t("offlineStatus.logoutTitle"), pending === null ? t("offlineStatus.logoutUnknown")
-      : t("offlineStatus.logoutPending", { count: pending }), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("offlineStatus.logoutKeep"), onPress: () => { void finishLogout(); } },
-    ]);
+    await requestGuardedLogout(offline, t, finishLogout);
   }
   return (
     <TouchableOpacity onPress={handleLogout} style={{ padding: 16 }}>

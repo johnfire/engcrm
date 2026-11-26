@@ -1,27 +1,15 @@
-import { getSession } from "./auth";
 import { type LocalDatabaseIdentity, openLocalDatabase } from "./local-database";
-import type { Server } from "./reviewer-routing";
-import { loadVerifiedIdentity, saveVerifiedIdentity } from "./sync-identity-cache";
-import { fetchSyncIdentity } from "./sync-network";
+import { isOfflineStorageActivatedFor, markOfflineStorageActivated } from "./offline-activation";
+import { ensureOfflineSessionUnchanged, resolveOfflineIdentity } from "./offline-identity";
 
-async function ensureSessionUnchanged(token: string, server: Server): Promise<void> {
-  const current = await getSession();
-  if (current.token !== token || current.server !== server) throw new Error("Sync session changed while opening offline data");
-}
-
-export async function openOfflineSession(): Promise<{
+export async function openOfflineSession(requireActivation = false): Promise<{
   identity: LocalDatabaseIdentity;
   database: Awaited<ReturnType<typeof openLocalDatabase>>;
 }> {
-  const session = await getSession();
-  if (!session.token) throw new Error("Sign in to open offline data");
-  let identity = await loadVerifiedIdentity(session.token, session.server);
-  if (!identity) {
-    identity = await fetchSyncIdentity(session.server);
-    await ensureSessionUnchanged(session.token, session.server);
-    await saveVerifiedIdentity(session.token, identity);
-  }
+  const { identity, token, server } = await resolveOfflineIdentity();
+  if (requireActivation && !await isOfflineStorageActivatedFor(identity)) throw new Error("Offline storage is not activated for this account");
+  await markOfflineStorageActivated(identity);
   const database = await openLocalDatabase(identity);
-  await ensureSessionUnchanged(session.token, session.server);
+  await ensureOfflineSessionUnchanged(token, server);
   return { identity, database };
 }

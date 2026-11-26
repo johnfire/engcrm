@@ -6,18 +6,23 @@ import { OfflineProvider, useOffline } from "../../services/offline-context";
 import { openOfflineSession } from "../../services/offline-session";
 import { synchronizeOfflineSession } from "../../services/offline-sync-session";
 import { readSyncStatus } from "../../services/sync-status";
+import { hasActivatedOfflineStorage } from "../../services/offline-activation";
 
 jest.mock("expo-network", () => ({ addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })) }));
 jest.mock("../../services/offline-session", () => ({ openOfflineSession: jest.fn() }));
 jest.mock("../../services/offline-sync-session", () => ({ synchronizeOfflineSession: jest.fn() }));
 jest.mock("../../services/sync-status", () => ({ readSyncStatus: jest.fn() }));
+jest.mock("../../services/offline-activation", () => ({ hasActivatedOfflineStorage: jest.fn() }));
 
 function Consumer() {
   const offline = useOffline();
   return <Text>{offline.session ? offline.status?.ready ? "data-ready" : "local-ready" : "local-loading"}</Text>;
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(hasActivatedOfflineStorage).mockResolvedValue(false);
+});
 
 it("exposes the local account without waiting for synchronization", async () => {
   const offline = { identity: { environment: "production", workspaceId: 1, userId: 2 }, database: {} };
@@ -41,9 +46,22 @@ it("exposes a completed bootstrap even if a later network request fails", async 
   view.unmount();
 });
 
-it("does not open a database while the feature is disabled", () => {
+it("does not open a database when the feature is disabled and has never been used", async () => {
   render(<OfflineProvider enabled={false}><Consumer /></OfflineProvider>);
+  await waitFor(() => expect(hasActivatedOfflineStorage).toHaveBeenCalled());
   expect(openOfflineSession).not.toHaveBeenCalled();
+});
+
+it("keeps an activated offline session synchronizing when a later build disables the flag", async () => {
+  jest.mocked(hasActivatedOfflineStorage).mockResolvedValue(true);
+  const offline = { identity: { environment: "production", workspaceId: 1, userId: 2 }, database: {} };
+  jest.mocked(openOfflineSession).mockResolvedValue(offline as never);
+  jest.mocked(synchronizeOfflineSession).mockResolvedValue();
+  jest.mocked(readSyncStatus).mockResolvedValue({ ready: true, pending: 1, failed: 0, review: 0, lastSuccessAt: null, upToDate: false });
+  const view = render(<OfflineProvider enabled={false}><Consumer /></OfflineProvider>);
+  await waitFor(() => expect(synchronizeOfflineSession).toHaveBeenCalled());
+  expect(screen.getByText("data-ready")).toBeTruthy();
+  view.unmount();
 });
 
 it("synchronizes once when connectivity returns, even if Android repeats the same network state", async () => {

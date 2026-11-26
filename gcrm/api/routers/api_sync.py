@@ -32,6 +32,7 @@ from gcrm.workspace_context import get_workspace_id
 router = APIRouter(prefix="/api/sync", tags=["mobile-sync"])
 _bootstrap_tokens = URLSafeTimedSerializer(JWT_SECRET, salt="mobile-sync-bootstrap-v1")
 MOBILE_SYNC_WRITES_ENABLED = os.getenv("MOBILE_SYNC_WRITES", "false").lower() == "true"
+MOBILE_SYNC_DRAIN_ENABLED = os.getenv("MOBILE_SYNC_DRAIN", "false").lower() == "true"
 logger = logging.getLogger(__name__)
 
 
@@ -41,6 +42,13 @@ def sync_identity(payload: dict = Depends(require_jwt_payload)):
     if user_id is None or workspace_id is None:
         raise HTTPException(403, "A personal account is required for sync")
     return {"user_id": user_id, "workspace_id": workspace_id}
+
+
+@router.get("/capabilities")
+def sync_capabilities(payload: dict = Depends(require_jwt_payload)):
+    if payload.get("uid") is None or get_workspace_id() is None or payload.get("sub") != "admin":
+        raise HTTPException(403, "An administrator account is required for offline changes")
+    return {"offline_writes_enabled": MOBILE_SYNC_WRITES_ENABLED}
 
 
 @router.post("/review-outcomes")
@@ -144,7 +152,7 @@ def push(batch: SyncPushBatch, payload: dict = Depends(require_jwt_payload)):
     user_id, workspace_id = payload.get("uid"), get_workspace_id()
     if user_id is None or workspace_id is None or payload.get("sub") != "admin":
         raise HTTPException(403, "An administrator account is required for offline changes")
-    if not MOBILE_SYNC_WRITES_ENABLED:
+    if not (MOBILE_SYNC_WRITES_ENABLED or MOBILE_SYNC_DRAIN_ENABLED):
         raise HTTPException(503, "Offline writes are not enabled on this server")
     outcomes = [_process_mutation(workspace_id, user_id, batch.server_environment, mutation)
                 for mutation in batch.mutations]

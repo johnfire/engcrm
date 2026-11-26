@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { AiBackends, API_BASE, fetchAiBackends, updateAiBackends, updateLanguage } from "../../services/api";
 import { clearToken, getRole } from "../../services/auth";
@@ -7,6 +7,9 @@ import { useTranslation } from "../../i18n/I18nContext";
 import { FieldModeCard } from "../../components/FieldModeCard";
 import { stopFieldMode } from "../../services/fieldMode";
 import { Language, SUPPORTED_LANGUAGES } from "../../i18n/translate";
+import { requestGuardedLogout } from "../../services/guarded-logout";
+import { useOffline } from "../../services/offline-context";
+import { OfflineEnrollmentCard } from "../../components/offline-enrollment-card";
 
 // Language names are shown in their own language regardless of the current
 // UI language — the whole point of a language picker is to stay legible to
@@ -16,6 +19,7 @@ const LANGUAGE_NAMES: Record<Language, string> = { en: "English", de: "Deutsch" 
 export default function SettingsScreen() {
   const router = useRouter();
   const { t, language, setLanguage } = useTranslation();
+  const offline = useOffline();
   const [role, setRole] = useState<string | null>(null);
   const [savingLanguage, setSavingLanguage] = useState(false);
   const [aiBackends, setAiBackends] = useState<AiBackends | null>(null);
@@ -33,11 +37,15 @@ export default function SettingsScreen() {
     try { await updateAiBackends(next); } catch { setAiBackends(previous); }
   }
 
-  async function handleLogout() {
+  async function finishLogout() {
     // Recording stops with the login it uploads under; what is queued is sent first.
     await stopFieldMode().catch(() => undefined);
     await clearToken();
     router.replace("/login");
+  }
+
+  async function handleLogout() {
+    await requestGuardedLogout(offline, t, finishLogout);
   }
 
   async function handleLanguageChange(next: Language) {
@@ -56,7 +64,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.label}>{t("settings.signedInAs")}</Text>
         <Text style={styles.value}>{role || "—"}</Text>
@@ -72,6 +80,7 @@ export default function SettingsScreen() {
         </View>
       </View>}
       <FieldModeCard />
+      {role === "admin" && <OfflineEnrollmentCard />}
       <View style={styles.card}>
         <Text style={styles.label}>{t("mfa.title")}</Text>
         <TouchableOpacity onPress={() => Linking.openURL(`${API_BASE}/settings/two-factor`)}>
@@ -110,7 +119,7 @@ export default function SettingsScreen() {
       >
         <Text style={styles.impressumText}>{t("settings.privacy")}</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 

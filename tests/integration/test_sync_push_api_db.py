@@ -13,6 +13,26 @@ from gcrm.db.connection import db
 pytestmark = [pytest.mark.integration, pytest.mark.security_boundary]
 
 
+def test_offline_capability_requires_an_administrator_and_tracks_enrollment(clean_database, monkeypatch):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id,role) VALUES "
+                       "('cap-admin@example.test','hash',%s,'admin'),('cap-viewer@example.test','hash',%s,'spectator') RETURNING id",
+                       (workspace, workspace))
+        admin, viewer = [row["id"] for row in cursor.fetchall()]
+    admin_headers = {"Authorization": f"Bearer {create_token('admin', user_id=admin)}"}
+    viewer_headers = {"Authorization": f"Bearer {create_token('spectator', user_id=viewer)}"}
+    with TestClient(app) as client:
+        assert client.get("/api/sync/capabilities").status_code == 401
+        assert client.get("/api/sync/capabilities", headers=viewer_headers).status_code == 403
+        monkeypatch.setattr(api_sync, "MOBILE_SYNC_WRITES_ENABLED", False)
+        assert client.get("/api/sync/capabilities", headers=admin_headers).json() == {"offline_writes_enabled": False}
+        monkeypatch.setattr(api_sync, "MOBILE_SYNC_WRITES_ENABLED", True)
+        assert client.get("/api/sync/capabilities", headers=admin_headers).json() == {"offline_writes_enabled": True}
+
+
 def test_push_batch_is_disabled_by_default_and_isolates_invalid_mutations(clean_database, monkeypatch):
     device_id = str(uuid4())
     with db() as connection:
@@ -58,6 +78,31 @@ def test_push_batch_is_disabled_by_default_and_isolates_invalid_mutations(clean_
         cursor = connection.cursor()
         cursor.execute("SELECT phone FROM contacts WHERE sync_id=%s", (sync_id,))
         assert cursor.fetchone()["phone"] == "123"
+
+
+def test_drain_mode_accepts_queued_edits_from_registered_devices(clean_database, monkeypatch):
+    device_id = str(uuid4())
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO users(email,password_hash,workspace_id) VALUES ('drain@example.test','hash',%s) RETURNING id", (workspace,))
+        user_id = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO mobile_sync_devices(workspace_id,user_id,device_id,server_environment,app_version,schema_version) "
+                       "VALUES (%s,%s,%s,'production','1',1)", (workspace, user_id, device_id))
+        cursor.execute("INSERT INTO contacts(name) VALUES ('Drain company') RETURNING sync_id")
+        sync_id = str(cursor.fetchone()["sync_id"])
+    mutation = {"mutation_id": str(uuid4()), "device_id": device_id, "entity_kind": "organization", "entity_sync_id": sync_id,
+                "operation": "update", "changed_at": datetime.now(UTC).isoformat(), "patch": {"phone": "123"}}
+    headers = {"Authorization": f"Bearer {create_token('admin', user_id=user_id)}"}
+    monkeypatch.setattr(api_sync, "MOBILE_SYNC_WRITES_ENABLED", False)
+    monkeypatch.setattr(api_sync, "MOBILE_SYNC_DRAIN_ENABLED", True)
+    with TestClient(app) as client:
+        response = client.post("/api/sync/push", headers=headers, json={"mutations": [mutation]})
+        assert response.status_code == 200 and response.json()["outcomes"][0]["status"] == "applied"
+        other = {**mutation, "device_id": str(uuid4()), "mutation_id": str(uuid4())}
+        response = client.post("/api/sync/push", headers=headers, json={"mutations": [other]})
+        assert response.json()["outcomes"][0]["status"] == "rejected_device"
 
 
 def test_review_outcomes_are_scoped_to_the_authenticated_device(clean_database):

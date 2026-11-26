@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useR
 import { AppState } from "react-native";
 
 import { openOfflineSession } from "./offline-session";
+import { hasActivatedOfflineStorage } from "./offline-activation";
 import { synchronizeOfflineSession } from "./offline-sync-session";
 import { createSyncCoordinator, type CoordinatorState } from "./sync-coordinator";
 import { readSyncStatus, type SyncStatus } from "./sync-status";
@@ -24,7 +25,7 @@ const OfflineContext = createContext<OfflineContextValue>(defaults);
 
 export function useOffline(): OfflineContextValue { return useContext(OfflineContext); }
 
-function EnabledProvider({ children }: { children: ReactNode }) {
+function EnabledProvider({ children, requireActivation = false }: { children: ReactNode; requireActivation?: boolean }) {
   const [session, setSession] = useState<OfflineSession | null>(null);
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [state, setState] = useState<OfflineContextValue["state"]>("opening");
@@ -46,7 +47,7 @@ function EnabledProvider({ children }: { children: ReactNode }) {
     let connected: boolean | null = null;
     let network: { remove(): void } | null = null;
     let foreground: { remove(): void } | null = null;
-    openOfflineSession().then(async (opened) => {
+    openOfflineSession(requireActivation).then(async (opened) => {
       if (!live) return;
       setSession(opened);
       const initialStatus = await readSyncStatus(opened.database);
@@ -75,12 +76,25 @@ function EnabledProvider({ children }: { children: ReactNode }) {
       network?.remove();
       foreground?.remove();
     };
-  }, [attempt]);
+  }, [attempt, requireActivation]);
 
   return <OfflineContext.Provider value={{ session, status, state, requestSync, refreshStatus, retryOpen }}>{children}</OfflineContext.Provider>;
 }
 
 export function OfflineProvider({ children, enabled = process.env.EXPO_PUBLIC_OFFLINE_CACHE === "true" }: { children: ReactNode; enabled?: boolean }) {
-  if (!enabled) return <OfflineContext.Provider value={defaults}>{children}</OfflineContext.Provider>;
-  return <EnabledProvider>{children}</EnabledProvider>;
+  const [recovery, setRecovery] = useState<"checking" | "active" | "inactive" | "error">("checking");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (enabled) return;
+    let active = true;
+    hasActivatedOfflineStorage().then((activated) => {
+      if (active) setRecovery(activated ? "active" : "inactive");
+    }).catch(() => { if (active) setRecovery("error"); });
+    return () => { active = false; };
+  }, [enabled, attempt]);
+  const retryOpen = () => { setRecovery("checking"); setAttempt((previous) => previous + 1); };
+  if (enabled || recovery === "active") return <EnabledProvider requireActivation={!enabled}>{children}</EnabledProvider>;
+  if (recovery === "inactive") return <OfflineContext.Provider value={{ ...defaults, retryOpen }}>{children}</OfflineContext.Provider>;
+  const state = recovery === "error" ? "error" : "opening";
+  return <OfflineContext.Provider value={{ ...defaults, state, retryOpen }}>{children}</OfflineContext.Provider>;
 }

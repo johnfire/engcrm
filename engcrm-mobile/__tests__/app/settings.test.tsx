@@ -1,5 +1,12 @@
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
-import { Linking } from "react-native";
+import { Alert, Linking } from "react-native";
+import { useOffline } from "../../services/offline-context";
+import { readSyncStatus } from "../../services/sync-status";
+import { activateOfflineStorage } from "../../services/offline-enrollment";
+
+jest.mock("../../services/offline-context", () => ({ useOffline: jest.fn() }));
+jest.mock("../../services/sync-status", () => ({ readSyncStatus: jest.fn() }));
+jest.mock("../../services/offline-enrollment", () => ({ activateOfflineStorage: jest.fn() }));
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -33,6 +40,11 @@ jest.mock("../../services/api", () => ({
 import SettingsScreen from "../../app/(drawer)/settings";
 import { I18nProvider } from "../../i18n/I18nContext";
 
+beforeEach(() => {
+  jest.mocked(useOffline).mockReturnValue({ session: null, status: null, state: "disabled", requestSync: jest.fn(),
+    refreshStatus: jest.fn(), retryOpen: jest.fn() });
+});
+
 describe("settings screen", () => {
   beforeEach(() => {
     mockReplace.mockClear();
@@ -52,6 +64,33 @@ describe("settings screen", () => {
     // Field mode stops (and sends its queue) while the login it uploads under still works.
     expect(mockStopFieldMode).toHaveBeenCalled();
     expect(mockStopFieldMode.mock.invocationCallOrder[0]).toBeLessThan(mockClearToken.mock.invocationCallOrder[0]);
+  });
+
+  it("protects unsent offline edits when signing out from Settings", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    jest.mocked(useOffline).mockReturnValue({ session: { database: {} } as never, status: null, state: "idle",
+      requestSync: jest.fn(), refreshStatus: jest.fn(), retryOpen: jest.fn() });
+    jest.mocked(readSyncStatus).mockResolvedValue({ ready: true, pending: 1, failed: 0, review: 0, lastSuccessAt: null, upToDate: false });
+    const view = render(<SettingsScreen />);
+    fireEvent.press(view.getByText("Log out"));
+    await waitFor(() => expect(alert).toHaveBeenCalled());
+    expect(mockClearToken).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls[0][2]!;
+    buttons.find((button) => button.text === "Sign out and keep edits")!.onPress!();
+    await waitFor(() => expect(mockClearToken).toHaveBeenCalledTimes(1));
+    alert.mockRestore();
+  });
+
+  it("lets an admin opt in to offline mode when the server permits it", async () => {
+    const retryOpen = jest.fn();
+    jest.mocked(useOffline).mockReturnValue({ session: null, status: null, state: "disabled", requestSync: jest.fn(),
+      refreshStatus: jest.fn(), retryOpen });
+    jest.mocked(activateOfflineStorage).mockResolvedValue();
+    const view = render(<SettingsScreen />);
+    await waitFor(() => expect(view.getByText("Enable offline mode")).toBeTruthy());
+    fireEvent.press(view.getByText("Enable offline mode"));
+    await waitFor(() => expect(activateOfflineStorage).toHaveBeenCalled());
+    await waitFor(() => expect(retryOpen).toHaveBeenCalled());
   });
 
   it("opens the Impressum page in the browser", async () => {

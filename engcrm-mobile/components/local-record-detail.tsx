@@ -6,6 +6,7 @@ import { useLocalSnapshot } from "../hooks/useLocalSnapshot";
 import { useAdminRole } from "../services/use-admin-role";
 import { LocalDealCard } from "./local-deal-card";
 import { LocalRatings } from "./local-ratings";
+import { LocalActivityEntry } from "./local-activity-entry";
 
 type Kind = "person" | "organization";
 
@@ -32,6 +33,11 @@ export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string
     })}><Text style={styles.pending}>{t("recordForm.edit")}</Text></TouchableOpacity>}
     {(item.pendingCount > 0 || item.failedCount > 0) && <Text style={styles.pending}>
       {t(item.failedCount > 0 ? "offlineDetail.failed" : "offlineDetail.pending")}</Text>}
+    {item.serverId !== null && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({
+      pathname: kind === "person" ? "/(drawer)/person-detail" : "/(drawer)/organization-detail",
+      params: { id: String(item.serverId) },
+    })}><Text style={styles.pending}>{t("offlineDetail.moreOnline")}</Text></TouchableOpacity>}
+    {item.serverId !== null && item.pendingCount > 0 && <Text style={styles.label}>{t("offlineDetail.onlineStale")}</Text>}
     {admin && <TouchableOpacity accessibilityRole="button" onPress={() => router.push({ pathname: "/(drawer)/log-meeting",
       params: { kind, sync_id: syncId, name: String(item.fields.name ?? "") } })}>
       <Text style={styles.pending}>{t("meeting.logButton")}</Text></TouchableOpacity>}
@@ -51,10 +57,8 @@ export function LocalRecordDetail({ kind, syncId }: { kind: Kind; syncId: string
         params: { offline_create: "1", organization_sync_id: syncId } })}><Text style={styles.pending}>{t("recordForm.addPerson")}</Text></TouchableOpacity>}
     </>}
     <Text style={styles.heading}>{t("offlineDetail.history")}</Text>
-    {history.length ? history.map((entry) => <View key={entry.syncId} style={styles.section}>
-      <Text style={styles.label}>{String(entry.fields.occurred_at ?? entry.fields.interaction_date ?? "")}</Text>
-      <Text style={styles.text}>{String(entry.fields.note ?? entry.fields.summary ?? "")}</Text>
-    </View>) : <Text style={styles.label}>{t("activity.empty")}</Text>}
+    {history.length ? history.map((entry) => <LocalActivityEntry key={entry.syncId} record={entry} owner={kind} />)
+      : <Text style={styles.label}>{t("activity.empty")}</Text>}
   </ScrollView>;
 }
 
