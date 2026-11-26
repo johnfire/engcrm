@@ -18,3 +18,8 @@ b4106be6c94b036c0728fc08d0eef4fd05001983:docs/agent-memory-integration.md:jwt:34
 # Used only in deterministic unit tests, never an account credential. Limit the
 # exception to this exact historical finding; future credentials still fail.
 f07901541bc1f00a8b28d3d65d2ed725cd383696:tests/test_mfa.py:generic-api-key:19
+
+# A made-up 21-character password that tests/test_users_admin.py types into the admin
+# "add user" form (the new 12-character minimum rejected the old 9-character one). Not a
+# credential for anything. Limit the exception to this exact finding.
+ccb651bd3f446852aa08637fb42ef434f93440cf:tests/test_users_admin.py:generic-api-key:39
