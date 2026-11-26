@@ -121,6 +121,12 @@ export async function stopFieldMode(): Promise<void> {
   await flushQueue(); // what was recorded still goes to the server
 }
 
+/** Forget the queued points and the auto-off clock without sending anything: a different
+ *  account is signing in, and these points belong to the one before. */
+export async function clearFieldData(): Promise<void> {
+  await AsyncStorage.multiRemove([QUEUE_KEY, STARTED_KEY]);
+}
+
 export async function isFieldModeOn(): Promise<boolean> {
   return Location.hasStartedLocationUpdatesAsync(FIELD_TASK).catch(() => false);
 }

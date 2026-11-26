@@ -16,6 +16,7 @@ import * as ExpoLocation from "expo-location";
 const mockLocation = ExpoLocation as unknown as Record<string, jest.Mock>;
 
 import {
+  clearFieldData,
   enqueue,
   FIELD_TASK,
   fieldModeEndsAt,
@@ -118,4 +119,14 @@ it("turning it off stops recording and sends what is queued", async () => {
   await stopFieldMode();
   expect(mockLocation.stopLocationUpdatesAsync).toHaveBeenCalledWith(FIELD_TASK);
   expect(await queued()).toEqual([]);
+});
+
+it("forgets queued points and the auto-off clock without sending them", async () => {
+  mockLocation.requestForegroundPermissionsAsync.mockResolvedValue({ granted: true });
+  await startFieldMode({ title: "t", body: "b" });
+  await enqueue(toPoints([fix(0), fix(5)]));
+  await clearFieldData();
+  expect(await queued()).toEqual([]);
+  expect(await fieldModeEndsAt()).toBeNull();
+  expect(mockPost).not.toHaveBeenCalled();
 });

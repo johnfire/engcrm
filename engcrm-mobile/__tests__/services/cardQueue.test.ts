@@ -1,24 +1,26 @@
 const mockStorage = new Map<string, string>();
 const mockCaptureCard = jest.fn();
+const mockDeletedFiles: string[] = [];
 const mockCaptureDocument = jest.fn();
 jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: async (key: string) => mockStorage.get(key) ?? null,
   setItem: async (key: string, value: string) => { mockStorage.set(key, value); },
+  removeItem: async (key: string) => { mockStorage.delete(key); },
 }));
 jest.mock("expo-file-system", () => ({
   Paths: { document: "file:///documents" },
   Directory: class { exists = true; create() {} },
   File: class {
     uri: string; exists = false;
-    constructor(_directory: unknown, name?: string) { this.uri = `file:///documents/${name}`; }
-    copy() {} delete() {}
+    constructor(directoryOrUri: unknown, name?: string) { this.uri = name === undefined ? String(directoryOrUri) : `file:///documents/${name}`; }
+    copy() {} delete() { mockDeletedFiles.push(this.uri); }
   },
 }));
 jest.mock("../../services/api", () => ({ captureCard: (...args: unknown[]) => mockCaptureCard(...args) }));
 jest.mock("../../services/documentApi", () => ({ captureDocument: (...args: unknown[]) => mockCaptureDocument(...args) }));
-import { enqueue, flush, pendingCount } from "../../services/cardQueue";
+import { clearCardQueue, enqueue, flush, pendingCount } from "../../services/cardQueue";
 
-beforeEach(() => { mockStorage.clear(); jest.clearAllMocks(); });
+beforeEach(() => { mockStorage.clear(); mockDeletedFiles.length = 0; jest.clearAllMocks(); });
 
 it("retries document photos with the original batch ID and capture mode", async () => {
   mockCaptureDocument.mockResolvedValue({ is_document: true });
@@ -55,4 +57,14 @@ it("keeps a new offline photo queued while an earlier upload is flushing", async
   await savingNext;
   expect(await pendingCount()).toBe(1);
   expect(JSON.parse(mockStorage.get("card_upload_queue_v1")!)[0].id).toBe("second");
+});
+
+it("clearCardQueue deletes the queued photos and empties the index without uploading", async () => {
+  await enqueue("one.jpg", "card", "one");
+  await enqueue("two.jpg", "document", "two");
+  await clearCardQueue();
+  expect(await pendingCount()).toBe(0);
+  expect(mockDeletedFiles.sort()).toEqual(["file:///documents/one.jpg", "file:///documents/two.jpg"]);
+  expect(mockCaptureCard).not.toHaveBeenCalled();
+  expect(mockCaptureDocument).not.toHaveBeenCalled();
 });

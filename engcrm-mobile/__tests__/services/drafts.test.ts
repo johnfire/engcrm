@@ -5,12 +5,14 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
     getItem: jest.fn(async (k: string) => (k in store ? store[k] : null)),
     setItem: jest.fn(async (k: string, v: string) => { store[k] = v; }),
     removeItem: jest.fn(async (k: string) => { delete store[k]; }),
+    getAllKeys: jest.fn(async () => Object.keys(store)),
+    multiRemove: jest.fn(async (keys: string[]) => { keys.forEach((k) => { delete store[k]; }); }),
   },
 }));
 import AsyncStorage from "@react-native-async-storage/async-storage";
 const mockStorage = AsyncStorage as unknown as { getItem: jest.Mock; setItem: jest.Mock; removeItem: jest.Mock };
 
-import { clearDraft, loadDraft, saveDraft } from "../../services/drafts";
+import { clearAllDrafts, clearDraft, loadDraft, saveDraft } from "../../services/drafts";
 import { notifyChanged, onChanged, organizationKey, personKey } from "../../services/refreshBus";
 
 const draft = {
@@ -94,5 +96,15 @@ describe("refreshBus", () => {
 
   it("notifying a key nobody watches is harmless", () => {
     expect(() => notifyChanged("nobody")).not.toThrow();
+  });
+});
+
+describe("clearAllDrafts", () => {
+  it("removes every meeting draft and leaves other stored values alone", async () => {
+    store["meeting_draft_v1:organization:4"] = JSON.stringify({ note: "a" });
+    store["meeting_draft_v1:person:9"] = JSON.stringify({ note: "b" });
+    store["list_sort_v1:contacts"] = "keep me";
+    await clearAllDrafts();
+    expect(Object.keys(store)).toEqual(["list_sort_v1:contacts"]);
   });
 });

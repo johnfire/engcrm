@@ -14,6 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { API_BASE, fetchMe, login } from "../services/api";
 import { saveToken } from "../services/auth";
+import { recordSignIn } from "../services/session-end";
 import { useTranslation } from "../i18n/I18nContext";
 import { isSupportedLanguage } from "../i18n/translate";
 
@@ -31,6 +32,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const { token, role, server } = await login(email.trim(), password, mfaCode.trim());
+      await recordSignIn(email); // queued captures of a different account are removed first
       await saveToken(token, role, server);
       // Best-effort — apply the account's language immediately rather than
       // waiting for the next foreground/cold-start sync cycle.

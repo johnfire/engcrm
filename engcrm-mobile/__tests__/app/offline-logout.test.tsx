@@ -27,6 +27,7 @@ it("asks before signing out with pending changes and keeps local data", async ()
   expect(clearToken).not.toHaveBeenCalled();
   const buttons = alert.mock.calls[0][2]!;
   await buttons.find((button) => button.text === "Sign out and keep edits")!.onPress!();
-  expect(clearToken).toHaveBeenCalledTimes(1);
+  // Signing out now stops field mode first, so the token is cleared a few async steps later.
+  await waitFor(() => expect(clearToken).toHaveBeenCalledTimes(1));
   alert.mockRestore();
 });

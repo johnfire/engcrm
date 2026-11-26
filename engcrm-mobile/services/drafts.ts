@@ -58,3 +58,9 @@ export async function clearDraft(key: string): Promise<void> {
     // nothing to do
   }
 }
+
+/** Remove every unsent meeting draft (a different account is signing in). */
+export async function clearAllDrafts(): Promise<void> {
+  const keys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(PREFIX));
+  if (keys.length) await AsyncStorage.multiRemove(keys);
+}

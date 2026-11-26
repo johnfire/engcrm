@@ -1,6 +1,6 @@
 import axios from "axios";
 import { router } from "expo-router";
-import { clearToken, getSession } from "./auth";
+import { getSession } from "./auth";
 import { SaleStatus } from "./saleStatus";
 import { Server, serverForEmail } from "./reviewer-routing";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
@@ -44,7 +44,11 @@ client.interceptors.response.use(
     const url: string = error?.config?.url ?? "";
     if (status === 401 && !url.includes("/api/auth/token") && !redirectingToLogin) {
       redirectingToLogin = true;
-      await clearToken();
+      // Required here, not imported at the top: session-end reaches field mode, which
+      // imports this file, so a top-level import would be a cycle.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { endSession } = require("./session-end") as typeof import("./session-end");
+      await endSession();
       router.replace("/login");
     }
     return Promise.reject(error);

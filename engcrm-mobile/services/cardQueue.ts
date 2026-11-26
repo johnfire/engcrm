@@ -104,3 +104,18 @@ function mutateQueue<T>(mutation: () => Promise<T>): Promise<T> {
 export function enqueue(imageUri: string, kind: "card" | "document" = "card", batchId?: string): Promise<void> {
   return mutateQueue(() => persistQueuedPhoto(imageUri, kind, batchId));
 }
+
+/** Delete every queued photo and empty the index without uploading (a different account
+ *  is signing in). Runs through the same queue as flush and enqueue, so it cannot race them. */
+export function clearCardQueue(): Promise<void> {
+  return mutateQueue(async () => {
+    for (const entry of await readIndex()) {
+      try {
+        new File(entry.uri).delete();
+      } catch {
+        // file already gone — ignore
+      }
+    }
+    await AsyncStorage.removeItem(QUEUE_KEY);
+  });
+}

@@ -7,7 +7,7 @@ import {
 import { useEffect } from "react";
 import { AppState, TouchableOpacity, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { clearToken } from "../../services/auth";
+import { endSession } from "../../services/session-end";
 import { useTranslation } from "../../i18n/I18nContext";
 import { OfflineProvider, useOffline } from "../../services/offline-context";
 import { OfflineStatus } from "../../components/offline-status";
@@ -18,7 +18,7 @@ export function LogoutButton() {
   const { t } = useTranslation();
   const offline = useOffline();
   async function finishLogout() {
-    await clearToken();
+    await endSession();
     router.replace("/login");
   }
   async function handleLogout() {

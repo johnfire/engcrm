@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { AiBackends, API_BASE, fetchAiBackends, updateAiBackends, updateLanguage } from "../../services/api";
-import { clearToken, getRole } from "../../services/auth";
+import { getRole } from "../../services/auth";
+import { endSession } from "../../services/session-end";
 import { useTranslation } from "../../i18n/I18nContext";
 import { FieldModeCard } from "../../components/FieldModeCard";
-import { stopFieldMode } from "../../services/fieldMode";
 import { Language, SUPPORTED_LANGUAGES } from "../../i18n/translate";
 import { requestGuardedLogout } from "../../services/guarded-logout";
 import { useOffline } from "../../services/offline-context";
@@ -38,9 +38,7 @@ export default function SettingsScreen() {
   }
 
   async function finishLogout() {
-    // Recording stops with the login it uploads under; what is queued is sent first.
-    await stopFieldMode().catch(() => undefined);
-    await clearToken();
+    await endSession(); // stops field mode (sending what is queued), then clears the token
     router.replace("/login");
   }
 
