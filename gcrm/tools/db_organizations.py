@@ -20,6 +20,7 @@ from gcrm.tools.db_approvals import ensure_consent_log
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, organization_deal_join, set_organization_deal
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
+from gcrm.tools.like import escape_like
 from gcrm.tools.search import geocode
 from gcrm.workspace_context import get_workspace_id
 
@@ -483,8 +484,8 @@ def match_organization_by_email(from_email: str) -> dict | None:
         domain = from_email.split("@")[-1].lower() if "@" in from_email else ""
         if domain and domain not in FREEMAIL_DOMAINS:
             cur.execute(
-                f"{ORGANIZATION_SELECT} WHERE lower(c.email) LIKE lower(%s) LIMIT 1",
-                (f"%@{domain}",),
+                f"{ORGANIZATION_SELECT} WHERE lower(c.email) LIKE lower(%s) ESCAPE '!' LIMIT 1",
+                (f"%@{escape_like(domain)}",),
             )
             row = cur.fetchone()
             if row:

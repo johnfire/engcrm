@@ -4,7 +4,8 @@ A connector (Claude, set up once on claude.ai) sends `Authorization: Bearer <tok
 every request. Only a SHA-256 of the token is stored, so a database dump cannot be used
 to connect; the token itself is shown once, when it is made (scripts/mcp_token.py), and
 pasted into the connector's request header. A token acts as one user, in that user's
-workspace, and stops working when revoked or when the user is deactivated.
+workspace, and stops working when revoked, when the user is deactivated, or when the user is not an
+admin (the field tools write shared CRM data, which a read-only role may not).
 """
 import hashlib
 import secrets
@@ -39,6 +40,7 @@ def verify_token(token: str) -> dict | None:
         cur.execute(
             "UPDATE mcp_tokens t SET last_used_at = NOW() FROM users u "
             "WHERE t.token_sha256 = %s AND t.revoked_at IS NULL AND u.id = t.user_id AND u.is_active "
+            "AND u.role = 'admin' "
             "RETURNING t.id AS token_id, u.id AS user_id, u.workspace_id",
             (_sha256(token),),
         )

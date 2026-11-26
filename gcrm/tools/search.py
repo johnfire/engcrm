@@ -339,7 +339,9 @@ def is_public_http_url(url: str) -> bool:
         return False
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
-        if (ip.is_private or ip.is_loopback or ip.is_link_local
+        # is_global is False for ranges the other flags miss, such as 100.64.0.0/10 (carrier-grade
+        # NAT, used by Tailscale) and 198.18.0.0/15.
+        if (not ip.is_global or ip.is_private or ip.is_loopback or ip.is_link_local
                 or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
             return False
     return True

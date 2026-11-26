@@ -13,6 +13,7 @@ from gcrm.config import CARD_IMAGE_DIR
 from gcrm.json_parsing import parse_llm_json
 from gcrm.prompts.cards import CARD_SYSTEM_PROMPT
 from gcrm.tools.email_domains import FREEMAIL_DOMAINS
+from gcrm.tools.like import escape_like
 
 logger = logging.getLogger(__name__)
 
@@ -142,8 +143,8 @@ def find_possible_duplicate(fields: dict) -> dict | None:
             domain = email.split("@")[-1].lower() if "@" in email else ""
             if domain and domain not in FREEMAIL_DOMAINS:
                 cur.execute(
-                    f"SELECT {cols} FROM contacts WHERE lower(email) LIKE %s AND deleted_at IS NULL LIMIT 1",
-                    (f"%@{domain}",),
+                    f"SELECT {cols} FROM contacts WHERE lower(email) LIKE %s ESCAPE '!' AND deleted_at IS NULL LIMIT 1",
+                    (f"%@{escape_like(domain)}",),
                 )
                 row = cur.fetchone()
                 if row:

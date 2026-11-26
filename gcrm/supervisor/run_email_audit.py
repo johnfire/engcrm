@@ -24,6 +24,7 @@ from gcrm.config import (
 )
 from gcrm.supervisor.logging_setup import configure_logging
 from gcrm.tools.db_deals import organization_deal_join, set_organization_deal
+from gcrm.tools.email import _starttls_context
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ def fetch_sent_recipients(imap_host: str, imap_port: int, username: str, passwor
     """Return all unique recipient email addresses from the Sent folder."""
     logger.info("Connecting to IMAP at %s:%d", imap_host, imap_port)
     m = imaplib.IMAP4(imap_host, imap_port)
+    m.starttls(ssl_context=_starttls_context(imap_host))  # never send the mail password in clear
     m.login(username, password)
     m.select("Sent", readonly=True)
 
