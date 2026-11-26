@@ -261,3 +261,22 @@ upgrade (read the versioned Expo docs first, per `engcrm-mobile/AGENTS.md`). The
 **Known limits of SHA pinning.** A pin freezes what the tag pointed to on 26 Nov; it does not prove that
 commit was clean. Dependabot (already configured for github-actions) will propose updates and reads the
 trailing `# vX` comment.
+
+### Also done later on 26 Nov (from the deferred table)
+
+| Item | Commit subject |
+| --- | --- |
+| CSV formula neutraliser sign+digit bypass | "Close the CSV formula bypass in exported backups" (plain arithmetic like `-2+3` still passes: the DB test expects it, and with no letters or `|` it cannot run anything) |
+| bcrypt 72-byte reset burn, admin password length, login timing for unknown accounts, `X-Request-ID` sanitising | "Account hygiene: ..." |
+| SSRF non-global ranges, LIKE escaping of the domain fallbacks, connector tokens admin-only, audit-script TLS | "Hardening: SSRF ranges, ..." |
+| Android backup rules (RKStorage, card-queue) and overlay permission | "Mobile: keep plain app storage ..." |
+| Crawl4AI fetcher applies the public-address rule to the URL it is given | "Apply the public-address rule in the Crawl4AI fetcher" (redirects and subresources the browser follows later are still unchecked; the package is not installed) |
+
+**Still open** (needs a decision, an operator, or a bigger design): Open Brain key rotation; Maps key
+restrictions; `ADMIN_PASSWORD`; Apache body limit and `X-Forwarded-For`; branch protection; host
+fingerprint secret; zod exception (expires 2026-12-05); real people's data in the public repo;
+suppression for people/addresses and the curiosity-email opt-out line; encrypted or link-only backups
+and off-host dumps; DNS pinning and response-size caps in the fetcher; forgot-password response timing
+(SMTP work only for real accounts); the generated password shown via the session cookie; server-side
+revocation on mobile sign-out; deep-link id validation; unfenced untrusted text in some prompts;
+`db`/`db-backup` container hardening and log limits; `confirm_sign` status/link validation.

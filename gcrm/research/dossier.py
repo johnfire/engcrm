@@ -281,6 +281,12 @@ class Crawl4AIFetcher:
     def fetch_page(self, url: str) -> FetchedPage | None:
         if not self.available:
             return None
+        # A headless browser reaches whatever the URL names, so apply the same public-address
+        # rule as the plain fetchers before it is launched (contact websites come from search
+        # results, model output and typed input).
+        if not is_public_http_url(url):
+            logger.warning("Crawl4AI refused a non-public URL: %s", url)
+            return None
         cached = _cache_get(url)
         if cached:
             return cached
