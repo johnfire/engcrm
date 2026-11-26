@@ -145,6 +145,7 @@
   "common.pageOf": "Page {{page}} of {{totalPages}}",
   "common.never": "never",
   "common.passwordTooShort": "Use a password with at least 12 characters.",
+  "common.passwordTooLong": "Use a password of at most 72 bytes (about 72 characters; accented letters count double).",
   "nav.brand": "AI-CRM Leads",
   "nav.approvals": "Approvals",
   "nav.organizations": "Organizations",

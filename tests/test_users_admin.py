@@ -36,7 +36,7 @@ def test_add_user_creates_and_redirects(admin_session):
          patch("gcrm.api.routers.users.create_user", return_value=1) as mc:
         r = client.post(
             "/users/add",
-            data={"email": "A@B.com", "name": "A", "role": "admin", "password": "secret123"},
+            data={"email": "A@B.com", "name": "A", "role": "admin", "password": "secret123-long-enough"},
             follow_redirects=False,
         )
     assert r.status_code == 303

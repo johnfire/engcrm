@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -102,6 +103,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="EngCRM Supervisor", docs_url=None, redoc_url=None, lifespan=lifespan)
+REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,64}")
 AUTHENTICATION_PATHS = frozenset({"/login", "/logout", "/signup", "/forgot-password", "/reset-password"})
 for handler in logging.getLogger().handlers:
     handler.addFilter(CorrelationIdFilter())
@@ -123,7 +125,9 @@ async def add_correlation_id(request: Request, call_next):
     in user's account-level preference (set on login) simply overwrites it
     the moment they authenticate.
     """
-    correlation_id = request.headers.get("x-request-id") or uuid4().hex[:16]
+    supplied = request.headers.get("x-request-id", "")
+    # Echoed in responses and written to audit records: accept only a short, plain token.
+    correlation_id = supplied if REQUEST_ID.fullmatch(supplied) else uuid4().hex[:16]
     request.state.correlation_id = correlation_id
     session = request.session
     lang = request.query_params.get("lang")

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_admin
-from gcrm.api.security import hash_password
+from gcrm.api.security import hash_password, password_problem
 from gcrm.api.templates import templates
 from gcrm.i18n import DEFAULT_LANGUAGE
 from gcrm.i18n import translate as t
@@ -25,6 +25,7 @@ from gcrm.tools.db import (
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 
 ROLES = ["admin", "spectator"]
+_PASSWORD_MESSAGES = {"short": "common.passwordTooShort", "long": "common.passwordTooLong"}
 
 
 def _lang(request: Request) -> str:
@@ -67,6 +68,9 @@ def add_user(
     if get_user_by_email(email):
         _flash(request, error=t("users.emailAlreadyExists", lang, email=email))
         return RedirectResponse("/users/", status_code=303)
+    if password.strip() and (problem := password_problem(password.strip())):
+        _flash(request, error=t(_PASSWORD_MESSAGES[problem], lang))
+        return RedirectResponse("/users/", status_code=303)
     pw = password.strip() or _generate_password()
     try:
         create_user(email, hash_password(pw), role=role, name=name.strip())
@@ -82,6 +86,9 @@ def add_user(
 def reset_password(request: Request, email: str = Form(...), password: str = Form("")):
     email = email.strip().lower()
     lang = _lang(request)
+    if password.strip() and (problem := password_problem(password.strip())):
+        _flash(request, error=t(_PASSWORD_MESSAGES[problem], lang))
+        return RedirectResponse("/users/", status_code=303)
     pw = password.strip() or _generate_password()
     if not set_user_password(email, hash_password(pw)):
         _flash(request, error=t("users.noSuchUser", lang, email=email))

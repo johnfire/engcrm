@@ -5,10 +5,28 @@ import hashlib
 import bcrypt
 from cryptography.fernet import Fernet
 
+MIN_PASSWORD_CHARS = 12
+MAX_PASSWORD_BYTES = 72  # bcrypt refuses anything longer
+
+
+def password_problem(password: str) -> str | None:
+    """None if the password is acceptable, else "short" or "long"."""
+    if len(password) < MIN_PASSWORD_CHARS:
+        return "short"
+    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        return "long"
+    return None
+
 
 def hash_password(password: str) -> str:
     """Return a bcrypt hash (salt included) suitable for storage."""
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+# A real bcrypt hash at the normal cost. Login checks a submitted password against it when the
+# account is missing or disabled, so every attempt costs the same time and the response time
+# does not reveal which emails have accounts.
+DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"dummy-password-for-timing", bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, password_hash: str) -> bool:

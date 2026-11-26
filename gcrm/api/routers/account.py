@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.routers.backups import _workspace_id as _backup_workspace_id
 from gcrm.api.routers.backups import backup_context
-from gcrm.api.security import hash_password, verify_password
+from gcrm.api.security import hash_password, password_problem, verify_password
 from gcrm.api.templates import templates
 from gcrm.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from gcrm.i18n import translate as t
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["account"])
 
 
+_PASSWORD_MESSAGES = {"short": "common.passwordTooShort", "long": "common.passwordTooLong"}
 BACKUP_MESSAGES = {"saved": "backup.saved", "sent": "backup.sent", "link": "backup.sentLink",
                    "failed": "backup.failed"}
 
@@ -50,9 +51,10 @@ def signup_submit(
 ):
     """Create an account only after atomically consuming its invitation."""
     normalized_email = email.strip().lower()
-    if len(password) < 12:
+    problem = password_problem(password)
+    if problem:
         return templates.TemplateResponse(
-            "signup.html", {"request": request, "error": t("common.passwordTooShort", _lang(request))},
+            "signup.html", {"request": request, "error": t(_PASSWORD_MESSAGES[problem], _lang(request))},
             status_code=400,
         )
     try:
@@ -106,8 +108,9 @@ def change_password(
     user = get_user_by_email(email)
     if not user or not verify_password(current_password, user["password_hash"]):
         return _settings_response(request, error=t("settings.currentPasswordIncorrect", _lang(request)), status_code=400)
-    if len(new_password) < 12:
-        return _settings_response(request, error=t("common.passwordTooShort", _lang(request)), status_code=400)
+    problem = password_problem(new_password)
+    if problem:
+        return _settings_response(request, error=t(_PASSWORD_MESSAGES[problem], _lang(request)), status_code=400)
     set_user_password(email, hash_password(new_password))
     log_audit(email, "user", "account.password_changed", f"user:{user['id']}", "success", request.state.correlation_id)
     request.session.clear()

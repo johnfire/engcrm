@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.rate_limit import rate_limit_auth
-from gcrm.api.security import hash_password, verify_password
+from gcrm.api.security import DUMMY_PASSWORD_HASH, hash_password, password_problem, verify_password
 from gcrm.api.templates import templates
 from gcrm.audit_context import set_audit_context
 from gcrm.config import APP_PUBLIC_URL
@@ -61,7 +61,12 @@ def authenticate(email: str, password: str, user: dict | None) -> dict | None:
     Password-stage identity only; routes must use authenticate_login before
     issuing credentials so an enabled second factor cannot be bypassed.
     """
-    if user and user.get("is_active") and verify_password(password, user["password_hash"]):
+    if user and user.get("is_active"):
+        password_ok = verify_password(password, user["password_hash"])
+    else:
+        verify_password(password, DUMMY_PASSWORD_HASH)  # same work as a real check, see security.py
+        password_ok = False
+    if password_ok:
         return {
             "role": user["role"], "user_id": user["id"], "email": user["email"],
             "token_version": user.get("token_version", 0),
@@ -125,8 +130,8 @@ def request_password_reset(email: str) -> None:
 def complete_password_reset(token: str, new_password: str) -> bool:
     """Consume a reset token and set the new password. False if the token is
     missing/expired/already used, or the password fails the length policy."""
-    if len(new_password) < 12:
-        return False
+    if password_problem(new_password):
+        return False  # checked before the link is used up: a refused password must not burn it
     user_id = consume_password_reset_token(token)
     if user_id is None:
         return False
