@@ -231,3 +231,33 @@ callers' body size changes); `outreach_guard.py`; the sync protocol; any migrati
 Step 0 now (in parallel with code). Then 1 → 2 → 3 → 4 → 5, one commit each. Fix 1 is minutes
 and restores the opt-out path; fix 3 needs the Apache answer only for how it is described, not
 to build.
+
+## Status — 26 Nov 2026 (end of day)
+
+| Fix | State |
+| --- | --- |
+| 1 inbox parser | Built, committed (461e026), not pushed |
+| 2 dossier GET | Built, committed (4e0ba3c), not pushed |
+| 3 body cap + forwarded address | Built, committed (28d49a3), not pushed. JSON limit is 16 MiB, not the 4 MiB first proposed: a maximal sync push is about 8 MB |
+| 4 mobile sign-out | Built, committed (cf67412), not pushed; not yet checked on a phone |
+| 5 pipeline | Part 1 (all 40 `uses:` lines pinned to commit SHAs, tag kept as a comment; `_layout_audit` in `.dockerignore`) built. Part 2 (host fingerprint) and part 3 (zod) need Chris, see below |
+
+**Fix 5, part 2 — host fingerprint (Chris).** Confirmed from the pinned action's `action.yml`: the input is
+`fingerprint` ("SHA256 fingerprint of the host public key ... to prevent MITM attacks"); without it the
+action does no host-key check. It is deliberately **not** added yet: referencing a secret that does not
+exist would pass an empty value. To finish: run `ssh-keyscan -t ed25519 <vps-host> | ssh-keygen -lf -`,
+store the `SHA256:...` value as the repository secret `VPS_HOST_FINGERPRINT`, then add
+`fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}` under `with:` of the "Deploy to VPS" step in
+`backend.yml`, and watch one deploy.
+
+**Fix 5, part 3 — zod exception expiring 2026-12-05 (Chris decides).** Re-checked: `npm audit --omit=dev`
+still reports zod 3.25.76 (GHSA-mrhx-c7xc-m3w5, fixed in zod 4.6.6) only through `expo@56` → `@expo/cli`;
+the only fix npm offers is Expo 58.0.26, a major SDK upgrade. The exception's reason is still accurate
+(development-tool copy). Options: (a) renew the exception to a new date in
+`scripts/security/mobile-dependency-policy.json` with the reason re-confirmed; (b) schedule the Expo 58
+upgrade (read the versioned Expo docs first, per `engcrm-mobile/AGENTS.md`). The bundle-exclusion gate
+(`check-mobile-bundle.mjs`) was not re-run in this pass.
+
+**Known limits of SHA pinning.** A pin freezes what the tag pointed to on 26 Nov; it does not prove that
+commit was clean. Dependabot (already configured for github-actions) will propose updates and reads the
+trailing `# vX` comment.

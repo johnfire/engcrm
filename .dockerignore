@@ -17,3 +17,4 @@ build
 *.jks
 *.keystore
 *.pem
+gcrm/ui/static/_layout_audit
