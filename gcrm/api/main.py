@@ -54,6 +54,7 @@ from gcrm.api.routers import (
     forecast,
     help,
     inbox,
+    income_calculator,
     legal,
     marketing,
     offers,
@@ -175,6 +176,7 @@ app.include_router(legal.router)
 app.include_router(account.router)
 app.include_router(backups.router)
 app.include_router(forecast.router)
+app.include_router(income_calculator.router)
 app.include_router(two_factor.router)
 app.include_router(approval.router)
 app.include_router(offline_changes.router)

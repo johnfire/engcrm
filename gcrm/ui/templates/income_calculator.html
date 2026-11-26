@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ t('incomeCalc.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}income-calculator-page{% endblock %}
+
+{% macro money(name) %}
+<label for="{{ name }}">{{ t('incomeCalc.f.' ~ name) }}<small>{{ t('incomeCalc.f.' ~ name ~ 'Hint') }}</small></label>
+<div class="income-calculator-money"><span aria-hidden="true">€</span><input id="{{ name }}" name="{{ name }}" inputmode="decimal" autocomplete="off" value="{{ values.get(name, '0') }}"></div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('incomeCalc.title') }}</h1>
+  <span class="muted">{{ t('incomeCalc.intro') }} <span class="badge">2026</span></span>
+</div>
+
+<section class="income-calculator-notice" aria-label="{{ t('incomeCalc.noticeLabel') }}">
+  <strong>{{ t('incomeCalc.noticeTitle') }}</strong> <span>{{ t('incomeCalc.notice') }}</span>
+</section>
+
+<div class="income-calculator-workspace">
+  <section class="detail-section income-calculator-inputs">
+    <h2>{{ t('incomeCalc.inputsTitle') }}</h2>
+    <p class="muted small">{{ t('incomeCalc.inputsHint') }}</p>
+    {% if error %}<div class="income-calculator-error" role="alert">{{ t('incomeCalc.error') }}</div>{% endif %}
+    <form method="post" action="/income-calculator" autocomplete="off">
+      <fieldset><legend>{{ t('incomeCalc.group.income') }}</legend>
+        {{ money('consulting') }}
+        <label for="amount_basis">{{ t('incomeCalc.f.amountBasis') }}</label>
+        <select id="amount_basis" name="amount_basis">
+          <option value="gross_customer_total" {% if values.get('amount_basis') != 'net_fee' %}selected{% endif %}>{{ t('incomeCalc.basis.gross') }}</option>
+          <option value="net_fee" {% if values.get('amount_basis') == 'net_fee' %}selected{% endif %}>{{ t('incomeCalc.basis.net') }}</option>
+        </select>
+        {{ money('education') }}
+        {{ money('startup_grant') }}
+      </fieldset>
+      <fieldset><legend>{{ t('incomeCalc.group.costs') }}</legend>
+        {{ money('expenses') }}
+        {{ money('business_deduction') }}
+        {{ money('health_costs') }}
+        {{ money('health_deduction') }}
+        {{ money('pension_costs') }}
+        {{ money('pension_deduction') }}
+      </fieldset>
+      <fieldset><legend>{{ t('incomeCalc.group.medical') }}</legend>
+        {{ money('medical_costs') }}
+        {{ money('medical_deduction') }}
+        {{ money('disability_allowance') }}
+      </fieldset>
+      <fieldset><legend>{{ t('incomeCalc.group.planning') }}</legend>
+        {{ money('paid_tax') }}
+        <div class="income-calculator-two">
+          <div>
+            <label for="months_remaining">{{ t('incomeCalc.f.months') }}</label>
+            <input id="months_remaining" name="months_remaining" type="number" min="1" max="12" inputmode="numeric" value="{{ values.get('months_remaining', 12) }}">
+          </div>
+          <div>
+            <label for="church_rate">{{ t('incomeCalc.f.church') }}</label>
+            <select id="church_rate" name="church_rate">
+              <option value="0" {% if values.get('church_rate')|string == '0' %}selected{% endif %}>{{ t('incomeCalc.church.0') }}</option>
+              <option value="8" {% if values.get('church_rate')|string == '8' %}selected{% endif %}>{{ t('incomeCalc.church.8') }}</option>
+              <option value="9" {% if values.get('church_rate')|string == '9' %}selected{% endif %}>{{ t('incomeCalc.church.9') }}</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+      <button type="submit" class="btn-primary">{{ t('incomeCalc.calculate') }}</button>
+    </form>
+  </section>
+
+  <section class="income-calculator-results" aria-live="polite">
+    <h2>{{ t('incomeCalc.resultsTitle') }}</h2>
+    {% if estimates %}
+    <p class="muted small">{{ t('incomeCalc.compare') }}</p>
+    <div class="income-calculator-scenarios">
+      {% for e in estimates %}
+      <article class="income-calculator-scenario">
+        <p class="income-calculator-label">{{ t('incomeCalc.scenario', n=loop.index) }}</p>
+        <h3>{{ t('incomeCalc.vat.' ~ ('kleinunternehmer' if loop.first else 'regular')) }}</h3>
+        <p class="income-calculator-hero-label">{{ t('incomeCalc.r.remainder') }}</p>
+        <p class="income-calculator-hero">{{ e.disposable_cents | cents_eur }}</p>
+        <p class="income-calculator-month">{{ t('incomeCalc.r.perMonth', amount=e.monthly_cents | cents_eur) }}</p>
+        <dl>
+          <div><dt>{{ t('incomeCalc.r.receipts') }}</dt><dd>{{ e.receipts_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.grant') }}</dt><dd>{{ e.startup_grant_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.outputVat') }}</dt><dd>{{ e.output_vat_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.revenue') }}</dt><dd>{{ e.revenue_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.profit') }}</dt><dd>{{ e.profit_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.taxable') }}</dt><dd>{{ e.taxable_income_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.incomeTax') }}</dt><dd>{{ e.income_tax_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.solidarity') }}</dt><dd>{{ e.solidarity_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.church') }}</dt><dd>{{ e.church_tax_cents | cents_eur }}</dd></div>
+          <div class="income-calculator-total"><dt>{{ t('incomeCalc.r.totalTax') }}</dt><dd>{{ e.total_tax_cents | cents_eur }}</dd></div>
+          <div><dt>{{ t('incomeCalc.r.remainingTax') }}</dt><dd>{{ e.remaining_tax_cents | cents_eur }}</dd></div>
+        </dl>
+      </article>
+      {% endfor %}
+    </div>
+    <div class="income-calculator-box">
+      <h3>{{ t('incomeCalc.howTitle') }}</h3>
+      <p>{{ t('incomeCalc.how1') }}</p>
+      <p>{{ t('incomeCalc.how2') }}</p>
+    </div>
+    {% else %}
+    <div class="income-calculator-empty">
+      <h3>{{ t('incomeCalc.emptyTitle') }}</h3>
+      <p>{{ t('incomeCalc.emptyText') }}</p>
+    </div>
+    {% endif %}
+    <div class="income-calculator-box">
+      <strong>{{ t('incomeCalc.limitsTitle') }}</strong>
+      <p>{{ t('incomeCalc.limits') }}</p>
+    </div>
+  </section>
+</div>
+<p class="muted small">{{ t('incomeCalc.footer') }}</p>
+{% endblock %}

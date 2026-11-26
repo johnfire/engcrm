@@ -1554,3 +1554,145 @@ main.statistics-page { max-width: none; }
 .sale__nodate { color: var(--warn); }
 .sale__due { display: inline-flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0.2rem 0.5rem 0.2rem 0; }
 .contract-flow-undated { margin-top: 0.4rem; }
+
+/* Income calculator: every rule is scoped under the page class so nothing here
+   restyles the rest of the CRM. */
+.income-calculator-page .income-calculator-notice {
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  color: var(--text);
+  margin-bottom: 1.5rem;
+  padding: 0.9rem 1.2rem;
+}
+.income-calculator-page .income-calculator-workspace {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+}
+.income-calculator-page fieldset {
+  border: 0;
+  margin: 1.25rem 0;
+}
+.income-calculator-page legend {
+  border-bottom: 1px solid var(--hairline-strong);
+  color: var(--accent-bright);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
+  text-transform: uppercase;
+  width: 100%;
+}
+.income-calculator-page label {
+  display: block;
+  font-weight: 600;
+  margin: 0.9rem 0 0.3rem;
+}
+.income-calculator-page label small {
+  color: var(--muted);
+  display: block;
+  font-weight: 400;
+}
+.income-calculator-page input,
+.income-calculator-page select {
+  width: 100%;
+}
+.income-calculator-page input:focus-visible,
+.income-calculator-page select:focus-visible,
+.income-calculator-page button:focus-visible {
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+.income-calculator-page .income-calculator-money {
+  position: relative;
+}
+.income-calculator-page .income-calculator-money span {
+  color: var(--muted);
+  left: 0.8rem;
+  position: absolute;
+  top: 0.55rem;
+}
+.income-calculator-page .income-calculator-money input {
+  padding-left: 2rem;
+}
+.income-calculator-page .income-calculator-two {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr 1fr;
+}
+.income-calculator-page .income-calculator-error {
+  background: #e0645a26;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  margin: 0.75rem 0;
+  padding: 0.7rem 1rem;
+}
+.income-calculator-page .income-calculator-scenarios {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
+}
+.income-calculator-page .income-calculator-scenario {
+  background: #5fae7814;
+  border: 1px solid #5fae7855;
+  border-radius: 10px;
+  min-width: 0;
+  padding: 1.25rem;
+}
+.income-calculator-page .income-calculator-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.income-calculator-page .income-calculator-hero {
+  color: var(--accent-bright);
+  font-size: clamp(1.5rem, 2.5vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.15;
+}
+.income-calculator-page .income-calculator-hero-label,
+.income-calculator-page .income-calculator-month {
+  color: var(--muted);
+}
+.income-calculator-page .income-calculator-month {
+  margin-bottom: 1rem;
+}
+.income-calculator-page dl div {
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  padding: 0.45rem 0;
+}
+.income-calculator-page dd {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.income-calculator-page .income-calculator-total {
+  font-weight: 700;
+}
+.income-calculator-page .income-calculator-box,
+.income-calculator-page .income-calculator-empty {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+}
+.income-calculator-page .income-calculator-empty {
+  text-align: center;
+}
+@media (max-width: 1000px) {
+  .income-calculator-page .income-calculator-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 650px) {
+  .income-calculator-page .income-calculator-scenarios {
+    grid-template-columns: 1fr;
+  }
+}
