@@ -50,6 +50,15 @@ def decrypt_totp_secret(ciphertext: str, encryption_key: str) -> str:
     return _fernet(encryption_key).decrypt(ciphertext.encode("utf-8")).decode("utf-8")
 
 
+def encrypt_private(text: str, encryption_key: str) -> str:
+    """Encrypt other private values at rest (the income calculator's saved figures)."""
+    return _fernet(encryption_key).encrypt(text.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_private(ciphertext: str, encryption_key: str) -> str:
+    return _fernet(encryption_key).decrypt(ciphertext.encode("utf-8")).decode("utf-8")
+
+
 def _fernet(encryption_key: str) -> Fernet:
     key_bytes = hashlib.sha256(encryption_key.encode("utf-8")).digest()
     return Fernet(base64.urlsafe_b64encode(key_bytes))
