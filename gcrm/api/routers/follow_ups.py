@@ -77,14 +77,15 @@ def follow_ups_page(request: Request, q: str = Query("", max_length=100), task_t
 @router.post("/new")
 def add_follow_up(request: Request, target: str = Form(...), task_type: str = Form(...),
                   task_text: str = Form(...), due_date: str = Form(""), contact_person_id: int | None = Form(None),
-                  next: str = Form(""), _admin: str = Depends(require_admin)):
-    """Create a follow-up; `next` is the page to come back to (a deal card), else the list."""
+                  next: str = Form(""), log: str = Form(""), _admin: str = Depends(require_admin)):
+    """Create a follow-up; `next` is the page to come back to (a deal card), else the list. `log` (sent by
+    the card) also writes it to the deal owner's history."""
     try:
         kind, target_number = target.split(":", 1)
         columns = {"deal": "deal_id", "organization": "contact_id", "person": "person_id"}
         create_follow_up(**{columns[kind]: int(target_number)}, task_type=task_type, task_text=task_text,
                          due_date=parse_date(due_date), contact_person_id=contact_person_id,
-                         workspace_id=request.session.get("workspace_id"))
+                         workspace_id=request.session.get("workspace_id"), log_history=bool(log))
     except (KeyError, ValueError) as error:
         raise HTTPException(400, str(error)) from error
     return local_redirect(next, fallback="/follow-ups/")
@@ -106,9 +107,10 @@ def edit_follow_up(request: Request, task_id: int, version: str = Form(...), tas
 
 @router.post("/{task_id}/status")
 def update_status(request: Request, task_id: int, status: str = Form(...), version: str = Form(...),
-                  next: str = Form(""), _admin: str = Depends(require_admin)):
+                  next: str = Form(""), log: str = Form(""), _admin: str = Depends(require_admin)):
     try:
-        change_follow_up_status(task_id, status, parse_version(version), request.session.get("workspace_id"))
+        change_follow_up_status(task_id, status, parse_version(version), request.session.get("workspace_id"),
+                                log_history=bool(log))
     except ValueError as error:
         raise HTTPException(409, str(error)) from error
     return local_redirect(next, fallback="/follow-ups/")

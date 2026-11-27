@@ -60,6 +60,8 @@
   "followUp.linkId": "Existing follow-up",
   "followUp.link": "Link as duplicate",
   "followUp.noneOnDeal": "No follow-ups planned",
+  "followUp.waitingOnDeal_one": "{{count}} waiting in Review",
+  "followUp.waitingOnDeal_other": "{{count}} waiting in Review",
   "followUp.edit": "Edit",
   "followUp.done": "Done",
   "followUp.empty": "No follow-ups found.",

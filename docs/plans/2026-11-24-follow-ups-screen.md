@@ -134,6 +134,9 @@ still marks the earliest active follow-up done. The deal card lists the active
 follow-ups and only adds or marks done; editing happens on the Follow-ups page.
 `deals.next_step` shows the earliest active follow-up, also after an activity
 promise; with none active it shows the step just saved without a type.
+The card's Add and Done are written to the owner's history like a next step, and the
+card says how many of the deal's entries wait in Review. Migration 114 brought next
+steps that had fallen behind up to date.
 
 Add a Commitment/Check-in choice to activity and voice capture forms. Existing
 clients that cannot provide a choice send unclassified promises to review.

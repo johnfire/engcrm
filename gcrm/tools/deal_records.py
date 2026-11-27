@@ -13,10 +13,10 @@ from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import DEFAULT_STAGE, DEFAULT_STATUS, coerce_stage, coerce_status
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.follow_ups import TASK_TYPES, add_deal_step, complete_deal_step, show_deal_step
+from gcrm.tools.step_log import DONE_METHOD, LOG_METHOD, log_entry, log_step_on_owner
 
 OWNERS = {"organization": "contact_id", "person": "person_id"}
 NEXT_STEP_MAX = 500
-LOG_METHOD, DONE_METHOD = "next_step", "next_step_done"
 
 _DEAL_COLUMNS = """
     d.id, d.offer_id, o.slug AS offer_slug, o.name AS offer_name, o.revenue_kind,
@@ -174,10 +174,6 @@ def remove_deal(deal_id: int, workspace_id: int | None = None) -> None:
     log_audit(None, None, "deal.removed", f"deal:{deal_id}", "removed")
 
 
-def log_entry(text: str, due: date | None) -> str:
-    return f"{text} ({due.isoformat()})" if due else text
-
-
 @dataclass(frozen=True)
 class StepChange:
     """What saving a next step changed, enough to take it back."""
@@ -209,17 +205,7 @@ def write_next_step(cur, deal: dict, text: str, due: date | None,
         if not finished:
             return StepChange(False, task_id, before)
         method, note = DONE_METHOD, f"✓ {finished}"
-    if deal["person_id"] is not None:
-        cur.execute(
-            "INSERT INTO people_interactions (person_id, method, note, offer_id) VALUES (%s, %s, %s, %s)",
-            (deal["person_id"], method, note, deal["offer_id"]),
-        )
-    else:
-        cur.execute(
-            "INSERT INTO interactions (contact_id, interaction_date, method, summary, offer_id, workspace_id) "
-            "SELECT id, CURRENT_DATE, %s, %s, %s, workspace_id FROM contacts WHERE id = %s",
-            (method, note, deal["offer_id"], deal["contact_id"]),
-        )
+    log_step_on_owner(cur, deal, method, note)
     return StepChange(True, task_id, before)
 
 

@@ -45,7 +45,7 @@ from gcrm.tools.deal_records import (
     set_deal_next_step,
     update_deal,
 )
-from gcrm.tools.follow_up_queries import deal_follow_ups
+from gcrm.tools.follow_up_queries import deal_follow_ups, deal_review_counts
 from gcrm.tools.follow_ups import TASK_TYPES
 
 router = APIRouter(prefix="/deals", tags=["deals"], dependencies=[Depends(require_login)])
@@ -431,6 +431,7 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
         "deal_page": page,
         "deals": deals,
         "deal_tasks": deal_follow_ups([deal["id"] for deal in deals], workspace_id),
+        "deal_waiting": deal_review_counts([deal["id"] for deal in deals], workspace_id),
         "today_date": date.today(),
         "addable_offers": [o for o in offers if o["id"] not in pitched],
         # the log forms: which offer a new entry is about, preselected when there

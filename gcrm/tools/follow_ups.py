@@ -3,6 +3,7 @@ from datetime import date
 
 from gcrm.db.connection import db
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.step_log import DONE_METHOD, LOG_METHOD, log_entry, log_step_on_owner
 
 TASK_TYPES = ("commitment", "check_in")
 
@@ -123,7 +124,10 @@ def record_activity_follow_up(cursor, interaction_id: int, task_type: str | None
 
 def create_follow_up(*, task_type: str, task_text: str, due_date: date | None = None,
                      deal_id: int | None = None, contact_id: int | None = None, person_id: int | None = None,
-                     contact_person_id: int | None = None, workspace_id: int | None = None) -> int:
+                     contact_person_id: int | None = None, workspace_id: int | None = None,
+                     log_history: bool = False) -> int:
+    """A new active follow-up. With `log_history` (the deal card) it is also written to the deal owner's
+    history, as saving a next step is."""
     text = validate_task(task_type, task_text)
     with db() as connection:
         cursor = connection.cursor()
@@ -160,6 +164,8 @@ def create_follow_up(*, task_type: str, task_text: str, due_date: date | None = 
         task_id = cursor.fetchone()["id"]
         if deal_id is not None:
             refresh_deal_projection(cursor, deal_id)
+            if log_history:
+                log_step_on_owner(cursor, deal, LOG_METHOD, log_entry(text, due_date))
     log_audit(None, None, "follow_up.created", f"follow_up:{task_id}", "active")
     return task_id
 
@@ -221,13 +227,16 @@ def update_follow_up(task_id: int, *, task_type: str, task_text: str, due_date: 
     log_audit(None, None, "follow_up.updated", f"follow_up:{task_id}", "updated")
 
 
-def change_follow_up_status(task_id: int, status: str, version, workspace_id: int | None = None) -> None:
+def change_follow_up_status(task_id: int, status: str, version, workspace_id: int | None = None,
+                            log_history: bool = False) -> None:
+    """Mark an active follow-up completed or dismissed. With `log_history` (the deal card) a completed one
+    is written to the deal owner's history as done."""
     if status not in ("completed", "dismissed"):
         raise ValueError("Unknown follow-up status")
     with db() as connection:
         cursor = connection.cursor()
         lock_task_deal(cursor, task_id, workspace_id)
-        cursor.execute("SELECT deal_id FROM follow_ups WHERE id=%s AND status='active' "
+        cursor.execute("SELECT deal_id, task_text FROM follow_ups WHERE id=%s AND status='active' "
                        "AND updated_at=%s AND (%s IS NULL OR workspace_id=%s) FOR UPDATE",
                        (task_id, version, workspace_id, workspace_id))
         task = cursor.fetchone()
@@ -239,6 +248,9 @@ def change_follow_up_status(task_id: int, status: str, version, workspace_id: in
                        (status, status, status, task_id))
         if task["deal_id"] is not None:
             refresh_deal_projection(cursor, task["deal_id"])
+            if log_history and status == "completed":
+                cursor.execute("SELECT person_id, contact_id, offer_id FROM deals WHERE id=%s", (task["deal_id"],))
+                log_step_on_owner(cursor, cursor.fetchone(), DONE_METHOD, f"✓ {task['task_text']}")
     log_audit(None, None, "follow_up.status_changed", f"follow_up:{task_id}", status)
 
 

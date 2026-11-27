@@ -60,6 +60,8 @@
   "followUp.linkId": "Vorhandene Wiedervorlage",
   "followUp.link": "Als Duplikat verknüpfen",
   "followUp.noneOnDeal": "Keine Wiedervorlagen geplant",
+  "followUp.waitingOnDeal_one": "{{count}} wartet zur Prüfung",
+  "followUp.waitingOnDeal_other": "{{count}} warten zur Prüfung",
   "followUp.edit": "Bearbeiten",
   "followUp.done": "Erledigt",
   "followUp.empty": "Keine Wiedervorlagen gefunden.",

@@ -41,6 +41,16 @@ def deal_follow_ups(deal_ids: list[int], workspace_id: int | None = None) -> dic
         return found
 
 
+def deal_review_counts(deal_ids: list[int], workspace_id: int | None = None) -> dict[int, int]:
+    """How many entries of each of these deals wait in Review (a deal with none is left out)."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT deal_id, count(*) AS waiting FROM follow_ups "
+                       "WHERE status='review' AND deal_id=ANY(%s) AND (%s IS NULL OR workspace_id=%s) "
+                       "GROUP BY deal_id", (list(deal_ids), workspace_id, workspace_id))
+        return {row["deal_id"]: row["waiting"] for row in cursor.fetchall()}
+
+
 def list_follow_up_people(workspace_id: int | None = None) -> list[dict]:
     with db() as connection:
         cursor = connection.cursor()

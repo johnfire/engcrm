@@ -16,7 +16,13 @@ from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
 from gcrm.tools.db_users import create_user
 from gcrm.tools.deal_records import add_deal, get_deals, set_deal_next_step
-from gcrm.tools.follow_ups import change_follow_up_status, create_follow_up, list_follow_ups
+from gcrm.tools.follow_up_queries import find_follow_ups
+from gcrm.tools.follow_ups import (
+    change_follow_up_status,
+    create_follow_up,
+    list_follow_ups,
+    resolve_review,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -255,3 +261,89 @@ def test_the_phone_gets_a_persons_follow_ups_too(clean_database):
                         json={"next_step": "Call", "task_type": "check_in"})
     owned = TestClient(app).get(f"/api/people/{person}/deals", headers=PHONE).json()["owned"]
     assert [f["task_text"] for f in owned[0]["follow_ups"]] == ["Call"]
+
+
+# --- steps waiting in Review --------------------------------------------------------
+
+def test_the_card_says_how_many_steps_wait_in_review(deal, web):
+    assert "waiting in Review" not in _card(web, deal)
+    set_deal_next_step(deal["id"], "Call", None)                      # no type: it waits
+    assert re.search(r'<a href="/follow-ups/\?view=review">1 waiting in Review →</a>', _card(web, deal))
+    set_deal_next_step(deal["id"], "Write", None)
+    create_follow_up(deal_id=deal["id"], task_type="check_in", task_text="Active")
+    offer = next(o for o in list_offers(None) if o["slug"] == "learnwohl")
+    set_deal_next_step(add_deal("organization", deal["contact_id"], offer["id"]), "Elsewhere", None)
+    assert "2 waiting in Review →" in _card(web, deal)
+    for task in find_follow_ups(status="review"):
+        if task["deal_id"] == deal["id"]:
+            resolve_review(task["id"], "dismiss", task["updated_at"])
+    assert "waiting in Review" not in _card(web, deal)
+
+
+def test_the_review_count_is_german_too(deal, web):
+    with db() as connection:
+        connection.cursor().execute("UPDATE users SET ui_language = 'de'")
+    set_deal_next_step(deal["id"], "Anrufen", None)
+    assert "1 wartet zur Prüfung →" in _card(web, deal)
+    set_deal_next_step(deal["id"], "Schreiben", None)
+    assert "2 warten zur Prüfung →" in _card(web, deal)
+
+
+# --- the card's changes in the owner's history ---------------------------------------
+
+def _history(table: str, column: str, owner_id: int) -> list[tuple]:
+    text = "summary" if table == "interactions" else "note"
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT method, {text} AS text, offer_id FROM {table} "
+                       f"WHERE {column} = %s AND method LIKE 'next_step%%' ORDER BY id", (owner_id,))
+        return [tuple(row.values()) for row in cursor.fetchall()]
+
+
+def _hidden_fields(card: str, action: str) -> dict:
+    """What a form on the card sends besides what is typed into it."""
+    form = card[card.index(f'action="{action}"'):]
+    return dict(re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', form[:form.index("</form>")]))
+
+
+def _add_and_finish_on_the_card(web, card_of, deal_id: int) -> None:
+    added = {**_hidden_fields(card_of(), "/follow-ups/new"), "task_text": "Send quote", "due_date": "04.12.2026"}
+    refused = web.post("/follow-ups/new", data={**added, "task_type": "someday"}, follow_redirects=False)
+    assert refused.status_code == 400
+    assert web.post("/follow-ups/new", data={**added, "task_type": "check_in"},
+                    follow_redirects=False).status_code == 303
+    (task,) = [t for t in list_follow_ups() if t["deal_id"] == deal_id]
+    action = f"/follow-ups/{task['id']}/status"
+    done = {**_hidden_fields(card_of(), action), "status": "completed"}
+    assert web.post(action, data=done, follow_redirects=False).status_code == 303
+    assert web.post(action, data=done, follow_redirects=False).status_code == 409     # stale: nothing more
+
+
+def test_add_and_done_on_the_card_are_written_to_the_history(deal, web):
+    _add_and_finish_on_the_card(web, lambda: _card(web, deal), deal["id"])
+    assert _history("interactions", "contact_id", deal["contact_id"]) == [
+        ("next_step", "Send quote (2026-12-04)", deal["offer_id"]),
+        ("next_step_done", "✓ Send quote", deal["offer_id"])]
+
+
+def test_a_persons_card_writes_to_their_notes(deal, web):
+    person = save_person("Ada Beispiel", source="test_fixture")
+    deal_id = add_deal("person", person, deal["offer_id"])
+
+    def card() -> str:
+        page = web.get(f"/people/{person}?lang=en").text
+        return re.search(rf'<article class="deal-card" id="deal-{deal_id}">(.*?)</article>', page, re.S).group(1)
+
+    _add_and_finish_on_the_card(web, card, deal_id)
+    assert [row[:2] for row in _history("people_interactions", "person_id", person)] == [
+        ("next_step", "Send quote (2026-12-04)"), ("next_step_done", "✓ Send quote")]
+
+
+def test_the_follow_ups_page_writes_no_history_as_before(deal, web):
+    web.post("/follow-ups/new", data={"target": f"deal:{deal['id']}", "task_type": "check_in",
+                                      "task_text": "From the list"}, follow_redirects=False)
+    (task,) = list_follow_ups()
+    web.post(f"/follow-ups/{task['id']}/status", data={"status": "completed",
+             "version": task["updated_at"].isoformat()}, follow_redirects=False)
+    assert list_follow_ups() == []
+    assert _history("interactions", "contact_id", deal["contact_id"]) == []

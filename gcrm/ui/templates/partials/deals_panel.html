@@ -78,6 +78,7 @@
               <form method="post" action="/follow-ups/{{ task.id }}/status">
                 <input type="hidden" name="version" value="{{ task.updated_at.isoformat() }}" />
                 <input type="hidden" name="next" value="{{ deal_page }}" />
+                <input type="hidden" name="log" value="1" />
                 <button type="submit" name="status" value="completed" class="btn-tiny btn-secondary"
                         aria-label="{{ t('followUp.done') }}: {{ task.task_text }}">✓ {{ t('followUp.done') }}</button>
               </form>
@@ -89,9 +90,15 @@
         {% else %}
         <p class="muted">{{ t('followUp.noneOnDeal') }}</p>
         {% endif %}
+        {# entries without a confirmed type are not on any list until someone reviews them #}
+        {% set waiting = (deal_waiting or {}).get(deal.id) %}
+        {% if waiting %}
+        <p class="small"><a href="/follow-ups/?view=review">{{ t('followUp.waitingOnDeal', count=waiting) }} →</a></p>
+        {% endif %}
         <form method="post" action="/follow-ups/new" class="next-step__form">
           <input type="hidden" name="target" value="deal:{{ deal.id }}" />
           <input type="hidden" name="next" value="{{ deal_page }}" />
+          <input type="hidden" name="log" value="1" />
           <div class="field-row field-row--wide">
             <label for="deal-{{ deal.id }}-follow-up">{{ t('followUp.text') }}</label>
             <input id="deal-{{ deal.id }}-follow-up" type="text" name="task_text" maxlength="500" required
