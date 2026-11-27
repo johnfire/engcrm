@@ -26,25 +26,27 @@
   {% for c in contracts %}
     {% set s = c.summary %}
     <tr id="contract-{{ c.id }}" class="{{ 'contracts-cancelled' if s.cancelled }}">
-      <td data-label="{{ t('contracts.col.customer') }}">
+      <td class="c-customer" data-label="{{ t('contracts.col.customer') }}">
         {% if c.organization_id %}<a href="/organizations/{{ c.organization_id }}">{{ c.owner_name }}</a>
         {% else %}<a href="/people/{{ c.person_id }}">{{ c.owner_name }}</a>{% endif %}
-        <span class="muted small">{{ c.offer_name }}</span>
+        <span class="c-offer muted small">{{ c.offer_name }}</span>
       </td>
-      <td data-label="{{ t('contracts.col.title') }}"><a class="contract-title" href="/contracts/{{ c.id }}">{{ c.title }}</a>
+      <td class="c-title" data-label="{{ t('contracts.col.title') }}"><a class="contract-title" href="/contracts/{{ c.id }}">{{ c.title }}</a>
         {% if s.cancelled %}<span class="badge badge-dropped">{{ t('contracts.cancelled') }}</span>{% endif %}</td>
-      <td data-label="{{ t('contracts.kind.label') }}">{{ t('contracts.kind.' ~ c.kind) if c.kind in kinds else c.kind }}</td>
-      <td data-label="{{ t('contracts.col.dates') }}" class="nowrap">
+      <td class="c-kind" data-label="{{ t('contracts.kind.label') }}">{{ t('contracts.kind.' ~ c.kind) if c.kind in kinds else c.kind }}</td>
+      <td class="c-dates nowrap" data-label="{{ t('contracts.col.dates') }}">
         {% if s.start %}{{ s.start | dmy }}{% if s.end != s.start %} – {{ s.end | dmy }}{% endif %}
         {% else %}<span class="muted">{{ t('contracts.noDates') }}</span>{% endif %}</td>
       {% if s.cancelled %}
-      <td class="num muted" data-label="{{ t('contracts.col.value') }}">—</td><td class="num muted" data-label="{{ t('contracts.col.hours') }}">—</td>
-      <td class="num muted" data-label="{{ t('contracts.col.rate') }}">—</td><td class="num muted" data-label="{{ t('contracts.col.collected') }}">—</td>
+      <td class="c-value num muted contracts-empty" data-label="{{ t('contracts.col.value') }}">—</td>
+      <td class="c-hours num muted contracts-empty" data-label="{{ t('contracts.col.hours') }}">—</td>
+      <td class="c-rate num muted contracts-empty" data-label="{{ t('contracts.col.rate') }}">—</td>
+      <td class="c-collected num muted contracts-empty" data-label="{{ t('contracts.col.collected') }}">—</td>
       {% else %}
-      <td class="num" data-label="{{ t('contracts.col.value') }}"><strong>{{ s.value | eur }}</strong></td>
-      <td class="num" data-label="{{ t('contracts.col.hours') }}">{% if s.hours %}{{ s.hours | hrs }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="num" data-label="{{ t('contracts.col.rate') }}">{% if s.rate %}{{ s.rate | eur }}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="num" data-label="{{ t('contracts.col.collected') }}">{{ s.collected | eur }}
+      <td class="c-value num" data-label="{{ t('contracts.col.value') }}"><strong>{{ s.value | eur }}</strong></td>
+      <td class="c-hours num {{ '' if s.hours else 'contracts-empty' }}" data-label="{{ t('contracts.col.hours') }}">{% if s.hours %}{{ s.hours | hrs }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="c-rate num {{ '' if s.rate else 'contracts-empty' }}" data-label="{{ t('contracts.col.rate') }}">{% if s.rate %}{{ s.rate | eur }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="c-collected num" data-label="{{ t('contracts.col.collected') }}">{{ s.collected | eur }}
         {% if finished and s.open > 0 %}<span class="contracts-open">{{ t('contracts.stillOpen', amount=s.open | eur) }}</span>{% endif %}</td>
       {% endif %}
     </tr>

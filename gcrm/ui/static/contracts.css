@@ -11,14 +11,36 @@
 .contracts-section > summary { cursor: pointer; }
 .contracts-section-figures { display: block; margin: .25rem 0 .75rem; }
 .contracts-section > summary h2 { display: inline; }
+/* Sections and the totals line breathe like the blocks on the other pages. */
+.contracts-totals, .contracts-section { margin: 0 0 1.5rem; }
+.contracts-totals h2, .contracts-section h2 { margin-bottom: .4rem; }
+
+/* A phone shows each contract as a five-line card, not eight label/value pairs:
+   title, customer · offer, dates and kind, value · hours · €/h, collected. */
 @media (max-width: 700px) {
   .contracts-page .page-header { display: block; }
   .contracts-page .page-header h1 { margin-bottom: .5rem; }
   .contracts-table { min-width: 0; }
   .contracts-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .contracts-table, .contracts-table tbody, .contracts-table tr, .contracts-table td { display: block; width: 100%; }
-  .contracts-table tr { border: 1px solid var(--hairline-strong); margin: .75rem 0; padding: .5rem; }
-  .contracts-table td { border: 0; padding: .25rem; }
-  .contracts-table td.num { text-align: left; }
-  .contracts-table td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .75rem; }
+  .contracts-table, .contracts-table tbody { display: block; width: 100%; }
+  .contracts-table tr { display: grid; grid-template-columns: 6rem 5.25rem minmax(0, 1fr); column-gap: .5rem; row-gap: .15rem;
+    border: 1px solid var(--hairline-strong); margin: .6rem 0; padding: .5rem .6rem; }
+  .contracts-table td, .contracts-table td.num { display: block; border: 0; padding: 0; min-width: 0; text-align: left; white-space: normal; }
+  .contracts-table .c-title { grid-column: 1 / -1; grid-row: 1; }
+  .contracts-table .c-customer { grid-column: 1 / -1; grid-row: 2; }
+  .contracts-table .c-dates { grid-column: 1 / 3; grid-row: 3; white-space: nowrap; }
+  .contracts-table .c-kind { grid-column: 3; grid-row: 3; }
+  .contracts-table .c-value { grid-column: 1; grid-row: 4; }
+  .contracts-table .c-hours { grid-column: 2; grid-row: 4; }
+  .contracts-table .c-rate { grid-column: 3; grid-row: 4; }
+  .contracts-table .c-collected { grid-column: 1 / -1; grid-row: 5; }
+  .contracts-table td:first-child .muted { display: inline; }
+  .contracts-table .c-offer::before { content: "· "; }
+  .contracts-table .c-customer, .contracts-table .c-kind, .contracts-table .c-dates { color: var(--muted); font-size: .9em; }
+  /* a bare number needs its unit; everything else reads without a label */
+  .contracts-table .c-hours::after { content: " h"; }
+  .contracts-table .c-rate::after { content: "/h"; }
+  .contracts-table .c-collected::before { content: attr(data-label) ": "; color: var(--muted); }
+  .contracts-table td.contracts-empty { display: none; }
+  .contracts-open { display: inline; margin-left: .5rem; }
 }

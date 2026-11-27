@@ -292,3 +292,15 @@ def test_a_person_owned_contract_is_listed_with_the_person(world):
         add_deal_sale(deal, "400", _days(-2), "Coaching block", world["first"], status="booked")
     row = _row(_page(world).text, "Coaching block")
     assert "Pat Freelancer" in row and f'href="/people/{freelancer}"' in row
+
+
+def test_every_cell_has_a_name_so_the_phone_layout_can_place_it_and_empty_ones_are_flagged(world):
+    html = _page(world).text
+    running = _row(html, "Year course AI")
+    for cell in ("customer", "title", "kind", "dates", "value", "hours", "rate", "collected"):
+        assert f'class="c-{cell}' in running, cell
+    assert "contracts-empty" not in running                      # it has hours and a rate
+    no_hours = _row(html, "Old consulting")
+    assert re.search(r'class="[^"]*c-hours[^"]*contracts-empty', no_hours) and re.search(r'class="[^"]*c-rate[^"]*contracts-empty', no_hours)
+    cancelled = _row(html, "Fell through")
+    assert 'class="contracts-cancelled"' in cancelled or "contracts-cancelled" in cancelled
