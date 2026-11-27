@@ -124,8 +124,12 @@ linking to the contract page, instead of loose payment rows.
   phone API, statistics path). It takes an optional contract; without one it creates the contract itself
   (title from the description or "<offer> – <month>", kind `other`). Together with NOT NULL, no payment can
   exist without a contract.
-- **Backup export:** `contracts.csv` and `contract_links.csv`; `sales.csv` gains `contract_id`; the backup
-  README describes them.
+- **Backup export:** `contracts.csv` and `contract_links.csv`; the backup README describes them. `sales.csv`
+  already has a column called `contract_id` that holds the `series_id`; it is renamed `series_id`, and the real
+  `contract_id` is added.
+- **Integrity:** a composite foreign key `(contract_id, deal_id) → contracts (id, deal_id)` means a payment
+  can never sit on a contract of another deal. Both new tables get workspace row security like every other
+  table.
 - **Audit log:** `contract.added`, `contract.edited`, `contract.deleted`, `contract.link_added`,
   `contract.link_removed`.
 - **i18n:** English and German for every text.
