@@ -5,7 +5,16 @@ Forecast read the same rows. Pure functions: no database."""
 from datetime import date, timedelta
 from decimal import Decimal
 
-from gcrm.contract_math import contract_summary, group_by_timing, timing, totals
+import pytest
+
+from gcrm.contract_math import (
+    SORT_KEYS,
+    contract_summary,
+    group_by_timing,
+    sort_contracts,
+    timing,
+    totals,
+)
 
 D = Decimal
 TODAY = date(2026, 11, 27)
@@ -18,8 +27,8 @@ def pay(amount="100", status="booked", hours=None, won_on=date(2026, 5, 1), expe
             "work_from": work_from, "work_to": work_to}
 
 
-def contract(*payments, title="A contract"):
-    return {"id": 1, "title": title, "summary": contract_summary(list(payments))}
+def contract(*payments, title="A contract", customer="Customer", kind="other"):
+    return {"id": 1, "title": title, "owner_name": customer, "kind": kind, "summary": contract_summary(list(payments))}
 
 
 # --- the money ---------------------------------------------------------------
@@ -152,6 +161,67 @@ def test_sections_are_sorted_running_by_soonest_end_upcoming_by_soonest_start_fi
 
 def test_the_groups_always_exist_even_when_empty():
     assert group_by_timing([], TODAY) == {"running": [], "upcoming": [], "finished": []}
+
+
+# --- sorting the list ------------------------------------------------------
+
+def _titles(contracts):
+    return [c["title"] for c in contracts]
+
+
+def _finished(title, customer="Customer", kind="other", amount="100", start=None):
+    start = start or date(2026, 1, 1)
+    return contract(pay(amount, work_from=start, work_to=start + timedelta(days=1)), title=title, customer=customer, kind=kind)
+
+
+def test_by_customer_sorts_on_the_customer_name_ignoring_case_then_on_the_title():
+    contracts = [_finished("b", "zeta GmbH"), _finished("z", "Alpha AG"), _finished("a", "alpha ag"), _finished("m", "Mitte")]
+    assert _titles(sort_contracts(contracts, "customer")) == ["a", "z", "m", "b"]
+    assert _titles(sort_contracts(contracts, "customer", descending=True)) == ["b", "m", "a", "z"]   # ties stay by title
+
+
+def test_by_kind_follows_the_kinds_in_their_fixed_order_with_an_unknown_kind_last():
+    contracts = [_finished("o", kind="other"), _finished("c", kind="consulting"), _finished("x", kind="retired_kind"),
+                 _finished("t", kind="teaching_course"), _finished("w", kind="workshop")]
+    assert _titles(sort_contracts(contracts, "kind")) == ["t", "w", "c", "o", "x"]
+    assert _titles(sort_contracts(contracts, "kind", descending=True)) == ["o", "c", "w", "t", "x"]
+
+
+def test_by_dates_sorts_on_the_start_and_a_contract_without_dates_is_last_either_way():
+    contracts = [_finished("mid", start=date(2026, 3, 1)), contract(title="no dates"), _finished("early", start=date(2026, 1, 1)),
+                 _finished("late", start=date(2026, 9, 1))]
+    assert _titles(sort_contracts(contracts, "dates")) == ["early", "mid", "late", "no dates"]
+    assert _titles(sort_contracts(contracts, "dates", descending=True)) == ["late", "mid", "early", "no dates"]
+
+
+def test_by_value_sorts_on_the_contract_value_and_equal_values_by_customer_then_title():
+    contracts = [_finished("small", amount="200"), _finished("big", amount="9000"), _finished("b-equal", "Beta", amount="500"),
+                 _finished("a-equal", "Alpha", amount="500")]
+    assert _titles(sort_contracts(contracts, "value")) == ["small", "a-equal", "b-equal", "big"]
+    assert _titles(sort_contracts(contracts, "value", descending=True)) == ["big", "a-equal", "b-equal", "small"]
+
+
+def test_an_unknown_sort_is_refused_and_the_known_ones_are_listed():
+    assert SORT_KEYS == ("customer", "kind", "dates", "value")
+    with pytest.raises(ValueError):
+        sort_contracts([], "price")
+
+
+def test_a_chosen_sort_orders_each_section_and_keeps_every_contract_in_its_own_section():
+    contracts = [
+        contract(pay("100", work_from=date(2026, 1, 1), work_to=date(2027, 6, 1)), title="run-small"),
+        contract(pay("900", work_from=date(2026, 1, 1), work_to=date(2026, 12, 1)), title="run-big"),
+        contract(pay("50", work_from=date(2027, 1, 1), work_to=date(2027, 2, 1)), title="up-small"),
+        contract(pay("700", work_from=date(2027, 3, 1), work_to=date(2027, 4, 1)), title="up-big"),
+        contract(pay("300", work_from=date(2025, 1, 1), work_to=date(2025, 2, 1)), title="done-mid"),
+        contract(pay("800", work_from=date(2026, 1, 1), work_to=date(2026, 2, 1)), title="done-big"),
+    ]
+    groups = group_by_timing(contracts, TODAY, sort="value", descending=True)
+    assert _titles(groups["running"]) == ["run-big", "run-small"]
+    assert _titles(groups["upcoming"]) == ["up-big", "up-small"]
+    assert _titles(groups["finished"]) == ["done-big", "done-mid"]
+    default = group_by_timing(contracts, TODAY)                     # no sort: the agreed timing order, unchanged
+    assert _titles(default["running"]) == ["run-big", "run-small"] and _titles(default["upcoming"]) == ["up-small", "up-big"]
 
 
 # --- the totals ------------------------------------------------------------

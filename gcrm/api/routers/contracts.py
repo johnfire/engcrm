@@ -17,7 +17,7 @@ from gcrm.api.session_workspace import session_workspace_id
 from gcrm.api.templates import templates
 from gcrm.contract_input import ContractInputError
 from gcrm.contract_kinds import CONTRACT_KINDS
-from gcrm.contract_math import SECTIONS, group_by_timing, totals
+from gcrm.contract_math import SECTIONS, SORT_KEYS, group_by_timing, totals
 from gcrm.dates import parse_day
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
 from gcrm.sale_series import typed_number
@@ -43,17 +43,24 @@ def contracts_page(
     request: Request,
     offer: Optional[str] = Query(default=None),
     kind: Optional[str] = Query(default=None),
+    sort: Optional[str] = Query(default=None),
+    dir: Optional[str] = Query(default=None),
 ):
+    """The contracts in their three sections. `sort` (customer, kind, dates or value) and `dir` (asc or desc)
+    order each section; without a known sort the sections keep their timing order."""
     active_offer, offers = web_offer_filter(request, offer)
     kind = kind if kind in CONTRACT_KINDS else None            # an unknown kind shows every kind
+    sort = sort if sort in SORT_KEYS else None                 # an unknown sort keeps the timing order
+    direction = "desc" if dir == "desc" else "asc"
     workspace_id = session_workspace_id(request)
     with workspace_scope(workspace_id):
         contracts = list_contracts(workspace_id, active_offer, kind)
-    groups = group_by_timing(contracts, date.today())
+    groups = group_by_timing(contracts, date.today(), sort=sort, descending=direction == "desc")
     sections = [{"key": key, "contracts": groups[key], "totals": totals(groups[key])} for key in SECTIONS]
     return templates.TemplateResponse("contracts.html", {
         "request": request, "sections": sections, "totals": totals(contracts), "kinds": CONTRACT_KINDS,
         "active_kind": kind, "offers": offers, "active_offer": active_offer,
+        "sort_keys": SORT_KEYS, "active_sort": sort, "active_dir": direction,
     })
 
 

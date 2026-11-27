@@ -2,6 +2,7 @@
 {% block extra_head %}<link rel="stylesheet" href="/static/contracts.css?v={{ static_version }}">{% endblock %}
 {% block title %}{{ t('contracts.title') }} — {{ t('nav.brand') }}{% endblock %}
 {% block main_class %}main-wide contracts-page{% endblock %}
+{% from 'partials/list_control_macros.html' import preserve_fields, reset_link %}
 
 {# The figures of a set of contracts: value, hours, average €/h, collected. Cancelled ones are already left out. #}
 {% macro figures(tot) %}
@@ -67,13 +68,31 @@
   <span class="muted small">{{ t('contracts.newHint') }} <a href="/people/">{{ t('nav.people') }}</a></span></p>
 {% endif %}
 
+{% set filter_values = dict(offer=active_offer or 'all', kind=active_kind or '') %}
+{% set sort_values = dict(sort=active_sort or '', dir=active_dir) %}
 <form method="get" action="/contracts/" class="contracts-filters">
+  {{ preserve_fields(sort_values) }}
   {% include 'partials/offer_filter.html' %}
   <select name="kind" aria-label="{{ t('contracts.kind.label') }}">
     <option value="">{{ t('contracts.kind.all') }}</option>
     {% for k in kinds %}<option value="{{ k }}" {% if k == active_kind %}selected{% endif %}>{{ t('contracts.kind.' ~ k) }}</option>{% endfor %}
   </select>
   <button class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+</form>
+
+{# Sorting orders the contracts inside each section; the sections themselves stay. #}
+<form id="list-sort-form" class="contracts-filters" method="get" action="/contracts/" aria-label="{{ t('common.sortBy') }}">
+  {{ preserve_fields(filter_values) }}
+  <select name="sort" aria-label="{{ t('common.sortBy') }}" title="{{ t('common.sortBy') }}">
+    <option value="" {% if not active_sort %}selected{% endif %}>{{ t('contracts.sort.timing') }}</option>
+    {% for key in sort_keys %}<option value="{{ key }}" {% if key == active_sort %}selected{% endif %}>{{ t('contracts.sort.' ~ key) }}</option>{% endfor %}
+  </select>
+  <select name="dir" aria-label="{{ t('listControls.direction') }}">
+    <option value="asc" {% if active_dir == 'asc' %}selected{% endif %}>{{ t('common.sortAsc') }}</option>
+    <option value="desc" {% if active_dir == 'desc' %}selected{% endif %}>{{ t('common.sortDesc') }}</option>
+  </select>
+  <button type="submit" class="btn-primary">{{ t('listControls.applySort') }}</button>
+  {{ reset_link('/contracts/', dict(filter_values, sort='', dir='asc'), t('listControls.resetSort'), 'reset-sort') }}
 </form>
 
 <section id="contracts-totals" class="detail-section contracts-totals">

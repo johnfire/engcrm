@@ -183,6 +183,33 @@ def test_the_page_puts_each_contract_in_its_section_in_the_agreed_order(world):
         assert hidden not in html
 
 
+def test_sorting_by_value_or_kind_orders_each_section_and_the_sections_stay(world):
+    by_value = _page(world, "&sort=value&dir=desc").text
+    assert _titles(_section(by_value, "running")) == ["Year course AI"]
+    assert _titles(_section(by_value, "upcoming")) == ["Autumn workshop"]
+    # 500, 300, 200, then the two at 0 (cancelled, empty) by title
+    assert _titles(_section(by_value, "finished")) == ["Old consulting", "Done workshop", "LearnWohl pilot", "Empty shell", "Fell through"]
+    by_kind = _page(world, "&sort=kind&dir=asc").text
+    assert _titles(_section(by_kind, "finished")) == ["Done workshop", "Empty shell", "Fell through", "LearnWohl pilot", "Old consulting"]
+
+
+def test_an_unknown_sort_or_direction_falls_back_to_the_timing_order(world):
+    html = _page(world, "&sort=price&dir=sideways").text
+    assert _titles(_section(html, "finished")) == ["Fell through", "LearnWohl pilot", "Old consulting", "Done workshop", "Empty shell"]
+
+
+def test_the_sort_form_shows_the_choice_and_each_form_keeps_the_others_settings(world):
+    html = _page(world, "&sort=dates&dir=desc&kind=workshop").text
+    sort_form = re.search(r'<form id="list-sort-form".*?</form>', html, re.S).group(0)
+    assert re.search(r'<option value="dates"\s+selected', sort_form) and re.search(r'<option value="desc"\s+selected', sort_form)
+    for option in ("customer", "kind", "dates", "value"):
+        assert f'<option value="{option}"' in sort_form
+    assert re.search(r'<input type="hidden" name="kind" value="workshop"', sort_form)        # sorting keeps the filter
+    filter_form = re.search(r'<form[^>]*class="contracts-filters".*?</form>', html, re.S).group(0)
+    assert re.search(r'<input type="hidden" name="sort" value="dates"', filter_form)          # filtering keeps the sort
+    assert re.search(r'<input type="hidden" name="dir" value="desc"', filter_form)
+
+
 def test_finished_is_collapsed_and_the_others_are_open(world):
     html = _page(world).text
     finished = re.search(r'<details[^>]*id="contracts-finished"[^>]*>', html)
