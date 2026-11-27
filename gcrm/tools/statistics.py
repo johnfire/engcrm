@@ -14,7 +14,7 @@ from gcrm.sale_series import amount_and_hours, attach_contract_summaries
 from gcrm.sale_status import PIPELINE_SALE_STATUSES, checked_sale_status
 from gcrm.tools.db_audit import log_audit
 from gcrm.tools.db_deals import CONSULTING, offer_id_sql
-from gcrm.tools.deal_money import insert_sale_payments, rate_text
+from gcrm.tools.deal_money import insert_sale_payments, rate_text, retire_emptied_contracts
 
 PERIODS = ("week", "month", "quarter", "year")
 WORKING_STAGES = ("suspect", "nibble", "prospect", "opportunity")
@@ -132,10 +132,12 @@ def delete_sale(contact_id: int, sale_id: int) -> bool:
         cur = conn.cursor()
         cur.execute(
             "UPDATE sales SET deleted_at = NOW() WHERE id = %s AND deleted_at IS NULL "
-            "AND deal_id IN (SELECT id FROM deals WHERE contact_id = %s)",
+            "AND deal_id IN (SELECT id FROM deals WHERE contact_id = %s) RETURNING contract_id",
             (sale_id, contact_id),
         )
-        deleted = cur.rowcount > 0
+        gone = cur.fetchall()
+        deleted = len(gone) > 0
+        retire_emptied_contracts(cur, [row["contract_id"] for row in gone])
     if deleted:
         log_audit(None, None, "sale.deleted", f"contact:{contact_id}", str(sale_id))
     return deleted

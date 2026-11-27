@@ -87,6 +87,22 @@ def _check_contract_takes_payments(cur, workspace_id: int, deal_id: int, contrac
         raise ValueError("that contract is deleted")
 
 
+def retire_emptied_contracts(cur, contract_ids) -> int:
+    """Soft-delete each of these contracts that has no live payment left, inside the caller's transaction
+    (call it after the payments' own soft delete, so they no longer count). A contract that still has a live
+    payment stays, and one already deleted keeps its original deletion time. Returns how many were retired.
+    The same rule migration 111's backfill follows: a contract is deleted only when every payment is."""
+    ids = sorted({contract_id for contract_id in contract_ids if contract_id is not None})
+    if not ids:
+        return 0
+    cur.execute(
+        "UPDATE contracts SET deleted_at = NOW(), updated_at = NOW() WHERE id = ANY(%s) AND deleted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.contract_id = contracts.id AND s.deleted_at IS NULL)",
+        (ids,),
+    )
+    return cur.rowcount
+
+
 # --- One-off sales -----------------------------------------------------------
 
 def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, won_on: date, description: str,
@@ -291,9 +307,11 @@ def delete_deal_sale(deal_id: int, sale_id: int, workspace_id: int | None = None
     with db() as conn:
         cur = conn.cursor()
         get_deal(cur, deal_id, workspace_id)
-        cur.execute("UPDATE sales SET deleted_at = NOW() WHERE id = %s AND deal_id = %s AND deleted_at IS NULL",
-                    (sale_id, deal_id))
-        deleted = cur.rowcount > 0
+        cur.execute("UPDATE sales SET deleted_at = NOW() WHERE id = %s AND deal_id = %s AND deleted_at IS NULL "
+                    "RETURNING contract_id", (sale_id, deal_id))
+        gone = cur.fetchall()
+        deleted = len(gone) > 0
+        retire_emptied_contracts(cur, [row["contract_id"] for row in gone])
     if deleted:
         log_audit(None, None, "sale.deleted", f"deal:{deal_id}", str(sale_id))
     return deleted
@@ -305,9 +323,11 @@ def delete_series(deal_id: int, series_id: str, workspace_id: int | None = None)
     with db() as conn:
         cur = conn.cursor()
         get_deal(cur, deal_id, workspace_id)
-        cur.execute("UPDATE sales SET deleted_at = NOW() WHERE deal_id = %s AND series_id = %s::uuid AND deleted_at IS NULL",
-                    (deal_id, str(series_id)))
-        deleted = cur.rowcount
+        cur.execute("UPDATE sales SET deleted_at = NOW() WHERE deal_id = %s AND series_id = %s::uuid AND deleted_at IS NULL "
+                    "RETURNING contract_id", (deal_id, str(series_id)))
+        gone = cur.fetchall()
+        deleted = len(gone)
+        retire_emptied_contracts(cur, [row["contract_id"] for row in gone])
     if deleted:
         log_audit(None, None, "sale.series_deleted", f"deal:{deal_id}", f"{series_id} ({deleted})")
     return deleted

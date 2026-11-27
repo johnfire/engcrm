@@ -9,9 +9,15 @@ import pytest
 from gcrm.db.connection import db
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
-from gcrm.tools.deal_money import add_deal_sale, create_contract, insert_sale_payments
+from gcrm.tools.deal_money import (
+    add_deal_sale,
+    create_contract,
+    delete_deal_sale,
+    delete_series,
+    insert_sale_payments,
+)
 from gcrm.tools.deal_records import get_deals
-from gcrm.tools.statistics import add_sale
+from gcrm.tools.statistics import add_sale, delete_sale
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -162,6 +168,93 @@ def test_a_refused_schedule_leaves_no_contract_behind(world):
         insert_sale_payments(connection.cursor(), world["first"], world["deal"], Decimal("100"), date(2026, 11, 2),
                              "x", "booked", None, None, months=3)           # a schedule needs the first due day
     assert _contracts(world["deal"]) == []
+
+
+# --- a contract with no live payment left is deleted -------------------------
+
+def _deleted(deal):
+    """Per contract of the deal, in id order: has it been soft-deleted?"""
+    return [c["deleted_at"] is not None for c in _contracts(deal)]
+
+
+def _payment_ids(deal):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM sales WHERE deal_id = %s ORDER BY series_part NULLS FIRST, id", (deal,))
+        return [row["id"] for row in cursor.fetchall()]
+
+
+def _two_payment_contract(world):
+    """One contract holding two separate one-off payments (not a schedule)."""
+    with db() as connection:
+        cursor = connection.cursor()
+        contract = create_contract(cursor, world["first"], world["deal"], "Two parts")
+        for amount in ("100", "200"):
+            insert_sale_payments(cursor, world["first"], world["deal"], Decimal(amount), date(2026, 11, 2), "part",
+                                 "booked", None, None, contract_id=contract)
+    return contract
+
+
+def test_deleting_the_only_payment_of_a_one_off_sale_deletes_its_contract(world):
+    sale = add_deal_sale(world["deal"], "600", date(2026, 11, 2), "Workshop", world["first"], status="booked")
+    assert _deleted(world["deal"]) == [False]
+    assert delete_deal_sale(world["deal"], sale, world["first"]) is True
+    assert _deleted(world["deal"]) == [True]
+
+
+def test_deleting_a_whole_series_deletes_its_contract(world):
+    add_deal_sale(world["deal"], "2400", date(2026, 11, 8), "English courses", world["first"], status="booked",
+                  expected_on=date(2027, 2, 1), months=4)
+    other = add_deal_sale(world["deal"], "100", date(2026, 11, 9), "Untouched", world["first"], status="booked")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT series_id::text AS series FROM sales WHERE series_id IS NOT NULL LIMIT 1")
+        series = cursor.fetchone()["series"]
+    assert delete_series(world["deal"], series, world["first"]) == 4
+    assert _deleted(world["deal"]) == [True, False]           # the other contract is not touched
+    assert other
+
+
+def test_deleting_one_payment_keeps_the_contract_until_the_last_live_payment_goes(world):
+    add_deal_sale(world["deal"], "900", date(2026, 11, 8), "Three months", world["first"], status="booked",
+                  expected_on=date(2027, 2, 1), months=3)
+    first, second, third = _payment_ids(world["deal"])
+    assert delete_deal_sale(world["deal"], first, world["first"]) is True
+    assert _deleted(world["deal"]) == [False]
+    assert delete_deal_sale(world["deal"], second, world["first"]) is True
+    assert _deleted(world["deal"]) == [False]
+    assert delete_deal_sale(world["deal"], third, world["first"]) is True
+    assert _deleted(world["deal"]) == [True]
+
+
+def test_the_statistics_delete_path_retires_an_emptied_contract_and_keeps_a_live_one(world):
+    one_off = add_deal_sale(world["deal"], "600", date(2026, 11, 2), "Workshop", world["first"], status="booked")
+    assert delete_sale(world["school"], one_off) is True
+    assert _deleted(world["deal"]) == [True]
+    contract = _two_payment_contract(world)
+    first, second = _payment_ids(world["deal"])[-2:]
+    assert delete_sale(world["school"], first) is True
+    assert _deleted(world["deal"]) == [True, False]
+    assert delete_sale(world["school"], second) is True
+    assert _deleted(world["deal"]) == [True, True] and contract
+
+
+def test_a_refused_delete_does_not_touch_any_contract(world):
+    add_deal_sale(world["deal"], "600", date(2026, 11, 2), "Workshop", world["first"], status="booked")
+    assert delete_deal_sale(world["deal"], 987654, world["first"]) is False
+    assert delete_series(world["deal"], "99999999-9999-9999-9999-999999999999", world["first"]) == 0
+    assert delete_sale(world["school"], 987654) is False
+    assert _deleted(world["deal"]) == [False]
+
+
+def test_a_contract_that_is_already_deleted_keeps_its_original_deletion_time(world):
+    sale = add_deal_sale(world["deal"], "600", date(2026, 11, 2), "Workshop", world["first"], status="booked")
+    with db() as connection:
+        connection.cursor().execute("UPDATE contracts SET deleted_at = '2026-01-01 10:00+00' WHERE deal_id = %s",
+                                    (world["deal"],))
+    delete_deal_sale(world["deal"], sale, world["first"])
+    (contract,) = _contracts(world["deal"])
+    assert contract["deleted_at"].isoformat().startswith("2026-01-01")
 
 
 # --- what the database itself enforces --------------------------------------
