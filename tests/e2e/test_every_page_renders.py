@@ -5,6 +5,7 @@ Mocked unit tests pass even when a query names a column that is not there; this
 is the net under all of them. Written for migration 064, which moved the stage
 from contacts/people onto deals: a query the move missed is a 500 here."""
 import re
+from datetime import date
 
 import pytest
 from fastapi.routing import APIRoute
@@ -17,6 +18,8 @@ from gcrm.db.connection import db
 from gcrm.tools.db_deals import set_organization_deal
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
+from gcrm.tools.deal_money import add_deal_sale
+from gcrm.tools.deal_records import get_deals
 from gcrm.tools.people_next_step import set_person_next_step
 
 pytestmark = pytest.mark.e2e
@@ -38,6 +41,9 @@ def world(clean_database, monkeypatch):
     ann = save_person("Ann", contact_id=acme, pipeline_stage="prospect", source="test_fixture")
     save_person("Bob", pipeline_stage="candidate", allow_duplicate=True, source="test_fixture")
     set_person_next_step(ann, "Call on Friday", None)
+    # a sale, so the Contracts list renders a real row (every sale belongs to a contract)
+    deal = next(d["id"] for d in get_deals("organization", acme) if d["offer_slug"] == "consulting")
+    add_deal_sale(deal, "900", date(2026, 11, 3), "Workshop for the crawl", status="booked")
     return {"contact_id": acme, "person_id": ann}
 
 
@@ -77,3 +83,7 @@ def test_no_page_or_endpoint_fails(world):
         main.app.dependency_overrides.pop(require_admin, None)
     assert len(paths) > 40  # the crawl reached the app, not an empty route table
     assert failures == []
+
+
+def test_the_contracts_page_is_part_of_the_crawl(world):
+    assert "/contracts/" in _get_paths(world)

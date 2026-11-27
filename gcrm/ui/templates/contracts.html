@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block extra_head %}<link rel="stylesheet" href="/static/contracts.css?v={{ static_version }}">{% endblock %}
+{% block title %}{{ t('contracts.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide contracts-page{% endblock %}
+
+{# The figures of a set of contracts: value, hours, average €/h, collected. Cancelled ones are already left out. #}
+{% macro figures(tot) %}
+<span class="contracts-figures">
+  <strong>{{ tot.value | eur }}</strong>
+  {% if tot.hours %} · {{ tot.hours | hrs }} h{% endif %}
+  {% if tot.rate %} · {{ tot.rate | eur }}/h{% endif %}
+  · {{ t('contracts.col.collected') }} {{ tot.collected | eur }}
+</span>
+{% endmacro %}
+
+{% macro contract_table(contracts, finished) %}
+<div class="table-scroll">
+<table class="contracts-table">
+  <thead><tr>
+    <th>{{ t('contracts.col.customer') }}</th><th>{{ t('contracts.col.title') }}</th><th>{{ t('contracts.kind.label') }}</th>
+    <th>{{ t('contracts.col.dates') }}</th><th class="num">{{ t('contracts.col.value') }}</th>
+    <th class="num">{{ t('contracts.col.hours') }}</th><th class="num">{{ t('contracts.col.rate') }}</th>
+    <th class="num">{{ t('contracts.col.collected') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for c in contracts %}
+    {% set s = c.summary %}
+    <tr id="contract-{{ c.id }}" class="{{ 'contracts-cancelled' if s.cancelled }}">
+      <td data-label="{{ t('contracts.col.customer') }}">
+        {% if c.organization_id %}<a href="/organizations/{{ c.organization_id }}">{{ c.owner_name }}</a>
+        {% else %}<a href="/people/{{ c.person_id }}">{{ c.owner_name }}</a>{% endif %}
+        <span class="muted small">{{ c.offer_name }}</span>
+      </td>
+      <td data-label="{{ t('contracts.col.title') }}"><a class="contract-title" href="/contracts/{{ c.id }}">{{ c.title }}</a>
+        {% if s.cancelled %}<span class="badge badge-dropped">{{ t('contracts.cancelled') }}</span>{% endif %}</td>
+      <td data-label="{{ t('contracts.kind.label') }}">{{ t('contracts.kind.' ~ c.kind) if c.kind in kinds else c.kind }}</td>
+      <td data-label="{{ t('contracts.col.dates') }}" class="nowrap">
+        {% if s.start %}{{ s.start | dmy }}{% if s.end != s.start %} – {{ s.end | dmy }}{% endif %}
+        {% else %}<span class="muted">{{ t('contracts.noDates') }}</span>{% endif %}</td>
+      {% if s.cancelled %}
+      <td class="num muted" data-label="{{ t('contracts.col.value') }}">—</td><td class="num muted" data-label="{{ t('contracts.col.hours') }}">—</td>
+      <td class="num muted" data-label="{{ t('contracts.col.rate') }}">—</td><td class="num muted" data-label="{{ t('contracts.col.collected') }}">—</td>
+      {% else %}
+      <td class="num" data-label="{{ t('contracts.col.value') }}"><strong>{{ s.value | eur }}</strong></td>
+      <td class="num" data-label="{{ t('contracts.col.hours') }}">{% if s.hours %}{{ s.hours | hrs }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="num" data-label="{{ t('contracts.col.rate') }}">{% if s.rate %}{{ s.rate | eur }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="num" data-label="{{ t('contracts.col.collected') }}">{{ s.collected | eur }}
+        {% if finished and s.open > 0 %}<span class="contracts-open">{{ t('contracts.stillOpen', amount=s.open | eur) }}</span>{% endif %}</td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t('contracts.title') }}</h1>
+  <span class="muted">{{ t('contracts.hint') }}</span>
+</div>
+
+<form method="get" action="/contracts/" class="contracts-filters">
+  {% include 'partials/offer_filter.html' %}
+  <select name="kind" aria-label="{{ t('contracts.kind.label') }}">
+    <option value="">{{ t('contracts.kind.all') }}</option>
+    {% for k in kinds %}<option value="{{ k }}" {% if k == active_kind %}selected{% endif %}>{{ t('contracts.kind.' ~ k) }}</option>{% endfor %}
+  </select>
+  <button class="btn-primary">{{ t('listControls.applyFilters') }}</button>
+</form>
+
+<section id="contracts-totals" class="detail-section contracts-totals">
+  <h2>{{ t('contracts.total') }}</h2>
+  <p>{{ t('contracts.count', count=totals.count) }} · {{ figures(totals) }}
+    · {{ t('contracts.open') }} {{ totals.open | eur }}
+    {% if totals.cancelled %}<span class="muted small"> · {{ t('contracts.cancelledCount', count=totals.cancelled) }}</span>{% endif %}</p>
+</section>
+
+{% for section in sections %}
+{% set heading = t('contracts.section.' ~ section.key) ~ ' ' %}
+{% if section.key == 'finished' %}
+<details id="contracts-finished" class="detail-section contracts-section">
+  <summary><h2>{{ heading }}<span class="muted small">({{ section.contracts | length }})</span></h2>
+    <span class="contracts-section-figures">{{ figures(section.totals) }}</span></summary>
+  {% if section.contracts %}{{ contract_table(section.contracts, true) }}{% else %}<p class="muted">{{ t('contracts.none') }}</p>{% endif %}
+</details>
+{% else %}
+<section id="contracts-{{ section.key }}" class="detail-section contracts-section">
+  <h2>{{ heading }}<span class="muted small">({{ section.contracts | length }})</span></h2>
+  <p class="contracts-section-figures">{{ figures(section.totals) }}</p>
+  {% if section.contracts %}{{ contract_table(section.contracts, false) }}{% else %}<p class="muted">{{ t('contracts.none') }}</p>{% endif %}
+</section>
+{% endif %}
+{% endfor %}
+{% endblock %}
