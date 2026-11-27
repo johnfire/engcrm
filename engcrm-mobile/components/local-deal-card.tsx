@@ -32,7 +32,8 @@ export function LocalDealCard({ deal, canEdit }: { deal: LocalRecord; canEdit: b
         ...(change.status ? { status: change.status } : {}),
       })} />
       : <Text style={{ color: "#bbb" }}>{String(stage)} · {String(status)}</Text>)}
-    <PersonNextStep step={step} date={date} canEdit={canEdit} onSaved={() => {}} save={async (nextStep, nextDate, type) => {
+    {/* While something waits to sync, the step shown may not be the one "Done" would complete. */}
+    <PersonNextStep step={step} date={date} canEdit={canEdit} canComplete={deal.pendingCount === 0} onSaved={() => {}} save={async (nextStep, nextDate, type) => {
       await save({ next_step: nextStep, next_step_date: nextDate, ...(type ? { task_type: type } : {}) });
       return { next_step: nextStep, next_step_date: nextDate };
     }} />

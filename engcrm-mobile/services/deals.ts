@@ -7,6 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { client } from "./api";
+import type { FollowUpType } from "./followUps";
 import { SaleStatus } from "./saleStatus";
 import { OrganizationStatus, PipelineStage } from "./organizationState";
 
@@ -37,6 +38,14 @@ export interface DealMoney {
   running: Subscription | null;
 }
 
+/** One open follow-up of a deal, as the server lists them (earliest first). */
+export interface FollowUp {
+  id: number;
+  task_type: FollowUpType;
+  task_text: string;
+  due_date: string | null;
+}
+
 export interface Deal {
   id: number;
   offer_id: number;
@@ -50,6 +59,8 @@ export interface Deal {
   status: OrganizationStatus;
   next_step: string | null;
   next_step_date: string | null;
+  /** Absent from servers older than the list. */
+  follow_ups?: FollowUp[];
   contact_person_id: number | null;
   contact_person_name: string | null;
   organization_name?: string;
@@ -102,7 +113,7 @@ export async function setDealNextStep(
   id: number,
   nextStep: string | null,
   date: string | null,
-  taskType?: "commitment" | "check_in" | null,
+  taskType?: FollowUpType | null,
 ): Promise<{ next_step: string | null; next_step_date: string | null }> {
   return (await client.put(`/api/deals/${id}/next-step`, {
     next_step: nextStep, next_step_date: date, ...(taskType ? { task_type: taskType } : {}),

@@ -1,12 +1,14 @@
-// What happens next with a person: the current step and its due date, and — for an
-// admin — a small editor (words, a quick "when", Save, Done). Every change is also
-// written to the person's note log on the server, so the log below refreshes too.
+// What happens next on a deal: its open follow-ups (or, from an older server and
+// offline, the one next step) and — for an admin — an editor that only ever adds one
+// (words, type, a quick "when") and "Done" for the earliest. Every change is also
+// written to the owner's log on the server, so the log below refreshes too.
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { setPersonNextStep } from "../services/api";
 import { FOLLOW_UPS, dateInDays, followUpDate, type FollowUpType } from "../services/followUps";
 import { notifyChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
+import type { FollowUp } from "../services/deals";
 import { Chip } from "./StageStatusPicker";
 import { FollowUpTypePicker } from "./FollowUpTypePicker";
 import { formatDay } from "../services/dates";
@@ -20,24 +22,31 @@ type Props = {
   canEdit: boolean;
   onSaved: (step: string | null, date: string | null) => void;
   /** Where the step is stored. Defaults to the person's Consulting deal; a deal
-   *  card passes its own deal's. `type` is null only when the step is cleared. */
+   *  card passes its own deal's. A blank step marks the earliest done (type null). */
   save?: (step: string | null, date: string | null, type: FollowUpType | null) => Promise<Saved>;
+  /** The deal's open follow-ups, earliest first; without any, `step` and `date` show. */
+  followUps?: FollowUp[];
+  /** False where "Done" could complete something other than what is shown. */
+  canComplete?: boolean;
 };
 
-export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store }: Props) {
+export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store, followUps = [],
+  canComplete = true }: Props) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(step ?? "");
-  const [when, setWhen] = useState(date ? "keep" : "none");
+  const [text, setText] = useState("");
+  const [when, setWhen] = useState("none");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
   const [type, setType] = useState<FollowUpType | null>(null);
   const [typeMissing, setTypeMissing] = useState(false);
-  const overdue = !!date && date < dateInDays(0);
+  const shown = followUps.length
+    ? followUps.map((item) => ({ key: String(item.id), text: item.task_text, date: item.due_date, type: item.task_type }))
+    : step ? [{ key: "step", text: step, date, type: null }] : [];
 
   async function save(nextText: string, nextDate: string | null) {
     const next = nextText.trim() || null;
-    // A new step needs its type; clearing one (Done, or blank words) needs none.
+    // A new step needs its type; "Done" (blank words) needs none.
     if (next && !type) {
       setTypeMissing(true);
       return;
@@ -50,7 +59,9 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
         return chosen ? setPersonNextStep(personId, s, d, chosen) : setPersonNextStep(personId, s, d);
       });
       const stored = await write(next, next ? nextDate : null, next ? type : null);
-      setType(null); // the next change is asked afresh
+      setType(null); // the next one is asked afresh
+      setText("");
+      setWhen("none");
       onSaved(stored.next_step, stored.next_step_date);
       if (personId !== undefined) notifyChanged(personKey(personId));
       setEditing(false);
@@ -61,35 +72,37 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
     }
   }
 
-  const chosenDate = when === "keep" ? date : followUpDate(when);
+  const chosenDate = followUpDate(when);
+  const blank = !text.trim();
 
   return (
     <View style={styles.box}>
       <Text style={styles.title}>{t("nextStep.title")}</Text>
-      {step ? (
-        <>
-          <Text style={styles.step}>{step}</Text>
-          {!!date && (
-            <Text style={[styles.due, overdue && styles.overdue]}>
-              {t("nextStep.due", { date: formatDay(date) })}
-              {overdue ? ` · ${t("nextStep.overdue")}` : ""}
-            </Text>
-          )}
-        </>
-      ) : (
-        <Text style={styles.none}>{t("nextStep.none")}</Text>
-      )}
+      {shown.map((item, index) => {
+        const overdue = !!item.date && item.date < dateInDays(0);
+        const due = item.date
+          ? `${t("nextStep.due", { date: formatDay(item.date) })}${overdue ? ` · ${t("nextStep.overdue")}` : ""}`
+          : "";
+        const detail = [item.type ? t(`followUp.${item.type}`) : "", due].filter(Boolean).join(" · ");
+        return (
+          <View key={item.key} style={index > 0 && styles.next}>
+            <Text style={styles.step}>{item.text}</Text>
+            {!!detail && <Text style={[styles.due, overdue && styles.overdue]}>{detail}</Text>}
+            {index === 0 && canEdit && canComplete && !editing && (
+              <TouchableOpacity accessibilityRole="button" onPress={() => save("", null)} disabled={saving}>
+                <Text style={styles.action}>✓ {t("nextStep.done")}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })}
+      {shown.length === 0 && <Text style={styles.none}>{t("nextStep.none")}</Text>}
 
       {canEdit && !editing && (
         <View style={styles.actions}>
           <TouchableOpacity accessibilityRole="button" onPress={() => setEditing(true)} disabled={saving}>
-            <Text style={styles.action}>{step ? t("nextStep.change") : t("nextStep.add")}</Text>
+            <Text style={styles.action}>{t("nextStep.add")}</Text>
           </TouchableOpacity>
-          {!!step && (
-            <TouchableOpacity accessibilityRole="button" onPress={() => save("", null)} disabled={saving}>
-              <Text style={styles.action}>✓ {t("nextStep.done")}</Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
 
@@ -105,14 +118,11 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
             editable={!saving}
             accessibilityLabel={t("nextStep.label")}
           />
-          {!!text.trim() && (
+          {!blank && (
             <FollowUpTypePicker style={styles.type} value={type} disabled={saving}
               onChange={(chosen) => { setType(chosen); setTypeMissing(false); }} />
           )}
           <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("nextStep.dateLabel")}>
-            {!!date && (
-              <Chip label={t("nextStep.keepDate", { date: formatDay(date) })} selected={when === "keep"} onPress={() => setWhen("keep")} />
-            )}
             {FOLLOW_UPS.map(({ id, labelKey }) => (
               <Chip key={id} label={t(labelKey)} selected={when === id} disabled={saving} onPress={() => setWhen(id)} />
             ))}
@@ -121,9 +131,10 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
           <View style={styles.actions}>
             <TouchableOpacity
               accessibilityRole="button"
-              style={styles.saveButton}
-              onPress={() => save(text, chosenDate)}
-              disabled={saving}
+              style={[styles.saveButton, blank && styles.disabled]}
+              onPress={() => { if (!blank) void save(text, chosenDate); }}
+              disabled={saving || blank}
+              accessibilityState={{ disabled: saving || blank }}
             >
               <Text style={styles.saveText}>{t("nextStep.save")}</Text>
             </TouchableOpacity>
@@ -155,5 +166,7 @@ const styles = StyleSheet.create({
   type: { marginTop: 10 },
   saveButton: { backgroundColor: "#7c6fff", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 9 },
   saveText: { color: "#fff", fontWeight: "700" },
+  disabled: { opacity: 0.4 },
+  next: { borderTopColor: "#ffffff15", borderTopWidth: 1, marginTop: 10, paddingTop: 10 },
   error: { color: "#ff6b6b", fontSize: 13, marginTop: 8 },
 });

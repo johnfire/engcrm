@@ -46,7 +46,8 @@ it("asks for the type before it queues a next step, and queues Done without one"
   const deal = { syncId: "deal-typed", serverId: null, isLocalOnly: true, pendingCount: 0, failedCount: 0,
     fields: { offer_name: "Consulting", pipeline_stage: "candidate", status: "none", next_step: "Call" } };
   const view = render(<LocalDealCard deal={deal} canEdit />);
-  fireEvent.press(view.getByText("Change"));
+  fireEvent.press(view.getByText("Add next step"));
+  fireEvent.changeText(view.getByLabelText("What happens next"), "Write");
   fireEvent.press(view.getByText("Save"));
   expect(view.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
   expect(queueLocalUpdate).not.toHaveBeenCalled();
@@ -54,4 +55,14 @@ it("asks for the type before it queues a next step, and queues Done without one"
   fireEvent.press(view.getByText("✓ Done"));
   await waitFor(() => expect(queueLocalUpdate).toHaveBeenCalled());
   expect(jest.mocked(queueLocalUpdate).mock.calls[0][1].patch).toEqual({ next_step: null, next_step_date: null });
+});
+
+it("offers no Done while a change to the deal waits to sync", () => {
+  jest.mocked(useOffline).mockReturnValue({ session: { database: {} } as never, status: null, state: "idle",
+    requestSync: jest.fn(), refreshStatus: jest.fn(), retryOpen: jest.fn() });
+  const deal = { syncId: "deal-waiting", serverId: null, isLocalOnly: true, pendingCount: 1, failedCount: 0,
+    fields: { offer_name: "Consulting", pipeline_stage: "candidate", status: "none", next_step: "Call" } };
+  const view = render(<LocalDealCard deal={deal} canEdit />);
+  expect(view.getByText("Call")).toBeTruthy();
+  expect(view.queryByText("✓ Done")).toBeNull();
 });

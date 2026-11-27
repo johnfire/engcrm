@@ -105,3 +105,19 @@ it("saves a deal's next step with the chosen follow-up type", async () => {
   fireEvent.press(screen.getByText("Save"));
   await waitFor(() => expect(mockSetDealNextStep).toHaveBeenCalledWith(9, "Send quote", null, "commitment"));
 });
+
+it("lists a deal's follow-ups and shows the new one after adding it", async () => {
+  const first = { id: 1, task_text: "Meet", task_type: "commitment", due_date: null };
+  const added = { id: 2, task_text: "Send quote", task_type: "check_in", due_date: null };
+  mockFetchDeals.mockResolvedValue([{ ...LEARNWOHL, next_step: "Meet", follow_ups: [first] }]);
+  mockSetDealNextStep.mockResolvedValue({ next_step: "Meet", next_step_date: null });
+  const screen = setup();
+  expect(await screen.findByText("Meet")).toBeTruthy();
+  mockFetchDeals.mockResolvedValue([{ ...LEARNWOHL, next_step: "Meet", follow_ups: [first, added] }]);
+  fireEvent.press(screen.getByText("Add next step"));
+  fireEvent.changeText(screen.getByLabelText("What happens next"), "Send quote");
+  fireEvent.press(screen.getByLabelText("Check-in"));
+  fireEvent.press(screen.getByText("Save"));
+  expect(await screen.findByText("Send quote")).toBeTruthy();
+  expect(screen.getByText("Meet")).toBeTruthy();
+});

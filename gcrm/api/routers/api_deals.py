@@ -29,6 +29,7 @@ from gcrm.tools.deal_records import (
     set_deal_next_step,
     update_deal,
 )
+from gcrm.tools.follow_up_queries import deal_follow_ups
 
 router = APIRouter(prefix="/api", tags=["mobile-deals"])
 
@@ -44,22 +45,28 @@ def offers(payload: dict = Depends(require_jwt_payload)) -> list[dict]:
             for offer in list_offers(_workspace(payload))]
 
 
-def _with_money(deals: list[dict]) -> list[dict]:
-    """Each deal with what it earns: {sales_total, sales, subscriptions, running}."""
-    money = deal_money([deal["id"] for deal in deals])
-    return [{**deal, "money": money[deal["id"]]} for deal in deals]
+def _for_phone(deals: list[dict], workspace_id: int | None) -> list[dict]:
+    """Each deal with what it earns ({sales_total, sales, subscriptions, running}) and its open
+    follow-ups, earliest first (read-only: a next step adds one, a blank step marks the first done)."""
+    ids = [deal["id"] for deal in deals]
+    money, follow_ups = deal_money(ids), deal_follow_ups(ids, workspace_id)
+    return [{**deal, "money": money[deal["id"]],
+             "follow_ups": [{"id": task["id"], "task_type": task["task_type"], "task_text": task["task_text"],
+                             "due_date": task["due_date"].isoformat() if task["due_date"] else None}
+                            for task in follow_ups.get(deal["id"], [])]} for deal in deals]
 
 
 @router.get("/contacts/{contact_id}/deals")
 def organization_deals(contact_id: int, payload: dict = Depends(require_jwt_payload)) -> list[dict]:
-    return _with_money(get_deals("organization", contact_id, _workspace(payload)))
+    workspace = _workspace(payload)
+    return _for_phone(get_deals("organization", contact_id, workspace), workspace)
 
 
 @router.get("/people/{person_id}/deals")
 def person_deals(person_id: int, payload: dict = Depends(require_jwt_payload)) -> dict:
     """The deals a person owns, and the organizations' deals they are the contact person on."""
     workspace = _workspace(payload)
-    return {"owned": _with_money(get_deals("person", person_id, workspace)),
+    return {"owned": _for_phone(get_deals("person", person_id, workspace), workspace),
             "contact_person_for": get_deals_as_contact_person(person_id, workspace)}
 
 

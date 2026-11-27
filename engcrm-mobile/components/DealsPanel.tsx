@@ -205,6 +205,7 @@ function DealCard({
         personId={ownerId}
         step={deal.next_step}
         date={deal.next_step_date}
+        followUps={deal.follow_ups}
         canEdit={canEdit}
         onSaved={() => void reload()}
         save={(step, date, type) => setDealNextStep(deal.id, step, date, type)}

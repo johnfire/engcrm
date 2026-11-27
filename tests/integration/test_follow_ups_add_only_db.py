@@ -13,6 +13,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db_interactions import log_meeting_note
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.db_organizations import save_organization
+from gcrm.tools.db_people import save_person
 from gcrm.tools.db_users import create_user
 from gcrm.tools.deal_records import add_deal, get_deals, set_deal_next_step
 from gcrm.tools.follow_ups import change_follow_up_status, create_follow_up, list_follow_ups
@@ -230,3 +231,27 @@ def test_the_cards_edit_link_opens_that_one_follow_up(deal, web):
     table = page[page.index("<tbody>"):page.index("</tbody>")]
     assert "Ask about the budget" in table and "Meet in Friedrichshafen" not in table
     assert re.search(rf'<details open>.*?action="/follow-ups/{second}/edit"', table, re.S)
+
+
+# --- the phone's list ------------------------------------------------------------------
+
+def test_the_phone_gets_each_deals_open_follow_ups_earliest_first(deal):
+    _promise(deal, due=LATE)
+    _phone_step(deal, "Send quote", EARLY, "check_in")
+    _phone_step(deal, "Waiting for a type")
+    done = create_follow_up(deal_id=deal["id"], task_type="check_in", task_text="Finished")
+    version = next(t for t in list_follow_ups() if t["id"] == done)["updated_at"]
+    change_follow_up_status(done, "completed", version)
+
+    (listed,) = TestClient(app).get(f"/api/contacts/{deal['contact_id']}/deals", headers=PHONE).json()
+    assert [(f["task_text"], f["task_type"], f["due_date"]) for f in listed["follow_ups"]] == [
+        ("Send quote", "check_in", "2026-12-04"), ("Meet in Friedrichshafen", "commitment", "2026-12-11")]
+    assert sorted(listed["follow_ups"][0]) == ["due_date", "id", "task_text", "task_type"]
+
+
+def test_the_phone_gets_a_persons_follow_ups_too(clean_database):
+    person = save_person("Ada Beispiel", source="test_fixture")
+    TestClient(app).put(f"/api/people/{person}/next-step", headers=PHONE,
+                        json={"next_step": "Call", "task_type": "check_in"})
+    owned = TestClient(app).get(f"/api/people/{person}/deals", headers=PHONE).json()["owned"]
+    assert [f["task_text"] for f in owned[0]["follow_ups"]] == ["Call"]
