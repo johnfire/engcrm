@@ -37,6 +37,11 @@ def set_audit_context(actor: str, actor_type: str, correlation_id: str | None = 
     _audit_context.set(AuditContext(actor, actor_type, correlation_id))
 
 
+def restore_audit_context(context: AuditContext | None) -> None:
+    """Put back an identity saved earlier with current_audit_context() (None: nobody acting)."""
+    _audit_context.set(context)
+
+
 class CorrelationIdFilter:
     """Add the active correlation ID to ordinary Python log records."""
 

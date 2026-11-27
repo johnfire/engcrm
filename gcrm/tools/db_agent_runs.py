@@ -1,9 +1,18 @@
 """Agent-run logging and per-run cost recording."""
 import json
 
-from gcrm.audit_context import set_audit_context
+from gcrm.audit_context import (
+    AuditContext,
+    current_audit_context,
+    restore_audit_context,
+    set_audit_context,
+)
 from gcrm.db.connection import db, serialize_row
 from gcrm.tools.db_audit import log_audit
+
+# Who was acting before each running agent run, so finish_run can hand the identity back: without
+# this, everything after a run in the same process would be logged as the agent.
+_acting_before_run: dict[int, AuditContext | None] = {}
 
 
 def start_run(agent_name: str, input_data: dict) -> int:
@@ -21,6 +30,7 @@ def start_run(agent_name: str, input_data: dict) -> int:
         )
         run_id = cur.fetchone()["id"]
     correlation_id = f"run:{run_id}"
+    _acting_before_run[run_id] = current_audit_context()
     set_audit_context(f"agent:{agent_name}", "ai", correlation_id)
     log_audit(None, None, "agent.run_started", f"agent_run:{run_id}", "running", correlation_id)
     return run_id
@@ -58,6 +68,8 @@ def finish_run(run_id: int, status: str, summary: str, output_data: dict) -> Non
         row = cur.fetchone()
     actor = f"agent:{row['agent_name']}" if row else f"agent:run:{run_id}"
     log_audit(actor, "ai", "agent.run_finished", f"agent_run:{run_id}", status, f"run:{run_id}")
+    if run_id in _acting_before_run:
+        restore_audit_context(_acting_before_run.pop(run_id))
 
 
 def get_run_costs(limit: int = 20) -> list[dict]:

@@ -5,6 +5,7 @@ from subprocess import run
 
 import pytest
 
+from gcrm.audit_context import AuditContext, audit_scope, current_audit_context
 from gcrm.db.connection import db
 from gcrm.tools.db import get_organizations_ready_for_outreach, save_organization
 from gcrm.tools.db_agent_runs import finish_run, start_run
@@ -92,6 +93,24 @@ def test_agent_run_events_record_the_ai_actor_and_correlation_id(clean_database)
         "actor_type": "ai",
         "correlation_id": f"run:{run_id}",
     }
+
+
+def test_an_agent_run_speaks_as_the_agent_only_until_it_finishes(clean_database):
+    """A run must not leave its identity behind: what happens after it in the same process is logged
+    as whoever was acting before it, not as the agent."""
+    with audit_scope("chris@example.test", "user", "req-1"):
+        run_id = start_run("judge", {"limit": 1})
+        assert current_audit_context() == AuditContext("agent:judge", "ai", f"run:{run_id}")
+        finish_run(run_id, "completed", "judged one", {})
+        assert current_audit_context() == AuditContext("chris@example.test", "user", "req-1")
+    assert current_audit_context() is None
+
+
+def test_a_run_started_with_no_one_acting_leaves_no_one_acting(clean_database):
+    before = current_audit_context()
+    run_id = start_run("gather", {"city": "Ulm"})
+    finish_run(run_id, "completed", "gathered", {})
+    assert current_audit_context() == before
 
 
 def test_personal_priorities_are_private_per_user(clean_database):
