@@ -71,12 +71,25 @@ def test_web_form_logs_the_whole_visit_as_one_activity():
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     log = _web_log(occurred_on=yesterday, duration_minutes="25", attitude=["skeptical", "warm"], my_read=["nh"],
                    materials_left=" flyer, price list ", followup_promised=" send quote ",
-                   followup_date="2026-11-15")
+                   followup_date="2026-11-15", followup_type="commitment")
     log.assert_called_once_with(
         7, "in_person", "Met Anna", follow_up_date=date(2026, 11, 15), follow_up_text="send quote",
         duration_minutes=25, offer_id=None, occurred_on=date.fromisoformat(yesterday),
         attitude=["warm", "skeptical"], my_read=["nh"], materials_left="flyer, price list",
+        follow_up_type="commitment",
     )
+
+
+@pytest.mark.parametrize("follow_up_type", ["", "someday"])
+def test_web_form_refuses_a_promised_follow_up_without_a_type_so_it_cannot_hide_in_review(follow_up_type):
+    with pytest.raises(HTTPException) as refused:
+        _web_log(followup_promised="Meet in person", followup_date="2026-12-04", followup_type=follow_up_type)
+    assert refused.value.status_code == 400
+
+
+def test_web_form_with_only_a_follow_up_date_needs_no_type():
+    log = _web_log(followup_date="2026-12-04")
+    assert log.call_args.kwargs["follow_up_date"] == date(2026, 12, 4) and "follow_up_type" not in log.call_args.kwargs
 
 
 def test_web_form_with_only_the_basics_stores_blanks_as_none():

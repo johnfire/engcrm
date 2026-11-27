@@ -49,26 +49,26 @@ class TestWebForm:
         return response, setter
 
     def test_saving_sets_the_step_and_date_and_returns_to_the_person(self, admin_web):
-        response, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15"})
+        response, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15", "task_type": "check_in"})
         assert response.status_code == 303 and response.headers["location"] == "/people/3"
-        setter.assert_called_once_with(9, "Invite to coffee", date(2026, 10, 15), None)
+        setter.assert_called_once_with(9, "Invite to coffee", date(2026, 10, 15), None, task_type="check_in")
 
     def test_done_clears_the_step_whatever_the_fields_say(self, admin_web):
         _, setter = self.post({"next_step": "Invite to coffee", "next_step_date": "2026-10-15", "done": "1"})
         setter.assert_called_once_with(9, "", None, None)
 
     def test_a_european_date_is_read(self, admin_web):
-        response, setter = self.post({"next_step": "x", "next_step_date": "15.10.2026"})
+        response, setter = self.post({"next_step": "x", "next_step_date": "15.10.2026", "task_type": "commitment"})
         assert response.status_code == 303
         assert setter.call_args.args[2] == date(2026, 10, 15)
 
     def test_a_bad_date_is_refused(self, admin_web):
-        response, setter = self.post({"next_step": "x", "next_step_date": "10/15/2026"})  # American: no month 15
+        response, setter = self.post({"next_step": "x", "next_step_date": "10/15/2026", "task_type": "commitment"})  # American: no month 15
         assert response.status_code == 400
         setter.assert_not_called()
 
     def test_an_unknown_deal_is_a_404(self, admin_web):
-        response, _ = self.post({"next_step": "x"}, error=DealNotFound())
+        response, _ = self.post({"next_step": "x", "task_type": "check_in"}, error=DealNotFound())
         assert response.status_code == 404
 
     def test_the_old_person_route_is_gone(self, admin_web):

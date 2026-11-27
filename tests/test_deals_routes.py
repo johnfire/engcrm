@@ -102,10 +102,17 @@ class TestPanelForms:
 
     def test_next_step_set_and_done(self, admin_web):
         with patch("gcrm.api.routers.deals.set_deal_next_step") as setter:
-            post("/deals/9/next-step", {"next_step": "Demo", "next_step_date": "2026-10-20"})
+            post("/deals/9/next-step", {"next_step": "Demo", "next_step_date": "2026-10-20", "task_type": "check_in"})
             post("/deals/9/next-step", {"next_step": "Demo", "next_step_date": "2026-10-20", "done": "1"})
         assert setter.call_args_list[0].args == (9, "Demo", date(2026, 10, 20), None)
-        assert setter.call_args_list[1].args == (9, "", None, None)
+        assert setter.call_args_list[0].kwargs == {"task_type": "check_in"}
+        assert setter.call_args_list[1].args == (9, "", None, None)     # done needs no type
+
+    def test_a_new_next_step_without_a_follow_up_type_is_refused_so_it_cannot_hide_in_review(self, admin_web):
+        with patch("gcrm.api.routers.deals.set_deal_next_step") as setter:
+            assert post("/deals/9/next-step", {"next_step": "Meet in person", "next_step_date": "2026-12-04"}).status_code == 400
+            assert post("/deals/9/next-step", {"next_step": "Meet in person", "task_type": "someday"}).status_code == 400
+        setter.assert_not_called()
 
     def test_removing_a_missing_deal_is_a_404(self, admin_web):
         with patch("gcrm.api.routers.deals.remove_deal", side_effect=DealNotFound()):

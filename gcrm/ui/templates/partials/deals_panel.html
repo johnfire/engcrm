@@ -80,6 +80,14 @@
             <label for="deal-{{ deal.id }}-next-step-date">{{ t('nextStep.dateLabel') }}</label>
             {{ date_field('next_step_date', deal.next_step_date, id='deal-' ~ deal.id ~ '-next-step-date') }}
           </div>
+          <div class="field-row">
+            <label for="deal-{{ deal.id }}-next-step-type">{{ t('followUp.type') }}</label>
+            <select name="task_type" id="deal-{{ deal.id }}-next-step-type">
+              <option value="">{{ t('followUp.chooseType') }}</option>
+              <option value="commitment">{{ t('followUp.commitment') }}</option>
+              <option value="check_in">{{ t('followUp.check_in') }}</option>
+            </select>
+          </div>
           <div class="detail-actions">
             <button type="submit" class="btn-primary">{{ t('nextStep.save') }}</button>
             {% if deal.next_step %}

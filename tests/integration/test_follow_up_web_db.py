@@ -1,12 +1,16 @@
 """Follow-up forms operate on real database rows and preserve siblings."""
+import re
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.main import app
+from gcrm.db.connection import db
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
-from gcrm.tools.deal_records import get_deals
+from gcrm.tools.deal_records import get_deals, set_deal_next_step
 from gcrm.tools.follow_ups import list_follow_ups
 
 pytestmark = pytest.mark.integration
@@ -60,3 +64,46 @@ def test_create_names_a_person_only_when_they_belong_to_the_organization(clean_d
     finally:
         app.dependency_overrides.pop(require_login, None)
         app.dependency_overrides.pop(require_admin, None)
+
+
+def test_a_next_step_typed_on_the_deal_card_goes_straight_to_the_active_list(clean_database, monkeypatch):
+    """The trap behind a missing follow-up: the deal card's Next step had no type field, so a new step
+    went to Review and never showed on the list. The card now asks for the type and the step is active."""
+    monkeypatch.setattr("gcrm.tools.db_organizations.geocode", lambda city, country: None)
+    organization = save_organization("Beispiel Werke GmbH", "Friedrichshafen", source="test_fixture")
+    deal = get_deals("organization", organization)[0]
+    app.dependency_overrides[require_login] = lambda: "admin"
+    app.dependency_overrides[require_admin] = lambda: "admin"
+    try:
+        client = TestClient(app)
+        card = client.get(f"/organizations/{organization}?lang=en").text
+        assert re.search(rf'action="/deals/{deal["id"]}/next-step".*?<select name="task_type"', card, re.S)
+        refused = client.post(f"/deals/{deal['id']}/next-step", data={"next_step": "Meet in Friedrichshafen",
+                              "next_step_date": "04.12.2026"}, follow_redirects=False)
+        assert refused.status_code == 400 and list_follow_ups() == []
+        saved = client.post(f"/deals/{deal['id']}/next-step", data={"next_step": "Meet in Friedrichshafen",
+                            "next_step_date": "04.12.2026", "task_type": "check_in"}, follow_redirects=False)
+        assert saved.status_code == 303
+        page = client.get("/follow-ups/?lang=en").text
+    finally:
+        app.dependency_overrides.clear()
+    (task,) = list_follow_ups()
+    assert (task["task_text"], task["task_type"], task["due_date"]) == ("Meet in Friedrichshafen", "check_in", date(2026, 12, 4))
+    assert "Meet in Friedrichshafen" in page
+
+
+def test_a_step_waiting_in_review_becomes_active_when_saved_again_with_a_type(clean_database, monkeypatch):
+    """How an existing hidden step is rescued: saving the same text and date again with a type activates
+    the waiting entry instead of making a second one."""
+    monkeypatch.setattr("gcrm.tools.db_organizations.geocode", lambda city, country: None)
+    organization = save_organization("Beispiel Werke GmbH", "Friedrichshafen", source="test_fixture")
+    deal = get_deals("organization", organization)[0]
+    set_deal_next_step(deal["id"], "Meet in Friedrichshafen", date(2026, 12, 4))          # the old, typeless way
+    assert list_follow_ups() == []
+    set_deal_next_step(deal["id"], "Meet in Friedrichshafen", date(2026, 12, 4), task_type="check_in")
+    (task,) = list_follow_ups()
+    assert (task["task_text"], task["task_type"]) == ("Meet in Friedrichshafen", "check_in")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT count(*) AS n FROM follow_ups WHERE deal_id = %s", (deal["id"],))
+        assert cursor.fetchone()["n"] == 1                                                 # no second copy

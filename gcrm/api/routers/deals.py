@@ -45,6 +45,7 @@ from gcrm.tools.deal_records import (
     set_deal_next_step,
     update_deal,
 )
+from gcrm.tools.follow_ups import TASK_TYPES
 
 router = APIRouter(prefix="/deals", tags=["deals"], dependencies=[Depends(require_login)])
 
@@ -132,13 +133,20 @@ def deal_next_step(
     next_step: str = Form(""),
     next_step_date: str = Form(""),
     done: str = Form(""),
+    task_type: str = Form(""),
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Set the deal's next step, or with `done`, clear it (logged as done)."""
+    """Set the deal's next step, or with `done`, clear it (logged as done). A step needs its follow-up type
+    (Commitment or Check-in): without one it would wait in Review and never show on the Follow-ups list."""
     try:
-        due = None if done else parse_day(next_step_date)
-        set_deal_next_step(deal_id, "" if done else next_step, due, request.session.get("workspace_id"))
+        if done:
+            set_deal_next_step(deal_id, "", None, request.session.get("workspace_id"))
+            return _back(next, "/organizations/")
+        due = parse_day(next_step_date)
+        if next_step.strip() and task_type not in TASK_TYPES:
+            raise ValueError("Choose Commitment or Check-in for the next step")
+        set_deal_next_step(deal_id, next_step, due, request.session.get("workspace_id"), task_type=task_type or None)
     except DealNotFound:
         raise HTTPException(status_code=404, detail="Deal not found")
     except ValueError as error:

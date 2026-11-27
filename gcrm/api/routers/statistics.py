@@ -226,6 +226,9 @@ def log_activity(
     followup_type = followup_type if isinstance(followup_type, str) else ""
     if followup_type not in ("", "commitment", "check_in"):
         raise HTTPException(status_code=400, detail="Unknown follow-up type")
+    if isinstance(followup_promised, str) and followup_promised.strip() and not followup_type:
+        # Without a type a promise waits in Review and never shows on the Follow-ups list.
+        raise HTTPException(status_code=400, detail="Choose Commitment or Check-in for the follow-up")
     if method is not None and method not in ORGANIZATION_METHODS:
         raise HTTPException(status_code=400, detail="Unknown activity type")
     try:
