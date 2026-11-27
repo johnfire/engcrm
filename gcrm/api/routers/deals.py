@@ -11,10 +11,13 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 
 from gcrm.api.auth import require_admin, require_login
 from gcrm.api.redirects import local_redirect
+from gcrm.contract_input import checked_title
+from gcrm.contract_kinds import CONTRACT_KINDS, checked_kind
 from gcrm.dates import parse_day
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.sale_series import amount_and_hours, contract_from_form, contract_hours, typed_number
 from gcrm.sale_status import SALE_STATUSES
+from gcrm.tools.db_contracts import by_deal, card_contracts
 from gcrm.tools.db_offers import list_offers
 from gcrm.tools.deal_money import (
     add_deal_sale,
@@ -163,6 +166,8 @@ def deal_sale_add(
     work_to: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
+    title: str = Form(""),
+    kind: str = Form("other"),
     status: str = Form("booked"),
     expected_on: str = Form(""),
     schedule: str = Form(""),
@@ -170,13 +175,15 @@ def deal_sale_add(
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Record a sale on the deal — booked, contracted or already collected. `schedule` is
+    """Make a new contract on the deal and record its sale — booked, contracted or already collected. `title` (required)
+    and `kind` name the contract; a refused one records nothing. `schedule` is
     "one" (a single payment) or "monthly" (the amount is per month, for `months` months, the
     first due on `expected_on`)."""
     try:
         amount, worked = amount_and_hours(typed_number(amount_eur), typed_number(hours), typed_number(rate))   # per month if monthly
         amount, months = contract_from_form(amount, schedule, months)
-        add_deal_sale(deal_id, amount, _required_day(won_on), description[:500],
+        title, kind = checked_title(title), checked_kind(kind)
+        add_deal_sale(deal_id, amount, _required_day(won_on), description[:500], title=title, kind=kind,
                       workspace_id=request.session.get("workspace_id"), status=status,
                       expected_on=parse_day(expected_on), months=months,
                       hours=contract_hours(worked, schedule, months),
@@ -404,6 +411,7 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
     the stage lives nowhere else any more."""
     workspace_id = request.session.get("workspace_id")
     deals = get_deals(owner, owner_id, workspace_id)
+    contracts = card_contracts(workspace_id, [deal["id"] for deal in deals], date.today())
     pitched = {deal["offer_id"] for deal in deals}
     offers = list_offers(workspace_id)
     return {
@@ -420,6 +428,10 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
         "contact_person_deals": (get_deals_as_contact_person(owner_id, workspace_id)
                                  if owner == "person" else []),
         "deal_money": deal_money([deal["id"] for deal in deals]),
+        # what the cards list: every contract of these deals, and the same grouped under each deal
+        "owner_contracts": contracts,
+        "deal_contracts": by_deal(contracts),
+        "contract_kinds": CONTRACT_KINDS,
         "pipeline_stages": PIPELINE_STAGES,
         "statuses": STATUSES,
         "sale_statuses": SALE_STATUSES,

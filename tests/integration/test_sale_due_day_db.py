@@ -11,6 +11,7 @@ from gcrm.db.connection import db
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.deal_money import add_deal_sale, set_sale_due_day, set_sale_status
 from gcrm.tools.deal_records import DealNotFound, get_deals
+from tests.contract_pages import contract_pages
 
 pytestmark = pytest.mark.integration
 
@@ -106,8 +107,7 @@ def test_the_page_shows_the_due_day_of_every_unreceived_sale_and_flags_a_missing
     add_deal_sale(firm["deal"], "700", date(2026, 11, 8), "no day", firm["workspace"], status="expected")
     add_deal_sale(firm["deal"], "100", date(2026, 11, 8), "paid", firm["workspace"], status="collected", collected_on=date(2026, 11, 9))
     owner, _ = _browser(firm)
-    page = owner.get(f"/organizations/{firm['contact']}?lang=en").text
-    sales = page[page.index('id="sales"'):]
+    sales = contract_pages(owner, firm["deal"])
     assert "due 15.02.2027" in sales                                          # an expected sale shows its day, like booked ones
     assert sales.count("no due day yet") == 1                                 # only the undated one is flagged
     assert sales.count('/due-day"') == 2                                      # a due-day form on each unreceived sale, none on the paid one

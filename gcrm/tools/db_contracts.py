@@ -14,7 +14,7 @@ from gcrm.contract_input import (
     checked_title,
 )
 from gcrm.contract_kinds import checked_kind
-from gcrm.contract_math import contract_summary
+from gcrm.contract_math import SECTIONS, contract_summary, group_by_timing
 from gcrm.db.connection import db, serialize_row
 from gcrm.sale_series import attach_contract_summaries
 from gcrm.sale_status import checked_sale_status
@@ -31,8 +31,9 @@ class ContractNotFound(Exception):
 
 # --- the list -----------------------------------------------------------------
 
-def list_contracts(workspace_id: int, offer: str | None = None, kind: str | None = None) -> list[dict]:
-    """Every live contract of the workspace (one offer's, one kind's, when given), each with its owner (the
+def list_contracts(workspace_id: int, offer: str | None = None, kind: str | None = None,
+                   deal_ids: list[int] | None = None) -> list[dict]:
+    """Every live contract of the workspace (one offer's, one kind's, or these deals', when given), each with its owner (the
     organization or person the deal belongs to), its offer and a `summary` worked out from its live payments
     (gcrm/contract_math.py). A contract whose payments are all deleted is still listed, empty. The
     contracts and payments counted are exactly those the Forecast counts (gcrm/tools/revenue.py): the deal and
@@ -42,7 +43,9 @@ def list_contracts(workspace_id: int, offer: str | None = None, kind: str | None
         checked_kind(kind)
     only_offer = f" AND d.offer_id = {offer_id_sql('%s', offer)}" if offer else ""
     only_kind = " AND k.kind = %s" if kind else ""
-    params = [workspace_id, workspace_id] + ([workspace_id] if offer else []) + ([kind] if kind else [])
+    only_deals = " AND k.deal_id = ANY(%s)" if deal_ids is not None else ""
+    params = ([workspace_id, workspace_id] + ([workspace_id] if offer else []) + ([kind] if kind else [])
+              + ([list(deal_ids)] if deal_ids is not None else []))
     with db() as conn:
         cur = conn.cursor()
         cur.execute(
@@ -54,7 +57,7 @@ def list_contracts(workspace_id: int, offer: str | None = None, kind: str | None
             "LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id "
             "LEFT JOIN sales s ON s.contract_id = k.id AND s.deleted_at IS NULL AND s.workspace_id = k.workspace_id "
             "WHERE k.workspace_id = %s AND d.workspace_id = %s AND k.deleted_at IS NULL "
-            f"AND COALESCE(c.deleted_at, p.deleted_at) IS NULL{only_offer}{only_kind} "
+            f"AND COALESCE(c.deleted_at, p.deleted_at) IS NULL{only_offer}{only_kind}{only_deals} "
             "ORDER BY k.id, s.id",
             params,
         )
@@ -73,6 +76,35 @@ def list_contracts(workspace_id: int, offer: str | None = None, kind: str | None
     for contract_id, contract in contracts.items():
         contract["summary"] = contract_summary(payments[contract_id])
     return list(contracts.values())
+
+
+# --- the deal cards ---------------------------------------------------------------
+
+def card_contracts(workspace_id: int | None, deal_ids: list[int], today: date) -> list[dict]:
+    """The contracts of these deals for the organization and person pages, each with its `timing`: running first,
+    then upcoming, then finished, each in the order the Contracts list uses. No workspace means the default one
+    (the shared admin login). Another workspace's deals yield nothing."""
+    if not deal_ids:
+        return []
+    if workspace_id is None:
+        with db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM workspaces WHERE slug = 'default'")
+            workspace_id = cur.fetchone()["id"]
+    groups = group_by_timing(list_contracts(workspace_id, deal_ids=deal_ids), today)
+    return [{**contract, "timing": name} for name in SECTIONS for contract in groups[name]]
+
+
+def by_deal(contracts: list[dict]) -> dict[int, list[dict]]:
+    """These contracts under their deal's id, order kept."""
+    grouped: dict[int, list[dict]] = {}
+    for contract in contracts:
+        grouped.setdefault(contract["deal_id"], []).append(contract)
+    return grouped
+
+
+def contracts_by_deal(workspace_id: int | None, deal_ids: list[int], today: date) -> dict[int, list[dict]]:
+    return by_deal(card_contracts(workspace_id, deal_ids, today))
 
 
 # --- one contract ---------------------------------------------------------------

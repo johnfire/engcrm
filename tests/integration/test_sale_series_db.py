@@ -16,6 +16,7 @@ from gcrm.tools.deal_money import (
 )
 from gcrm.tools.deal_records import DealNotFound, get_deals
 from gcrm.tools.statistics import add_sale, get_sales, get_statistics
+from tests.contract_pages import contract_pages
 
 pytestmark = pytest.mark.integration
 
@@ -149,17 +150,18 @@ def test_the_page_groups_a_contract_and_the_form_asks_for_the_months(firm):
     assert browser.post("/login", data={"email": "owner@vhs.example", "password": "a-long-test-password-1"},
                         follow_redirects=False).status_code in (302, 303)
     page = browser.get(f"/organizations/{firm['contact']}?lang=en").text
+    payments = contract_pages(browser, firm["deal"])
     for part in (1, 2, 3, 4):
-        assert f"payment {part} of 4" in page
+        assert f"payment {part} of 4" in payments
     series = rows[0]["series_id"]
-    assert page.count(f'/series/{series}/status"') == 1          # one control for the whole contract
+    assert payments.count(f'/series/{series}/status"') == 1          # one control for the whole contract
     assert 'name="months"' in page and "monthly payments" in page
     created = browser.post(f"/organizations/{firm['contact']}/sales", follow_redirects=False, data={
-        "amount_eur": "1200", "won_on": "08.11.2026", "status": "booked", "expected_on": "01.03.2027", "months": "3"})
+        "title": "A contract", "amount_eur": "1200", "won_on": "08.11.2026", "status": "booked", "expected_on": "01.03.2027", "months": "3"})
     assert created.status_code == 303
     assert len(_rows(firm["deal"])) == 4 + 3
     refused = browser.post(f"/organizations/{firm['contact']}/sales", follow_redirects=False, data={
-        "amount_eur": "1200", "won_on": "08.11.2026", "status": "booked", "months": "3"})
+        "title": "A contract", "amount_eur": "1200", "won_on": "08.11.2026", "status": "booked", "months": "3"})
     assert refused.status_code == 400 and "first payment" in refused.text
 
 
@@ -177,7 +179,7 @@ def test_the_organization_form_makes_monthly_payments_of_the_typed_amount_or_one
     assert browser.post("/login", data={"email": "owner2@vhs.example", "password": "a-long-test-password-1"},
                         follow_redirects=False).status_code in (302, 303)
     path = f"/organizations/{firm['contact']}/sales"
-    base = {"won_on": "08.11.2026", "status": "booked", "expected_on": "01.03.2027"}
+    base = {"won_on": "08.11.2026", "status": "booked", "expected_on": "01.03.2027", "title": "A contract"}
     assert browser.post(path, data={**base, "amount_eur": "500", "schedule": "monthly", "months": "3"},
                         follow_redirects=False).status_code == 303
     rows = _rows(firm["deal"])
@@ -204,7 +206,10 @@ def test_the_whole_contract_control_follows_the_payments_still_to_come(firm):
     browser = TestClient(main.app)
     assert browser.post("/login", data={"email": "owner3@vhs.example", "password": "a-long-test-password-1"},
                         follow_redirects=False).status_code in (302, 303)
-    page_url = f"/organizations/{firm['contact']}?lang=en"
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT DISTINCT contract_id FROM sales WHERE series_id = %s::uuid", (str(rows[0]["series_id"]),))
+        page_url = f"/contracts/{cursor.fetchone()['contract_id']}?open=payments&lang=en"
 
     def control(html):
         start = html.index("sale-contract")

@@ -1,0 +1,31 @@
+{# Contracts on the organization and person pages.
+   contract_list: one line per contract, linking to its page (where its payments are changed). Each carries its
+   `summary` and `timing` (gcrm/tools/db_contracts.card_contracts). Needs `contract_kinds` in the context.
+   contract_fields: the title and kind a "New contract" form adds to the sale fields. #}
+{% macro contract_list(contracts, show_offer=False) -%}
+<ul class="contract-list">
+  {% for c in contracts %}{% set s = c.summary %}
+  <li class="{{ 'contract-list__cancelled' if s.cancelled }}">
+    <a class="contract-title" href="/contracts/{{ c.id }}">{{ c.title }}</a>
+    {% if s.cancelled %}<span class="badge badge-dropped">{{ t('contracts.cancelled') }}</span>
+    {% else %}<span class="badge">{{ t('contracts.section.' ~ c.timing) }}</span>{% endif %}
+    {% if not s.cancelled %}<strong>{{ s.value | eur }}</strong>{% endif %}
+    <span class="muted small">{{ t('contracts.kind.' ~ c.kind) if c.kind in contract_kinds else c.kind }}
+      {#- the offer is named as such: a consulting contract of the Consulting offer would otherwise read twice -#}
+      {%- if show_offer %} · {{ t('deals.offer') }}: {{ c.offer_name }}{% endif %}
+      {%- if s.start %} · {{ s.start | dmy }}{% if s.end != s.start %} – {{ s.end | dmy }}{% endif %}{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
+
+{% macro contract_fields(kinds) -%}
+<label class="record-form__wide">{{ t('contracts.field.title') }}
+  <input type="text" name="title" maxlength="200" required />
+</label>
+<label>{{ t('contracts.kind.label') }}
+  <select name="kind">
+    {% for k in kinds %}<option value="{{ k }}" {% if k == 'other' %}selected{% endif %}>{{ t('contracts.kind.' ~ k) }}</option>{% endfor %}
+  </select>
+</label>
+{%- endmacro %}

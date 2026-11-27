@@ -1349,6 +1349,11 @@ th.sortable .sort-arrow { margin-left: .35em; font-size: .8em; color: var(--acce
   background: var(--bg); border: 1px solid var(--border); color: var(--text);
   font-family: var(--font); font-size: 0.95em; padding: 0.4rem 0.6rem; border-radius: 0; min-width: 0;
 }
+/* Contracts on the organization and person cards: title, state and value on one line, the facts under it. */
+.contract-list { list-style: none; padding: 0; margin: 0 0 0.6rem; }
+.contract-list li { padding: 0.35rem 0; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.15rem 0.6rem; align-items: baseline; overflow-wrap: anywhere; }
+.contract-list li > .muted { flex-basis: 100%; }
+.contract-list__cancelled { opacity: 0.65; }
 .sales-list { list-style: none; padding: 0; margin: 0 0 0.4rem; }
 .sales-list li { padding: 0.25rem 0; border-bottom: 1px solid var(--border); }
 

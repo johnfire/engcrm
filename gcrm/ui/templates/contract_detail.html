@@ -113,7 +113,7 @@
   <fieldset class="contract-payments" {% if not is_admin %}disabled{% endif %}>
     {% if c.payments %}
     <ul class="sales-list">
-      {% for sale in c.payments %}{{ sale_item(sale, c.deal_id, page, on_contract_page=True) }}{% endfor %}
+      {% for sale in c.payments %}{{ sale_item(sale, c.deal_id, page, on_contract_page=True, repeated_title=c.title) }}{% endfor %}
     </ul>
     {% else %}<p class="muted">{{ t('sales.none') }}</p>{% endif %}
   </fieldset>

@@ -61,6 +61,11 @@
   <h1>{{ t('contracts.title') }}</h1>
   <span class="muted">{{ t('contracts.hint') }}</span>
 </div>
+{% if request.session.get('role') == 'admin' %}
+{# A new contract starts at its customer: hundreds of organizations are no list to pick from here. #}
+<p class="contracts-new"><a class="btn-secondary" href="/organizations/">{{ t('contracts.new') }}</a>
+  <span class="muted small">{{ t('contracts.newHint') }} <a href="/people/">{{ t('nav.people') }}</a></span></p>
+{% endif %}
 
 <form method="get" action="/contracts/" class="contracts-filters">
   {% include 'partials/offer_filter.html' %}

@@ -12,6 +12,7 @@ from gcrm.tools.deal_money import add_deal_sale, deal_money, set_sale_status
 from gcrm.tools.deal_records import DealNotFound, add_deal, get_deals
 from gcrm.tools.statistics import add_sale, get_sales, get_statistics
 from gcrm.tools.statistics_history import get_series
+from tests.contract_pages import contract_pages
 
 pytestmark = pytest.mark.integration
 
@@ -156,18 +157,19 @@ def test_the_pages_show_status_pipeline_and_the_forms_to_move_a_sale(firm):
     try:
         web = TestClient(main.app)
         org_page = web.get(f"/organizations/{firm['contact_id']}?lang=en").text
+        org_payments, own_payments = contract_pages(web, firm["deal"]), contract_pages(web, own)
         person_page = web.get(f"/people/{consultant}?lang=en").text
         stats_page = web.get("/statistics?start=2026-11-01&end=2026-11-30&lang=en").text
         recorded = web.post(f"/organizations/{firm['contact_id']}/sales", follow_redirects=False, data={
-            "amount_eur": "800", "won_on": "2026-11-07", "status": "booked", "expected_on": "01.12.2026"})
+            "title": "Second course", "amount_eur": "800", "won_on": "2026-11-07", "status": "booked", "expected_on": "01.12.2026"})
         moved = web.post(f"/deals/{own}/sales/{get_sales_for_person(own)}/status", follow_redirects=False,
                          data={"status": "collected", "collected_on": "20.11.2026", "next": f"/people/{consultant}"})
     finally:
         main.app.dependency_overrides.pop(require_login, None)
         main.app.dependency_overrides.pop(require_admin, None)
-    assert "badge-sale-booked" in org_page and "due 20.01.2027" in org_page
-    assert 'action="/deals/%d/sales/' % firm["deal"] in org_page
-    assert "badge-sale-contracted" in person_page and f'action="/deals/{own}/sales"' in person_page
+    assert "AI course" in org_page and "badge-sale-booked" in org_payments and "due 20.01.2027" in org_payments
+    assert 'action="/deals/%d/sales/' % firm["deal"] in org_payments
+    assert "badge-sale-contracted" in own_payments and "Coaching" in person_page and f'action="/deals/{own}/sales"' in person_page
     assert "Booked, not collected yet" in person_page
     assert "Sales pipeline" in stats_page and "booked" in stats_page
     assert recorded.status_code == 303 and moved.status_code == 303

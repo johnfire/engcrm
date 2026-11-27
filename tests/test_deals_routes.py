@@ -247,7 +247,7 @@ class TestSaleStatus:
 
     def test_the_deal_card_records_a_sale_with_its_status_and_expected_day(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            response = post("/deals/9/sales", {"amount_eur": "2400,50", "won_on": "2026-11-03",
+            response = post("/deals/9/sales", {"title": "A contract", "amount_eur": "2400,50", "won_on": "2026-11-03",
                                                 "description": "AI course", "status": "booked",
                                                 "expected_on": "20.01.2027", "next": "/people/4"})
         assert response.headers["location"] == "/people/4"
@@ -257,12 +257,12 @@ class TestSaleStatus:
 
     def test_a_blank_expected_day_is_none_and_nonsense_is_refused(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "100", "won_on": "2026-11-03", "status": "booked",
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "100", "won_on": "2026-11-03", "status": "booked",
                                     "expected_on": ""})
         assert add.call_args.kwargs["expected_on"] is None
-        assert post("/deals/9/sales", {"amount_eur": "lots", "won_on": "2026-11-03"}).status_code == 400
+        assert post("/deals/9/sales", {"title": "A contract", "amount_eur": "lots", "won_on": "2026-11-03"}).status_code == 400
         with patch("gcrm.api.routers.deals.add_deal_sale", side_effect=ValueError("unknown sale status")):
-            assert post("/deals/9/sales", {"amount_eur": "1", "won_on": "2026-11-03",
+            assert post("/deals/9/sales", {"title": "A contract", "amount_eur": "1", "won_on": "2026-11-03",
                                             "status": "paid"}).status_code == 400
 
     def test_moving_a_sale_along_passes_the_day_the_money_came_in(self, admin_web):
@@ -306,18 +306,18 @@ class TestPaymentSchedules:
 
     def test_the_deal_form_sends_the_number_of_monthly_payments(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "2400", "won_on": "2026-11-08", "status": "booked",
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "2400", "won_on": "2026-11-08", "status": "booked",
                                     "expected_on": "01.02.2027", "months": "4"})
         assert add.call_args.kwargs["months"] == 4 and add.call_args.kwargs["expected_on"] == date(2027, 2, 1)
 
     def test_one_payment_is_the_default(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "100", "won_on": "2026-11-08"})
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "100", "won_on": "2026-11-08"})
         assert add.call_args.kwargs["months"] == 1
 
     def test_a_schedule_the_server_refuses_is_a_400(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", side_effect=ValueError("needs the first due day")):
-            assert post("/deals/9/sales", {"amount_eur": "100", "won_on": "2026-11-08", "months": "3"}).status_code == 400
+            assert post("/deals/9/sales", {"title": "A contract", "amount_eur": "100", "won_on": "2026-11-08", "months": "3"}).status_code == 400
 
     def test_the_whole_contract_moves_together(self, admin_web):
         with patch("gcrm.api.routers.deals.set_series_status", return_value=3) as move:
@@ -365,31 +365,31 @@ class TestOneTimeOrMonthly:
 
     def test_monthly_means_the_amount_is_per_month_and_the_contract_is_amount_times_months(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "status": "booked",
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "500", "won_on": "2026-11-08", "status": "booked",
                                     "expected_on": "01.02.2027", "schedule": "monthly", "months": "6"})
         assert add.call_args.args[1] == Decimal("3000") and add.call_args.kwargs["months"] == 6
 
     def test_one_time_ignores_the_months_box(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "schedule": "one", "months": "6"})
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "500", "won_on": "2026-11-08", "schedule": "one", "months": "6"})
         assert add.call_args.args[1] == Decimal("500") and add.call_args.kwargs["months"] == 1
 
     def test_an_older_form_without_the_choice_still_means_the_total_split_over_months(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
-            post("/deals/9/sales", {"amount_eur": "2400", "won_on": "2026-11-08", "expected_on": "01.02.2027", "months": "4"})
+            post("/deals/9/sales", {"title": "A contract", "amount_eur": "2400", "won_on": "2026-11-08", "expected_on": "01.02.2027", "months": "4"})
         assert add.call_args.args[1] == Decimal("2400") and add.call_args.kwargs["months"] == 4
 
     @pytest.mark.parametrize("months", ["1", "0", "61", "-2"])
     def test_monthly_needs_two_to_sixty_months(self, admin_web, months):
         with patch("gcrm.api.routers.deals.add_deal_sale") as add:
-            response = post("/deals/9/sales", {"amount_eur": "500", "won_on": "2026-11-08", "schedule": "monthly",
+            response = post("/deals/9/sales", {"title": "A contract", "amount_eur": "500", "won_on": "2026-11-08", "schedule": "monthly",
                                                "expected_on": "01.02.2027", "months": months})
         assert response.status_code == 400
         add.assert_not_called()
 
     def test_an_unknown_choice_is_refused(self, admin_web):
         with patch("gcrm.api.routers.deals.add_deal_sale") as add:
-            assert post("/deals/9/sales", {"amount_eur": "5", "won_on": "2026-11-08", "schedule": "weekly"}).status_code == 400
+            assert post("/deals/9/sales", {"title": "A contract", "amount_eur": "5", "won_on": "2026-11-08", "schedule": "weekly"}).status_code == 400
         add.assert_not_called()
 
 
@@ -413,3 +413,37 @@ class TestDueDay:
             assert post("/deals/9/sales/5/due-day", {"due_on": "15.02.2027"}).status_code == 404
         with patch("gcrm.api.routers.deals.set_sale_due_day", side_effect=DealNotFound()):
             assert post("/deals/9/sales/5/due-day", {"due_on": "15.02.2027"}).status_code == 404
+
+
+class TestNewContractForm:
+    """Both "New contract" forms (a person's deal card, an organization's Sales card) send a title and a kind."""
+
+    SALE = {"amount_eur": "2400", "won_on": "2026-11-08", "status": "booked"}
+
+    def test_the_deal_form_passes_the_title_and_kind_through(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            response = post("/deals/9/sales", {**self.SALE, "title": "  AI course ", "kind": "teaching_course"})
+        assert response.status_code == 303
+        assert add.call_args.kwargs["title"] == "AI course" and add.call_args.kwargs["kind"] == "teaching_course"
+
+    def test_the_organization_form_passes_the_title_and_kind_through(self, admin_web):
+        with patch("gcrm.api.routers.statistics.add_sale", return_value=3) as add, \
+             patch("gcrm.api.routers.statistics._workspace_id", return_value=1):
+            response = post("/organizations/4/sales", {**self.SALE, "title": "Systems audit", "kind": "consulting"})
+        assert response.status_code == 303
+        assert add.call_args.kwargs["title"] == "Systems audit" and add.call_args.kwargs["kind"] == "consulting"
+
+    def test_a_form_without_a_kind_means_other(self, admin_web):
+        with patch("gcrm.api.routers.deals.add_deal_sale", return_value=3) as add:
+            post("/deals/9/sales", {**self.SALE, "title": "Something"})
+        assert add.call_args.kwargs["kind"] == "other"
+
+    @pytest.mark.parametrize("extra", [{}, {"title": ""}, {"title": "   "}, {"title": "x" * 201},
+                                       {"title": "Fine", "kind": "speech"}])
+    @pytest.mark.parametrize("url,target", [("/deals/9/sales", "gcrm.api.routers.deals.add_deal_sale"),
+                                            ("/organizations/4/sales", "gcrm.api.routers.statistics.add_sale")])
+    def test_a_missing_or_bad_title_or_kind_is_a_400_and_nothing_is_recorded(self, admin_web, url, target, extra):
+        with patch(target) as add, patch("gcrm.api.routers.statistics._workspace_id", return_value=1):
+            response = post(url, {**self.SALE, **extra})
+        assert response.status_code == 400
+        add.assert_not_called()

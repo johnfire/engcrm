@@ -102,7 +102,7 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
                          status: str, expected_on: date | None, collected_on: date | None,
                          months: int = 1, hours: Decimal | None = None, work_from: date | None = None,
                          work_to: date | None = None, contract_id: int | None = None,
-                         title: str | None = None) -> list[int]:
+                         title: str | None = None, kind: str = "other") -> list[int]:
     """Insert one sale (months = 1) or a contract's monthly payments (months 2 to 60) on a
     deal, inside the caller's transaction, and return the new ids in payment order. A
     schedule needs the first due day, and starts as expected, booked or contracted: each
@@ -111,7 +111,7 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
     payment of a contract. Nothing is inserted when anything is refused.
 
     Every sale belongs to a contract. With `contract_id` the payments join that contract (it must be on this
-    deal and not deleted); without, a contract is made first, titled `title`, else the description, else
+    deal and not deleted); without, a contract of `kind` is made first, titled `title`, else the description, else
     "<offer> – MM.YYYY", and every payment of the schedule shares it."""
     check_work_window(work_from, work_to)
     text = (description or "").strip()[:500] or None
@@ -128,7 +128,7 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
         series, collected, hour_parts = str(uuid.uuid4()), [None] * months, split_hours(hours, months)
     if contract_id is None:
         contract_id = create_contract(cur, workspace_id, deal_id,
-                                      (title or "").strip() or _default_contract_title(cur, deal_id, text, won_on))
+                                      (title or "").strip() or _default_contract_title(cur, deal_id, text, won_on), kind)
     else:
         _check_contract_takes_payments(cur, workspace_id, deal_id, contract_id)
     ids = []
@@ -148,13 +148,13 @@ def add_deal_sale(deal_id: int, amount_eur, won_on: date, description: str = "",
                   workspace_id: int | None = None, status: str | None = None,
                   expected_on: date | None = None, collected_on: date | None = None,
                   months: int = 1, hours=None, rate=None, work_from: date | None = None,
-                  work_to: date | None = None) -> int:
+                  work_to: date | None = None, title: str | None = None, kind: str = "other") -> int:
     """Record a sale on a deal of an organization or person, or — with `months` 2 to 60 —
     a contract paid in that many monthly payments, the first due on `expected_on`. `status`
     defaults to collected (what every sale was before statuses). Returns the (first) sale's
     id. Raises DealNotFound, or ValueError for an amount not above 0, an unknown status or a
     schedule that cannot be made. `hours` is the work in the whole sale; with `rate` per hour and no
-    amount, hours x rate is the amount."""
+    amount, hours x rate is the amount. The sale gets a new contract, `title` / `kind` (see insert_sale_payments)."""
     amount, hours = amount_and_hours(amount_eur, hours, rate)
     status = checked_sale_status(status)
     with db() as conn:
@@ -162,7 +162,7 @@ def add_deal_sale(deal_id: int, amount_eur, won_on: date, description: str = "",
         get_deal(cur, deal_id, workspace_id)
         cur.execute("SELECT workspace_id FROM deals WHERE id = %s", (deal_id,))
         ids = insert_sale_payments(cur, cur.fetchone()["workspace_id"], deal_id, amount, won_on, description, status,
-                                   expected_on, collected_on, months, hours, work_from, work_to)
+                                   expected_on, collected_on, months, hours, work_from, work_to, title=title, kind=kind)
     log_audit(None, None, "sale.added", f"deal:{deal_id}",
               f"{amount} EUR on {won_on} ({status}" + (f", {months} payments)" if months > 1 else ")"))
     return ids[0]

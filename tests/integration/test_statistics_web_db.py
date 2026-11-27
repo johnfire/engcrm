@@ -51,7 +51,7 @@ def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
                 {"method": "meeting", "duration_minutes": "90", "note": "Sat down with the owner"}).status_code == 303
     assert post(f"/organizations/{acme}/sales",
                 {"amount_eur": "2.400,00".replace(".", ""), "won_on": date.today().isoformat(),
-                 "description": "Painting"}).status_code == 303
+                 "title": "Painting", "description": "Painting"}).status_code == 303
     # moved on from the Organizations list, as you would by hand
     assert post(f"/deals/{_deal(acme)}", {"stage": "customer", "next": "/organizations/"}).status_code == 303
 
@@ -73,12 +73,12 @@ def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
 
 def test_bad_input_is_refused_and_nothing_is_written(web):
     acme = _organization()
-    assert web.post(f"/organizations/{acme}/sales", data={"amount_eur": "0", "won_on": "2026-10-05"}).status_code == 400
-    assert web.post(f"/organizations/{acme}/sales", data={"amount_eur": "abc", "won_on": "2026-10-05"}).status_code == 400
+    assert web.post(f"/organizations/{acme}/sales", data={"title": "A contract", "amount_eur": "0", "won_on": "2026-10-05"}).status_code == 400
+    assert web.post(f"/organizations/{acme}/sales", data={"title": "A contract", "amount_eur": "abc", "won_on": "2026-10-05"}).status_code == 400
     assert web.post(f"/organizations/{acme}/activity", data={"method": "bogus", "note": "x"}).status_code == 400
     assert web.post(f"/organizations/{acme}/activity", data={"method": "phone", "duration_minutes": "-5",
                                                             "note": "x"}).status_code == 400
-    assert web.post("/organizations/999999/sales", data={"amount_eur": "5", "won_on": "2026-10-05"}).status_code == 404
+    assert web.post("/organizations/999999/sales", data={"title": "A contract", "amount_eur": "5", "won_on": "2026-10-05"}).status_code == 404
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute("SELECT (SELECT COUNT(*) FROM sales) + (SELECT COUNT(*) FROM interactions) AS n")

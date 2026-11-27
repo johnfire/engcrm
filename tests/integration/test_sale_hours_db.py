@@ -17,6 +17,7 @@ from gcrm.tools.deal_money import add_deal_sale, deal_money
 from gcrm.tools.deal_records import get_deals
 from gcrm.tools.statistics import add_sale, get_sales
 from gcrm.workspace_context import workspace_scope
+from tests.contract_pages import contract_pages
 
 pytestmark = pytest.mark.integration
 D = Decimal
@@ -86,7 +87,7 @@ def test_the_organization_route_add_sale_takes_hours_and_a_rate(world):
 def test_the_forms_take_hours_and_a_rate_and_the_page_shows_them_with_a_total(world):
     browser = TestClient(main.app)
     assert browser.post("/login", data={"email": "owner@first.example", "password": PASSWORD}, follow_redirects=False).status_code in (302, 303)
-    base = {"won_on": "03.11.2026", "status": "booked", "schedule": "one", "description": "course"}
+    base = {"won_on": "03.11.2026", "status": "booked", "schedule": "one", "description": "course", "title": "A contract"}
     assert browser.post(f"/organizations/{world['org']}/sales", data={**base, "amount_eur": "", "hours": "5", "rate": "29"},
                         follow_redirects=False).status_code in (302, 303)
     monthly = {**base, "schedule": "monthly", "months": "3", "expected_on": "01.12.2026", "description": "coaching"}
@@ -97,7 +98,8 @@ def test_the_forms_take_hours_and_a_rate_and_the_page_shows_them_with_a_total(wo
     coaching = [s for s in _sales(world) if s["description"] == "coaching"]
     assert len(coaching) == 3 and all((s["amount_eur"], s["hours"]) == (D("200.00"), D("4.00")) for s in coaching)
     page = browser.get(f"/organizations/{world['org']}?lang=en").text.replace("\xa0", " ")
-    assert "5 h" in page and "29 €/h" in page and "17 h booked" in page                  # 5 + 3 x 4
+    payments = contract_pages(browser, world["deal"]).replace("\xa0", " ")
+    assert "5 h" in payments and "29 €/h" in payments and "17 h booked" in page                  # 5 + 3 x 4
     for bad in ({"amount_eur": "", "hours": "", "rate": ""}, {"amount_eur": "", "hours": "5", "rate": ""},
                 {"amount_eur": "100", "hours": "-3", "rate": ""}, {"amount_eur": "", "hours": "x", "rate": "29"}):
         assert browser.post(f"/organizations/{world['org']}/sales", data={**base, **bad}, follow_redirects=False).status_code == 400, bad
@@ -130,7 +132,7 @@ def test_the_forms_take_a_work_window_and_every_payment_of_a_contract_gets_it(wo
     browser = TestClient(main.app)
     browser.post("/login", data={"email": "owner@first.example", "password": PASSWORD}, follow_redirects=False)
     base = {"won_on": "03.11.2026", "status": "booked", "schedule": "monthly", "months": "3", "expected_on": "01.12.2026",
-            "description": "coaching", "amount_eur": "", "hours": "4", "rate": "50"}
+            "title": "A contract", "description": "coaching", "amount_eur": "", "hours": "4", "rate": "50"}
     assert browser.post(f"/organizations/{world['org']}/sales", data={**base, "work_from": "05.12.2026", "work_to": "28.02.2027"},
                         follow_redirects=False).status_code in (302, 303)
     rows = _sales(world)

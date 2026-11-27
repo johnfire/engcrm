@@ -1432,5 +1432,8 @@
   "contractPage.error.tooManyLinks": "Ein Vertrag kann höchstens 50 Links enthalten.",
   "contractPage.error.payment": "Bitte einen Betrag über 0 eingeben.",
   "contractPage.deleteSeries": "Monatliche Zahlungen löschen",
-  "contractPage.deleteSeriesConfirm": "Alle {{payments}} monatlichen Zahlungen löschen? Bleibt dem Vertrag danach keine Zahlung, wird auch der Vertrag gelöscht."
+  "contractPage.deleteSeriesConfirm": "Alle {{payments}} monatlichen Zahlungen löschen? Bleibt dem Vertrag danach keine Zahlung, wird auch der Vertrag gelöscht.",
+  "contracts.new": "Neuer Vertrag",
+  "contracts.field.title": "Vertragstitel",
+  "contracts.newHint": "Den Kunden öffnen und dort „Neuer Vertrag“ verwenden. Kunden, die Personen sind, stehen unter"
 }

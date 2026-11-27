@@ -4,10 +4,11 @@
    sale_form: the form that records one. Both post to the deal's routes and come
    back to `page`. `on_contract_page` words a monthly series' delete as what it is (the contract is the page there);
    a sale may carry `delete_next` / `series_delete_next`: where to go after a delete instead of `page`.
+   On the contract page a row also leaves out the day won and a description that only repeats `repeated_title`.
    Needs `sale_statuses` and `today` in the context. #}
 {% from 'partials/date_field.html' import date_field with context %}
 
-{% macro sale_item(sale, deal_id, page, show_offer=False, on_contract_page=False) -%}
+{% macro sale_item(sale, deal_id, page, show_offer=False, on_contract_page=False, repeated_title=None) -%}
 {%- if sale.contract %}
 <li class="sale-contract">
   {%- if sale.contract.open %}
@@ -42,11 +43,11 @@
 </li>
 {%- endif %}
 <li class="sale sale--{{ sale.status }}">
-  <strong>{{ sale.amount_eur | eur }}</strong>{% if sale.hours %} <span class="muted small">· {{ sale.hours | hrs }} h{% if sale.rate_eur %} · {{ sale.rate_eur | hrs }} €/h{% endif %}</span>{% endif %} · {{ sale.won_on|dmy }}
+  <strong>{{ sale.amount_eur | eur }}</strong>{% if sale.hours %} <span class="muted small">· {{ sale.hours | hrs }} h{% if sale.rate_eur %} · {{ sale.rate_eur | hrs }} €/h{% endif %}</span>{% endif %}{% if not on_contract_page %} · {{ sale.won_on|dmy }}{% endif %}
   <span class="badge badge-sale-{{ sale.status }}">{{ t('sale.status.' ~ sale.status) }}</span>
   {%- if sale.series_id %} <span class="muted small">· {{ t('sale.paymentOf', part=sale.series_part, total=sale.series_total) }}</span>{% endif %}
   {%- if sale.offer and show_offer %} · <span class="log-offer">{{ sale.offer }}</span>{% endif %}
-  {%- if sale.description %} · {{ sale.description }}{% endif %}
+  {%- if sale.description and not (on_contract_page and sale.description == repeated_title) %} · {{ sale.description }}{% endif %}
   {%- if sale.status in ('expected', 'booked', 'contracted') %}
   {%- if sale.expected_on %}<span class="muted small">· {{ t('sale.dueOn', date=sale.expected_on|dmy) }}</span>
   {%- else %}<span class="sale__nodate small">· {{ t('sale.noDueDay') }}</span>{% endif %}{% endif %}

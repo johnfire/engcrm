@@ -1432,5 +1432,8 @@
   "contractPage.error.tooManyLinks": "A contract can keep at most 50 links.",
   "contractPage.error.payment": "Enter an amount above 0.",
   "contractPage.deleteSeries": "Delete the monthly payments",
-  "contractPage.deleteSeriesConfirm": "Delete all {{payments}} monthly payments? If that leaves the contract with no payments, the contract is deleted too."
+  "contractPage.deleteSeriesConfirm": "Delete all {{payments}} monthly payments? If that leaves the contract with no payments, the contract is deleted too.",
+  "contracts.new": "New contract",
+  "contracts.field.title": "Contract title",
+  "contracts.newHint": "Open the customer and use New contract there. Customers who are people are listed under"
 }

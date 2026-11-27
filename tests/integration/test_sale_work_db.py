@@ -20,6 +20,7 @@ from gcrm.tools.deal_money import (
 from gcrm.tools.deal_records import DealNotFound, get_deals
 from gcrm.tools.statistics import get_sales
 from gcrm.workspace_context import workspace_scope
+from tests.contract_pages import contract_pages
 
 pytestmark = pytest.mark.integration
 D = Decimal
@@ -161,12 +162,12 @@ def _browser(email):
 
 def test_the_page_shows_forms_for_the_contract_and_the_sale_and_they_work(world):
     admin = _browser("owner@first.example")
-    page = admin.get(f"/organizations/{world['org']}?lang=en").text.replace("\xa0", " ")
+    page = contract_pages(admin, world["deal"]).replace("\xa0", " ")
     assert f"/deals/{world['deal']}/series/{_series(world)}/work" in page and f"/deals/{world['deal']}/sales/{world['single']}/work" in page
     reply = admin.post(f"/deals/{world['deal']}/series/{_series(world)}/work",
                        data={"hours": "36", "rate": "30", "next": f"/organizations/{world['org']}"}, follow_redirects=False)
     assert reply.status_code == 303
-    page = admin.get(f"/organizations/{world['org']}?lang=en").text.replace("\xa0", " ")
+    page = contract_pages(admin, world["deal"]).replace("\xa0", " ")
     assert "36 h × 30 €/h" in page and "in 5 payments" in page
     assert admin.post(f"/deals/{world['deal']}/sales/{world['single']}/work", data={"hours": "10", "rate": "45,50"},
                       follow_redirects=False).status_code == 303

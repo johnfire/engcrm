@@ -84,7 +84,8 @@ def set_minute_defaults(workspace_id: int, minutes: dict[str, int]) -> None:
 def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: date, description: str,
              deal_id: int | None = None, status: str | None = None, expected_on: date | None = None,
              collected_on: date | None = None, months: int = 1, hours=None, rate=None,
-             work_from: date | None = None, work_to: date | None = None) -> int | None:
+             work_from: date | None = None, work_to: date | None = None, title: str | None = None,
+             kind: str = "other") -> int | None:
     """Record a sale on an organization of this workspace, for one of its deals
     (`deal_id`; its Consulting deal when not given), or — with `months` 2 to 60 — a contract
     paid in that many monthly payments, the first due on `expected_on`. `status` defaults to
@@ -107,7 +108,8 @@ def add_sale(workspace_id: int, contact_id: int, amount_eur: Decimal, won_on: da
         if deal is None:
             return None
         ids = insert_sale_payments(cur, workspace_id, deal["id"], Decimal(amount_eur), won_on,
-                                   description, status, expected_on, collected_on, months, hours, work_from, work_to)
+                                   description, status, expected_on, collected_on, months, hours, work_from, work_to,
+                                   title=title, kind=kind)
     log_audit(None, None, "sale.added", f"contact:{contact_id}", f"{amount_eur} EUR on {won_on}")
     return ids[0]
 

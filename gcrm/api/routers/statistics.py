@@ -21,6 +21,8 @@ from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import eur, templates
 from gcrm.charts import bar_chart, spark
+from gcrm.contract_input import checked_title
+from gcrm.contract_kinds import checked_kind
 from gcrm.dates import parse_day
 from gcrm.db.connection import db
 from gcrm.i18n import DEFAULT_LANGUAGE, translate
@@ -159,6 +161,8 @@ def record_sale(
     work_to: str = Form(""),
     won_on: str = Form(...),
     description: str = Form(""),
+    title: str = Form(""),
+    kind: str = Form("other"),
     deal_id: int | None = Form(None),
     status: str = Form("collected"),
     expected_on: str = Form(""),
@@ -166,8 +170,9 @@ def record_sale(
     months: int = Form(1),
     _admin: str = Depends(require_admin),
 ):
-    """Record a sale for one of the organization's deals (Consulting's when the form names
-    none), booked, contracted or already collected. `schedule` is "one" (a single payment) or
+    """Make a new contract for one of the organization's deals (Consulting's when the form names
+    none) and record its sale, booked, contracted or already collected. `title` (required) and `kind` name
+    the contract; a refused one records nothing. `schedule` is "one" (a single payment) or
     "monthly" (the amount is per month, for `months` months, the first due on the expected day)."""
     try:
         amount, worked = amount_and_hours(typed_number(amount_eur), typed_number(hours), typed_number(rate))      # per month for a monthly schedule
@@ -176,9 +181,10 @@ def record_sale(
         when = parse_day(won_on)
         if when is None:
             raise ValueError("a sale needs its day")
+        title, kind = checked_title(title), checked_kind(kind)
         sale_id = add_sale(_workspace_id(request), contact_id, amount, when, description[:500], deal_id,
                            status=status, expected_on=parse_day(expected_on), months=months, hours=worked,
-                           work_from=parse_day(work_from), work_to=parse_day(work_to))
+                           work_from=parse_day(work_from), work_to=parse_day(work_to), title=title, kind=kind)
     except InvalidOperation:
         raise HTTPException(status_code=400, detail="Enter an amount above 0 and a date")
     except ValueError as error:
