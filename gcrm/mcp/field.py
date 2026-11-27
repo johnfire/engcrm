@@ -34,7 +34,11 @@ from gcrm.tools.db_people_interactions import delete_person_interaction, log_per
 from gcrm.tools.db_personal_priorities import set_organization_rating
 from gcrm.tools.deal_records import get_deals, resolve_log_offer, set_deal_next_step
 from gcrm.tools.field_locations import latest_point
-from gcrm.tools.follow_ups import undo_activity_follow_up, undo_legacy_follow_up
+from gcrm.tools.follow_ups import (
+    TASK_TYPES,
+    undo_activity_follow_up,
+    undo_legacy_follow_up,
+)
 from gcrm.tools.search import PlacesUnavailable, places_nearby, reverse_geocode
 
 
@@ -159,6 +163,24 @@ def _person(user: FieldUser, person_id: int) -> dict:
 
 # --- saving ----------------------------------------------------------------------
 
+_ASK_FOR_TYPE = ("Not saved yet: a follow-up needs a type. Ask Chris which it is, a commitment (someone expects "
+                 "something from him) or a check-in (he plans to get back in touch), then call again with "
+                 'follow_up_type "commitment" or "check_in".')
+
+
+def _follow_up_type(chosen: str, text: str) -> str | None:
+    """The type to save with a next step or promise: required once there is `text`, because without one
+    it would wait in Review and never show on the Follow-ups list. None when there is no text."""
+    chosen = (chosen or "").strip()
+    if chosen and chosen not in TASK_TYPES:
+        raise FieldError(_ASK_FOR_TYPE)
+    if not (text or "").strip():
+        return None
+    if not chosen:
+        raise FieldError(_ASK_FOR_TYPE)
+    return chosen
+
+
 def _journal(user: FieldUser, kind: str, target_id: int, summary: str,
              owner_id: int | None = None, before: dict | None = None) -> None:
     with db() as conn:
@@ -228,9 +250,10 @@ def add_person(user: FieldUser, organization_id: int, name: str, title: str = ""
 def log_activity(user: FieldUser, note: str, organization_id: int | None = None, person_id: int | None = None,
                  kind: str = "drop_in", minutes: int | None = None, attitude: list[str] | None = None,
                  my_read: list[str] | None = None, materials_left: str = "", follow_up_promised: str = "",
-                 follow_up_date: str = "", offer: str | None = None, occurred_on: str = "") -> dict:
+                 follow_up_date: str = "", offer: str | None = None, occurred_on: str = "",
+                 follow_up_type: str = "") -> dict:
     """Log what happened, on an organization or a person (exactly one), with the same
-    fields as Log activity on the web."""
+    fields as Log activity on the web. A promised follow-up needs its `follow_up_type`."""
     if (organization_id is None) == (person_id is None):
         raise FieldError("Log on one organization or one person.")
     if not (note or "").strip():
@@ -246,6 +269,7 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
         raise FieldError(f"Not saved: {error}. Attitudes: {', '.join(ATTITUDES)}; reads: {', '.join(MY_READS)}.")
     if organization_id is not None:
         organization = _organization(user, organization_id)
+        task_type = _follow_up_type(follow_up_type, follow_up_promised)
         try:
             offer_id = resolve_log_offer("organization", organization_id, offer, user.workspace_id)
         except ValueError:
@@ -254,7 +278,7 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
             organization_id, _ORGANIZATION_KIND[kind], note.strip(), follow_up_date=follow_up,
             follow_up_text=follow_up_promised.strip() or None, duration_minutes=duration, offer_id=offer_id,
             occurred_on=day, attitude=attitudes, my_read=reads, materials_left=materials_left.strip() or None,
-            capture_undo=True)
+            follow_up_type=task_type, capture_undo=True)
         said = f"Logged a {kind.replace('_', '-')} at {organization['name']}"
         journal_kind, owner = "organization_activity", organization_id
     else:
@@ -280,9 +304,10 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
 
 
 def set_next_step(user: FieldUser, step: str, due: str = "", organization_id: int | None = None,
-                  person_id: int | None = None, offer: str = "") -> dict:
+                  person_id: int | None = None, offer: str = "", follow_up_type: str = "") -> dict:
     """What happens next on a deal of an organization or person (one of them). With
-    several deals, `offer` (its slug) says which."""
+    several deals, `offer` (its slug) says which. A step needs its `follow_up_type`;
+    a blank step clears the current one and needs none."""
     if (organization_id is None) == (person_id is None):
         raise FieldError("Set the next step on one organization or one person.")
     owner, owner_id = ("organization", organization_id) if organization_id is not None else ("person", person_id)
@@ -294,9 +319,11 @@ def set_next_step(user: FieldUser, step: str, due: str = "", organization_id: in
         names = ", ".join(d["offer_slug"] for d in get_deals(owner, owner_id, user.workspace_id)) or "none"
         raise FieldError(f"Say which offer the next step is for (its deals: {names}).")
     deal = deals[0]
+    task_type = _follow_up_type(follow_up_type, step)
     try:
         when = parse_day(due) if due else None
-        result = set_deal_next_step(deal["id"], step, when, user.workspace_id, capture_undo=True)
+        result = set_deal_next_step(deal["id"], step, when, user.workspace_id, capture_undo=True,
+                                    task_type=task_type)
     except ValueError as error:
         raise FieldError(f"Not saved: {error}.")
     said = f"Next step on {deal['offer_name']}: {result['next_step'] or 'cleared'}" + (

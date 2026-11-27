@@ -103,3 +103,31 @@ def test_too_many_requests_are_refused(account):
     token = create_token(account["id"], "test")
     with TestClient(app) as client, patch("gcrm.mcp.remote._limiter.allow", return_value=False):
         assert _initialize(client, token).status_code == 429
+
+
+def test_the_follow_up_tools_ask_for_the_type_over_the_connector(account):
+    token = create_token(account["id"], "test")
+    with TestClient(app) as client:
+        initialized = _initialize(client, token).json()["result"]
+        assert "follow_up_type" in initialized["instructions"] and "check_in" in initialized["instructions"]
+        tools = {t["name"]: t for t in _rpc(client, "tools/list", token=token).json()["result"]["tools"]}
+        for name in ("set_next_step", "log_activity"):
+            assert "follow_up_type" in tools[name]["inputSchema"]["properties"]
+            assert "commitment" in tools[name]["description"] and "check_in" in tools[name]["description"]
+
+        def call(name, arguments):
+            result = _rpc(client, "tools/call", {"name": name, "arguments": arguments}, token=token).json()["result"]
+            return result.get("structuredContent") or json.loads(result["content"][0]["text"])
+
+        organization = call("add_organization", {"name": "Beispiel Werke GmbH", "city": "Augsburg"})["organization_id"]
+        step = {"step": "Meet in Augsburg", "organization_id": organization}
+        promise = {"note": "Spoke to the owner", "organization_id": organization, "follow_up_promised": "Send quote"}
+        assert "Ask Chris" in call("set_next_step", step)["error"]
+        assert "Ask Chris" in call("log_activity", promise)["error"]
+        assert call("log_activity", {**promise, "follow_up_type": "commitment"})["saved"] is True
+        assert call("set_next_step", {**step, "follow_up_type": "check_in"})["saved"] is True
+
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT status, task_type FROM follow_ups ORDER BY id")
+        assert {row["status"] for row in cursor.fetchall()} == {"active"}

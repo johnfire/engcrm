@@ -37,8 +37,10 @@ INSTRUCTIONS = """You are Chris's hands for EngCRM, his CRM, while he is out vis
 He talks; you save. Typical turn: where_am_i or businesses_here to see what is around him,
 find_organization to check it is not already there, add_organization (pass the place_id,
 address and coordinates businesses_here gave you), add_person for who he met, log_activity for
-what happened, set_next_step or set_ratings when he says so. When two businesses could be the
-one, ask him which. Every tool answers with "said": read it back to him, so a wrong match is
+what happened, set_next_step or set_ratings when he says so. A next step or a promised
+follow-up needs follow_up_type: "commitment" when someone expects something from him,
+"check_in" when he plans to get back in touch; ask him which if he did not make it clear.
+When two businesses could be the one, ask him which. Every tool answers with "said": read it back to him, so a wrong match is
 caught at once. If he says that was wrong, call undo_last. If a tool returns "error", say it
 plainly and ask what he wants instead. Dates are typed like 28.10.2026."""
 
@@ -116,24 +118,29 @@ async def add_person(organization_id: int, name: str, title: str = "", email: st
 async def log_activity(note: str, organization_id: int | None = None, person_id: int | None = None,
                  kind: str = "drop_in", minutes: int | None = None, attitude: list[str] | None = None,
                  my_read: list[str] | None = None, materials_left: str = "", follow_up_promised: str = "",
-                 follow_up_date: str = "", offer: str | None = None, occurred_on: str = "") -> dict:
+                 follow_up_date: str = "", offer: str | None = None, occurred_on: str = "",
+                 follow_up_type: str = "") -> dict:
     """Log what happened, on one organization or one person. kind: drop_in, meeting, phone,
     video, email, post_mail, linkedin, linkedin_reply, note. attitude (how they seemed to feel about Chris): warm,
     neutral, cold, skeptical. my_read (how they seemed to him): trustworthy, straightforward,
     cant_tell, holding_back, story_doesnt_add_up, not_truthful, indecisive, confused, nh, cf.
-    materials_left, follow_up_promised, follow_up_date and occurred_on are for organizations."""
+    materials_left, follow_up_promised, follow_up_type, follow_up_date and occurred_on are for organizations.
+    With follow_up_promised, follow_up_type is required: commitment (someone expects something from
+    Chris) or check_in (he plans to get back in touch). Ask him if he did not make it clear."""
     return await _call(field.log_activity, note, organization_id=organization_id, person_id=person_id, kind=kind,
                  minutes=minutes, attitude=attitude, my_read=my_read, materials_left=materials_left,
                  follow_up_promised=follow_up_promised, follow_up_date=follow_up_date, offer=offer,
-                 occurred_on=occurred_on)
+                 occurred_on=occurred_on, follow_up_type=follow_up_type)
 
 
 @server.tool()
 async def set_next_step(step: str, due: str = "", organization_id: int | None = None, person_id: int | None = None,
-                  offer: str = "") -> dict:
-    """What happens next on the deal of one organization or person; a blank step clears it."""
+                  offer: str = "", follow_up_type: str = "") -> dict:
+    """What happens next on the deal of one organization or person; a blank step clears it.
+    A step needs follow_up_type: commitment (someone expects something from Chris) or check_in
+    (he plans to get back in touch). Ask him if he did not make it clear."""
     return await _call(field.set_next_step, step, due=due, organization_id=organization_id, person_id=person_id,
-                 offer=offer)
+                 offer=offer, follow_up_type=follow_up_type)
 
 
 @server.tool()

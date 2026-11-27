@@ -221,10 +221,10 @@ def undo_legacy_follow_up(deal_id: int, snapshot: dict, workspace_id: int) -> No
             cursor.execute("UPDATE follow_ups SET status='dismissed', dismissed_at=NOW(), "
                            "updated_at=clock_timestamp() WHERE id=%s", (snapshot["task_id"],))
         else:
-            cursor.execute("UPDATE follow_ups SET status=%s, task_text=%s, due_date=%s, completed_at=%s, "
-                           "dismissed_at=%s, updated_at=clock_timestamp() WHERE id=%s",
-                           (before["status"], before["task_text"], before["due_date"], before["completed_at"],
-                            before["dismissed_at"], snapshot["task_id"]))
+            cursor.execute("UPDATE follow_ups SET status=%s, task_type=%s, task_text=%s, due_date=%s, "
+                           "completed_at=%s, dismissed_at=%s, updated_at=clock_timestamp() WHERE id=%s",
+                           (before["status"], before["task_type"], before["task_text"], before["due_date"],
+                            before["completed_at"], before["dismissed_at"], snapshot["task_id"]))
         cursor.execute("SELECT 1 FROM follow_ups WHERE deal_id=%s AND status='active' LIMIT 1", (deal_id,))
         if cursor.fetchone():
             refresh_deal_projection(cursor, deal_id)
