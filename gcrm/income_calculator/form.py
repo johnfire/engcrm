@@ -3,6 +3,7 @@
 Decimal input is accepted here and nowhere else; the engine only sees cents.
 """
 from decimal import Decimal, InvalidOperation
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -42,6 +43,11 @@ class IncomeCalculatorForm(BaseModel):
     months_remaining: int = Field(default=12, ge=1, le=12)
     church_rate: int = Field(default=0, ge=0, le=9)
     amount_basis: AmountBasis = AmountBasis.GROSS
+    # Where consulting and teaching income come from. The typed values are kept either way.
+    income_source: Literal["manual", "forecast"] = "manual"
+    include_expected: bool = False
+    include_possible: bool = False
+    possible_as: Literal["consulting", "teaching"] = "consulting"
 
     @field_validator(*MONEY_FIELDS, mode="before")
     @classmethod
@@ -61,10 +67,11 @@ class IncomeCalculatorForm(BaseModel):
             raise ValueError("church rate must be 0, 8 or 9")
         return rate
 
-    def to_inputs(self) -> EstimateInputs:
+    def to_inputs(self, consulting: Decimal | None = None, education: Decimal | None = None) -> EstimateInputs:
+        """`consulting` and `education` replace the typed income (the Forecast's figures)."""
         return EstimateInputs(
-            consulting_cents=cents(self.consulting),
-            education_cents=cents(self.education),
+            consulting_cents=cents(self.consulting if consulting is None else consulting),
+            education_cents=cents(self.education if education is None else education),
             startup_grant_cents=cents(self.startup_grant),
             expense_cash_cents=cents(self.expenses),
             business_deduction_cents=cents(self.business_deduction),

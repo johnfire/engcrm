@@ -1794,3 +1794,31 @@ main.income-calculator-page {
   margin-top: 0.75rem;
   width: 100%;
 }
+.income-calculator-page label.income-calculator-choice {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+}
+.income-calculator-page label.income-calculator-choice input {
+  accent-color: var(--accent);
+  flex: none;
+  width: auto;
+}
+.income-calculator-page .income-calculator-source p {
+  margin-top: 0.5rem;
+}
+.income-calculator-page .income-calculator-from-forecast {
+  margin: 0 0 1rem;
+}
+.income-calculator-page .income-calculator-from-forecast table {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+.income-calculator-page .income-calculator-from-forecast td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.income-calculator-page .income-calculator-from-forecast ul {
+  margin: 0.4rem 0 0 1.2rem;
+}
