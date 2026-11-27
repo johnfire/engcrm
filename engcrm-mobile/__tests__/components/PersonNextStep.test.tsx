@@ -41,10 +41,11 @@ describe("PersonNextStep", () => {
     fireEvent.press(screen.getByText("Add next step"));
     fireEvent.changeText(screen.getByLabelText("What happens next"), "Call");
     fireEvent.press(screen.getByLabelText("1 week"));
+    fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save"));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("Call", dateInDays(7)));
-    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Call", dateInDays(7));
+    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Call", dateInDays(7), "check_in");
     expect(changed).toHaveBeenCalledTimes(1);
     off();
   });
@@ -55,9 +56,10 @@ describe("PersonNextStep", () => {
 
     fireEvent.press(screen.getByText("Change"));
     fireEvent.changeText(screen.getByLabelText("What happens next"), "Call again");
+    fireEvent.press(screen.getByLabelText("Commitment"));
     fireEvent.press(screen.getByText("Save"));
 
-    await waitFor(() => expect(mockSetNextStep).toHaveBeenCalledWith(7, "Call again", "2026-11-01"));
+    await waitFor(() => expect(mockSetNextStep).toHaveBeenCalledWith(7, "Call again", "2026-11-01", "commitment"));
   });
 
   it("Done clears the step", async () => {
@@ -70,12 +72,45 @@ describe("PersonNextStep", () => {
     expect(mockSetNextStep).toHaveBeenCalledWith(7, null, null);
   });
 
+  it("asks for Commitment or Check-in before it saves a step, and again for the next one", async () => {
+    mockSetNextStep.mockResolvedValue({ next_step: "Call", next_step_date: null, logged: true });
+    const { screen, onSaved } = setup();
+
+    fireEvent.press(screen.getByText("Add next step"));
+    fireEvent.changeText(screen.getByLabelText("What happens next"), "Call");
+    fireEvent.press(screen.getByText("Save"));
+    expect(screen.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
+    expect(mockSetNextStep).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByLabelText("Commitment"));
+    expect(screen.queryByText("Choose Commitment or Check-in for the follow-up.")).toBeNull();
+    fireEvent.press(screen.getByText("Save"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(mockSetNextStep).toHaveBeenCalledWith(7, "Call", null, "commitment");
+
+    fireEvent.press(screen.getByText("Add next step"));
+    expect(screen.getByLabelText("Commitment").props.accessibilityState.selected).toBe(false);
+  });
+
+  it("clearing the words needs no type", async () => {
+    mockSetNextStep.mockResolvedValue({ next_step: null, next_step_date: null, logged: true });
+    const { screen, onSaved } = setup({ step: "Call", date: "2026-11-01" });
+
+    fireEvent.press(screen.getByText("Change"));
+    fireEvent.changeText(screen.getByLabelText("What happens next"), "  ");
+    fireEvent.press(screen.getByText("Save"));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(null, null));
+    expect(mockSetNextStep).toHaveBeenCalledWith(7, null, null);
+  });
+
   it("says so when saving fails, and keeps the editor open", async () => {
     mockSetNextStep.mockRejectedValue(new Error("offline"));
     const { screen, onSaved } = setup();
 
     fireEvent.press(screen.getByText("Add next step"));
     fireEvent.changeText(screen.getByLabelText("What happens next"), "Call");
+    fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save"));
 
     await waitFor(() => expect(screen.getByText("Couldn't save the next step. Try again.")).toBeTruthy());

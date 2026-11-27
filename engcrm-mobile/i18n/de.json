@@ -38,7 +38,7 @@
   "followUp.type": "Art der Wiedervorlage",
   "followUp.commitment": "Zusage",
   "followUp.check_in": "Nachfassen",
-  "followUp.reviewHint": "Wähle eine Art oder ordne die Wiedervorlage später bei der Prüfung zu.",
+  "followUp.typeNeeded": "Bitte für die Wiedervorlage Zusage oder Nachfassen wählen.",
   "contactFeed.counts": "Kontaktzahlen",
   "contactFeed.countMonth": "Diesen Monat",
   "contactFeed.countSince": "Insgesamt (seit {{date}})",

@@ -1,6 +1,10 @@
 // When to follow up: the quick choices shared by "Log meeting" and a person's next
 // step, and the calendar date each one means.
 
+/** What a next step or promise is: owed to someone, or a planned reconnect. */
+export type FollowUpType = "commitment" | "check_in";
+export const FOLLOW_UP_TYPES: readonly FollowUpType[] = ["commitment", "check_in"];
+
 export const FOLLOW_UPS: { id: string; days: number | null; labelKey: string }[] = [
   { id: "none", days: null, labelKey: "meeting.followNone" },
   { id: "1d", days: 1, labelKey: "meeting.followTomorrow" },

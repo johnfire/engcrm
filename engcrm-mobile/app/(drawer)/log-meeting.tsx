@@ -27,7 +27,8 @@ import { notifyChanged, organizationKey, personKey } from "../../services/refres
 import { useVoiceDictation } from "../../services/useVoiceDictation";
 import { useTranslation } from "../../i18n/I18nContext";
 import { Chip, StageStatusChange, StageStatusPicker } from "../../components/StageStatusPicker";
-import { dateInDays, FOLLOW_UPS, followUpDate } from "../../services/followUps";
+import { dateInDays, FOLLOW_UPS, followUpDate, type FollowUpType } from "../../services/followUps";
+import { FollowUpTypePicker } from "../../components/FollowUpTypePicker";
 import { OfferPicker } from "../../components/OfferPicker";
 import { JudgmentChips } from "../../components/JudgmentChips";
 import { ATTITUDES, Attitude, MY_READS, MyRead } from "../../services/judgments";
@@ -83,7 +84,7 @@ function OnlineLogMeetingScreen() {
   const [myRead, setMyRead] = useState<MyRead[]>([]);
   const [followUp, setFollowUp] = useState("none");
   const [followUpText, setFollowUpText] = useState("");
-  const [followUpType, setFollowUpType] = useState<"commitment" | "check_in" | null>(null);
+  const [followUpType, setFollowUpType] = useState<FollowUpType | null>(null);
   // An organization's activity, as on the web: the day it happened and what was left there.
   const [occurredOn, setOccurredOn] = useState("");
   const [materialsLeft, setMaterialsLeft] = useState("");
@@ -158,6 +159,8 @@ function OnlineLogMeetingScreen() {
   // Something to send: a note, or a stage change (alone, or left over after the note went through).
   const canSave = !saving && (hasNote || !!pendingChange ||
     (kind === "person" && (followUp !== "none" || !!followUpText.trim())));
+  // A promise (organization), or a next step by words or date (person), needs its type.
+  const needsType = !!followUpText.trim() || (kind === "person" && followUp !== "none");
   const title = params.name ? `${params.name}` : t(kind === "organization" ? "drawer.organization" : "drawer.person");
 
   function finish() {
@@ -176,6 +179,11 @@ function OnlineLogMeetingScreen() {
     const day = kind === "organization" ? typedDay(occurredOn) : null;
     if (day === undefined) {
       setError(t("meeting.badDay"));
+      return;
+    }
+    // Asked before anything is sent. An organization's promise travels with its note.
+    if (needsType && !followUpType && (kind === "person" || (hasNote && !noteSaved))) {
+      setError(t("followUp.typeNeeded"));
       return;
     }
     setSaving(true);
@@ -221,14 +229,8 @@ function OnlineLogMeetingScreen() {
     if (kind === "person" && (followUp !== "none" || !!followUpText.trim())) {
       try {
         const step = followUpText.trim() || t("meeting.followUp");
-        if (aboutDeal) {
-          if (followUpType) await setDealNextStep(aboutDeal.id, step, followUpDate(followUp), followUpType);
-          else await setDealNextStep(aboutDeal.id, step, followUpDate(followUp));
-        } else if (followUpType) {
-          await setPersonNextStep(targetId, step, followUpDate(followUp), followUpType);
-        } else {
-          await setPersonNextStep(targetId, step, followUpDate(followUp));
-        }
+        if (aboutDeal) await setDealNextStep(aboutDeal.id, step, followUpDate(followUp), followUpType);
+        else await setPersonNextStep(targetId, step, followUpDate(followUp), followUpType);
       } catch (err: any) {
         setError(err?.response?.data?.detail || t("meeting.nextStepFailedNoteSaved"));
         setSaving(false);
@@ -382,16 +384,10 @@ function OnlineLogMeetingScreen() {
                 editable={!saving}
               />
             )}
-            {(!!followUpText.trim() || (kind === "person" && followUp !== "none")) && (
-              <>
-              {!followUpType && <Text style={styles.hint}>{t("followUp.reviewHint")}</Text>}
-              <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("followUp.type")}>
-                {(["commitment", "check_in"] as const).map((type) => (
-                  <Chip key={type} label={t(`followUp.${type}`)} selected={followUpType === type}
-                    disabled={saving} onPress={() => setFollowUpType(type)} />
-                ))}
-              </View>
-              </>
+            {needsType && (
+              <FollowUpTypePicker style={[styles.followUpType, kind === "person" && styles.followUpTypeBelowInput]}
+                value={followUpType} disabled={saving}
+                onChange={(type) => { setFollowUpType(type); setError(null); }} />
             )}
             <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("meeting.followUp")}>
               {FOLLOW_UPS.map(({ id, labelKey }) => (
@@ -500,6 +496,8 @@ const styles = StyleSheet.create({
   },
   hint: { color: "#888", fontSize: 12, marginTop: 8 },
   promise: { marginBottom: 10, marginTop: 0 },
+  followUpType: { marginBottom: 10 },
+  followUpTypeBelowInput: { marginTop: 10 },
   error: { color: "#ef8a8a", fontSize: 13, marginTop: 10 },
   mic: {
     alignItems: "center",

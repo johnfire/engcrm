@@ -32,7 +32,7 @@ export function LocalDealCard({ deal, canEdit }: { deal: LocalRecord; canEdit: b
         ...(change.status ? { status: change.status } : {}),
       })} />
       : <Text style={{ color: "#bbb" }}>{String(stage)} · {String(status)}</Text>)}
-    <PersonNextStep step={step} date={date} canEdit={canEdit} onSaved={() => {}} save={async (nextStep, nextDate) => {
+    <PersonNextStep step={step} date={date} canEdit={canEdit} askType={false} onSaved={() => {}} save={async (nextStep, nextDate) => {
       await save({ next_step: nextStep, next_step_date: nextDate });
       return { next_step: nextStep, next_step_date: nextDate };
     }} />

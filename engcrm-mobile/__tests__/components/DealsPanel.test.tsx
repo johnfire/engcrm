@@ -6,6 +6,7 @@ const mockChangeDeal = jest.fn();
 const mockStart = jest.fn();
 const mockEnd = jest.fn();
 const mockRemove = jest.fn();
+const mockSetDealNextStep = jest.fn();
 jest.mock("../../services/deals", () => ({
   ...jest.requireActual("../../services/deals"),
   fetchOffers: () => Promise.resolve([
@@ -18,7 +19,7 @@ jest.mock("../../services/deals", () => ({
   endSubscription: (...a: any[]) => mockEnd(...a),
   removeDeal: (...a: any[]) => mockRemove(...a),
   createDeal: jest.fn(),
-  setDealNextStep: jest.fn(),
+  setDealNextStep: (...a: any[]) => mockSetDealNextStep(...a),
 }));
 
 import { DealsPanel } from "../../components/DealsPanel";
@@ -91,4 +92,16 @@ it("says so when the deals cannot be loaded", async () => {
   mockFetchDeals.mockRejectedValue(new Error("offline"));
   const screen = setup();
   await waitFor(() => expect(screen.getByText("Couldn't load the offers pitched here.")).toBeTruthy());
+});
+
+it("saves a deal's next step with the chosen follow-up type", async () => {
+  mockSetDealNextStep.mockResolvedValue({ next_step: "Send quote", next_step_date: null });
+  const screen = setup();
+  fireEvent.press(await screen.findByText("Add next step"));
+  fireEvent.changeText(screen.getByLabelText("What happens next"), "Send quote");
+  fireEvent.press(screen.getByText("Save"));
+  expect(mockSetDealNextStep).not.toHaveBeenCalled(); // no type yet
+  fireEvent.press(screen.getByLabelText("Commitment"));
+  fireEvent.press(screen.getByText("Save"));
+  await waitFor(() => expect(mockSetDealNextStep).toHaveBeenCalledWith(9, "Send quote", null, "commitment"));
 });

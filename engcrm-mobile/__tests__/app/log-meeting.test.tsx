@@ -140,6 +140,7 @@ describe("log a meeting — organization", () => {
     fireEvent.press(screen.getByLabelText("Drop-in"));
     fireEvent.press(screen.getByLabelText("1 week"));
     fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "send quote");
+    fireEvent.press(screen.getByLabelText("Commitment"));
     await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
     fireEvent.press(screen.getByLabelText("Suspect"));
     fireEvent.press(screen.getByText("Save note and update stage"));
@@ -150,6 +151,7 @@ describe("log a meeting — organization", () => {
       method: "in_person",
       follow_up_date: dateInDays(7),
       follow_up_text: "send quote",
+      follow_up_type: "commitment",
       duration_minutes: null,
       offer: "consulting", // its one open deal's offer, picked for you
       attitude: [],
@@ -200,9 +202,38 @@ describe("log a meeting — organization", () => {
     const screen = setup();
     await typeNote(screen, "Note");
     fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "send the price list");
+    fireEvent.press(screen.getByLabelText("Commitment"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
     expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ follow_up_date: null, follow_up_text: "send the price list" });
+  });
+
+  it("asks for the type of a promise before it sends anything", async () => {
+    const screen = setup();
+    await typeNote(screen, "Met the owner");
+    fireEvent.changeText(screen.getByLabelText("Follow-up promised"), "Send quote");
+    await waitFor(() => expect(screen.getByLabelText("Suspect")).toBeTruthy());
+    fireEvent.press(screen.getByLabelText("Suspect"));
+    expect(screen.queryByText(/review queue/)).toBeNull();
+    fireEvent.press(screen.getByText("Save note and update stage"));
+    expect(screen.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
+    expect(mockAddOrgNote).not.toHaveBeenCalled();
+    expect(mockChangeDeal).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Check-in"));
+    fireEvent.press(screen.getByText("Save note and update stage"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ follow_up_text: "Send quote", follow_up_type: "check_in" });
+  });
+
+  it("needs no type for a follow-up date without a promise", async () => {
+    const screen = setup();
+    await typeNote(screen, "Met the owner");
+    fireEvent.press(screen.getByLabelText("1 week"));
+    expect(screen.queryByLabelText("Commitment")).toBeNull();
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockAddOrgNote).toHaveBeenCalled());
+    expect(mockAddOrgNote.mock.calls[0][1]).toMatchObject({ follow_up_date: dateInDays(7), follow_up_text: null });
+    expect(mockAddOrgNote.mock.calls[0][1]).not.toHaveProperty("follow_up_type");
   });
 
   it("sends a typed earlier day and what was left there", async () => {
@@ -388,11 +419,12 @@ describe("log a meeting — person", () => {
     await typeNote(screen, "Met at the fair");
     fireEvent.press(screen.getByLabelText("1 week"));
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Invite to coffee");
+    fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddPersonNote).toHaveBeenCalledWith(7, "Met at the fair", null, null, "consulting", { attitude: [], my_read: [] });
     // on the deal the note is about
-    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Invite to coffee", dateInDays(7));
+    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Invite to coffee", dateInDays(7), "check_in");
   });
 
   it("sends the selected type for a person's follow-up", async () => {
@@ -404,6 +436,22 @@ describe("log a meeting — person", () => {
     fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Call", dateInDays(7), "check_in"));
+  });
+
+  it("asks for the type of a next step before it sends the note or the step", async () => {
+    mockSetDealNextStep.mockResolvedValue({ next_step: "Follow up", next_step_date: dateInDays(7), logged: true });
+    const screen = setup("person");
+    await screen.findByLabelText("Prospect");
+    await typeNote(screen, "Met at the fair");
+    fireEvent.press(screen.getByLabelText("1 week")); // a date alone still makes a next step
+    fireEvent.press(screen.getByText("Save note"));
+    expect(screen.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
+    expect(mockAddPersonNote).not.toHaveBeenCalled();
+    expect(mockSetDealNextStep).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText("Commitment"));
+    fireEvent.press(screen.getByText("Save note"));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Follow up", dateInDays(7), "commitment");
   });
 
   it("allows a person's follow-up with no date", async () => {
@@ -421,10 +469,11 @@ describe("log a meeting — person", () => {
     const screen = setup("person");
     await screen.findByLabelText("Prospect"); // the deal has loaded
     fireEvent.press(await screen.findByLabelText("Tomorrow"));
+    fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
     expect(mockAddPersonNote).not.toHaveBeenCalled();
-    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Follow up", dateInDays(1));
+    expect(mockSetDealNextStep).toHaveBeenCalledWith(90, "Follow up", dateInDays(1), "check_in");
   });
 
   it("if the note saved but the next step failed, says so and retries only the next step", async () => {
@@ -435,6 +484,7 @@ describe("log a meeting — person", () => {
     await typeNote(screen, "Quick chat");
     fireEvent.press(screen.getByLabelText("3 days"));
     fireEvent.changeText(screen.getByPlaceholderText("About (optional)"), "Call");
+    fireEvent.press(screen.getByLabelText("Check-in"));
     fireEvent.press(screen.getByText("Save note"));
     await waitFor(() =>
       expect(screen.getByText("Note saved, but the next step couldn't be saved. Try again.")).toBeTruthy(),

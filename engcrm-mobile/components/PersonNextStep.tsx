@@ -4,10 +4,11 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { setPersonNextStep } from "../services/api";
-import { FOLLOW_UPS, dateInDays, followUpDate } from "../services/followUps";
+import { FOLLOW_UPS, dateInDays, followUpDate, type FollowUpType } from "../services/followUps";
 import { notifyChanged, personKey } from "../services/refreshBus";
 import { useTranslation } from "../i18n/I18nContext";
 import { Chip } from "./StageStatusPicker";
+import { FollowUpTypePicker } from "./FollowUpTypePicker";
 import { formatDay } from "../services/dates";
 
 type Saved = { next_step: string | null; next_step_date: string | null };
@@ -19,28 +20,39 @@ type Props = {
   canEdit: boolean;
   onSaved: (step: string | null, date: string | null) => void;
   /** Where the step is stored. Defaults to the person's Consulting deal; a deal
-   *  card passes its own deal's. */
-  save?: (step: string | null, date: string | null) => Promise<Saved>;
+   *  card passes its own deal's. `type` is null only when the step is cleared. */
+  save?: (step: string | null, date: string | null, type: FollowUpType | null) => Promise<Saved>;
+  /** False where the step's type cannot be stored yet (the offline deal card). */
+  askType?: boolean;
 };
 
-export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store }: Props) {
+export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store, askType = true }: Props) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(step ?? "");
   const [when, setWhen] = useState(date ? "keep" : "none");
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [type, setType] = useState<FollowUpType | null>(null);
+  const [typeMissing, setTypeMissing] = useState(false);
   const overdue = !!date && date < dateInDays(0);
 
   async function save(nextText: string, nextDate: string | null) {
+    const next = nextText.trim() || null;
+    // A new step needs its type; clearing one (Done, or blank words) needs none.
+    if (next && askType && !type) {
+      setTypeMissing(true);
+      return;
+    }
     setSaving(true);
     setFailed(false);
     try {
-      const write = store ?? ((s: string | null, d: string | null) => {
+      const write = store ?? ((s: string | null, d: string | null, chosen: FollowUpType | null) => {
         if (personId === undefined) throw new Error("A person identity is required");
-        return setPersonNextStep(personId, s, d);
+        return chosen ? setPersonNextStep(personId, s, d, chosen) : setPersonNextStep(personId, s, d);
       });
-      const stored = await write(nextText.trim() || null, nextText.trim() ? nextDate : null);
+      const stored = await write(next, next ? nextDate : null, next ? type : null);
+      setType(null); // the next change is asked afresh
       onSaved(stored.next_step, stored.next_step_date);
       if (personId !== undefined) notifyChanged(personKey(personId));
       setEditing(false);
@@ -95,6 +107,10 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
             editable={!saving}
             accessibilityLabel={t("nextStep.label")}
           />
+          {askType && !!text.trim() && (
+            <FollowUpTypePicker style={styles.type} value={type} disabled={saving}
+              onChange={(chosen) => { setType(chosen); setTypeMissing(false); }} />
+          )}
           <View style={styles.choices} accessibilityRole="radiogroup" accessibilityLabel={t("nextStep.dateLabel")}>
             {!!date && (
               <Chip label={t("nextStep.keepDate", { date: formatDay(date) })} selected={when === "keep"} onPress={() => setWhen("keep")} />
@@ -113,10 +129,12 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
             >
               <Text style={styles.saveText}>{t("nextStep.save")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" onPress={() => setEditing(false)} disabled={saving}>
+            <TouchableOpacity accessibilityRole="button" disabled={saving}
+              onPress={() => { setEditing(false); setTypeMissing(false); }}>
               <Text style={styles.action}>{t("common.cancel")}</Text>
             </TouchableOpacity>
           </View>
+          {typeMissing && <Text style={styles.error}>{t("followUp.typeNeeded")}</Text>}
         </View>
       )}
       {failed && <Text style={styles.error}>{t("nextStep.saveFailed")}</Text>}
@@ -136,6 +154,7 @@ const styles = StyleSheet.create({
   editor: { marginTop: 10 },
   input: { backgroundColor: "#0f0f23", borderColor: "#333", borderWidth: 1, borderRadius: 8, color: "#fff", padding: 10 },
   choices: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
+  type: { marginTop: 10 },
   saveButton: { backgroundColor: "#7c6fff", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 9 },
   saveText: { color: "#fff", fontWeight: "700" },
   error: { color: "#ff6b6b", fontSize: 13, marginTop: 8 },

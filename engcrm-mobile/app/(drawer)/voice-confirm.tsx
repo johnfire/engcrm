@@ -15,6 +15,8 @@ import { confirmVoice, VoiceResult } from "../../services/api";
 import { takeHandoff } from "../../services/handoff";
 import { formatDay, parseDay } from "../../services/dates";
 import { useTranslation } from "../../i18n/I18nContext";
+import { FollowUpTypePicker } from "../../components/FollowUpTypePicker";
+import type { FollowUpType } from "../../services/followUps";
 
 export default function VoiceConfirmScreen() {
   const router = useRouter();
@@ -23,7 +25,7 @@ export default function VoiceConfirmScreen() {
   const [summary, setSummary] = useState("");
   const [followDate, setFollowDate] = useState("");
   const [followText, setFollowText] = useState("");
-  const [followUpType, setFollowUpType] = useState<"commitment" | "check_in" | null>(null);
+  const [followUpType, setFollowUpType] = useState<FollowUpType | null>(null);
   const [selected, setSelected] = useState<number | "new">("new");
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -58,6 +60,10 @@ export default function VoiceConfirmScreen() {
       Alert.alert(t("voiceConfirm.followUpDate"), t("date.format"));
       return;
     }
+    if (followText.trim() && !followUpType) {
+      Alert.alert(t("followUp.type"), t("followUp.typeNeeded"));
+      return;
+    }
     setSaving(true);
     try {
       await confirmVoice({
@@ -66,7 +72,7 @@ export default function VoiceConfirmScreen() {
         summary: summary.trim(),
         follow_up_date: followUpDay,
         follow_up_text: followText.trim() || null,
-        ...(followUpType ? { follow_up_type: followUpType } : {}),
+        ...(followText.trim() && followUpType ? { follow_up_type: followUpType } : {}),
       });
       Alert.alert(
         t("voiceConfirm.savedTitle"),
@@ -147,14 +153,9 @@ export default function VoiceConfirmScreen() {
           placeholderTextColor="#555"
         />
 
-        {!!followText.trim() && !followUpType && <Text style={styles.label}>{t("followUp.reviewHint")}</Text>}
-        {!!followText.trim() && (["commitment", "check_in"] as const).map((type) => (
-          <TouchableOpacity key={type} style={[styles.option, followUpType === type && styles.optionActive]}
-            accessibilityRole="radio" accessibilityLabel={t(`followUp.${type}`)}
-            accessibilityState={{ selected: followUpType === type }} onPress={() => setFollowUpType(type)}>
-            <Text style={styles.optionText}>{t(`followUp.${type}`)}</Text>
-          </TouchableOpacity>
-        ))}
+        {!!followText.trim() && (
+          <FollowUpTypePicker style={styles.followUpType} value={followUpType} disabled={saving} onChange={setFollowUpType} />
+        )}
 
         <TouchableOpacity style={styles.save} onPress={save} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{t("common.save")}</Text>}
@@ -200,6 +201,7 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff20",
   },
   multi: { minHeight: 80, textAlignVertical: "top" },
+  followUpType: { marginTop: 10 },
   save: {
     backgroundColor: "#7c6fff",
     borderRadius: 12,

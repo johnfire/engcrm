@@ -207,7 +207,7 @@ function DealCard({
         date={deal.next_step_date}
         canEdit={canEdit}
         onSaved={() => void reload()}
-        save={(step, date) => setDealNextStep(deal.id, step, date)}
+        save={(step, date, type) => setDealNextStep(deal.id, step, date, type)}
       />
 
       <View style={styles.block}>

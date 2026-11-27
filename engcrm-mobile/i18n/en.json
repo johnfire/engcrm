@@ -38,7 +38,7 @@
   "followUp.type": "Follow-up type",
   "followUp.commitment": "Commitment",
   "followUp.check_in": "Check-in",
-  "followUp.reviewHint": "Choose a type, or classify this later in the review queue.",
+  "followUp.typeNeeded": "Choose Commitment or Check-in for the follow-up.",
   "contactFeed.counts": "Contact counts",
   "contactFeed.countMonth": "This month",
   "contactFeed.countSince": "All time (since {{date}})",
