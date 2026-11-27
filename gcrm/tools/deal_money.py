@@ -14,6 +14,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
+from gcrm.contract_kinds import checked_kind
 from gcrm.db.connection import db, serialize_row
 from gcrm.sale_series import (
     amount_and_hours,
@@ -42,18 +43,67 @@ def _money(amount) -> Decimal:
     return value
 
 
+# --- Contracts ---------------------------------------------------------------
+
+CONTRACT_TITLE_MAX = 200
+
+
+def create_contract(cur, workspace_id: int, deal_id: int, title: str, kind: str = "other") -> int:
+    """Insert a contract on a deal, inside the caller's transaction, and return its id. A contract holds no
+    money of its own: its value, hours and dates are worked out from its payments (the sales). ValueError
+    for a blank or overlong title or an unknown kind."""
+    title = (title or "").strip()
+    if not title:
+        raise ValueError("a contract needs a title")
+    if len(title) > CONTRACT_TITLE_MAX:
+        raise ValueError(f"a contract title is at most {CONTRACT_TITLE_MAX} characters")
+    cur.execute("INSERT INTO contracts (workspace_id, deal_id, title, kind) VALUES (%s, %s, %s, %s) RETURNING id",
+                (workspace_id, deal_id, title, checked_kind(kind)))
+    return cur.fetchone()["id"]
+
+
+def _default_contract_title(cur, deal_id: int, text: str | None, won_on: date) -> str:
+    """The sale's description, else "<offer> – MM.YYYY" of the day it was won (as migration 111 titled them)."""
+    if text:
+        return text[:CONTRACT_TITLE_MAX]
+    cur.execute("SELECT o.name FROM deals d JOIN offers o ON o.id = d.offer_id WHERE d.id = %s", (deal_id,))
+    offer = cur.fetchone()
+    if offer is None:
+        raise ValueError("no such deal")
+    return f"{offer['name']} – {won_on.strftime('%m.%Y')}"[:CONTRACT_TITLE_MAX]
+
+
+def _check_contract_takes_payments(cur, workspace_id: int, deal_id: int, contract_id: int) -> None:
+    """ValueError unless the contract exists in this workspace, is not deleted and is on this deal (the
+    database would refuse another deal's contract too, but as an error nobody can read)."""
+    cur.execute("SELECT deal_id, deleted_at FROM contracts WHERE id = %s AND workspace_id = %s FOR SHARE",
+                (contract_id, workspace_id))
+    contract = cur.fetchone()
+    if contract is None:
+        raise ValueError("no such contract")
+    if contract["deal_id"] != deal_id:
+        raise ValueError("that contract belongs to another deal")
+    if contract["deleted_at"] is not None:
+        raise ValueError("that contract is deleted")
+
+
 # --- One-off sales -----------------------------------------------------------
 
 def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, won_on: date, description: str,
                          status: str, expected_on: date | None, collected_on: date | None,
                          months: int = 1, hours: Decimal | None = None, work_from: date | None = None,
-                         work_to: date | None = None) -> list[int]:
+                         work_to: date | None = None, contract_id: int | None = None,
+                         title: str | None = None) -> list[int]:
     """Insert one sale (months = 1) or a contract's monthly payments (months 2 to 60) on a
     deal, inside the caller's transaction, and return the new ids in payment order. A
     schedule needs the first due day, and starts as expected, booked or contracted: each
     payment is marked received when it arrives. `hours` (the whole sale's) is split over the payments
     like the money; `work_from` / `work_to` (both or neither) is when it is worked, the same window for every
-    payment of a contract. Nothing is inserted when anything is refused."""
+    payment of a contract. Nothing is inserted when anything is refused.
+
+    Every sale belongs to a contract. With `contract_id` the payments join that contract (it must be on this
+    deal and not deleted); without, a contract is made first, titled `title`, else the description, else
+    "<offer> – MM.YYYY", and every payment of the schedule shares it."""
     check_work_window(work_from, work_to)
     text = (description or "").strip()[:500] or None
     if months == 1:
@@ -67,13 +117,18 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
             raise ValueError("a payment schedule needs the day the first payment is due")
         dues, parts = due_dates(expected_on, months), split_amount(total, months)
         series, collected, hour_parts = str(uuid.uuid4()), [None] * months, split_hours(hours, months)
+    if contract_id is None:
+        contract_id = create_contract(cur, workspace_id, deal_id,
+                                      (title or "").strip() or _default_contract_title(cur, deal_id, text, won_on))
+    else:
+        _check_contract_takes_payments(cur, workspace_id, deal_id, contract_id)
     ids = []
     for part, (amount, due, got, worked) in enumerate(zip(parts, dues, collected, hour_parts), start=1):
         cur.execute(
-            "INSERT INTO sales (workspace_id, deal_id, amount_eur, won_on, description, status, expected_on, "
+            "INSERT INTO sales (workspace_id, deal_id, contract_id, amount_eur, won_on, description, status, expected_on, "
             "collected_on, series_id, series_part, series_total, hours, work_from, work_to) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s, %s, %s, %s) RETURNING id",
-            (workspace_id, deal_id, amount, won_on, text, status, due, got, series,
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::uuid, %s, %s, %s, %s, %s) RETURNING id",
+            (workspace_id, deal_id, contract_id, amount, won_on, text, status, due, got, series,
              part if series else None, months if series else None, worked, work_from, work_to),
         )
         ids.append(cur.fetchone()["id"])

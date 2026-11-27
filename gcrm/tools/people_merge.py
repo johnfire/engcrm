@@ -40,6 +40,8 @@ _CHILD_TABLES = {
     ("deals", "contact_person_id"): None,
     ("follow_ups", "person_id"): None,
     ("follow_ups", "contact_person_id"): None,
+    # The customer's contact person on a contract: the kept person takes over, no clash possible.
+    ("contracts", "contact_person_id"): None,
 }
 
 # Rows that only clash while both are live: a soft-deleted deal blocks nothing.

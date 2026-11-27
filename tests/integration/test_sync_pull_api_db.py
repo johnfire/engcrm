@@ -92,10 +92,13 @@ def test_sales_changes_refresh_only_the_derived_deal_total(clean_database):
         before = client.get("/api/sync/changes", headers=headers, params={"device_id": device_id, "after": 0}).json()["next_cursor"]
         with db() as connection:
             cursor = connection.cursor()
-            cursor.execute("INSERT INTO sales(workspace_id,deal_id,amount_eur,won_on,status,description) VALUES "
-                           "(%s,%s,100,'2026-11-01','booked','private details'),"
-                           "(%s,%s,50,'2026-11-01','cancelled','do not sync')",
-                           (workspace, deal["id"], workspace, deal["id"]))
+            cursor.execute("INSERT INTO contracts(workspace_id,deal_id,title) VALUES (%s,%s,'Private contract') RETURNING id",
+                           (workspace, deal["id"]))
+            contract = cursor.fetchone()["id"]            # every sale belongs to a contract (migration 111)
+            cursor.execute("INSERT INTO sales(workspace_id,deal_id,contract_id,amount_eur,won_on,status,description) VALUES "
+                           "(%s,%s,%s,100,'2026-11-01','booked','private details'),"
+                           "(%s,%s,%s,50,'2026-11-01','cancelled','do not sync')",
+                           (workspace, deal["id"], contract, workspace, deal["id"], contract))
         response = client.get("/api/sync/changes", headers=headers, params={"device_id": device_id, "after": before})
         assert response.status_code == 200
         changes = response.json()["changes"]

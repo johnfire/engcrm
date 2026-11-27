@@ -59,6 +59,13 @@ def two_workspaces(clean_database, monkeypatch):
     return first, second
 
 
+def _deal_of(workspace: int) -> int:
+    with workspace_scope(workspace), db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM deals ORDER BY id LIMIT 1")
+        return cursor.fetchone()["id"]
+
+
 def _read(archive: bytes) -> dict[str, list[dict]]:
     out = {}
     with zipfile.ZipFile(io.BytesIO(archive)) as z:
@@ -90,6 +97,53 @@ def test_the_zip_has_one_csv_per_kind_a_readme_and_a_manifest(two_workspaces):
     (act,) = rows["activities.csv"]
     assert act["summary"] == "Called Brandt Maschinenbau" and act["organization_name"] == "Brandt Maschinenbau"
     assert any(row["slug"] == "consulting" for row in rows["offers.csv"])
+
+
+def test_contracts_and_their_links_are_exported_and_sales_name_their_series_and_contract_apart(two_workspaces):
+    first, second = two_workspaces
+    with workspace_scope(first), db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT contract_id FROM sales")
+        contract = cursor.fetchone()["contract_id"]
+        cursor.execute("INSERT INTO contract_links (workspace_id, contract_id, label, url) "
+                       "VALUES (%s, %s, 'Syllabus', 'https://example.org/syllabus')", (first, contract))
+    with workspace_scope(second), db() as connection:
+        connection.cursor().execute("INSERT INTO contract_links (workspace_id, contract_id, label, url) "
+                                    "SELECT %s, contract_id, 'Kessler secret', 'https://example.org/kessler' FROM sales",
+                                    (second,))
+    archive, manifest = build_backup(first)
+    rows = _read(archive)
+    assert {"contracts.csv", "contract_links.csv"} <= set(rows) and {"contracts.csv", "contract_links.csv"} <= set(FILES)
+    (sale,) = rows["sales.csv"]
+    assert "series_id" in sale and "contract_id" in sale and sale["contract_id"] == str(contract)
+    assert sale["series_id"] == ""                                  # a one-off sale has no series
+    (row,) = rows["contracts.csv"]
+    assert (row["id"], row["title"], row["kind"], row["owner_name"], row["assignment"]) == (
+        str(contract), "Job for Brandt Maschinenbau", "other", "Brandt Maschinenbau", "")
+    assert list(row) == ["id", "deal_id", "offer", "organization_id", "person_id", "owner_name", "title", "kind",
+                         "assignment", "contact_person_id", "created_at"]
+    assert list(rows["contract_links.csv"][0]) == ["id", "contract_id", "label", "url", "sort_order", "created_at"]
+    (link,) = rows["contract_links.csv"]
+    assert (link["contract_id"], link["label"], link["url"]) == (str(contract), "Syllabus", "https://example.org/syllabus")
+    assert manifest["counts"]["contracts.csv"] == 1 and manifest["counts"]["contract_links.csv"] == 1
+    assert manifest["format_version"] == 2          # sales.csv's contract_id changed meaning (it was the series id)
+    everything = " ".join(row_text for name in ("contracts.csv", "contract_links.csv") for row_text in [str(rows[name])])
+    assert "Kessler" not in everything
+
+
+def test_a_series_keeps_its_series_id_and_the_readme_explains_both_columns(two_workspaces):
+    first, _ = two_workspaces
+    with workspace_scope(first):
+        deal = _deal_of(first)
+        add_deal_sale(deal, "1200", date(2026, 11, 3), "Course", first, status="booked", expected_on=date(2027, 1, 1), months=3)
+    archive, _ = build_backup(first)
+    payments = [r for r in _read(archive)["sales.csv"] if r["description"] == "Course"]
+    assert len(payments) == 3 and len({r["series_id"] for r in payments}) == 1 and payments[0]["series_id"]
+    assert len({r["contract_id"] for r in payments}) == 1 and payments[0]["contract_id"] != payments[0]["series_id"]
+    with zipfile.ZipFile(io.BytesIO(archive)) as z:
+        readme = z.read("README.txt").decode()
+    assert "contracts.csv" in readme and "contract_links.csv" in readme
+    assert "tied by series_id" in readme and "contract_id" in readme
 
 
 def test_one_workspaces_backup_never_contains_another_workspaces_data(two_workspaces):

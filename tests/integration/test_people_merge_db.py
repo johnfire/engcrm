@@ -201,3 +201,28 @@ def test_merge_refuses_to_attach_named_follow_up_to_wrong_company(clean_database
         merge_people(ids["keep"], ids["drop"], apply=True)
     assert _counts(ids["drop"])["people"] == 1
     assert find_follow_ups()[0]["id"] == task_id
+
+
+def _contract_contact_people() -> list[int | None]:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT contact_person_id FROM contracts ORDER BY id")
+        return [row["contact_person_id"] for row in cursor.fetchall()]
+
+
+def test_a_contract_that_names_the_duplicate_as_its_contact_names_the_kept_person_after_the_merge(clean_database):
+    ids = _setup_pair()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, workspace_id FROM deals WHERE contact_person_id = %s", (ids["drop"],))
+        deal = cursor.fetchone()
+        cursor.execute("INSERT INTO contracts (workspace_id, deal_id, title, contact_person_id) "
+                       "VALUES (%s, %s, 'Year course', %s), (%s, %s, 'Workshop', NULL)",
+                       (deal["workspace_id"], deal["id"], ids["drop"], deal["workspace_id"], deal["id"]))
+
+    preview = merge_people(ids["keep"], ids["drop"], apply=False, today=date(2026, 10, 5))
+    assert _contract_contact_people() == [ids["drop"], None]              # a preview writes nothing
+    assert len(preview["moved"]["contracts"]) == 1
+
+    merge_people(ids["keep"], ids["drop"], apply=True, today=date(2026, 10, 5))
+    assert _contract_contact_people() == [ids["keep"], None]

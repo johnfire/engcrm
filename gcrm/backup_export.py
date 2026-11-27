@@ -20,7 +20,8 @@ from decimal import Decimal
 from gcrm.db.connection import db
 from gcrm.workspace_context import workspace_scope
 
-FORMAT_VERSION = 1
+# 2: sales.csv names the payment series series_id, and contract_id is the contract (it used to hold the series id).
+FORMAT_VERSION = 2
 
 # A leading + or - is left alone only when the whole text is digits, spaces and . , ( ) / + -
 # (a number, a phone number, plain arithmetic): with no letters or | ; ! it cannot call a function
@@ -87,13 +88,29 @@ FILES: dict[str, str] = {
         SELECT s.id, s.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
                COALESCE(c.name, p.name) AS owner_name, s.amount_eur, s.status,
                s.won_on, s.expected_on, s.collected_on, s.hours, s.work_from, s.work_to, s.description,
-               s.series_id::text AS contract_id, s.series_part AS payment_number, s.series_total AS payments_in_contract,
-               s.created_at
+               s.contract_id, s.series_id::text AS series_id, s.series_part AS payment_number,
+               s.series_total AS payments_in_contract, s.created_at
           FROM sales s JOIN deals d ON d.id = s.deal_id AND d.deleted_at IS NULL
           JOIN offers o ON o.id = d.offer_id
           LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id
          WHERE s.workspace_id = %(ws)s AND s.deleted_at IS NULL
            AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY s.id""",
+    "contracts.csv": """
+        SELECT k.id, k.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
+               COALESCE(c.name, p.name) AS owner_name, k.title, k.kind, k.assignment,
+               k.contact_person_id, k.created_at
+          FROM contracts k JOIN deals d ON d.id = k.deal_id AND d.deleted_at IS NULL
+          JOIN offers o ON o.id = d.offer_id
+          LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id
+         WHERE k.workspace_id = %(ws)s AND k.deleted_at IS NULL
+           AND COALESCE(c.deleted_at, p.deleted_at) IS NULL ORDER BY k.id""",
+    "contract_links.csv": """
+        SELECT l.id, l.contract_id, l.label, l.url, l.sort_order, l.created_at
+          FROM contract_links l JOIN contracts k ON k.id = l.contract_id AND k.deleted_at IS NULL
+          JOIN deals d ON d.id = k.deal_id AND d.deleted_at IS NULL
+          LEFT JOIN contacts c ON c.id = d.contact_id LEFT JOIN people p ON p.id = d.person_id
+         WHERE l.workspace_id = %(ws)s AND COALESCE(c.deleted_at, p.deleted_at) IS NULL
+         ORDER BY l.contract_id, l.sort_order, l.id""",
     "subscriptions.csv": """
         SELECT s.id, s.deal_id, o.name AS offer, c.id AS organization_id, p.id AS person_id,
                COALESCE(c.name, p.name) AS owner_name, s.amount_eur_month,
@@ -124,10 +141,16 @@ Files (CSV, UTF-8, comma separated, dates as YYYY-MM-DD):
   activities.csv      calls, visits, emails and notes (kind = organization or person)
   deals.csv           what you pitch to each organization or person, and where it stands
   follow_ups.csv      commitments and check-ins, including their review and completion history
-  sales.csv           sales; status is expected, booked, contracted, collected or cancelled. A contract paid in
-                      monthly payments is one row per payment, tied by contract_id (payment_number of
-                      payments_in_contract); expected_on is the day that payment is due; hours is the work
+  sales.csv           sales (the payments of a contract); status is expected, booked, contracted, collected or
+                      cancelled. contract_id is the contract the payment belongs to (see contracts.csv; a
+                      one-off sale is a contract with one payment). A contract paid in monthly payments is
+                      one row per payment, tied by series_id (payment_number of payments_in_contract; empty
+                      for a one-off); expected_on is the day that payment is due; hours is the work
                       in that payment (empty: not recorded) and work_from / work_to the days it is done
+  contracts.csv       the deals made: one row per contract, with its title, kind (teaching_course, workshop,
+                      consulting or other), the free-text assignment, and the customer's contact person.
+                      Its value, hours and dates are the sum and the range of its rows in sales.csv
+  contract_links.csv  the links (label and web address) kept on each contract, in the order shown
   subscriptions.csv   recurring revenue per deal
   offers.csv          what you sell
   income_plan.csv     the income you need per month from sales, the first month it applies from, and the new

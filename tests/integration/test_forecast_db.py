@@ -88,6 +88,35 @@ def test_months_hold_money_on_their_due_day_and_received_money_on_the_day_it_cam
     assert _period(f, date(2026, 12, 1))["total"] == D("0")           # the cancelled one is nowhere
 
 
+def _every_period(result):
+    return {p["start"]: (p["collected"], p["contracted"], p["booked"], p["expected"], p["total"])
+            for p in result["periods"] if p["total"]}
+
+
+def test_the_forecast_totals_are_the_same_whichever_contracts_the_payments_sit_in(world):
+    """Contracts wrap the sales; they never change what the forecast reads. The seeded set gives the
+    numbers this file asserted before contracts existed, and moving every payment of the deal into one
+    contract (or leaving each in its own) cannot move them."""
+    own_contracts = _every_period(_forecast(world))
+    assert own_contracts == {
+        date(2026, 11, 1): (D("600"), D("300"), D("0"), D("0"), D("900")),
+        date(2027, 2, 1): (D("0"), D("0"), D("600.00"), D("0"), D("600.00")),
+        date(2027, 3, 1): (D("0"), D("0"), D("600.00"), D("0"), D("600.00")),
+        date(2027, 4, 1): (D("0"), D("0"), D("600.00"), D("0"), D("600.00")),
+        date(2027, 5, 1): (D("0"), D("0"), D("600.00"), D("0"), D("600.00")),
+        date(2027, 6, 1): (D("0"), D("0"), D("0"), D("1000"), D("1000")),
+    }
+    assert _forecast(world)["undated"]["total"] == D("700")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT count(DISTINCT contract_id) AS n FROM sales WHERE deal_id = %s", (world["deal"],))
+        assert cursor.fetchone()["n"] == 5              # a one-off each, and the 4-month contract as one
+        cursor.execute("UPDATE sales SET contract_id = (SELECT min(contract_id) FROM sales WHERE deal_id = %s) "
+                       "WHERE deal_id = %s", (world["deal"], world["deal"]))
+    assert _every_period(_forecast(world)) == own_contracts
+    assert _forecast(world)["undated"]["total"] == D("700")
+
+
 def test_money_with_no_due_day_is_kept_apart_and_never_lost(world):
     undated = _forecast(world)["undated"]
     assert (undated["booked"], undated["count"], undated["total"]) == (D("700"), 1, D("700"))
