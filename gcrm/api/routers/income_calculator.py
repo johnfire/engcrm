@@ -24,7 +24,10 @@ from gcrm.tools.forecast_income import get_forecast_income
 from gcrm.workspace_context import workspace_scope
 
 logger = logging.getLogger(__name__)
-TAX_YEAR = 2026  # the only year gcrm.income_calculator has rules for
+# The year estimated. gcrm.income_calculator holds the law in force from 2026, which still applies
+# to this year: a 2027 reform was only a draft when this was written (2026-11-27). When a new law
+# is promulgated, its figures replace those in income_2026.py (and the law note on the page).
+TAX_YEAR = 2027
 router = APIRouter(
     prefix="/income-calculator", tags=["income-calculator"], dependencies=[Depends(require_login)]
 )

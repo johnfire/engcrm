@@ -10,11 +10,12 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ t('incomeCalc.title') }}</h1>
-  <span class="muted">{{ t('incomeCalc.intro') }} <span class="badge">2026</span></span>
+  <span class="muted">{{ t('incomeCalc.intro') }} <span class="badge">{{ tax_year }}</span></span>
 </div>
 
 <section class="income-calculator-notice" aria-label="{{ t('incomeCalc.noticeLabel') }}">
   <strong>{{ t('incomeCalc.noticeTitle') }}</strong> <span>{{ t('incomeCalc.notice') }}</span>
+  <p>{{ t('incomeCalc.lawNote', year=tax_year) }}</p>
 </section>
 
 <div class="income-calculator-workspace">

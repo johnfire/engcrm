@@ -73,7 +73,7 @@ def test_the_choices_reach_the_forecast_lookup(forecast):
     post(income_source="forecast")
     assert forecast.call_args.kwargs == {"include_expected": False, "include_possible": False,
                                          "possible_as": "consulting"}
-    assert forecast.call_args.args == (1, 2026)
+    assert forecast.call_args.args == (1, 2027)
     post(income_source="forecast", include_expected="on", include_possible="on", possible_as="teaching")
     assert forecast.call_args.kwargs == {"include_expected": True, "include_possible": True,
                                          "possible_as": "teaching"}

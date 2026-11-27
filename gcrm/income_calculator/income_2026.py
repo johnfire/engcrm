@@ -1,4 +1,4 @@
-"""2026 single-assessment tariff, excluding special tax circumstances."""
+"""Single-assessment tariff in force from 2026 (§32a EStG), excluding special tax circumstances."""
 
 from decimal import ROUND_DOWN, Decimal
 

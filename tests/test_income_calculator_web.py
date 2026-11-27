@@ -50,7 +50,21 @@ def test_anyone_signed_in_can_open_it_and_sees_every_field(signed_in):
     assert response.status_code == 200
     for name in FIELDS:
         assert f'name="{name}"' in response.text
-    assert "2026" in response.text and "not tax advice" in response.text
+    assert "not tax advice" in response.text
+
+
+def test_the_page_is_for_2027_and_says_which_law_it_uses(signed_in):
+    html = client.get("/income-calculator").text
+    assert '<span class="badge">2027</span>' in html
+    assert "tariff in force" in html and "not yet law" in html
+    assert "the 2026 allowance" not in html
+
+
+def test_the_law_note_is_translated(signed_in):
+    de = TestClient(main.app)
+    de.get("/login?lang=de")
+    html = de.get("/income-calculator").text
+    assert "geltenden Tarif" in html and "noch nicht Gesetz" in html
 
 
 def test_valid_input_shows_both_vat_scenarios(signed_in):
