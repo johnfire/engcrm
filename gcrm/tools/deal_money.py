@@ -14,6 +14,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
+from gcrm.contract_input import TITLE_MAX, checked_title
 from gcrm.contract_kinds import checked_kind
 from gcrm.db.connection import db, serialize_row
 from gcrm.sale_series import (
@@ -45,32 +46,24 @@ def _money(amount) -> Decimal:
 
 # --- Contracts ---------------------------------------------------------------
 
-CONTRACT_TITLE_MAX = 200
-
-
 def create_contract(cur, workspace_id: int, deal_id: int, title: str, kind: str = "other") -> int:
     """Insert a contract on a deal, inside the caller's transaction, and return its id. A contract holds no
     money of its own: its value, hours and dates are worked out from its payments (the sales). ValueError
     for a blank or overlong title or an unknown kind."""
-    title = (title or "").strip()
-    if not title:
-        raise ValueError("a contract needs a title")
-    if len(title) > CONTRACT_TITLE_MAX:
-        raise ValueError(f"a contract title is at most {CONTRACT_TITLE_MAX} characters")
     cur.execute("INSERT INTO contracts (workspace_id, deal_id, title, kind) VALUES (%s, %s, %s, %s) RETURNING id",
-                (workspace_id, deal_id, title, checked_kind(kind)))
+                (workspace_id, deal_id, checked_title(title), checked_kind(kind)))
     return cur.fetchone()["id"]
 
 
 def _default_contract_title(cur, deal_id: int, text: str | None, won_on: date) -> str:
     """The sale's description, else "<offer> – MM.YYYY" of the day it was won (as migration 111 titled them)."""
     if text:
-        return text[:CONTRACT_TITLE_MAX]
+        return text[:TITLE_MAX]
     cur.execute("SELECT o.name FROM deals d JOIN offers o ON o.id = d.offer_id WHERE d.id = %s", (deal_id,))
     offer = cur.fetchone()
     if offer is None:
         raise ValueError("no such deal")
-    return f"{offer['name']} – {won_on.strftime('%m.%Y')}"[:CONTRACT_TITLE_MAX]
+    return f"{offer['name']} – {won_on.strftime('%m.%Y')}"[:TITLE_MAX]
 
 
 def _check_contract_takes_payments(cur, workspace_id: int, deal_id: int, contract_id: int) -> None:

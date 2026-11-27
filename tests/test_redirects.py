@@ -54,3 +54,13 @@ def test_param_cannot_redirect_off_origin():
 def test_off_origin_path_with_params_still_falls_back():
     response = local_redirect("https://evil.test/x", fallback="/organizations/", saved="1")
     assert response.headers["location"] == "/organizations/?saved=1"
+
+
+@pytest.mark.parametrize("candidate", ["/contracts/5", "/contracts/5?open=payments", "/contracts/"])
+def test_the_contract_pages_are_local_targets_and_keep_their_query(candidate):
+    assert local_path(candidate, "/") == candidate
+
+
+def test_a_redirect_back_to_a_contract_page_keeps_the_payments_open():
+    response = local_redirect("/contracts/5?open=payments", fallback="/")
+    assert response.status_code == 303 and response.headers["location"] == "/contracts/5?open=payments"

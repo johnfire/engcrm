@@ -44,3 +44,25 @@
   .contracts-table td.contracts-empty { display: none; }
   .contracts-open { display: inline; margin-left: .5rem; }
 }
+
+/* One contract's page. */
+.contract-page .detail-section { margin: 0 0 1.5rem; }
+.contract-facts__line { margin: 0 0 .75rem; }
+.contract-edit > summary { cursor: pointer; }
+.contract-money__strip { display: flex; flex-wrap: wrap; gap: .75rem 2rem; margin: 0; }
+.contract-money__strip dt { color: var(--muted); font-size: .8em; text-transform: uppercase; letter-spacing: .06em; }
+.contract-money__strip dd { margin: 0; font-size: 1.2rem; }
+/* The assignment is plain text: its line breaks are kept, and long words never push the page wide. */
+.contract-assignment { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 70ch; }
+.contract-links { list-style: none; padding: 0; margin: 0 0 .75rem; }
+.contract-links li { padding: .35rem 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.contract-links__controls { display: inline-flex; flex-wrap: wrap; gap: .25rem; margin-left: .5rem; }
+.contract-links__controls .sale__move { margin: 0; }
+.contract-payments { border: 0; padding: 0; margin: 0; min-width: 0; }
+.contract-page details > summary h2 { display: inline; }
+.contract-page details > summary { cursor: pointer; }
+.contract-danger { border-top: 1px solid var(--border); padding-top: 1rem; }
+@media (max-width: 700px) {
+  .contract-money__strip { gap: .5rem 1.25rem; }
+  .contract-links__controls { display: flex; margin: .25rem 0 0; }
+}

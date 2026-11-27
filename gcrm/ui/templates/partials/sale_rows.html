@@ -2,10 +2,12 @@
    Only collected ones are money won (see gcrm/sale_status.py).
    sale_item: a sale with its status and the form that moves it along;
    sale_form: the form that records one. Both post to the deal's routes and come
-   back to `page`. Needs `sale_statuses` and `today` in the context. #}
+   back to `page`. `on_contract_page` words a monthly series' delete as what it is (the contract is the page there);
+   a sale may carry `delete_next` / `series_delete_next`: where to go after a delete instead of `page`.
+   Needs `sale_statuses` and `today` in the context. #}
 {% from 'partials/date_field.html' import date_field with context %}
 
-{% macro sale_item(sale, deal_id, page, show_offer=False) -%}
+{% macro sale_item(sale, deal_id, page, show_offer=False, on_contract_page=False) -%}
 {%- if sale.contract %}
 <li class="sale-contract">
   {%- if sale.contract.open %}
@@ -33,9 +35,9 @@
   </form>
   {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/delete" style="display:inline"
-        data-confirm="{{ t('sale.deleteContractConfirm', payments=sale.contract.payments) }}">
-    <input type="hidden" name="next" value="{{ page }}" />
-    <button class="btn-danger btn-tiny">{{ t('sale.deleteContract') }}</button>
+        data-confirm="{{ t('contractPage.deleteSeriesConfirm', payments=sale.contract.payments) if on_contract_page else t('sale.deleteContractConfirm', payments=sale.contract.payments) }}">
+    <input type="hidden" name="next" value="{{ sale.series_delete_next or page }}" />
+    <button class="btn-danger btn-tiny">{{ t('contractPage.deleteSeries') if on_contract_page else t('sale.deleteContract') }}</button>
   </form>
 </li>
 {%- endif %}
@@ -83,7 +85,7 @@
   {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
         data-confirm="{{ t('sales.deleteConfirm') }}">
-    <input type="hidden" name="next" value="{{ page }}" />
+    <input type="hidden" name="next" value="{{ sale.delete_next or page }}" />
     <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
   </form>
 </li>

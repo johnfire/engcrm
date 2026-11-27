@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% from 'partials/sale_rows.html' import sale_item with context %}
+{% from 'partials/date_field.html' import date_field with context %}
+{% block extra_head %}<link rel="stylesheet" href="/static/contracts.css?v={{ static_version }}">{% endblock %}
+{% block title %}{{ c.title }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide contract-page{% endblock %}
+
+{% block content %}
+{% set s = c.summary %}
+<p class="small"><a href="/contracts/">{{ t('contractPage.back') }}</a></p>
+<div class="page-header">
+  <h1>{{ c.title }}</h1>
+</div>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="detail-section contract-facts">
+  <p class="contract-facts__line">
+    <span class="badge">{{ t('contracts.kind.' ~ c.kind) if c.kind in kinds else c.kind }}</span>
+    {% if c.organization_id %}<a href="/organizations/{{ c.organization_id }}">{{ c.owner_name }}</a>
+    {% else %}<a href="/people/{{ c.person_id }}">{{ c.owner_name }}</a>{% endif %}
+    · <span class="muted">{{ c.offer_name }}</span>
+    · {% if s.start %}{{ s.start | dmy }}{% if s.end != s.start %} – {{ s.end | dmy }}{% endif %}{% else %}<span class="muted">{{ t('contracts.noDates') }}</span>{% endif %}
+    {% if c.contact_person %}· {{ t('deals.contactPerson') }}: <a href="/people/{{ c.contact_person.id }}">{{ c.contact_person.name }}</a>{% endif %}
+    {% if s.cancelled %}<span class="badge badge-dropped">{{ t('contracts.cancelled') }}</span>{% endif %}
+  </p>
+
+  {% if is_admin %}
+  <details class="contract-edit" {% if error_form == 'edit' %}open{% endif %}>
+    <summary>{{ t('contractPage.edit') }}</summary>
+    <form method="post" action="/contracts/{{ c.id }}" class="record-form">
+      <label>{{ t('contractPage.field.title') }}
+        <input type="text" name="title" value="{{ c.title }}" maxlength="200" required />
+      </label>
+      <label>{{ t('contracts.kind.label') }}
+        <select name="kind">
+          {% for k in kinds %}<option value="{{ k }}" {% if k == c.kind %}selected{% endif %}>{{ t('contracts.kind.' ~ k) }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>{{ t('deals.contactPerson') }}
+        <select name="contact_person_id">
+          <option value="">—</option>
+          {% for person in c.contact_options %}<option value="{{ person.id }}" {% if person.id == c.contact_person_id %}selected{% endif %}>{{ person.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="record-form__wide">{{ t('contractPage.field.assignment') }}
+        <textarea name="assignment" rows="8" maxlength="20000">{{ c.assignment }}</textarea>
+        <span class="muted small">{{ t('contractPage.assignmentHint') }}</span>
+      </label>
+      <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
+
+<section class="detail-section contract-money" aria-label="{{ t('contractPage.money') }}">
+  <dl class="contract-money__strip">
+    <div><dt>{{ t('contracts.col.value') }}</dt><dd><strong>{{ s.value | eur }}</strong></dd></div>
+    <div><dt>{{ t('contracts.col.hours') }}</dt><dd>{% if s.hours %}{{ s.hours | hrs }} h{% else %}—{% endif %}</dd></div>
+    <div><dt>{{ t('contracts.col.rate') }}</dt><dd>{% if s.rate %}{{ s.rate | eur }}/h{% else %}—{% endif %}</dd></div>
+    <div><dt>{{ t('contracts.col.collected') }}</dt><dd>{{ s.collected | eur }}</dd></div>
+    <div><dt>{{ t('contracts.open') }}</dt><dd>{{ s.open | eur }}</dd></div>
+  </dl>
+</section>
+
+<section class="detail-section" id="assignment">
+  <h2>{{ t('contractPage.assignment') }}</h2>
+  {% if c.assignment %}<div class="contract-assignment">{{ c.assignment }}</div>
+  {% else %}<p class="muted">{{ t('contractPage.assignmentNone') }}</p>{% endif %}
+</section>
+
+<section class="detail-section" id="links">
+  <h2>{{ t('contractPage.links') }}</h2>
+  {% if c.links %}
+  <ul class="contract-links">
+    {% for link in c.links %}
+    <li>
+      <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}</a>
+      <span class="muted small">{{ link.url }}</span>
+      {% if is_admin %}
+      <span class="contract-links__controls">
+        {% if not loop.first %}
+        <form method="post" action="/contracts/{{ c.id }}/links/{{ link.id }}/move" class="sale__move">
+          <input type="hidden" name="direction" value="up" />
+          <button class="btn-secondary btn-tiny" aria-label="{{ t('contractPage.linkUp') }}" title="{{ t('contractPage.linkUp') }}">↑</button>
+        </form>{% endif %}
+        {% if not loop.last %}
+        <form method="post" action="/contracts/{{ c.id }}/links/{{ link.id }}/move" class="sale__move">
+          <input type="hidden" name="direction" value="down" />
+          <button class="btn-secondary btn-tiny" aria-label="{{ t('contractPage.linkDown') }}" title="{{ t('contractPage.linkDown') }}">↓</button>
+        </form>{% endif %}
+        <form method="post" action="/contracts/{{ c.id }}/links/{{ link.id }}/delete" class="sale__move"
+              data-confirm="{{ t('contractPage.linkRemoveConfirm') }}">
+          <button class="btn-danger btn-tiny">{{ t('contractPage.linkRemove') }}</button>
+        </form>
+      </span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">{{ t('contractPage.linksNone') }}</p>{% endif %}
+  {% if is_admin %}
+  <form method="post" action="/contracts/{{ c.id }}/links" class="record-form">
+    <label>{{ t('contractPage.linkLabel') }}<input type="text" name="label" maxlength="200" required /></label>
+    <label>{{ t('contractPage.linkUrl') }}<input type="url" name="url" maxlength="2000" placeholder="https://" required /></label>
+    <button type="submit" class="btn-secondary">{{ t('contractPage.linkAdd') }}</button>
+  </form>
+  {% endif %}
+</section>
+
+<details class="detail-section" id="payments" {% if payments_open %}open{% endif %}>
+  <summary><h2>{{ t('contractPage.payments') }} <span class="muted small">({{ c.payments | length }})</span></h2></summary>
+  {# A spectator sees the payments but cannot use their controls (every change needs an admin). #}
+  <fieldset class="contract-payments" {% if not is_admin %}disabled{% endif %}>
+    {% if c.payments %}
+    <ul class="sales-list">
+      {% for sale in c.payments %}{{ sale_item(sale, c.deal_id, page, on_contract_page=True) }}{% endfor %}
+    </ul>
+    {% else %}<p class="muted">{{ t('sales.none') }}</p>{% endif %}
+  </fieldset>
+  {% if is_admin %}
+  <form method="post" action="/contracts/{{ c.id }}/payments" class="record-form">
+    <label>{{ t('sales.amount') }}<input type="text" name="amount_eur" inputmode="decimal" required /></label>
+    <label>{{ t('sale.status.label') }}
+      <select name="status">
+        {% for st in sale_statuses %}<option value="{{ st }}" {% if st == 'booked' %}selected{% endif %}>{{ t('sale.status.' ~ st) }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ t('sale.expectedOnLabel') }}{{ date_field('expected_on', None) }}</label>
+    <button type="submit" class="btn-secondary">{{ t('contractPage.paymentAdd') }}</button>
+  </form>
+  {% endif %}
+</details>
+
+{% if is_admin %}
+<section class="detail-section contract-danger" id="delete">
+  <form method="post" action="/contracts/{{ c.id }}/delete"
+        data-confirm="{{ t('contractPage.deleteConfirm', payments=c.payments | length) }}">
+    <button type="submit" class="btn-danger">{{ t('contractPage.delete') }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
