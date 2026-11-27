@@ -66,9 +66,9 @@ def test_create_names_a_person_only_when_they_belong_to_the_organization(clean_d
         app.dependency_overrides.pop(require_admin, None)
 
 
-def test_a_next_step_typed_on_the_deal_card_goes_straight_to_the_active_list(clean_database, monkeypatch):
-    """The trap behind a missing follow-up: the deal card's Next step had no type field, so a new step
-    went to Review and never showed on the list. The card now asks for the type and the step is active."""
+def test_a_follow_up_added_on_the_deal_card_goes_straight_to_the_active_list(clean_database, monkeypatch):
+    """The trap behind a missing follow-up: the deal card's old Next step had no type field, so a new step
+    went to Review and never showed on the list. The card's add form requires the type; the step is active."""
     monkeypatch.setattr("gcrm.tools.db_organizations.geocode", lambda city, country: None)
     organization = save_organization("Beispiel Werke GmbH", "Friedrichshafen", source="test_fixture")
     deal = get_deals("organization", organization)[0]
@@ -77,12 +77,12 @@ def test_a_next_step_typed_on_the_deal_card_goes_straight_to_the_active_list(cle
     try:
         client = TestClient(app)
         card = client.get(f"/organizations/{organization}?lang=en").text
-        assert re.search(rf'action="/deals/{deal["id"]}/next-step".*?<select name="task_type"', card, re.S)
-        refused = client.post(f"/deals/{deal['id']}/next-step", data={"next_step": "Meet in Friedrichshafen",
-                              "next_step_date": "04.12.2026"}, follow_redirects=False)
+        assert re.search(rf'name="target" value="deal:{deal["id"]}".*?<select name="task_type"[^>]*required',
+                         card, re.S)
+        added = {"target": f"deal:{deal['id']}", "task_text": "Meet in Friedrichshafen", "due_date": "04.12.2026"}
+        refused = client.post("/follow-ups/new", data={**added, "task_type": "someday"}, follow_redirects=False)
         assert refused.status_code == 400 and list_follow_ups() == []
-        saved = client.post(f"/deals/{deal['id']}/next-step", data={"next_step": "Meet in Friedrichshafen",
-                            "next_step_date": "04.12.2026", "task_type": "check_in"}, follow_redirects=False)
+        saved = client.post("/follow-ups/new", data={**added, "task_type": "check_in"}, follow_redirects=False)
         assert saved.status_code == 303
         page = client.get("/follow-ups/?lang=en").text
     finally:

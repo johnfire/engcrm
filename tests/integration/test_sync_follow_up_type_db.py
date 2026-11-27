@@ -91,20 +91,49 @@ def test_a_typed_offline_clear_completes_the_step(phone):
     assert _tasks() == [("Send proposal", "completed", "check_in")]
 
 
-def test_an_older_edit_cannot_change_the_type_of_a_newer_step(phone):
+def test_an_older_added_step_is_still_created_and_leaves_the_newer_one_alone(phone):
     _push(phone, {**STEP, "task_type": "check_in"}, minutes=3)
     older = _push(phone, {"next_step": "Old words", "next_step_date": "2026-12-01", "task_type": "commitment"},
                   minutes=1)
-    assert older["status"] == "ignored_older"
-    assert _tasks() == [("Send proposal", "active", "check_in")]
+    assert older["status"] == "applied" and older["ignored_fields"] == []
+    assert _tasks() == [("Send proposal", "active", "check_in"), ("Old words", "active", "commitment")]
+    assert older["entity"]["fields"]["next_step"] == "Old words"          # the earlier day comes first
 
 
-def test_a_type_whose_words_lost_is_not_given_to_the_newer_words(phone):
+def test_an_older_typed_step_gives_its_type_to_itself_only(phone):
     _push(phone, {"next_step": "Newer words"}, minutes=5)
     result = _push(phone, {"next_step": "Older words", "next_step_date": "2026-12-04", "task_type": "check_in"},
                    minutes=3)
-    assert result["status"] == "partially_applied" and result["ignored_fields"] == ["next_step"]
-    assert _tasks() == [("Newer words", "review", None)]
+    assert result["status"] == "applied"
+    assert _tasks() == [("Newer words", "review", None), ("Older words", "active", "check_in")]
+
+
+def test_an_older_added_step_does_not_wind_the_field_clock_back(phone):
+    _push(phone, {"next_step": "Newer words", "next_step_date": None}, minutes=5)     # as the app sends it
+    _push(phone, {"next_step": "Older words", "next_step_date": None}, minutes=3)
+    done = _push(phone, {"next_step": None, "next_step_date": None}, minutes=4)
+    assert done["status"] == "ignored_older"
+    assert {row[1] for row in _tasks()} == {"review"}
+
+
+def test_an_older_done_does_not_complete_a_newer_step(phone):
+    _push(phone, {**STEP, "task_type": "check_in"}, minutes=5)
+    assert _push(phone, {"next_step": None, "next_step_date": None}, minutes=3)["status"] == "ignored_older"
+    assert _tasks() == [("Send proposal", "active", "check_in")]
+
+
+def test_an_offline_step_is_added_beside_an_activity_promise(phone):
+    creation = SyncCreate(mutation_id=uuid4(), device_id=phone["device"], entity_kind="organization_activity",
+                          entity_sync_id=uuid4(), operation="create", changed_at=datetime.now(UTC),
+                          patch={"organization_sync_id": str(phone["organization"]["sync_id"]), "summary": "Spoke",
+                                 "next_action": "Meet", "next_action_date": "2026-12-01",
+                                 "offer_slug": "consulting", "follow_up_type": "commitment"})
+    with workspace_scope(phone["workspace"]), audit_scope(f"user:{phone['user']}", "user", "create-promise"):
+        assert apply_sync_create(phone["workspace"], phone["user"], "production", creation)["status"] == "applied"
+    (shown,) = _rows("SELECT next_step, next_step_date::text FROM deals")
+    assert shown == {"next_step": "Meet", "next_step_date": "2026-12-01"}   # the promise shows at once
+    _push(phone, {**STEP, "task_type": "check_in"}, minutes=2)
+    assert _tasks() == [("Meet", "active", "commitment"), ("Send proposal", "active", "check_in")]
 
 
 @pytest.mark.parametrize("patch", [{**STEP, "task_type": "someday"}, {"task_type": "check_in"}])

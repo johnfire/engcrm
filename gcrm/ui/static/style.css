@@ -1209,7 +1209,8 @@ html[lang="de"] .orgs-table th {
 }
 .next-step__form .field-row { min-width: 0; margin: 0; }
 .next-step__form label { margin-bottom: 0.2rem; font-size: 0.85em; }
-.next-step__form input {
+.next-step__form input,
+.next-step__form select {
   width: 100%;
   min-width: 0;
   background: var(--bg);
@@ -1220,7 +1221,8 @@ html[lang="de"] .orgs-table th {
   padding: 0.4rem 0.6rem;
   border-radius: 0;
 }
-.next-step__form input:focus {
+.next-step__form input:focus,
+.next-step__form select:focus {
   border-color: var(--accent);
   outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
   outline-offset: 1px;
@@ -1229,7 +1231,6 @@ html[lang="de"] .orgs-table th {
 @media (max-width: 700px) {
   .next-step__form { grid-template-columns: minmax(0, 1fr); }
 }
-.next-step__current { margin: 0 0 0.6rem; }
 .next-step__due { color: var(--muted); font-size: 0.9em; }
 .next-step__due--overdue { color: var(--warn); font-weight: 600; }
 .next-step-cell { min-width: 10rem; max-width: 16rem; }
@@ -1457,6 +1458,13 @@ main.statistics-page { max-width: none; }
 .deal-card__header h3 { font-size: 1rem; margin: 0; }
 .deal-card__state { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0; }
 .deal-card__state label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85em; }
+.deal-tasks { list-style: none; margin: 0 0 0.75rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.deal-tasks li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline;
+  gap: 0.35rem 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+.deal-tasks__what { margin: 0; min-width: 0; flex: 1 1 14rem; overflow-wrap: anywhere; }
+.deal-tasks__what > * { margin-right: 0.5rem; }
+.deal-tasks__actions { display: flex; align-items: center; gap: 0.6rem; }
+.deal-tasks__actions form { margin: 0; }
 .deal-card__next .next-step__form { grid-template-columns: minmax(0, 1fr) 10rem; }
 .deal-card__next .next-step__form .detail-actions { grid-column: 1 / -1; }
 @media (max-width: 700px) {

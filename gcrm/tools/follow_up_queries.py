@@ -28,6 +28,19 @@ def list_follow_up_targets(workspace_id: int | None = None) -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
+def deal_follow_ups(deal_ids: list[int], workspace_id: int | None = None) -> dict[int, list[dict]]:
+    """The active follow-ups of these deals, earliest first and undated last, by deal id."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, deal_id, task_type, task_text, due_date, updated_at FROM follow_ups "
+                       "WHERE status='active' AND deal_id=ANY(%s) AND (%s IS NULL OR workspace_id=%s) "
+                       "ORDER BY due_date ASC NULLS LAST, id", (list(deal_ids), workspace_id, workspace_id))
+        found: dict[int, list[dict]] = {}
+        for row in cursor.fetchall():
+            found.setdefault(row["deal_id"], []).append(dict(row))
+        return found
+
+
 def list_follow_up_people(workspace_id: int | None = None) -> list[dict]:
     with db() as connection:
         cursor = connection.cursor()
@@ -41,7 +54,7 @@ def list_follow_up_people(workspace_id: int | None = None) -> list[dict]:
 def find_follow_ups(*, workspace_id: int | None = None, search: str = "", task_type: str = "",
                     stage: str = "", offer_id: int | None = None, date_from: date | None = None,
                     date_to: date | None = None, direction: str = "asc", status: str = "active",
-                    limit: int = 25, offset: int = 0) -> list[dict]:
+                    limit: int = 25, offset: int = 0, task_id: int | None = None) -> list[dict]:
     if direction not in ("asc", "desc") or status not in ("active", "review"):
         raise ValueError("Invalid follow-up view")
     if task_type not in ("", "commitment", "check_in"):
@@ -66,6 +79,7 @@ def find_follow_ups(*, workspace_id: int | None = None, search: str = "", task_t
               LEFT JOIN offers o ON o.id=COALESCE(d.offer_id, i.offer_id)
              WHERE f.status=%(status)s AND (%(workspace)s IS NULL OR f.workspace_id=%(workspace)s)
                AND ((c.id IS NOT NULL AND c.deleted_at IS NULL) OR (p.id IS NOT NULL AND p.deleted_at IS NULL))
+               AND (%(task_id)s IS NULL OR f.id=%(task_id)s)
                AND (%(task_type)s='' OR f.task_type=%(task_type)s)
                AND (%(stage)s='' OR d.pipeline_stage=%(stage)s)
                AND (%(offer)s IS NULL OR COALESCE(d.offer_id, i.offer_id)=%(offer)s)
@@ -78,6 +92,6 @@ def find_follow_ups(*, workspace_id: int | None = None, search: str = "", task_t
             """,
             {"status": status, "workspace": workspace_id, "task_type": task_type, "stage": stage,
              "offer": offer_id, "date_from": date_from, "date_to": date_to, "search": f"%{search}%",
-             "limit": limit, "offset": offset},
+             "limit": limit, "offset": offset, "task_id": task_id},
         )
         return [dict(row) for row in cursor.fetchall()]

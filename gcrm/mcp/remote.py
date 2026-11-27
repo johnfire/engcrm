@@ -136,7 +136,8 @@ async def log_activity(note: str, organization_id: int | None = None, person_id:
 @server.tool()
 async def set_next_step(step: str, due: str = "", organization_id: int | None = None, person_id: int | None = None,
                   offer: str = "", follow_up_type: str = "") -> dict:
-    """What happens next on the deal of one organization or person; a blank step clears it.
+    """Add a follow-up to the deal of one organization or person: what happens next. Existing
+    follow-ups are never changed; a blank step marks the earliest open one done.
     A step needs follow_up_type: commitment (someone expects something from Chris) or check_in
     (he plans to get back in touch). Ask him if he did not make it clear."""
     return await _call(field.set_next_step, step, due=due, organization_id=organization_id, person_id=person_id,

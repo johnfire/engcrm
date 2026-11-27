@@ -16,7 +16,6 @@ from gcrm.tools.deal_records import (
     TASK_TYPES,
     check_next_step,
     log_entry,
-    next_step_matches,
     write_next_step,
 )
 
@@ -24,12 +23,13 @@ __all__ = ["log_entry", "set_person_next_step"]
 
 
 def set_person_next_step(person_id: int, text: str, due: date | None, *, task_type: str | None = None) -> dict | None:
-    """Set the next step on the person's Consulting deal, or clear it with a blank
-    `text` (a cleared step is logged as done). Saving what is already there
-    writes nothing. A person with no Consulting deal yet gets one at candidate,
-    so the step has a deal to live on. Returns {next_step, next_step_date,
-    logged}, or None when the person does not exist. Raises ValueError for a date
-    with no step, or a step over the length limit."""
+    """Add a next step to the person's Consulting deal, or with a blank `text` mark
+    the earliest open one done (a cleared step is logged as done). Earlier steps are
+    never rewritten, and saving what is already there writes nothing. A person with
+    no Consulting deal yet gets one at candidate, so the step has a deal to live on.
+    Returns {next_step, next_step_date, logged} as the deal shows them afterwards, or
+    None when the person does not exist. Raises ValueError for a date with no step,
+    or a step over the length limit."""
     text = check_next_step(text, due)
     if task_type is not None and task_type not in TASK_TYPES:
         raise ValueError("Choose Commitment or Check-in")
@@ -42,15 +42,18 @@ def set_person_next_step(person_id: int, text: str, due: date | None, *, task_ty
         if deal is not None:
             cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal["id"],))
             deal = get_person_deal(cur, person_id)
-        if next_step_matches(cur, deal, text, due, task_type):
-            return {"next_step": text or None, "next_step_date": due, "logged": False}
         if deal is None:
+            if not text:
+                return {"next_step": None, "next_step_date": None, "logged": False}
             set_person_stage(cur, person_id, "candidate")
             deal = get_person_deal(cur, person_id)
-        logged = write_next_step(cur, deal, text, due, task_type)
+        change = write_next_step(cur, deal, text, due, task_type)
         cur.execute("SELECT next_step, next_step_date FROM deals WHERE id=%s", (deal["id"],))
         current = cur.fetchone()
-        cur.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
-    log_audit(None, None, "person.next_step", f"person:{person_id}",
-              ("next_step" if text else "next_step_done") if logged else "cleared")
+        if change is not None:
+            cur.execute("UPDATE people SET updated_at = NOW() WHERE id = %s", (person_id,))
+    logged = change is not None and change.logged
+    if change is not None:
+        log_audit(None, None, "person.next_step", f"person:{person_id}",
+                  ("next_step" if text else "next_step_done") if logged else "cleared")
     return {"next_step": current["next_step"], "next_step_date": current["next_step_date"], "logged": logged}

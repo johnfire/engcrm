@@ -67,7 +67,7 @@
       </form>
     </details>
     {% else %}
-    <details><summary>{{ t('followUp.edit') }}</summary>
+    <details{% if task.id == opened_task %} open{% endif %}><summary>{{ t('followUp.edit') }}</summary>
       <form method="post" action="/follow-ups/{{ task.id }}/edit" class="follow-up-edit">
         <input type="hidden" name="version" value="{{ task.updated_at.isoformat() }}">
         <label>{{ t('followUp.text') }}<input name="task_text" value="{{ task.task_text }}" maxlength="500" required></label>

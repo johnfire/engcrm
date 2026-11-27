@@ -22,7 +22,7 @@ from gcrm.workspace_context import workspace_scope
 pytestmark = pytest.mark.integration
 
 
-def test_legacy_edit_and_completion_change_only_earliest_task(clean_database, monkeypatch):
+def test_legacy_step_adds_a_task_and_completion_changes_only_the_earliest(clean_database, monkeypatch):
     monkeypatch.setattr("gcrm.tools.db_organizations.geocode", lambda city, country: None)
     organization = save_organization("Example GmbH", "Augsburg", source="test_fixture")
     deal = get_deals("organization", organization)[0]
@@ -31,15 +31,19 @@ def test_legacy_edit_and_completion_change_only_earliest_task(clean_database, mo
     second = create_follow_up(deal_id=deal["id"], task_type="check_in", task_text="Call back",
                               due_date=date(2026, 12, 10))
 
-    set_deal_next_step(deal["id"], "Send revised proposal", date(2026, 12, 2))
+    set_deal_next_step(deal["id"], "Send revised proposal", date(2026, 12, 2), task_type="commitment")
+    assert [task["task_text"] for task in list_follow_ups()] == [
+        "Send proposal", "Send revised proposal", "Call back"]
     set_deal_next_step(deal["id"], "", None)
     tasks = list_follow_ups()
 
-    assert [(task["id"], task["task_text"]) for task in tasks] == [(second, "Call back")]
+    assert [task["task_text"] for task in tasks] == ["Send revised proposal", "Call back"]
+    assert tasks[1]["id"] == second
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("SELECT status FROM follow_ups WHERE id=%s", (first,))
-        assert cursor.fetchone()["status"] == "completed"
+        cursor.execute("SELECT status, task_text, due_date FROM follow_ups WHERE id=%s", (first,))
+        assert dict(cursor.fetchone()) == {"status": "completed", "task_text": "Send proposal",
+                                           "due_date": date(2026, 12, 1)}
 
 
 def test_typed_legacy_capture_creates_an_active_follow_up(clean_database, monkeypatch):

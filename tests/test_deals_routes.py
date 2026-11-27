@@ -1,7 +1,7 @@
 """The Deals panel's forms, the Offers page and the mobile deal endpoints: what
 they send to gcrm/tools/deal_records.py and db_offers.py, and what they refuse.
 The deal logic itself runs against Postgres in tests/integration/test_deal_records_db.py."""
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -139,6 +139,9 @@ class TestPanelOnThePage:
                    return_value={"linked": [], "possible": []}), \
              patch("gcrm.api.routers.organizations.get_sales", return_value=[]), \
              patch("gcrm.api.routers.deals.get_deals", return_value=[DEAL]), \
+             patch("gcrm.api.routers.deals.deal_follow_ups", return_value={9: [
+                 {"id": 5, "deal_id": 9, "task_type": "check_in", "task_text": "Demo for Jamie",
+                  "due_date": date(2020, 1, 31), "updated_at": datetime(2026, 1, 1, tzinfo=UTC)}]}), \
              patch("gcrm.api.routers.deals.list_offers", return_value=offers), \
              patch("gcrm.api.routers.deals.contact_people", return_value=[{"id": 7, "name": "Jamie", "title": None}]):
             cursor = mock_db.return_value.__enter__.return_value.cursor.return_value

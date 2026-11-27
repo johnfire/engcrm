@@ -6,12 +6,13 @@ is given; the shared admin login (workspace None) sees every workspace, as on
 the rest of the site. Next steps are also written to the owner's log, so the
 history of what was planned stays — the same rule people_next_step follows.
 """
+from dataclasses import dataclass
 from datetime import date
 
 from gcrm.db.connection import db, serialize_row
 from gcrm.organization_state import DEFAULT_STAGE, DEFAULT_STATUS, coerce_stage, coerce_status
 from gcrm.tools.db_audit import log_audit
-from gcrm.tools.follow_ups import TASK_TYPES, record_unclassified_deal_step, refresh_deal_projection
+from gcrm.tools.follow_ups import TASK_TYPES, add_deal_step, complete_deal_step, show_deal_step
 
 OWNERS = {"organization": "contact_id", "person": "person_id"}
 NEXT_STEP_MAX = 500
@@ -177,32 +178,37 @@ def log_entry(text: str, due: date | None) -> str:
     return f"{text} ({due.isoformat()})" if due else text
 
 
-def write_next_step(cur, deal: dict, text: str, due: date | None, task_type: str | None = None) -> bool:
-    """Store a deal's next step and log the change on its owner (a cleared step
-    is logged as done). Returns whether anything was logged. The caller has
-    validated `text` and `due` and checked they differ from what is stored."""
+@dataclass(frozen=True)
+class StepChange:
+    """What saving a next step changed, enough to take it back."""
+    logged: bool                 # whether it was written to the owner's log
+    task_id: int | None = None   # the follow-up added, activated or completed
+    before: dict | None = None   # that follow-up's row before; None when it was added
+
+
+def write_next_step(cur, deal: dict, text: str, due: date | None,
+                    task_type: str | None = None) -> StepChange | None:
+    """Save a next step on a deal: words become a follow-up of their own, blank text marks the earliest
+    open one done. No other follow-up is rewritten. The change is logged on the owner and the deal keeps
+    showing its earliest active follow-up. Returns None when there was nothing to change. The caller has
+    validated `text` and `due`."""
     previous = (deal["next_step"] or "").strip()
+    if not text and not previous and deal["next_step_date"] is None:
+        return None
     cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal["id"],))
-    cur.execute("SELECT id FROM follow_ups WHERE deal_id=%s AND status='active' "
-                "ORDER BY due_date ASC NULLS LAST, id LIMIT 1 FOR UPDATE", (deal["id"],))
-    task = cur.fetchone()
-    if task is not None:
-        if text:
-            cur.execute("UPDATE follow_ups SET task_text=%s, due_date=%s, task_type=COALESCE(%s,task_type), "
-                        "updated_at=clock_timestamp() WHERE id=%s", (text, due, task_type, task["id"]))
-        else:
-            cur.execute("UPDATE follow_ups SET status='completed', completed_at=NOW(), updated_at=clock_timestamp() "
-                        "WHERE id=%s", (task["id"],))
+    if text:
+        task_id, before = add_deal_step(cur, deal["id"], text, due, task_type)
+        if task_id is None:
+            return None
+        show_deal_step(cur, deal["id"], text, due)
+        method, note = LOG_METHOD, log_entry(text, due)
     else:
-        task_id = record_unclassified_deal_step(cur, deal["id"], text, due)
-        if text and task_type and task_id:
-            cur.execute("UPDATE follow_ups SET status='active', task_type=%s, updated_at=clock_timestamp() WHERE id=%s",
-                        (task_type, task_id))
-    cur.execute("UPDATE deals SET next_step = %s, next_step_date = %s WHERE id = %s",
-                (text or None, due, deal["id"]))
-    if not (text or previous):
-        return False
-    method, note = (LOG_METHOD, log_entry(text, due)) if text else (DONE_METHOD, f"✓ {previous}")
+        task_id, before = complete_deal_step(cur, deal["id"], previous, deal["next_step_date"])
+        show_deal_step(cur, deal["id"], None, None)
+        finished = ((before or {}).get("task_text") or previous).strip()
+        if not finished:
+            return StepChange(False, task_id, before)
+        method, note = DONE_METHOD, f"✓ {finished}"
     if deal["person_id"] is not None:
         cur.execute(
             "INSERT INTO people_interactions (person_id, method, note, offer_id) VALUES (%s, %s, %s, %s)",
@@ -214,9 +220,7 @@ def write_next_step(cur, deal: dict, text: str, due: date | None, task_type: str
             "SELECT id, CURRENT_DATE, %s, %s, %s, workspace_id FROM contacts WHERE id = %s",
             (method, note, deal["offer_id"], deal["contact_id"]),
         )
-    if task is not None or (text and task_type):
-        refresh_deal_projection(cur, deal["id"])
-    return True
+    return StepChange(True, task_id, before)
 
 
 def check_next_step(text: str | None, due: date | None) -> str:
@@ -228,25 +232,12 @@ def check_next_step(text: str | None, due: date | None) -> str:
     return text
 
 
-def next_step_matches(cur, deal: dict | None, text: str, due: date | None, task_type: str | None) -> bool:
-    stored = ((deal or {}).get("next_step") or "").strip(), (deal or {}).get("next_step_date")
-    if stored != (text, due):
-        return False
-    if task_type is None or not text:
-        return True
-    if deal is None:
-        return False
-    cur.execute("SELECT task_type FROM follow_ups WHERE deal_id=%s AND status='active' "
-                "ORDER BY due_date ASC NULLS LAST, id LIMIT 1", (deal["id"],))
-    task = cur.fetchone()
-    return task is not None and task["task_type"] == task_type
-
-
 def set_deal_next_step(deal_id: int, text: str | None, due: date | None,
                        workspace_id: int | None = None, *, capture_undo: bool = False,
                        task_type: str | None = None) -> dict:
-    """Set a deal's next step, or clear it with a blank `text`. Saving what is
-    already there writes nothing. Returns {next_step, next_step_date, logged}."""
+    """Add a next step to a deal, or with a blank `text` mark the earliest open one done (see
+    write_next_step). Returns {next_step, next_step_date, logged}: what the deal shows afterwards, which
+    is its earliest follow-up and so not necessarily the one just added."""
     text = check_next_step(text, due)
     if task_type is not None and task_type not in TASK_TYPES:
         raise ValueError("Choose Commitment or Check-in")
@@ -254,31 +245,28 @@ def set_deal_next_step(deal_id: int, text: str | None, due: date | None,
         cur = conn.cursor()
         cur.execute("SELECT id FROM deals WHERE id=%s FOR UPDATE", (deal_id,))
         deal = get_deal(cur, deal_id, workspace_id)
-        if next_step_matches(cur, deal, text, due, task_type):
-            return {"next_step": text or None, "next_step_date": due, "logged": False,
-                    **({"undo": {"unchanged": True}} if capture_undo else {})}
-        if capture_undo:
-            cur.execute("SELECT * FROM follow_ups WHERE deal_id=%s AND (status='active' OR "
-                        "(status='review' AND (source_kind='deal' OR source_kind IS NULL))) "
-                        "ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, due_date ASC NULLS LAST, id "
-                        "LIMIT 1 FOR UPDATE", (deal_id,))
-            task_before = cur.fetchone()
-        logged = write_next_step(cur, deal, text, due, task_type)
-        undo = None
-        if capture_undo:
-            cur.execute("SELECT id, updated_at FROM follow_ups WHERE deal_id=%s "
-                        "AND (%s IS NULL OR id=%s) ORDER BY id DESC LIMIT 1",
-                        (deal_id, task_before["id"] if task_before else None, task_before["id"] if task_before else None))
-            changed_task = cur.fetchone()
-            undo = {"task_id": changed_task["id"], "after_version": changed_task["updated_at"].isoformat(),
-                    "task_before": serialize_row(dict(task_before)) if task_before else None,
-                    "next_step": deal["next_step"],
-                    "next_step_date": deal["next_step_date"].isoformat() if deal["next_step_date"] else None}
+        change = write_next_step(cur, deal, text, due, task_type)
+        undo = _undo_snapshot(cur, deal, change) if capture_undo else None
         cur.execute("SELECT next_step, next_step_date FROM deals WHERE id=%s", (deal_id,))
         current = cur.fetchone()
-    log_audit(None, None, "deal.next_step", f"deal:{deal_id}", "set" if text else "cleared")
-    return {"next_step": current["next_step"], "next_step_date": current["next_step_date"], "logged": logged,
-            **({"undo": undo} if capture_undo else {})}
+    if change is not None:
+        log_audit(None, None, "deal.next_step", f"deal:{deal_id}", "set" if text else "cleared")
+    return {"next_step": current["next_step"], "next_step_date": current["next_step_date"],
+            "logged": change is not None and change.logged, **({"undo": undo} if capture_undo else {})}
+
+
+def _undo_snapshot(cur, deal: dict, change: StepChange | None) -> dict:
+    """What field mode's undo needs to take this one change back (see undo_legacy_follow_up)."""
+    if change is None:
+        return {"unchanged": True}
+    after_version = None
+    if change.task_id is not None:
+        cur.execute("SELECT updated_at FROM follow_ups WHERE id=%s", (change.task_id,))
+        after_version = cur.fetchone()["updated_at"].isoformat()
+    return {"task_id": change.task_id, "after_version": after_version,
+            "task_before": serialize_row(change.before) if change.before else None,
+            "next_step": deal["next_step"],
+            "next_step_date": deal["next_step_date"].isoformat() if deal["next_step_date"] else None}
 
 
 def contact_people(contact_id: int) -> list[dict]:

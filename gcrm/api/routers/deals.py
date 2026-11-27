@@ -1,5 +1,5 @@
 """The Deals panel on organization and person pages: pitch an offer, move it
-along, name the contact person, set its next step, stop pitching it.
+along, name the contact person, keep its follow-ups, stop pitching it.
 
 Plain forms that come back to the page they were sent from, so the stage and
 status selects can submit themselves the moment they are picked."""
@@ -45,6 +45,7 @@ from gcrm.tools.deal_records import (
     set_deal_next_step,
     update_deal,
 )
+from gcrm.tools.follow_up_queries import deal_follow_ups
 from gcrm.tools.follow_ups import TASK_TYPES
 
 router = APIRouter(prefix="/deals", tags=["deals"], dependencies=[Depends(require_login)])
@@ -137,8 +138,10 @@ def deal_next_step(
     next: str = Form(""),
     _admin: str = Depends(require_admin),
 ):
-    """Set the deal's next step, or with `done`, clear it (logged as done). A step needs its follow-up type
-    (Commitment or Check-in): without one it would wait in Review and never show on the Follow-ups list."""
+    """Add a next step as a follow-up, or with `done`, mark the earliest one done (logged as done). A step
+    needs its follow-up type (Commitment or Check-in): without one it would wait in Review and never show on
+    the Follow-ups list. The deal card now posts to /follow-ups/ instead; this stays for pages opened
+    before that."""
     try:
         if done:
             set_deal_next_step(deal_id, "", None, request.session.get("workspace_id"))
@@ -427,6 +430,8 @@ def panel_context(request: Request, owner: str, owner_id: int, page: str) -> dic
         "deal_owner_id": owner_id,
         "deal_page": page,
         "deals": deals,
+        "deal_tasks": deal_follow_ups([deal["id"] for deal in deals], workspace_id),
+        "today_date": date.today(),
         "addable_offers": [o for o in offers if o["id"] not in pitched],
         # the log forms: which offer a new entry is about, preselected when there
         # is exactly one open deal

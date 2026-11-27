@@ -305,9 +305,10 @@ def log_activity(user: FieldUser, note: str, organization_id: int | None = None,
 
 def set_next_step(user: FieldUser, step: str, due: str = "", organization_id: int | None = None,
                   person_id: int | None = None, offer: str = "", follow_up_type: str = "") -> dict:
-    """What happens next on a deal of an organization or person (one of them). With
-    several deals, `offer` (its slug) says which. A step needs its `follow_up_type`;
-    a blank step clears the current one and needs none."""
+    """Add a follow-up to a deal of an organization or person (one of them); existing
+    ones are never changed. With several deals, `offer` (its slug) says which. A step
+    needs its `follow_up_type`; a blank step marks the earliest open one done and needs
+    none."""
     if (organization_id is None) == (person_id is None):
         raise FieldError("Set the next step on one organization or one person.")
     owner, owner_id = ("organization", organization_id) if organization_id is not None else ("person", person_id)
@@ -326,7 +327,8 @@ def set_next_step(user: FieldUser, step: str, due: str = "", organization_id: in
                                     task_type=task_type)
     except ValueError as error:
         raise FieldError(f"Not saved: {error}.")
-    said = f"Next step on {deal['offer_name']}: {result['next_step'] or 'cleared'}" + (
+    shown = (step or "").strip() or result["next_step"] or "cleared"
+    said = f"Next step on {deal['offer_name']}: {shown}" + (
         f", by {when.strftime('%d.%m.%Y')}" if when else "") + "."
     _journal(user, "next_step", deal["id"], said,
              before={"follow_up_undo": result["undo"]})

@@ -126,6 +126,15 @@ clients without a task ID edit or complete the earliest active task on the deal
 (dated first, then undated, with ID as a stable tie-breaker), never its siblings.
 Updated clients should identify the task and detect stale writes.
 
+**Changed on 2026-11-27 (Chris):** nothing edits an existing follow-up's text any
+more. A next step from any client (deal card, phone, offline sync, field mode)
+adds a follow-up of its own; saving one already there adds nothing, and with a type
+it activates a waiting step with the same words instead of copying it. A blank step
+still marks the earliest active follow-up done. The deal card lists the active
+follow-ups and only adds or marks done; editing happens on the Follow-ups page.
+`deals.next_step` shows the earliest active follow-up, also after an activity
+promise; with none active it shows the step just saved without a type.
+
 Add a Commitment/Check-in choice to activity and voice capture forms. Existing
 clients that cannot provide a choice send unclassified promises to review.
 

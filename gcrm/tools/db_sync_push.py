@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
@@ -19,7 +20,7 @@ from gcrm.sync.contracts import SyncUpdate
 from gcrm.sync.validation import PRIVATE_FIELDS, STEP_TYPE, validate_sync_patch
 from gcrm.tools.db_sync_bootstrap import find_sync_entity
 from gcrm.tools.db_sync_private import apply_private_winners, private_winners
-from gcrm.tools.deal_records import check_next_step, next_step_matches, write_next_step
+from gcrm.tools.deal_records import check_next_step, write_next_step
 
 TABLES = {"organization": "contacts", "person": "people", "deal": "deals",
           "person_note": "people_interactions", "organization_activity": "interactions"}
@@ -161,6 +162,9 @@ def _split_winning_fields(cursor, workspace_id: int, user_id: int, update: SyncU
     if private:
         private_winning, _ = private_winners(cursor, workspace_id, user_id, update, private)
         winning.extend(private_winning)
+    if update.entity_kind == "deal" and patch.get("next_step"):
+        # An added step is a follow-up of its own, so applying an old one loses no newer edit.
+        winning = list({*winning, *({"next_step", "next_step_date"} & fields)})
     winning.sort()
     return winning, sorted(fields - set(winning))
 
@@ -175,7 +179,8 @@ def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, 
     changed = [field for field in shared if _value_changed(entity[field], patch[field])]
     ordinary = [field for field in shared if update.entity_kind != "deal" or field not in ("next_step", "next_step_date")]
     if update.entity_kind == "deal" and any(field in winning for field in ("next_step", "next_step_date")):
-        _apply_next_step(cursor, entity, patch, winning, changed)
+        with _newer_step_clocks_kept(cursor, workspace_id, update):
+            _apply_next_step(cursor, entity, patch, winning, changed)
     if ordinary:
         assignments = sql.SQL(", ").join(sql.SQL("{}=%s").format(sql.Identifier(field)) for field in ordinary)
         cursor.execute(sql.SQL("UPDATE {} SET {},updated_at=clock_timestamp() WHERE workspace_id=%s AND sync_id=%s")
@@ -184,7 +189,8 @@ def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, 
     for field in shared:
         cursor.execute("INSERT INTO sync_field_versions(workspace_id,entity_kind,entity_sync_id,field_name,changed_at,device_id,mutation_id,source) "
                        "VALUES (%s,%s,%s,%s,%s,%s,%s,'mobile') ON CONFLICT (workspace_id,entity_kind,entity_sync_id,field_name) "
-                       "DO UPDATE SET changed_at=EXCLUDED.changed_at,device_id=EXCLUDED.device_id,mutation_id=EXCLUDED.mutation_id,source='mobile'",
+                       "DO UPDATE SET changed_at=EXCLUDED.changed_at,device_id=EXCLUDED.device_id,mutation_id=EXCLUDED.mutation_id,source='mobile' "
+                       "WHERE sync_field_versions.changed_at <= EXCLUDED.changed_at",
                        (workspace_id, update.entity_kind, str(update.entity_sync_id), field, update.changed_at,
                         str(update.device_id), str(update.mutation_id)))
     apply_private_winners(cursor, workspace_id, user_id, update, patch, winning, entity)
@@ -196,15 +202,33 @@ def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, 
                         str(update.device_id), str(update.mutation_id), audit.actor, audit.correlation_id))
 
 
+@contextmanager
+def _newer_step_clocks_kept(cursor, workspace_id: int, update: SyncUpdate):
+    """An old added step is applied all the same, but the deal it changes must not wind back a field
+    clock that a newer edit set."""
+    cursor.execute("SELECT field_name,changed_at,device_id,mutation_id,source FROM sync_field_versions "
+                   "WHERE workspace_id=%s AND entity_kind='deal' AND entity_sync_id=%s "
+                   "AND field_name IN ('next_step','next_step_date') AND changed_at > %s",
+                   (workspace_id, str(update.entity_sync_id), update.changed_at))
+    newer = cursor.fetchall()
+    yield
+    for clock in newer:
+        cursor.execute("UPDATE sync_field_versions SET changed_at=%s,device_id=%s,mutation_id=%s,source=%s "
+                       "WHERE workspace_id=%s AND entity_kind='deal' AND entity_sync_id=%s AND field_name=%s",
+                       (clock["changed_at"], clock["device_id"], clock["mutation_id"], clock["source"],
+                        workspace_id, str(update.entity_sync_id), clock["field_name"]))
+
+
 def _apply_next_step(cursor, deal, patch: dict, winning: list[str], changed: list[str]) -> None:
-    """Write the deal's next step when its words or date changed, or when winning words bring a
-    follow-up type the step does not have yet (which takes it out of Review). A type whose words
-    lost to a newer edit is dropped with them."""
-    task_type = patch.get(STEP_TYPE) if "next_step" in winning else None
-    text, due = _desired_next_step(deal, patch, winning)
-    if {"next_step", "next_step_date"} & set(changed) or (
-            task_type and not next_step_matches(cursor, deal, text, due, task_type)):
-        write_next_step(cursor, deal, text, due, task_type)
+    """Words in the patch are an added step: they become a follow-up whatever their age. Blank words mark
+    the earliest one done, and a day sent alone makes a new follow-up; both only when they won against
+    newer edits. A follow-up type belongs to the words it came with."""
+    if patch.get("next_step"):
+        due = patch.get("next_step_date")
+        write_next_step(cursor, deal, patch["next_step"], date.fromisoformat(due) if due else None,
+                        patch.get(STEP_TYPE))
+    elif {"next_step", "next_step_date"} & set(changed) and ("next_step" not in patch or "next_step" in winning):
+        write_next_step(cursor, deal, *_desired_next_step(deal, patch, winning))
 
 
 def _value_changed(existing, incoming) -> bool:

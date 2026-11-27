@@ -29,37 +29,75 @@ def refresh_deal_projection(cursor, deal_id: int) -> None:
     )
 
 
-def record_unclassified_deal_step(cursor, deal_id: int, text: str, due_date: date | None) -> int | None:
-    """Retain an old client's new step for review, without guessing its type."""
-    cursor.execute("SELECT id FROM follow_ups WHERE deal_id=%s AND status='review' "
-                   "AND (source_kind='deal' OR source_kind IS NULL) ORDER BY id LIMIT 1 FOR UPDATE", (deal_id,))
-    review = cursor.fetchone()
-    if review is not None:
-        if text:
-            cursor.execute("UPDATE follow_ups SET task_text=%s, due_date=%s, updated_at=clock_timestamp() "
-                           "WHERE id=%s", (text, due_date, review["id"]))
-        else:
-            cursor.execute("UPDATE follow_ups SET status='completed', completed_at=NOW(), updated_at=clock_timestamp() "
-                           "WHERE id=%s", (review["id"],))
-        return review["id"]
-    elif text:
-        cursor.execute(
-            """INSERT INTO follow_ups (workspace_id, contact_id, person_id, contact_person_id, deal_id,
-                                       task_text, due_date, source_kind, source_id, source_date)
-               SELECT workspace_id, contact_id, person_id, contact_person_id, id, %s, %s,
-                      CASE WHEN EXISTS (SELECT 1 FROM follow_ups WHERE source_kind='deal' AND source_id=%s)
-                           THEN NULL ELSE 'deal' END,
-                      CASE WHEN EXISTS (SELECT 1 FROM follow_ups WHERE source_kind='deal' AND source_id=%s)
-                           THEN NULL ELSE id END, CURRENT_DATE
-                 FROM deals WHERE id=%s RETURNING id""", (text, due_date, deal_id, deal_id, deal_id),
-        )
-        return cursor.fetchone()["id"]
-    return None
+# The waiting entries a next-step save may touch: those saved as a deal's next step, never activity promises.
+_WAITING_STEP = "status='review' AND (source_kind='deal' OR source_kind IS NULL)"
+
+
+def add_deal_step(cursor, deal_id: int, text: str, due: date | None,
+                  task_type: str | None) -> tuple[int | None, dict | None]:
+    """Record a next step as a follow-up of its own, never rewriting another one: active with a type,
+    waiting for review without. A step already there (same words and day) adds nothing, so a retry is
+    safe. With a type, a waiting step with the same words is activated (taking this day) instead of
+    being copied. Returns (follow-up id, its row before; None when new), or (None, None) when nothing
+    changed. The caller holds the deal's lock."""
+    cursor.execute(f"SELECT * FROM follow_ups WHERE deal_id=%s AND trim(task_text)=%s "
+                   f"AND (status='active' OR ({_WAITING_STEP})) "
+                   "ORDER BY (due_date IS NOT DISTINCT FROM %s) DESC, id DESC FOR UPDATE", (deal_id, text, due))
+    same = cursor.fetchall()
+    if any(row["due_date"] == due and (row["status"] == "active" or not task_type) for row in same):
+        return None, None
+    waiting = next((row for row in same if row["status"] == "review"), None)
+    if task_type and waiting:
+        cursor.execute("UPDATE follow_ups SET status='active', task_type=%s, due_date=%s, "
+                       "updated_at=clock_timestamp() WHERE id=%s", (task_type, due, waiting["id"]))
+        return waiting["id"], dict(waiting)
+    cursor.execute(
+        """INSERT INTO follow_ups (workspace_id, contact_id, person_id, contact_person_id, deal_id,
+                                   task_text, due_date, task_type, status, source_kind, source_id, source_date)
+           SELECT workspace_id, contact_id, person_id, contact_person_id, id, %s, %s, %s, %s,
+                  CASE WHEN EXISTS (SELECT 1 FROM follow_ups WHERE source_kind='deal' AND source_id=%s)
+                       THEN NULL ELSE 'deal' END,
+                  CASE WHEN EXISTS (SELECT 1 FROM follow_ups WHERE source_kind='deal' AND source_id=%s)
+                       THEN NULL ELSE id END, CURRENT_DATE
+             FROM deals WHERE id=%s RETURNING id""",
+        (text, due, task_type, "active" if task_type else "review", deal_id, deal_id, deal_id),
+    )
+    return cursor.fetchone()["id"], None
+
+
+def complete_deal_step(cursor, deal_id: int, shown: str, shown_due: date | None) -> tuple[int | None, dict | None]:
+    """Mark the deal's earliest active follow-up done; with none active, the waiting step the deal shows.
+    Returns (follow-up id, its row before), or (None, None) when there is neither."""
+    cursor.execute("SELECT * FROM follow_ups WHERE deal_id=%s AND status='active' "
+                   "ORDER BY due_date ASC NULLS LAST, id LIMIT 1 FOR UPDATE", (deal_id,))
+    task = cursor.fetchone()
+    if task is None:
+        cursor.execute(f"SELECT * FROM follow_ups WHERE deal_id=%s AND {_WAITING_STEP} "
+                       "ORDER BY (trim(task_text)=%s AND due_date IS NOT DISTINCT FROM %s) DESC, id DESC "
+                       "LIMIT 1 FOR UPDATE", (deal_id, shown, shown_due))
+        task = cursor.fetchone()
+    if task is None:
+        return None, None
+    cursor.execute("UPDATE follow_ups SET status='completed', completed_at=NOW(), updated_at=clock_timestamp() "
+                   "WHERE id=%s", (task["id"],))
+    return task["id"], dict(task)
+
+
+def show_deal_step(cursor, deal_id: int, waiting_text: str | None, waiting_due) -> None:
+    """Set what a deal shows as next step: its earliest active follow-up, and only with none active the
+    given step that waits for review (or nothing)."""
+    cursor.execute("SELECT 1 FROM follow_ups WHERE deal_id=%s AND status='active' LIMIT 1", (deal_id,))
+    if cursor.fetchone():
+        refresh_deal_projection(cursor, deal_id)
+    else:
+        cursor.execute("UPDATE deals SET next_step=%s, next_step_date=%s WHERE id=%s",
+                       (waiting_text, waiting_due, deal_id))
 
 
 def record_activity_follow_up(cursor, interaction_id: int, task_type: str | None,
                               capture_snapshot: bool = False) -> dict | None:
-    """Create a task in the same transaction as its source activity."""
+    """Create a task in the same transaction as its source activity; an active one on a deal becomes
+    the deal's next step if it is the earliest."""
     if task_type is not None and task_type not in TASK_TYPES:
         raise ValueError("Choose Commitment or Check-in")
     cursor.execute(
@@ -72,12 +110,15 @@ def record_activity_follow_up(cursor, interaction_id: int, task_type: str | None
              LEFT JOIN deals d ON d.contact_id=i.contact_id AND d.offer_id=i.offer_id
                               AND d.workspace_id=i.workspace_id AND d.deleted_at IS NULL
             WHERE i.id=%s AND (NULLIF(trim(i.next_action), '') IS NOT NULL OR i.next_action_date IS NOT NULL)
-           ON CONFLICT DO NOTHING RETURNING id, updated_at""", (task_type, task_type, interaction_id),
+           ON CONFLICT DO NOTHING RETURNING id, updated_at, deal_id, status""",
+        (task_type, task_type, interaction_id),
     )
-    if not capture_snapshot:
-        return None
     row = cursor.fetchone()
-    return {"id": row["id"], "version": row["updated_at"].isoformat()} if row else None
+    if row and row.get("status") == "active" and row.get("deal_id") is not None:
+        refresh_deal_projection(cursor, row["deal_id"])
+    if not capture_snapshot or not row:
+        return None
+    return {"id": row["id"], "version": row["updated_at"].isoformat()}
 
 
 def create_follow_up(*, task_type: str, task_text: str, due_date: date | None = None,
@@ -211,27 +252,28 @@ def undo_legacy_follow_up(deal_id: int, snapshot: dict, workspace_id: int) -> No
                        (deal_id, workspace_id))
         if cursor.fetchone() is None:
             raise ValueError("Deal is unavailable")
-        cursor.execute("SELECT id FROM follow_ups WHERE id=%s AND deal_id=%s AND workspace_id=%s "
-                       "AND updated_at=%s::timestamptz FOR UPDATE",
-                       (snapshot["task_id"], deal_id, workspace_id, snapshot["after_version"]))
-        if cursor.fetchone() is None:
-            raise ValueError("Follow-up changed after this action; it cannot be undone safely")
-        before = snapshot.get("task_before")
-        if before is None:
-            cursor.execute("UPDATE follow_ups SET status='dismissed', dismissed_at=NOW(), "
-                           "updated_at=clock_timestamp() WHERE id=%s", (snapshot["task_id"],))
-        else:
-            cursor.execute("UPDATE follow_ups SET status=%s, task_type=%s, task_text=%s, due_date=%s, "
-                           "completed_at=%s, dismissed_at=%s, updated_at=clock_timestamp() WHERE id=%s",
-                           (before["status"], before["task_type"], before["task_text"], before["due_date"],
-                            before["completed_at"], before["dismissed_at"], snapshot["task_id"]))
-        cursor.execute("SELECT 1 FROM follow_ups WHERE deal_id=%s AND status='active' LIMIT 1", (deal_id,))
-        if cursor.fetchone():
-            refresh_deal_projection(cursor, deal_id)
-        else:
-            cursor.execute("UPDATE deals SET next_step=%s, next_step_date=%s WHERE id=%s",
-                           (snapshot["next_step"], snapshot["next_step_date"], deal_id))
+        if snapshot["task_id"] is not None:
+            _restore_step(cursor, deal_id, snapshot, workspace_id)
+        show_deal_step(cursor, deal_id, snapshot["next_step"], snapshot["next_step_date"])
     log_audit(None, None, "follow_up.undo", f"follow_up:{snapshot['task_id']}", "restored")
+
+
+def _restore_step(cursor, deal_id: int, snapshot: dict, workspace_id: int) -> None:
+    """Put the one follow-up a next-step save added or changed back to how it was."""
+    cursor.execute("SELECT id FROM follow_ups WHERE id=%s AND deal_id=%s AND workspace_id=%s "
+                   "AND updated_at=%s::timestamptz FOR UPDATE",
+                   (snapshot["task_id"], deal_id, workspace_id, snapshot["after_version"]))
+    if cursor.fetchone() is None:
+        raise ValueError("Follow-up changed after this action; it cannot be undone safely")
+    before = snapshot.get("task_before")
+    if before is None:
+        cursor.execute("UPDATE follow_ups SET status='dismissed', dismissed_at=NOW(), "
+                       "updated_at=clock_timestamp() WHERE id=%s", (snapshot["task_id"],))
+    else:
+        cursor.execute("UPDATE follow_ups SET status=%s, task_type=%s, task_text=%s, due_date=%s, "
+                       "completed_at=%s, dismissed_at=%s, updated_at=clock_timestamp() WHERE id=%s",
+                       (before["status"], before["task_type"], before["task_text"], before["due_date"],
+                        before["completed_at"], before["dismissed_at"], snapshot["task_id"]))
 
 
 def undo_activity_follow_up(contact_id: int, interaction_id: int, snapshot: dict | None,

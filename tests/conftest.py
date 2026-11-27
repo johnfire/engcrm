@@ -127,6 +127,7 @@ def _no_deals_database(request):
          patch("gcrm.api.routers.deals.log_offer_default", return_value=None), \
          patch("gcrm.api.routers.deals.deal_money", side_effect=lambda ids: {i: {} for i in ids}), \
          patch("gcrm.api.routers.deals.card_contracts", return_value=[]), \
+         patch("gcrm.api.routers.deals.deal_follow_ups", return_value={}), \
          patch("gcrm.api.offer_filter.list_offers", return_value=SEEDED_OFFERS), \
          patch("gcrm.api.routers.organization_create.list_offers", return_value=SEEDED_OFFERS), \
          patch("gcrm.api.routers.people.list_offers", return_value=SEEDED_OFFERS), \

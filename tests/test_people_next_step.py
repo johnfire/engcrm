@@ -1,6 +1,6 @@
 """A person's next step on the web page, the People list and the phone API.
 The logging itself runs against Postgres in tests/integration/test_people_next_step_db.py."""
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 import pytest
@@ -77,7 +77,7 @@ class TestWebForm:
 
 
 class TestPages:
-    def test_the_person_page_shows_the_step_overdue_and_labels_the_log(self, admin_web):
+    def test_the_person_page_lists_the_follow_up_overdue_and_labels_the_log(self, admin_web):
         log = [{"id": 1, "occurred_at": "2026-10-05T10:00:00", "method": "next_step",
                 "note": "Invite to coffee (2020-01-31)"}]
         deal = {"id": 9, "offer_id": 1, "offer_slug": "consulting", "offer_name": "Consulting",
@@ -85,16 +85,20 @@ class TestPages:
                 "pipeline_stage": "prospect", "status": "none", "next_step": "Invite to coffee",
                 "next_step_date": "2020-01-31", "notes": None, "contact_person_id": None,
                 "contact_person_name": None}
+        task = {"id": 5, "deal_id": 9, "task_type": "check_in", "task_text": "Invite to coffee",
+                "due_date": date(2020, 1, 31), "updated_at": datetime(2026, 1, 1, tzinfo=UTC)}
         with patch("gcrm.api.routers.people.get_person", return_value=PERSON), \
              patch("gcrm.api.routers.people.get_person_interactions", return_value=log), \
-             patch("gcrm.api.routers.deals.get_deals", return_value=[deal]):
+             patch("gcrm.api.routers.deals.get_deals", return_value=[deal]), \
+             patch("gcrm.api.routers.deals.deal_follow_ups", return_value={9: [task]}):
             response = client.get("/people/3?lang=en")
         assert response.status_code == 200, response.text[:400]
-        # the next step is the deal's, set from its card on the Deals panel
-        assert 'action="/deals/9/next-step"' in response.text
+        # the deal's follow-ups are listed on its card on the Deals panel, which only adds to them
+        assert 'action="/follow-ups/5/status"' in response.text
         assert "<strong>Invite to coffee</strong>" in response.text
         assert "next-step__due--overdue" in response.text and "overdue" in response.text
-        assert 'name="done" value="1"' in response.text
+        assert 'name="status" value="completed"' in response.text
+        assert 'name="target" value="deal:9"' in response.text and "/next-step" not in response.text
         assert '<td class="muted">Next step</td>' in response.text
 
     def test_the_people_list_has_a_sortable_next_step_column(self, admin_web):

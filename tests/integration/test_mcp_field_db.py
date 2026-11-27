@@ -276,13 +276,16 @@ def test_undo_puts_a_step_that_waited_for_review_back_without_a_type(chris):
     assert _tasks() == [("Meet in Augsburg", "review", None)]
 
 
-def test_undo_restores_the_type_a_next_step_had_before(chris):
+def test_a_next_step_is_added_beside_the_open_one_and_undo_takes_only_it_back(chris):
     organization, deal = _deal(chris)
     create_follow_up(deal_id=deal["id"], task_type="commitment", task_text="Send the quote",
                      workspace_id=chris.workspace_id)
     field.set_next_step(chris, "Ask how the quote landed", organization_id=organization, follow_up_type="check_in")
+    assert _tasks() == [("Send the quote", "active", "commitment"),
+                        ("Ask how the quote landed", "active", "check_in")]
     field.undo_last(chris)
-    assert _tasks() == [("Send the quote", "active", "commitment")]
+    assert _tasks() == [("Send the quote", "active", "commitment"),
+                        ("Ask how the quote landed", "dismissed", "check_in")]
 
 
 @pytest.mark.parametrize("follow_up_type", ["", "someday"])
@@ -322,22 +325,41 @@ def test_an_activity_with_only_a_follow_up_date_needs_no_type(chris):
     assert _tasks() == [("", "review", None)]
 
 
-def test_a_typed_promise_on_the_deals_offer_is_active_but_not_yet_the_deals_next_step(chris):
-    """Pins what happens today, including the doubtful part: logging an activity writes the follow-up row
-    but does not refresh the deal's next step, so the deal card shows nothing while the promise is on the
-    Follow-ups list, and a next step saved afterwards edits that promise instead of adding a second task."""
+def test_a_typed_promise_is_the_deals_next_step_and_a_later_step_leaves_it_alone(chris):
     organization, deal = _deal(chris)
     field.log_activity(chris, "Spoke to the owner", organization_id=organization, offer=deal["offer_slug"],
                        follow_up_promised="Send quote", follow_up_type="commitment")
     (promise,) = list_follow_ups(chris.workspace_id)
     assert (promise["deal_id"], promise["task_text"], promise["task_type"]) == (deal["id"], "Send quote",
                                                                                 "commitment")
-    assert get_deals("organization", organization, chris.workspace_id)[0]["next_step"] is None
-
-    field.set_next_step(chris, "Call next week", organization_id=organization, follow_up_type="check_in")
-    assert [(t["id"], t["task_text"], t["task_type"]) for t in list_follow_ups(chris.workspace_id)] == [
-        (promise["id"], "Call next week", "check_in")]
-
-    field.undo_last(chris)     # the promise comes back, and only now does the deal show it
-    assert _tasks() == [("Send quote", "active", "commitment")]
     assert get_deals("organization", organization, chris.workspace_id)[0]["next_step"] == "Send quote"
+
+    said = field.set_next_step(chris, "Call next week", organization_id=organization,
+                               follow_up_type="check_in")["said"]
+    assert said == "Next step on Consulting: Call next week."
+    assert _tasks() == [("Send quote", "active", "commitment"), ("Call next week", "active", "check_in")]
+
+    field.undo_last(chris)
+    assert _tasks() == [("Send quote", "active", "commitment"), ("Call next week", "dismissed", "check_in")]
+    assert get_deals("organization", organization, chris.workspace_id)[0]["next_step"] == "Send quote"
+
+
+def test_undoing_a_step_that_was_already_there_changes_nothing(chris):
+    organization, _ = _deal(chris)
+    for _attempt in range(2):
+        field.set_next_step(chris, "Call next week", organization_id=organization, follow_up_type="check_in")
+    field.undo_last(chris)
+    assert _tasks() == [("Call next week", "active", "check_in")]
+    field.undo_last(chris)
+    assert _tasks() == [("Call next week", "dismissed", "check_in")]
+
+
+def test_undo_restores_a_cleared_step_that_had_no_follow_up_behind_it(chris):
+    organization, deal = _deal(chris)
+    with db() as connection:
+        connection.cursor().execute("UPDATE deals SET next_step = 'Old plan' WHERE id = %s", (deal["id"],))
+    field.set_next_step(chris, "", organization_id=organization)
+    assert get_deals("organization", organization, chris.workspace_id)[0]["next_step"] is None
+    field.undo_last(chris)
+    assert get_deals("organization", organization, chris.workspace_id)[0]["next_step"] == "Old plan"
+    assert _tasks() == []
