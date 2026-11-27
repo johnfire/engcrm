@@ -33,3 +33,35 @@ it("restores a draft, saves it locally and asks the sync worker to send it", asy
   expect(requestSync).toHaveBeenCalled();
   expect(mockBack).toHaveBeenCalled();
 });
+
+function openOrganizationForm(values: Record<string, unknown>) {
+  jest.mocked(queueLocalActivity).mockClear();
+  jest.mocked(useOffline).mockReturnValue({ session: { database: {} } as never, status: null, state: "idle",
+    requestSync: jest.fn(), refreshStatus: jest.fn(), retryOpen: jest.fn() });
+  jest.mocked(openActivityDraft).mockResolvedValue({ id: "draft-id", values });
+  jest.mocked(saveActivityDraft).mockResolvedValue();
+  return render(<LocalActivityForm kind="organization" syncId="organization-id" />);
+}
+
+it("asks for the type of a promise before it queues the activity", async () => {
+  const view = openOrganizationForm({ note: "Met the owner", followText: "Send quote" });
+  await waitFor(() => expect(view.getByDisplayValue("Send quote")).toBeTruthy());
+  fireEvent.press(view.getByText("Save note"));
+  expect(view.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
+  expect(queueLocalActivity).not.toHaveBeenCalled();
+  fireEvent.press(view.getByLabelText("Commitment"));
+  fireEvent.press(view.getByText("Save note"));
+  await waitFor(() => expect(queueLocalActivity).toHaveBeenCalled());
+  expect(jest.mocked(queueLocalActivity).mock.calls[0][1].patch).toMatchObject({
+    next_action: "Send quote", follow_up_type: "commitment" });
+});
+
+it("needs no type for a follow-up date without a promise, and sends none", async () => {
+  const view = openOrganizationForm({ note: "Met the owner", followUp: "1w", followType: "check_in" });
+  await waitFor(() => expect(view.getByDisplayValue("Met the owner")).toBeTruthy());
+  expect(view.queryByLabelText("Check-in")).toBeNull();
+  fireEvent.press(view.getByText("Save note"));
+  await waitFor(() => expect(queueLocalActivity).toHaveBeenCalled());
+  expect(jest.mocked(queueLocalActivity).mock.calls[0][1].patch).toMatchObject({
+    next_action: null, follow_up_type: null });
+});

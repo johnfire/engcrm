@@ -46,7 +46,7 @@ const EDITABLE_FIELDS: Record<EditableKind, readonly string[]> = {
     "fit_score", "do_not_contact", "email_bounced", "research_exhausted", "personal_priority", "short_term_value", "long_term_value"],
   person: ["name", "title", "email", "phone", "website", "city", "country", "relationship", "met_at", "notes",
     "linkedin_url", "is_linkedin_contact", "retention_hold", "value_rating", "short_term_value", "long_term_value"],
-  deal: ["pipeline_stage", "status", "next_step", "next_step_date"],
+  deal: ["pipeline_stage", "status", "next_step", "next_step_date", "task_type"],
 };
 const ENTITY_TABLES: Record<EditableKind, string> = {
   organization: "local_organizations", person: "local_people", deal: "local_deals",

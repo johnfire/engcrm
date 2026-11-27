@@ -9,13 +9,14 @@ import { ACTIVITY_METHODS, PERSON_ACTIVITY_METHOD } from "../services/activityMe
 import type { MeetingMethod } from "../services/api";
 import { parseDay } from "../services/dates";
 import { GENERAL } from "../services/deals";
-import { dateInDays, FOLLOW_UPS, followUpDate } from "../services/followUps";
+import { dateInDays, FOLLOW_UP_TYPES, FOLLOW_UPS, followUpDate } from "../services/followUps";
 import { ATTITUDES, type Attitude, MY_READS, type MyRead } from "../services/judgments";
 import { openActivityDraft, saveActivityDraft, type ActivityDraft } from "../services/local-activity-drafts";
 import { queueLocalActivity } from "../services/local-outbox";
 import { useOffline } from "../services/offline-context";
 import { getSyncDeviceId } from "../services/sync-network";
 import { useAdminRole } from "../services/use-admin-role";
+import { FollowUpTypePicker } from "./FollowUpTypePicker";
 import { JudgmentChips } from "./JudgmentChips";
 import { OfferPicker } from "./OfferPicker";
 import { Chip } from "./StageStatusPicker";
@@ -38,7 +39,9 @@ export function LocalActivityForm({ kind, syncId }: { kind: Kind; syncId: string
   const activeDraft = session && draft?.database === session.database && draft.target === `${kind}:${syncId}` ? draft : null;
   const values = activeDraft?.values ?? {};
   const note = stringValue(values.note), method = stringValue(values.method), offer = stringValue(values.offer) || GENERAL;
-  const followUp = stringValue(values.followUp) || "none", followType = stringValue(values.followType);
+  const followUp = stringValue(values.followUp) || "none";
+  const followType = FOLLOW_UP_TYPES.find((type) => type === values.followType) ?? null;
+  const promise = kind === "organization" ? stringValue(values.followText).trim() : "";
   const attitude = Array.isArray(values.attitude) ? values.attitude as Attitude[] : [];
   const myRead = Array.isArray(values.myRead) ? values.myRead as MyRead[] : [];
 
@@ -69,6 +72,7 @@ export function LocalActivityForm({ kind, syncId }: { kind: Kind; syncId: string
     const day = kind === "organization" ? parseDay(stringValue(values.day)) : null;
     if (day === undefined || (day && day > dateInDays(0))) { setError("meeting.badDay"); return; }
     if (method && !ACTIVITY_METHODS.some((item) => item.value === method)) { setError("recordForm.saveFailed"); return; }
+    if (promise && !followType) { setError("followUp.typeNeeded"); return; }
     busy.current = true;
     setSaving(true);
     setError(null);
@@ -79,8 +83,8 @@ export function LocalActivityForm({ kind, syncId }: { kind: Kind; syncId: string
       method: method ? kind === "person" ? PERSON_ACTIVITY_METHOD[method as MeetingMethod] : method : null,
       duration_minutes: minutes ? Number(minutes) : null, offer_slug: offer, attitude, my_read: myRead };
     if (kind === "organization") Object.assign(patch, { interaction_date: day,
-      materials_left: stringValue(values.materials).trim() || null, next_action: stringValue(values.followText).trim() || null,
-      next_action_date: followUpDate(followUp), follow_up_type: followType || null });
+      materials_left: stringValue(values.materials).trim() || null, next_action: promise || null,
+      next_action_date: followUpDate(followUp), follow_up_type: promise ? followType : null });
     try {
       await saveActivityDraft(session.database, activeDraft.id, values);
       await queueLocalActivity(session.database, { mutationId: Crypto.randomUUID(), deviceId: await getSyncDeviceId(),
@@ -118,10 +122,10 @@ export function LocalActivityForm({ kind, syncId }: { kind: Kind; syncId: string
       <Text style={styles.label}>{t("meeting.followUpAbout")}</Text>
       <TextInput style={styles.input} value={stringValue(values.followText)} onChangeText={(value) => change("followText", value)}
         accessibilityLabel={t("meeting.followUpAbout")} maxLength={500} editable={!saving} />
+      {!!promise && <FollowUpTypePicker style={styles.followType} value={followType} disabled={saving}
+        onChange={(type) => { change("followType", type); setError(null); }} />}
       <View style={styles.chips}>{FOLLOW_UPS.map((item) => <Chip key={item.id} label={t(item.labelKey)}
         selected={followUp === item.id} disabled={saving} onPress={() => change("followUp", item.id)} />)}</View>
-      <View style={styles.chips}>{["commitment", "check_in"].map((value) => <Chip key={value} label={t(`followUp.${value}`)}
-        selected={followType === value} disabled={saving} onPress={() => change("followType", followType === value ? "" : value)} />)}</View>
     </>}
     <OfferPicker offers={offers} value={offer} onChange={(value) => change("offer", value)} label={t("offerFilter.label")} withGeneral disabled={saving} />
     <JudgmentChips labelKey="judgment.attitude" valuePrefix="impression." values={ATTITUDES} picked={attitude}
@@ -137,6 +141,6 @@ export function LocalActivityForm({ kind, syncId }: { kind: Kind; syncId: string
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f0f23" }, content: { padding: 16 },
   label: { color: "#bbb", marginTop: 16, marginBottom: 6 }, input: { backgroundColor: "#1a1a2e", color: "#fff", borderRadius: 8, padding: 12 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }, error: { color: "#ff8b8b", marginTop: 12 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }, followType: { marginTop: 8 }, error: { color: "#ff8b8b", marginTop: 12 },
   button: { backgroundColor: "#7c6fff", borderRadius: 8, marginTop: 20, padding: 14 }, buttonText: { color: "#fff", textAlign: "center" },
 });

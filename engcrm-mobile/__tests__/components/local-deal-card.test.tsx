@@ -32,8 +32,26 @@ it("queues the next step without requiring a server connection", async () => {
   const view = render(<LocalDealCard deal={deal} canEdit />);
   fireEvent.press(view.getByText("Add next step"));
   fireEvent.changeText(view.getByLabelText("What happens next"), "Send proposal");
+  fireEvent.press(view.getByLabelText("Check-in"));
   fireEvent.press(view.getByText("Save"));
   await waitFor(() => expect(queueLocalUpdate).toHaveBeenCalledWith(database,
     expect.objectContaining({ entityKind: "deal", entitySyncId: "deal-next",
-      patch: { next_step: "Send proposal", next_step_date: null } })));
+      patch: { next_step: "Send proposal", next_step_date: null, task_type: "check_in" } })));
+});
+
+it("asks for the type before it queues a next step, and queues Done without one", async () => {
+  jest.mocked(queueLocalUpdate).mockClear();
+  jest.mocked(useOffline).mockReturnValue({ session: { database: {} } as never, status: null, state: "idle",
+    requestSync: jest.fn(), refreshStatus: jest.fn(), retryOpen: jest.fn() });
+  const deal = { syncId: "deal-typed", serverId: null, isLocalOnly: true, pendingCount: 0, failedCount: 0,
+    fields: { offer_name: "Consulting", pipeline_stage: "candidate", status: "none", next_step: "Call" } };
+  const view = render(<LocalDealCard deal={deal} canEdit />);
+  fireEvent.press(view.getByText("Change"));
+  fireEvent.press(view.getByText("Save"));
+  expect(view.getByText("Choose Commitment or Check-in for the follow-up.")).toBeTruthy();
+  expect(queueLocalUpdate).not.toHaveBeenCalled();
+  fireEvent.press(view.getByText("Cancel"));
+  fireEvent.press(view.getByText("✓ Done"));
+  await waitFor(() => expect(queueLocalUpdate).toHaveBeenCalled());
+  expect(jest.mocked(queueLocalUpdate).mock.calls[0][1].patch).toEqual({ next_step: null, next_step_date: null });
 });

@@ -15,9 +15,13 @@ from gcrm.api.routers.api_record_edit import (
 from gcrm.linkedin import normalize_linkedin_url
 from gcrm.organization_state import PIPELINE_STAGES, STATUSES
 from gcrm.tools.deal_records import NEXT_STEP_MAX
+from gcrm.tools.follow_ups import TASK_TYPES
 
 PERSON_FLAGS = {"is_linkedin_contact", "retention_hold"}
-DEAL_FIELDS = {"pipeline_stage", "status", "next_step", "next_step_date"}
+# The follow-up type travels with next_step: deals have no such column, and it has no field clock.
+# Older apps send none, so it is always optional.
+STEP_TYPE = "task_type"
+DEAL_FIELDS = {"pipeline_stage", "status", "next_step", "next_step_date", STEP_TYPE}
 PRIVATE_FIELDS = {"organization": {"personal_priority", "short_term_value", "long_term_value"},
                   "person": {"value_rating", "short_term_value", "long_term_value"}, "deal": set()}
 
@@ -71,8 +75,10 @@ def _validate_contact_fields(patch: dict, model, limits: dict, flags: set, numbe
 
 
 def _validate_deal_fields(patch: dict) -> dict:
-    if not patch or set(patch) - DEAL_FIELDS:
+    if not set(patch) - {STEP_TYPE} or set(patch) - DEAL_FIELDS:
         raise ValueError("Unknown or empty deal fields")
+    if patch.get(STEP_TYPE) not in (None, *TASK_TYPES):
+        raise ValueError("Unknown follow-up type")
     if "pipeline_stage" in patch and patch["pipeline_stage"] not in PIPELINE_STAGES:
         raise ValueError("Unknown pipeline stage")
     if "status" in patch and patch["status"] not in STATUSES:

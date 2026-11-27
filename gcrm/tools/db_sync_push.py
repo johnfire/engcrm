@@ -16,10 +16,10 @@ from gcrm.sync.conflict_resolution import (
     is_valid_edit_time,
 )
 from gcrm.sync.contracts import SyncUpdate
-from gcrm.sync.validation import PRIVATE_FIELDS, validate_sync_patch
+from gcrm.sync.validation import PRIVATE_FIELDS, STEP_TYPE, validate_sync_patch
 from gcrm.tools.db_sync_bootstrap import find_sync_entity
 from gcrm.tools.db_sync_private import apply_private_winners, private_winners
-from gcrm.tools.deal_records import check_next_step, write_next_step
+from gcrm.tools.deal_records import check_next_step, next_step_matches, write_next_step
 
 TABLES = {"organization": "contacts", "person": "people", "deal": "deals",
           "person_note": "people_interactions", "organization_activity": "interactions"}
@@ -148,8 +148,9 @@ def _store_provisional(cursor, workspace_id: int, user_id: int, update: SyncUpda
 
 
 def _split_winning_fields(cursor, workspace_id: int, user_id: int, update: SyncUpdate, patch: dict) -> tuple[list[str], list[str]]:
-    private = sorted(set(patch) & PRIVATE_FIELDS.get(update.entity_kind, set()))
-    shared = sorted(set(patch) - set(private))
+    fields = set(patch) - {STEP_TYPE}
+    private = sorted(fields & PRIVATE_FIELDS.get(update.entity_kind, set()))
+    shared = sorted(fields - set(private))
     cursor.execute("SELECT field_name,changed_at,device_id,mutation_id FROM sync_field_versions "
                    "WHERE workspace_id=%s AND entity_kind=%s AND entity_sync_id=%s AND field_name=ANY(%s)",
                    (workspace_id, update.entity_kind, str(update.entity_sync_id), shared))
@@ -161,7 +162,7 @@ def _split_winning_fields(cursor, workspace_id: int, user_id: int, update: SyncU
         private_winning, _ = private_winners(cursor, workspace_id, user_id, update, private)
         winning.extend(private_winning)
     winning.sort()
-    return winning, sorted(set(patch) - set(winning))
+    return winning, sorted(fields - set(winning))
 
 
 def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, patch: dict, winning: list[str], entity) -> None:
@@ -173,9 +174,8 @@ def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, 
     shared = [field for field in winning if field not in PRIVATE_FIELDS.get(update.entity_kind, set())]
     changed = [field for field in shared if _value_changed(entity[field], patch[field])]
     ordinary = [field for field in shared if update.entity_kind != "deal" or field not in ("next_step", "next_step_date")]
-    if update.entity_kind == "deal" and any(field in changed for field in ("next_step", "next_step_date")):
-        text, due = _desired_next_step(entity, patch, winning)
-        write_next_step(cursor, entity, text, due)
+    if update.entity_kind == "deal" and any(field in winning for field in ("next_step", "next_step_date")):
+        _apply_next_step(cursor, entity, patch, winning, changed)
     if ordinary:
         assignments = sql.SQL(", ").join(sql.SQL("{}=%s").format(sql.Identifier(field)) for field in ordinary)
         cursor.execute(sql.SQL("UPDATE {} SET {},updated_at=clock_timestamp() WHERE workspace_id=%s AND sync_id=%s")
@@ -194,6 +194,17 @@ def _apply_winners(cursor, workspace_id: int, user_id: int, update: SyncUpdate, 
                        "VALUES (%s,%s,%s,'upsert',%s,%s,%s,%s,%s)",
                        (workspace_id, update.entity_kind, str(update.entity_sync_id), update.changed_at,
                         str(update.device_id), str(update.mutation_id), audit.actor, audit.correlation_id))
+
+
+def _apply_next_step(cursor, deal, patch: dict, winning: list[str], changed: list[str]) -> None:
+    """Write the deal's next step when its words or date changed, or when winning words bring a
+    follow-up type the step does not have yet (which takes it out of Review). A type whose words
+    lost to a newer edit is dropped with them."""
+    task_type = patch.get(STEP_TYPE) if "next_step" in winning else None
+    text, due = _desired_next_step(deal, patch, winning)
+    if {"next_step", "next_step_date"} & set(changed) or (
+            task_type and not next_step_matches(cursor, deal, text, due, task_type)):
+        write_next_step(cursor, deal, text, due, task_type)
 
 
 def _value_changed(existing, incoming) -> bool:

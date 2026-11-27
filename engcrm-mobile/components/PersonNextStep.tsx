@@ -22,11 +22,9 @@ type Props = {
   /** Where the step is stored. Defaults to the person's Consulting deal; a deal
    *  card passes its own deal's. `type` is null only when the step is cleared. */
   save?: (step: string | null, date: string | null, type: FollowUpType | null) => Promise<Saved>;
-  /** False where the step's type cannot be stored yet (the offline deal card). */
-  askType?: boolean;
 };
 
-export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store, askType = true }: Props) {
+export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: store }: Props) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(step ?? "");
@@ -40,7 +38,7 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
   async function save(nextText: string, nextDate: string | null) {
     const next = nextText.trim() || null;
     // A new step needs its type; clearing one (Done, or blank words) needs none.
-    if (next && askType && !type) {
+    if (next && !type) {
       setTypeMissing(true);
       return;
     }
@@ -107,7 +105,7 @@ export function PersonNextStep({ personId, step, date, canEdit, onSaved, save: s
             editable={!saving}
             accessibilityLabel={t("nextStep.label")}
           />
-          {askType && !!text.trim() && (
+          {!!text.trim() && (
             <FollowUpTypePicker style={styles.type} value={type} disabled={saving}
               onChange={(chosen) => { setType(chosen); setTypeMissing(false); }} />
           )}

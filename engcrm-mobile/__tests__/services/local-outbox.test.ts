@@ -129,3 +129,15 @@ it("creates a person and their initial deal in the same transaction", async () =
     expect(sqlite.prepare("SELECT count(*) AS n FROM sync_outbox").get()).toEqual({ n: 2 });
   } finally { sqlite.close(); }
 });
+
+it("queues a deal's next step together with its follow-up type", async () => {
+  const { sqlite, database } = setup();
+  const dealId = "fb4fa281-8a94-4726-9ce7-02c18c90aa94";
+  try {
+    sqlite.prepare("INSERT INTO local_deals(generation,sync_id,canonical_json) VALUES (1,?,'{}')").run(dealId);
+    await queueLocalUpdate(database, { mutationId, deviceId, entityKind: "deal", entitySyncId: dealId,
+      changedAt: "2026-11-27T10:00:00Z", patch: { next_step: "Call", next_step_date: null, task_type: "check_in" } });
+    const queued = sqlite.prepare("SELECT patch_json FROM sync_outbox").get() as { patch_json: string };
+    expect(JSON.parse(queued.patch_json)).toEqual({ next_step: "Call", next_step_date: null, task_type: "check_in" });
+  } finally { sqlite.close(); }
+});
