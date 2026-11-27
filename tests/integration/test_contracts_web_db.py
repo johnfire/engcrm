@@ -277,7 +277,7 @@ def test_every_text_is_translated_in_english_and_in_german(world):
     german = owner.get("/contracts/").text
     for html in (english, german):
         assert not [key for key in keys if key in html], "an untranslated key shows on the page"
-    for text in ("Verträge", "Laufend", "Anstehend", "Abgeschlossen", "noch offen", "storniert", "Kunde"):
+    for text in ("Verträge", "Laufend", "Anstehend", "Beendet", "noch offen", "storniert", "Kunde"):
         assert text in german, text
     assert "Running now" in english and "Verträge" not in english
 

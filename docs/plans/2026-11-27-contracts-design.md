@@ -1,6 +1,6 @@
 # Contracts: the business deals made, and what each one asks of us
 
-Date: 2026-11-27 · Status: designed, not built
+Date: 2026-11-27 · Status: built (steps 1–5 of `2026-11-27-contracts-plan.md`)
 
 ## Why
 
@@ -171,4 +171,7 @@ existing sales), then the kinds and assignments of the migrated contracts are fi
 - PDF upload (storage on the server volume, size cap, PDF check, part of the backup).
 - Markdown in the assignment, with a sanitizer.
 - Contracts on the phone.
+- A "New contract" form on the Contracts page itself (`/contracts/new`: pick the customer, then the contract). Cut
+  in step 4: the web app has no organization or person search to reuse, and one select of every organization would
+  not do. The page links to the Organizations and People lists instead.
 - Dropping `series_id` / `series_part` / `series_total` once everything reads `contract_id`.

@@ -396,8 +396,9 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
     </form>
   </section>
 
+  {# the anchor stays "sales": the payment charts link to it #}
   <section class="detail-section record-card" id="sales">
-    <h2>{{ t('sales.title') }}</h2>
+    <h2>{{ t('contracts.title') }}</h2>
     {% if sales %}
     {% set booked_hours = sales | rejectattr('status', 'equalto', 'cancelled') | selectattr('hours') | map(attribute='hours') | map('float') | sum %}
     {% if booked_hours %}<p class="muted small">{{ t('sale.hoursBooked', hours=booked_hours | hrs) }}</p>{% endif %}

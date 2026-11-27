@@ -1421,7 +1421,6 @@
   "contractPage.payments": "Payments",
   "contractPage.paymentAdd": "Add payment",
   "contractPage.delete": "Delete contract",
-  "contractPage.deleteConfirm": "Delete this contract and its {{payments}} payments? They disappear from the Forecast too.",
   "contractPage.error.title": "Enter a title of 1 to 200 characters.",
   "contractPage.error.kind": "Choose one of the kinds in the list.",
   "contractPage.error.assignment": "The assignment can be at most 20,000 characters.",
@@ -1435,5 +1434,10 @@
   "contractPage.deleteSeriesConfirm": "Delete all {{payments}} monthly payments? If that leaves the contract with no payments, the contract is deleted too.",
   "contracts.new": "New contract",
   "contracts.field.title": "Contract title",
-  "contracts.newHint": "Open the customer and use New contract there. Customers who are people are listed under"
+  "contracts.newHint": "Open the customer and use New contract there. Customers who are people are listed under",
+  "contractPage.deleteConfirm_one": "Delete this contract and its payment? It disappears from the Forecast too.",
+  "contractPage.deleteConfirm_other": "Delete this contract and its {{count}} payments? They disappear from the Forecast too.",
+  "contractPage.deletePaymentConfirm": "Delete this payment?",
+  "contractPage.seriesLine": "Monthly payments: {{total}} in {{payments}} payments · {{open}} still to come",
+  "contractPage.seriesLineHours": "Monthly payments: {{hours}} h × {{rate}} €/h = {{total}} in {{payments}} payments · {{open}} still to come"
 }

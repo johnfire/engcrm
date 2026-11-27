@@ -122,6 +122,7 @@ Follow-up stays switched off. Nothing runs on a schedule. Each run logs to the `
 |---|---|---|
 | Approval Queue | `/approvals/` | Email drafts pending review. Approve sends immediately. |
 | Organizations | `/organizations/` | Every organization, with stage/status filters and name/city search. |
+| Contracts | `/contracts/` | Every contract as running, upcoming or finished, with value, hours and what is paid; each has its own page (assignment, links, payments). A new one is made on the customer's page. |
 | Activity Feed | `/activity/` | Agent run log with status, duration, and summary. |
 
 **Approval actions:**

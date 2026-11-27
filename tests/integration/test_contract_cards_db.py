@@ -2,6 +2,7 @@
 import re
 from datetime import date, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -256,3 +257,22 @@ def test_a_payment_note_that_says_something_else_than_the_title_is_still_shown(w
     contract = _contract("Year plan")["id"]
     rows = _payment_rows(_browser().get(f"/contracts/{contract}?open=payments&lang=en").text)
     assert "Second instalment note" in rows and "03.02.2026" not in rows
+
+
+# --- the card's heading ----------------------------------------------------
+
+@pytest.mark.parametrize("language,heading", [("en", "Contracts"), ("de", "Verträge")])
+def test_the_cards_that_list_contracts_are_headed_contracts_and_keep_their_anchor(world, language, heading):
+    browser = _browser()
+    browser.post("/settings/language", data={"ui_language": language})
+    organization = browser.get(f"/organizations/{world['school']}").text
+    card = _sales_card(organization)                                   # the id other pages link to stays "sales"
+    assert f"<h2>{heading}</h2>" in card and "<h2>Sales</h2>" not in card and "<h2>Verkäufe</h2>" not in card
+    person = browser.get(f"/people/{world['freelancer']}").text
+    summary = re.search(r'<details class="deal-card__sales".*?<summary>(.*?)</summary>', person, re.S).group(1)
+    assert summary.strip() == heading
+
+
+def test_the_payment_charts_link_to_an_anchor_the_organization_page_still_has(world):
+    chart_code = (Path(__file__).parents[2] / "gcrm" / "flow_charts.py").read_text()
+    assert "#sales" in chart_code and 'id="sales"' in _browser().get(f"/organizations/{world['school']}").text

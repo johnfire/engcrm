@@ -125,7 +125,7 @@
         {% for st in sale_statuses %}<option value="{{ st }}" {% if st == 'booked' %}selected{% endif %}>{{ t('sale.status.' ~ st) }}</option>{% endfor %}
       </select>
     </label>
-    <label>{{ t('sale.expectedOnLabel') }}{{ date_field('expected_on', None) }}</label>
+    <label>{{ t('sale.dueDay') }}{{ date_field('expected_on', None) }}</label>
     <button type="submit" class="btn-secondary">{{ t('contractPage.paymentAdd') }}</button>
   </form>
   {% endif %}
@@ -134,7 +134,7 @@
 {% if is_admin %}
 <section class="detail-section contract-danger" id="delete">
   <form method="post" action="/contracts/{{ c.id }}/delete"
-        data-confirm="{{ t('contractPage.deleteConfirm', payments=c.payments | length) }}">
+        data-confirm="{{ t('contractPage.deleteConfirm', count=c.payments | length) }}">
     <button type="submit" class="btn-danger">{{ t('contractPage.delete') }}</button>
   </form>
 </section>

@@ -444,3 +444,46 @@ def test_the_monthly_series_delete_on_this_page_does_not_pretend_to_delete_the_c
     series_form = re.search(r'<form method="post" action="/deals/\d+/series/[^/]+/delete"[^>]*>', html).group(0)
     assert "Delete the whole contract" not in html and "monthly payments" in series_form          # its confirm says what goes
     assert "Delete the monthly payments" in html and html.count("Delete contract") == 1          # one real "Delete contract"
+
+
+# --- wording on the page: it speaks of payments, in the reader's words ---------------
+
+def _read_in(language, contract):
+    browser = _browser()
+    browser.post("/settings/language", data={"ui_language": language})
+    return browser, browser.get(f"/contracts/{contract}?open=payments").text
+
+
+@pytest.mark.parametrize("language,series,payment_prompt,old_words", [
+    ("en", "Monthly payments:", "Delete this payment?", ("Contract: ", "Delete this sale?", "first payment due")),
+    ("de", "Monatsraten:", "Diese Zahlung löschen?", ("Vertrag: ", "Diesen Verkauf löschen?", "erste Rate fällig")),
+])
+def test_the_payments_are_worded_as_payments_of_this_contract(world, language, series, payment_prompt, old_words):
+    _, html = _read_in(language, world["contract"])
+    assert series in html and f'data-confirm="{payment_prompt}"' in html
+    for words in old_words:
+        assert words not in html, words
+    due = "Due day" if language == "en" else "Fälligkeitstag"
+    add_form = re.search(r'<form method="post" action="/contracts/\d+/payments".*?</form>', html, re.S).group(0)
+    assert due in add_form
+
+
+@pytest.mark.parametrize("language,one,many", [
+    ("en", "its payment? It disappears", "its 4 payments?"),
+    ("de", "seine Zahlung löschen?", "seine 4 Zahlungen löschen?"),
+])
+def test_the_delete_question_counts_in_grammatical_words(world, language, one, many):
+    browser, html = _read_in(language, world["single"])
+    prompt = re.search(r'action="/contracts/\d+/delete"[^>]*data-confirm="([^"]*)"', html).group(1)
+    assert one in prompt and "1 " not in prompt
+    prompt = re.search(r'action="/contracts/\d+/delete"[^>]*data-confirm="([^"]*)"', browser.get(f"/contracts/{world['contract']}").text).group(1)
+    assert many in prompt
+
+
+def test_the_german_list_uses_the_words_of_the_rest_of_the_app(world):
+    browser = _browser()
+    browser.post("/settings/language", data={"ui_language": "de"})
+    html = browser.get("/contracts/").text
+    assert "Bezahlt" in html and "Beendet" in html and "€/h" in html
+    for words in ("Eingegangen", "Abgeschlossen", "abgeschlossenen", "€/Std."):
+        assert words not in html, words

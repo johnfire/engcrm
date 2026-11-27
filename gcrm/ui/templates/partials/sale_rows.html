@@ -2,7 +2,7 @@
    Only collected ones are money won (see gcrm/sale_status.py).
    sale_item: a sale with its status and the form that moves it along;
    sale_form: the form that records one. Both post to the deal's routes and come
-   back to `page`. `on_contract_page` words a monthly series' delete as what it is (the contract is the page there);
+   back to `page`. `on_contract_page` words the controls as being about payments and the monthly series (the contract is the page there);
    a sale may carry `delete_next` / `series_delete_next`: where to go after a delete instead of `page`.
    On the contract page a row also leaves out the day won and a description that only repeats `repeated_title`.
    Needs `sale_statuses` and `today` in the context. #}
@@ -14,7 +14,7 @@
   {%- if sale.contract.open %}
   <form method="post" action="/deals/{{ deal_id }}/series/{{ sale.series_id }}/status" class="sale__move">
     <input type="hidden" name="next" value="{{ page }}" />
-    <strong>{% if sale.contract.hours %}{{ t('sale.contractLineHours', hours=sale.contract.hours | hrs, rate=sale.contract.rate_eur | hrs, total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% else %}{{ t('sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% endif %}</strong>
+    <strong>{% if sale.contract.hours %}{{ t('contractPage.seriesLineHours' if on_contract_page else 'sale.contractLineHours', hours=sale.contract.hours | hrs, rate=sale.contract.rate_eur | hrs, total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% else %}{{ t('contractPage.seriesLine' if on_contract_page else 'sale.contractLine', total=sale.contract.total | eur, payments=sale.contract.payments, open=sale.contract.open) }}{% endif %}</strong>
     <label>{{ t('sale.contractMove') }}
     <select name="status">
       {% for s in sale_statuses if s != 'collected' %}
@@ -85,7 +85,7 @@
   </form>
   {%- endif %}
   <form method="post" action="/deals/{{ deal_id }}/sales/{{ sale.id }}/delete" style="display:inline"
-        data-confirm="{{ t('sales.deleteConfirm') }}">
+        data-confirm="{{ t('contractPage.deletePaymentConfirm' if on_contract_page else 'sales.deleteConfirm') }}">
     <input type="hidden" name="next" value="{{ sale.delete_next or page }}" />
     <button class="btn-danger btn-tiny">{{ t('sales.delete') }}</button>
   </form>
