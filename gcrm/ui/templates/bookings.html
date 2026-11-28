@@ -97,7 +97,7 @@
   <p>{{ bt('adm.hours_help') }}</p>
   <form method="post" action="/bookings/hours" class="grid">
     {% for weekday in range(7) %}
-    <label>{{ ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'][weekday] if lang == 'de' else ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][weekday] }}
+    <label>{{ bt('weekday.' ~ weekday) }}
       <input type="text" name="day{{ weekday }}" value="{{ hours[weekday] }}" placeholder="09:30-12:00, 13:30-16:30"></label>
     {% endfor %}
     <div><button type="submit">{{ bt('adm.save') }}</button></div>
@@ -116,7 +116,7 @@
         <td>{{ bt('kind.' ~ kind) }}</td>
         <td><input type="number" name="{{ kind }}_minutes" value="{{ row.minutes }}" min="5" max="480" aria-label="{{ bt('adm.minutes') }}"></td>
         <td><input type="number" name="{{ kind }}_travel" value="{{ row.travel_minutes }}" min="0" max="480" aria-label="{{ bt('adm.travel') }}"></td>
-        <td>{% for day in range(7) %}<label class="inline"><input type="checkbox" name="{{ kind }}_weekdays" value="{{ day }}"{% if row.weekdays and day in row.weekdays %} checked{% endif %}>{{ ['Mo','Di','Mi','Do','Fr','Sa','So'][day] if lang == 'de' else ['Mo','Tu','We','Th','Fr','Sa','Su'][day] }}</label>{% endfor %}</td>
+        <td>{% for day in range(7) %}<label class="inline"><input type="checkbox" name="{{ kind }}_weekdays" value="{{ day }}"{% if row.weekdays and day in row.weekdays %} checked{% endif %}>{{ bt('weekdayShort.' ~ day) }}</label>{% endfor %}</td>
         <td><input type="checkbox" name="{{ kind }}_active"{% if row.is_active %} checked{% endif %} aria-label="{{ bt('adm.active') }}"></td>
       </tr>
       {% endfor %}

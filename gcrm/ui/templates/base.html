@@ -45,7 +45,7 @@
   {% set nav_tabs = [
     {'label': t('nav.admin'), 'prefix': '', 'menu': 'admin', 'children': admin_tabs},
     {'href': '/areas/', 'prefix': '/areas', 'label': t('nav.areas')},
-    {'href': '/bookings/', 'prefix': '/bookings', 'label': booking_text(request.session.get('ui_language', 'en'), 'nav.bookings')},
+    {'href': '/bookings/', 'prefix': '/bookings', 'label': t('nav.bookings')},
     {'href': '/contact-feed/', 'prefix': '/contact-feed', 'label': t('nav.contacts')},
     {'href': '/contracts/', 'prefix': '/contracts', 'label': t('nav.contracts')},
     {'href': '/follow-ups/', 'prefix': '/follow-ups', 'label': t('followUp.title')},

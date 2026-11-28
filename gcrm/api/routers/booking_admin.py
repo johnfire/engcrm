@@ -17,7 +17,7 @@ from gcrm.api.templates import templates
 from gcrm.booking import booking_service as service
 from gcrm.booking import crm_link, notifications
 from gcrm.booking.booking_store import get_booking, list_bookings, purge_old_bookings
-from gcrm.booking.booking_texts import LANGUAGES, TEXTS, text
+from gcrm.booking.booking_texts import LANGUAGES, has_text, text
 from gcrm.booking.hours_text import format_day_hours, parse_day_hours
 from gcrm.booking.setup_store import (
     add_booking_block,
@@ -73,7 +73,7 @@ def _page() -> service.BookingPage:
 
 def _error_text(language: str, error: str) -> str:
     """A refusal reason in words when it is one; anything else (a validation message) as it came."""
-    return text(language, f"error.{error}") if f"error.{error}" in TEXTS[language] else error
+    return text(language, f"error.{error}") if has_text(f"error.{error}") else error
 
 
 @router.get("/", response_class=HTMLResponse)

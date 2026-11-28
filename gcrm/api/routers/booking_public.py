@@ -17,7 +17,7 @@ from gcrm.api.templates import templates
 from gcrm.booking import booking_service as service
 from gcrm.booking.availability import available_starts
 from gcrm.booking.booking_store import booking_for_manage_token, get_booking, purge_old_bookings
-from gcrm.booking.booking_texts import LANGUAGES, WEEKDAYS, describe_time, text
+from gcrm.booking.booking_texts import LANGUAGES, describe_time, text, weekday_name
 from gcrm.booking.notifications import invite_ics
 from gcrm.booking.setup_store import CUSTOM_LENGTHS, booking_link_for_token, workspace_for_slug
 from gcrm.workspace_context import workspace_scope
@@ -70,7 +70,7 @@ def _days_with_starts(starts: list[datetime], zone: ZoneInfo, first: date, langu
         local = start.astimezone(zone)
         if local.date() in days:
             days[local.date()].append({"value": start.isoformat(), "label": local.strftime("%H:%M")})
-    return [{"label": f"{WEEKDAYS[language][day.weekday()]}, {day.strftime('%d.%m.%Y')}", "starts": starts_of_day}
+    return [{"label": f"{weekday_name(language, day.weekday())}, {day.strftime('%d.%m.%Y')}", "starts": starts_of_day}
             for day, starts_of_day in days.items() if starts_of_day]
 
 

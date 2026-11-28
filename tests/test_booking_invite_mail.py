@@ -1,13 +1,18 @@
 """Booking emails: invite structure that calendar apps recognise, and the words in both languages."""
 import email
+import json
+import re
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
-from gcrm.booking.booking_texts import describe_time, text
+from gcrm.booking.booking_texts import describe_time, has_text, text
 from gcrm.booking.invite_mail import build_invite_email, build_plain_email
 from gcrm.tools import email as email_tools
 
+ROOT = Path(__file__).parents[1]
+I18N = ROOT / "gcrm/i18n"
 ICS = b"BEGIN:VCALENDAR\r\nMETHOD:REQUEST\r\nBEGIN:VEVENT\r\nUID:x@example\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
 
 
@@ -59,14 +64,26 @@ def test_time_is_described_in_berlin_time_with_european_dates():
     assert describe_time("en", start, end, berlin) == "Tuesday, 08.12.2026, 10:30–11:15 (Berlin time)"
 
 
-def test_every_text_exists_in_both_languages_with_the_same_placeholders():
-    from string import Formatter
-
-    from gcrm.booking.booking_texts import TEXTS
-    assert TEXTS["de"].keys() == TEXTS["en"].keys()
-    for key in TEXTS["de"]:
-        fields = [{name for _, name, _, _ in Formatter().parse(TEXTS[lang][key]) if name} for lang in ("de", "en")]
+def test_every_booking_text_exists_in_both_catalogs_with_the_same_placeholders():
+    catalogs = {lang: json.loads((I18N / f"{lang}.json").read_text(encoding="utf-8")) for lang in ("de", "en")}
+    booking_keys = {lang: {key for key in catalog if key.startswith("booking.")} for lang, catalog in catalogs.items()}
+    assert booking_keys["de"] == booking_keys["en"] and len(booking_keys["de"]) > 100
+    for key in booking_keys["de"]:
+        fields = [set(re.findall(r"\{\{(\w+)\}\}", catalogs[lang][key])) for lang in ("de", "en")]
         assert fields[0] == fields[1], key
+    assert "nav.bookings" in catalogs["de"] and "nav.bookings" in catalogs["en"]
+
+
+def test_every_key_the_booking_code_asks_for_exists():
+    """A typo in a key shows as [booking.x] on the page; catch it here instead."""
+    sources = list((ROOT / "gcrm/booking").glob("*.py")) + list((ROOT / "gcrm/api/routers").glob("booking_*.py"))
+    templates = list((ROOT / "gcrm/ui/templates/booking").glob("*.html")) + [ROOT / "gcrm/ui/templates/bookings.html"]
+    asked = set()
+    for path in sources:
+        asked |= set(re.findall(r'text\([^,]+,\s*"([a-z_]+\.[a-z_]+)"', path.read_text()))
+    for path in templates:
+        asked |= set(re.findall(r"bt\('([a-z_]+\.[a-z_]+)'", path.read_text()))
+    assert asked and all(has_text(key) for key in asked), sorted(key for key in asked if not has_text(key))
 
 
 def test_unknown_language_falls_back_to_german():
