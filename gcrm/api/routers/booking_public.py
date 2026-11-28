@@ -6,18 +6,16 @@ The confirm link shows a page with a button: mail scanners open links in emails,
 plain GET must never confirm anything.
 """
 import logging
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
+from gcrm.api.booking_guest_view import guest_language, render_guest_page, slot_view
 from gcrm.api.rate_limit import FixedWindowRateLimiter, client_key
-from gcrm.api.templates import templates
 from gcrm.booking import booking_service as service
-from gcrm.booking.availability import available_starts
 from gcrm.booking.booking_store import booking_for_manage_token, get_booking, purge_old_bookings
-from gcrm.booking.booking_texts import LANGUAGES, describe_time, text, weekday_name
+from gcrm.booking.booking_texts import describe_time
 from gcrm.booking.notifications import invite_ics
 from gcrm.booking.setup_store import CUSTOM_LENGTHS, booking_link_for_token, workspace_for_slug
 from gcrm.workspace_context import workspace_scope
@@ -28,15 +26,6 @@ router = APIRouter(prefix="/book", tags=["booking"])
 _page_limiter = FixedWindowRateLimiter(max_attempts=120, window_seconds=60.0)
 _write_limiter = FixedWindowRateLimiter(max_attempts=10, window_seconds=3600.0)
 _email_limiter = FixedWindowRateLimiter(max_attempts=5, window_seconds=3600.0)
-DAYS_PER_PAGE = 7
-
-
-def booking_language(request: Request) -> str:
-    chosen = request.query_params.get("lang") or request.session.get("ui_language")
-    if chosen in LANGUAGES:
-        return chosen
-    accepted = request.headers.get("accept-language", "").lower()
-    return "en" if accepted.startswith("en") else "de"
 
 
 def _limit(limiter: FixedWindowRateLimiter, key: str) -> None:
@@ -53,40 +42,16 @@ def _workspace(slug: str, request: Request) -> int:
 
 
 def _render(request: Request, template: str, page: service.BookingPage, language: str, **values) -> HTMLResponse:
-    def words(key: str, **extra) -> str:
-        return text(language, key, **extra)
-
-    context = {"request": request, "page": page, "lang": language, "bt": words, **values}
-    return templates.TemplateResponse(template, context, status_code=values.get("status_code", 200))
+    return render_guest_page(request, template, page, language, base_path=f"/book/{page.slug}", **values)
 
 
 def _link(page_token: str | None) -> dict | None:
     return booking_link_for_token(page_token) if page_token else None
 
 
-def _days_with_starts(starts: list[datetime], zone: ZoneInfo, first: date, language: str) -> list[dict]:
-    days = {first + timedelta(days=offset): [] for offset in range(DAYS_PER_PAGE)}
-    for start in starts:
-        local = start.astimezone(zone)
-        if local.date() in days:
-            days[local.date()].append({"value": start.isoformat(), "label": local.strftime("%H:%M")})
-    return [{"label": f"{weekday_name(language, day.weekday())}, {day.strftime('%d.%m.%Y')}", "starts": starts_of_day}
-            for day, starts_of_day in days.items() if starts_of_day]
-
-
-def _slot_view(page: service.BookingPage, booking_type: dict, week: int, minutes: int | None, language: str,
-               except_booking_id: int | None = None) -> dict:
-    now = service.utc_now()
-    starts = available_starts(booking_type, page.settings, now, minutes=minutes, except_booking_id=except_booking_id)
-    first = now.astimezone(page.zone).date() + timedelta(days=DAYS_PER_PAGE * week)
-    weeks = max(1, -(-page.settings["horizon_days"] // DAYS_PER_PAGE))
-    return {"calendar_unavailable": starts is None, "week": week, "weeks": weeks,
-            "days": _days_with_starts(starts or [], page.zone, first, language)}
-
-
 @router.get("/{slug}", response_class=HTMLResponse)
 def booking_start(request: Request, slug: str, link: str | None = None):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         personal = _link(link)
@@ -97,7 +62,7 @@ def booking_start(request: Request, slug: str, link: str | None = None):
 @router.get("/{slug}/{kind}", response_class=HTMLResponse)
 def booking_times(request: Request, slug: str, kind: str, link: str | None = None, week: int = 0,
                   minutes: int | None = None):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         personal = _link(link)
@@ -106,7 +71,7 @@ def booking_times(request: Request, slug: str, kind: str, link: str | None = Non
             raise HTTPException(status_code=404, detail="Not offered.")
         if kind == "custom" and minutes not in CUSTOM_LENGTHS:
             minutes = CUSTOM_LENGTHS[0]
-        view = _slot_view(page, booking_type, min(max(week, 0), 52), minutes if kind == "custom" else None, language)
+        view = slot_view(page, booking_type, min(max(week, 0), 52), minutes if kind == "custom" else None, language)
         return _render(request, "booking/times.html", page, language, booking_type=booking_type, minutes=minutes,
                        custom_lengths=CUSTOM_LENGTHS, link=link if personal else None, **view)
 
@@ -126,7 +91,7 @@ def booking_submit(request: Request, slug: str, kind: str, start: str = Form("")
                    guest_email: str = Form(""), company: str = Form(""), topic: str = Form(""),
                    visit_address: str = Form(""), phone: str = Form(""), minutes: int | None = Form(None),
                    link: str = Form(""), website: str = Form("")):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         if website:  # honeypot: people never see this field
@@ -149,14 +114,14 @@ def booking_submit(request: Request, slug: str, kind: str, start: str = Form("")
 
 @router.get("/{slug}/confirm/{token}", response_class=HTMLResponse)
 def confirm_page(request: Request, slug: str, token: str):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         return _render(request, "booking/confirm.html", service.load_page(slug), language, token=token)
 
 
 @router.post("/{slug}/confirm/{token}", response_class=HTMLResponse)
 def confirm_submit(request: Request, slug: str, token: str):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         booking = service.confirm(page, token)
@@ -174,7 +139,7 @@ def _managed_booking(token: str) -> dict:
 
 @router.get("/{slug}/manage/{token}", response_class=HTMLResponse)
 def manage_page(request: Request, slug: str, token: str, week: int = 0):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         booking = _managed_booking(token)
@@ -184,7 +149,7 @@ def manage_page(request: Request, slug: str, token: str, week: int = 0):
             booking_type = page.types.get(booking["kind"])
             minutes = int((booking["ends_at"] - booking["starts_at"]).total_seconds() // 60)
             if booking_type is not None:
-                view = _slot_view(page, booking_type, min(max(week, 0), 52), minutes, language,
+                view = slot_view(page, booking_type, min(max(week, 0), 52), minutes, language,
                                   except_booking_id=booking["id"])
         when = describe_time(language, booking["starts_at"], booking["ends_at"], page.zone)
         return _render(request, "booking/manage.html", page, language, booking=booking, token=token, when=when,
@@ -193,7 +158,7 @@ def manage_page(request: Request, slug: str, token: str, week: int = 0):
 
 @router.post("/{slug}/manage/{token}/cancel", response_class=HTMLResponse)
 def manage_cancel(request: Request, slug: str, token: str):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         try:
@@ -206,7 +171,7 @@ def manage_cancel(request: Request, slug: str, token: str):
 
 @router.post("/{slug}/manage/{token}/move", response_class=HTMLResponse)
 def manage_move(request: Request, slug: str, token: str, start: str = Form("")):
-    language = booking_language(request)
+    language = guest_language(request)
     with workspace_scope(_workspace(slug, request)):
         page = service.load_page(slug)
         _limit(_write_limiter, client_key(request))

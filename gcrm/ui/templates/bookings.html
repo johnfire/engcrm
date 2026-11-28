@@ -12,6 +12,11 @@
   .booking-admin .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .75rem 1rem; }
   .booking-admin label { display: grid; gap: .2rem; }
   .booking-admin .inline { display: flex; align-items: center; gap: .4rem; }
+  .booking-admin .days { display: flex; gap: .7rem; }
+  .booking-admin .days label { display: inline-flex; align-items: center; gap: .2rem; white-space: nowrap; }
+  .booking-admin input[type=checkbox] { width: auto; margin: 0; }
+  .booking-admin #types input[type=number] { width: 5.5rem; }
+  .booking-admin #types td { vertical-align: middle; }
   .booking-admin .notice { padding: .6rem .8rem; border: 1px solid var(--hairline-strong); border-radius: 6px; background: var(--surface-raised); color: var(--text); }
   .booking-admin .bad { color: var(--danger); }
   .booking-admin .pill { font-size: .8rem; padding: .1rem .45rem; border-radius: 999px; background: var(--accent-wash); color: var(--accent-bright); }
@@ -21,6 +26,7 @@
 {% if msg %}<p class="notice" role="status">{{ bt('adm.saved') }}</p>{% endif %}
 {% if error_text %}<p class="notice bad" role="alert">{{ bt('adm.error', error=error_text) }}</p>{% endif %}
 <p class="notice">{% if page.settings.is_enabled %}{{ bt('adm.page_on', url='') }}<a href="{{ public_url }}" target="_blank" rel="noopener">{{ public_url }}</a>{% else %}{{ bt('adm.page_off') }}{% endif %}
+  <br><a href="/bookings/preview" target="_blank" rel="noopener">{{ bt('adm.preview') }}</a>
   {% if not page.settings.feed_url %}<br>{{ bt('adm.no_feed') }}{% endif %}</p>
 
 <section id="list">
@@ -116,7 +122,7 @@
         <td>{{ bt('kind.' ~ kind) }}</td>
         <td><input type="number" name="{{ kind }}_minutes" value="{{ row.minutes }}" min="5" max="480" aria-label="{{ bt('adm.minutes') }}"></td>
         <td><input type="number" name="{{ kind }}_travel" value="{{ row.travel_minutes }}" min="0" max="480" aria-label="{{ bt('adm.travel') }}"></td>
-        <td>{% for day in range(7) %}<label class="inline"><input type="checkbox" name="{{ kind }}_weekdays" value="{{ day }}"{% if row.weekdays and day in row.weekdays %} checked{% endif %}>{{ bt('weekdayShort.' ~ day) }}</label>{% endfor %}</td>
+        <td><div class="days">{% for day in range(7) %}<label><input type="checkbox" name="{{ kind }}_weekdays" value="{{ day }}"{% if row.weekdays and day in row.weekdays %} checked{% endif %}>{{ bt('weekdayShort.' ~ day) }}</label>{% endfor %}</div></td>
         <td><input type="checkbox" name="{{ kind }}_active"{% if row.is_active %} checked{% endif %} aria-label="{{ bt('adm.active') }}"></td>
       </tr>
       {% endfor %}

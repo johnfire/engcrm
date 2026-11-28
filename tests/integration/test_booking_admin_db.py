@@ -180,3 +180,36 @@ def test_page_renders_on_a_fresh_database_without_a_workspace_in_the_session(cle
         cursor = connection.cursor()
         cursor.execute("SELECT s.workspace_id, w.slug FROM booking_settings s JOIN workspaces w ON w.id = s.workspace_id")
         assert [row["slug"] for row in cursor.fetchall()] == ["default"]
+
+
+def test_owner_previews_the_guest_page_while_the_public_page_is_off(signed_in):
+    client, _ = signed_in
+    post(client, "/bookings/settings", SETTINGS)
+    assert client.get("/book/chris").status_code == 404
+    assert 'href="/bookings/preview"' in client.get("/bookings/?lang=en").text
+    start = client.get("/bookings/preview?lang=en")
+    assert start.status_code == 200
+    assert "Preview: this is the page your guests see" in start.text
+    assert 'href="/bookings/preview/video?lang=en"' in start.text and 'href="/book/' not in start.text
+    times = client.get("/bookings/preview/video?lang=en")
+    assert times.status_code == 200
+    assert 'name="start"' in times.text, "the preview shows the real free times"
+    assert '<button type="submit" disabled>' in times.text
+    assert client.post("/bookings/preview/video", data={}).status_code == 405
+
+
+def test_preview_of_a_switched_off_type_is_not_found(signed_in):
+    client, _ = signed_in
+    post(client, "/bookings/types", {"call_minutes": "15", "call_travel": "0", "video_minutes": "45",
+                                     "video_travel": "0", "visit_minutes": "60", "visit_travel": "60",
+                                     "custom_minutes": "30", "custom_travel": "0", "video_active": "on"})
+    assert client.get("/bookings/preview/call").status_code == 404
+    assert client.get("/bookings/preview/video").status_code == 200
+
+
+def test_each_types_weekdays_sit_together_in_one_row(signed_in):
+    client, _ = signed_in
+    page = client.get("/bookings/?lang=en").text
+    rows = re.findall(r'<div class="days">(.*?)</div>', page, re.S)
+    assert len(rows) == 4
+    assert all(row.count('type="checkbox"') == 7 for row in rows)

@@ -43,6 +43,8 @@
       button.secondary { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
       .weeks { display: flex; justify-content: space-between; margin: 12px 0; }
       .problem { border-left: 4px solid var(--bad); }
+      .preview { border-left: 4px solid var(--accent); background: var(--soft); }
+      button:disabled { opacity: .5; cursor: not-allowed; }
       .trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
     </style>
   </head>
@@ -55,6 +57,7 @@
         </div>
         <a href="?{% if link %}link={{ link }}&amp;{% endif %}lang={{ 'en' if lang == 'de' else 'de' }}">{{ bt('page.language') }}</a>
       </header>
+      {% if preview %}<p class="card preview" role="status">{{ bt('preview.banner') }} <a href="/bookings/">{{ bt('preview.back') }}</a></p>{% endif %}
       {% block content %}{% endblock %}
     </main>
     <script nonce="{{ csp_nonce }}">

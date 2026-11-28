@@ -1,10 +1,10 @@
 {% extends "booking/layout.html" %}
 {% block content %}
-{% set base = '/book/' ~ page.slug ~ '/' ~ booking_type.kind ~ '?lang=' ~ lang ~ ('&link=' ~ link if link else '') %}
-<p><a href="/book/{{ page.slug }}?lang={{ lang }}{% if link %}&amp;link={{ link }}{% endif %}">← {{ bt('page.back') }}</a></p>
+{% set base = base_path ~ '/' ~ booking_type.kind ~ '?lang=' ~ lang ~ ('&link=' ~ link if link else '') %}
+<p><a href="{{ base_path }}?lang={{ lang }}{% if link %}&amp;link={{ link }}{% endif %}">← {{ bt('page.back') }}</a></p>
 <h2>{{ bt('kind.' ~ booking_type.kind) }}</h2>
 {% if booking_type.kind == 'custom' %}
-<form method="get" action="/book/{{ page.slug }}/custom" class="card">
+<form method="get" action="{{ base_path }}/custom" class="card">
   <input type="hidden" name="lang" value="{{ lang }}">{% if link %}<input type="hidden" name="link" value="{{ link }}">{% endif %}
   <label>{{ bt('page.length') }}
     <select name="minutes">{% for length in custom_lengths %}<option value="{{ length }}"{% if length == minutes %} selected{% endif %}>{{ bt('page.minutes', minutes=length) }}</option>{% endfor %}</select>
@@ -22,7 +22,7 @@
 {% if not days %}
 <p class="card">{{ bt('page.no_times') }}</p>
 {% else %}
-<form method="post" action="/book/{{ page.slug }}/{{ booking_type.kind }}?lang={{ lang }}">
+<form method="post" action="{{ base_path }}/{{ booking_type.kind }}?lang={{ lang }}">
   {% if link %}<input type="hidden" name="link" value="{{ link }}">{% endif %}
   {% if minutes %}<input type="hidden" name="minutes" value="{{ minutes }}">{% endif %}
   <fieldset>
@@ -45,7 +45,8 @@
     <label>{{ bt('form.topic') }}<textarea name="topic" maxlength="2000" rows="3"{% if booking_type.kind == 'custom' %} required{% endif %}></textarea></label>
     <div class="trap" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
     <p class="muted"><a href="/privacy#booking">{{ bt('form.privacy') }}</a></p>
-    <button type="submit">{{ bt('form.submit_request') if booking_type.needs_approval else bt('form.submit') }}</button>
+    <button type="submit"{% if preview %} disabled{% endif %}>{{ bt('form.submit_request') if booking_type.needs_approval else bt('form.submit') }}</button>
+    {% if preview %}<p class="muted">{{ bt('preview.no_booking') }}</p>{% endif %}
   </div>
 </form>
 {% endif %}

@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from gcrm.api.auth import require_login
+from gcrm.api.booking_guest_view import PREVIEW_PATH, guest_language, render_guest_page, slot_view
 from gcrm.api.templates import templates
 from gcrm.booking import booking_service as service
 from gcrm.booking import crm_link, notifications
@@ -20,6 +21,7 @@ from gcrm.booking.booking_store import get_booking, list_bookings, purge_old_boo
 from gcrm.booking.booking_texts import LANGUAGES, has_text, text
 from gcrm.booking.hours_text import format_day_hours, parse_day_hours
 from gcrm.booking.setup_store import (
+    CUSTOM_LENGTHS,
     add_booking_block,
     create_booking_link,
     delete_booking_block,
@@ -93,6 +95,29 @@ def bookings_page(request: Request, msg: str = "", error: str = ""):
         "blocks": list_upcoming_blocks(now), "links": list_booking_links(), "now": now, "msg": msg,
         "public_url": f"{APP_PUBLIC_URL}/book/{page.slug}" if page.slug else "", "base_url": APP_PUBLIC_URL,
         "lang": language, "bt": lambda key, **values: text(language, key, **values)})
+
+
+@router.get("/preview", response_class=HTMLResponse)
+def preview_start(request: Request):
+    """The guest's first page as a guest sees it, even while the public page is off."""
+    page = _page()
+    return render_guest_page(request, "booking/start.html", page, guest_language(request), base_path=PREVIEW_PATH,
+                             preview=True, types=service.offered_types(page, None), link=None)
+
+
+@router.get("/preview/{kind}", response_class=HTMLResponse)
+def preview_times(request: Request, kind: str, week: int = 0, minutes: int | None = None):
+    """Real free times from the real calendar; the book button is off."""
+    page, language = _page(), guest_language(request)
+    booking_type = page.types.get(kind)
+    if booking_type is None:
+        raise HTTPException(status_code=404, detail="Not offered.")
+    if kind == "custom" and minutes not in CUSTOM_LENGTHS:
+        minutes = CUSTOM_LENGTHS[0]
+    view = slot_view(page, booking_type, min(max(week, 0), 52), minutes if kind == "custom" else None, language)
+    return render_guest_page(request, "booking/times.html", page, language, base_path=PREVIEW_PATH, preview=True,
+                             booking_type=booking_type, minutes=minutes, custom_lengths=CUSTOM_LENGTHS, link=None,
+                             **view)
 
 
 def _settings_from_form(form) -> dict:
