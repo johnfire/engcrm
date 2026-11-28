@@ -72,9 +72,15 @@ Slots start every 15 minutes. The feed is cached for 5 minutes. Repeating events
 **Fails closed:** if the feed cannot be read and the last good copy is older than 1 hour, the page
 offers no times and says "please email". The rest of engcrm is unaffected.
 
-**No double-booking:** active bookings (held, requested, confirmed) carry a Postgres exclusion
-constraint on their time range (including buffers). Two people clicking the same slot: one gets
-"just taken, pick another time".
+**No double-booking:** every write that claims time locks the workspace's `booking_settings` row,
+checks for overlap with live bookings, then writes (one writer per workspace). Two people
+clicking the same slot: one gets "just taken, pick another time". An exclusion constraint was
+considered and dropped: a hold expires by time, which a constraint cannot see, and it would have
+needed the `btree_gist` extension.
+
+**Public lookup:** before any workspace is known, the pre-login database role may read only
+`workspace_id`, `public_slug` and `is_enabled` of enabled pages. Everything after that runs inside
+the page's workspace scope under normal row security.
 
 ## Section 2 — Flows, mail and invites
 
