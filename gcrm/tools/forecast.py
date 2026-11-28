@@ -5,7 +5,7 @@ Each sale row (a one-off, or one payment of a contract) sits in the month of its
 money is left out. Money with no due day is reported apart as "undated" instead of vanishing.
 
   collected   received      contracted  a written contract exists   booked    agreed
-  expected    a hope        subtotal = collected + contracted + booked + expected (the sales)
+  expected    an estimate   subtotal = collected + contracted + booked + expected (the sales)
   other income = confirmed income from the plan that covers the period (counts toward the target)
   projected = cash from the new sales the owner expects to book (an assumption, from the plan)
   total (the grand total) = subtotal + projected + other income
