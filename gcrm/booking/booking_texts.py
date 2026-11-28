@@ -43,7 +43,15 @@ TEXTS = {
                           "Gern können Sie einen anderen Zeitpunkt wählen.\n\n{host}"),
         "place.video": "Link zum Gespräch: {room}",
         "place.visit": "Ort: {address}",
-        "place.call": "Ich rufe Sie unter der angegebenen Nummer an oder Sie erreichen mich wie vereinbart.",
+        "place.call": "Ich rufe Sie an unter: {phone}",
+        "subject.host": "Buchung ({event}): {kind}, {day} – {guest}",
+        "body.host": ("{event}: {kind}\n{when}\n{place}\n\n{guest} <{email}>\nFirma: {company}\nThema: {topic}\n\n"
+                      "In engcrm: {admin}"),
+        "event.held": "wartet auf Bestätigung",
+        "event.requested": "Anfrage",
+        "event.invite": "neu",
+        "event.moved": "verschoben",
+        "event.cancelled": "abgesagt",
     },
     "en": {
         "kind.call": "Phone call (15 min)",
@@ -74,7 +82,15 @@ TEXTS = {
                           "You are welcome to pick another time.\n\n{host}"),
         "place.video": "Meeting link: {room}",
         "place.visit": "Place: {address}",
-        "place.call": "I will call you, or reach me as agreed.",
+        "place.call": "I will call you on: {phone}",
+        "subject.host": "Booking ({event}): {kind}, {day} – {guest}",
+        "body.host": ("{event}: {kind}\n{when}\n{place}\n\n{guest} <{email}>\nCompany: {company}\nTopic: {topic}\n\n"
+                      "In engcrm: {admin}"),
+        "event.held": "waiting for confirmation",
+        "event.requested": "request",
+        "event.invite": "new",
+        "event.moved": "moved",
+        "event.cancelled": "cancelled",
     },
 }
 

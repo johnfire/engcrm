@@ -9,8 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+from gcrm.api.security import decrypt_private, encrypt_private
 from gcrm.booking.setup_store import hash_token, new_token
 from gcrm.booking.slots import TimeSpan, calendar_busy_span
+from gcrm.config import ACCOUNT_ENCRYPTION_KEY
 from gcrm.db.connection import db
 
 HOLD_FOR = timedelta(minutes=30)
@@ -35,6 +37,7 @@ class NewBooking:
     company: str = ""
     topic: str = ""
     visit_address: str = ""
+    phone: str = ""
     language: str = "de"
     link_id: int | None = None
     contact_id: int | None = None
@@ -49,12 +52,14 @@ class CreatedBooking:
     confirm_token: str | None
 
 
-def taken_spans(window: TimeSpan, gap_minutes: int) -> list[TimeSpan]:
-    """Time already spoken for in `window`: live bookings (occupied span) and manual blocks."""
+def taken_spans(window: TimeSpan, gap_minutes: int, except_booking_id: int | None = None) -> list[TimeSpan]:
+    """Time already spoken for in `window`: live bookings (occupied span) and manual blocks.
+    A booking being moved leaves itself out."""
     with db() as connection:
         cursor = connection.cursor()
         cursor.execute(f"SELECT occupied_from, occupied_until FROM bookings WHERE {_TAKES_TIME} "
-                       "AND occupied_until > %s AND occupied_from < %s", (window.start, window.end))
+                       "AND occupied_until > %s AND occupied_from < %s AND id IS DISTINCT FROM %s",
+                       (window.start, window.end, except_booking_id))
         booked = [TimeSpan(row["occupied_from"], row["occupied_until"]) for row in cursor.fetchall()]
         cursor.execute("SELECT starts_at, ends_at FROM booking_blocks WHERE ends_at > %s AND starts_at < %s",
                        (window.start, window.end))
@@ -79,14 +84,15 @@ def create_booking(new: NewBooking) -> CreatedBooking:
         _claim_time(cursor, new.occupied)
         cursor.execute(
             """INSERT INTO bookings (booking_type_id, link_id, status, starts_at, ends_at, occupied_from, occupied_until,
-                   hold_expires_at, guest_name, guest_email, company, topic, visit_address, language, ics_uid,
-                   confirm_token_hash, manage_token_hash, contact_id, person_id, deal_id)
+                   hold_expires_at, guest_name, guest_email, company, topic, visit_address, phone, language, ics_uid,
+                   confirm_token_hash, manage_token_hash, manage_token_encrypted, contact_id, person_id, deal_id)
                VALUES (%s,%s,%s,%s,%s,%s,%s, CASE WHEN %s='held' THEN NOW() + %s END,
-                       %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+                       %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
             (new.booking_type_id, new.link_id, new.status, new.starts_at, new.ends_at, new.occupied.start,
              new.occupied.end, new.status, HOLD_FOR, new.guest_name.strip(), new.guest_email.strip().lower(),
-             new.company.strip(), new.topic.strip(), new.visit_address.strip(), new.language,
-             f"{uuid4()}@engcrm-booking", confirm_hash, manage_hash, new.contact_id, new.person_id, new.deal_id))
+             new.company.strip(), new.topic.strip(), new.visit_address.strip(), new.phone.strip(), new.language,
+             f"{uuid4()}@engcrm-booking", confirm_hash, manage_hash,
+             encrypt_private(manage_token, ACCOUNT_ENCRYPTION_KEY), new.contact_id, new.person_id, new.deal_id))
         booking_id = cursor.fetchone()["id"]
     return CreatedBooking(booking_id, manage_token, confirm_token)
 
@@ -113,6 +119,10 @@ def confirm_hold(confirm_token: str) -> tuple[dict | None, bool]:
         cursor.execute("SELECT * FROM bookings WHERE confirm_token_hash=%s", (token_hash,))
         existing = cursor.fetchone()
     return (dict(existing) if existing else None), False
+
+
+def manage_token_of(booking: dict) -> str:
+    return decrypt_private(booking["manage_token_encrypted"], ACCOUNT_ENCRYPTION_KEY)
 
 
 def booking_for_manage_token(manage_token: str) -> dict | None:
@@ -200,6 +210,23 @@ def set_booking_link(booking_id: int, *, contact_id: int | None, person_id: int 
         connection.cursor().execute(
             "UPDATE bookings SET contact_id=%s, person_id=%s, deal_id=%s, follow_up_id=%s, updated_at=NOW() "
             "WHERE id=%s", (contact_id, person_id, deal_id, follow_up_id, booking_id))
+
+
+def claim_activity_log(booking_id: int) -> bool:
+    """True exactly once per booking, so "it took place" never logs the meeting twice."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE bookings SET activity_logged_at=NOW() WHERE id=%s AND activity_logged_at IS NULL "
+                       "AND status='confirmed' RETURNING id", (booking_id,))
+        return cursor.fetchone() is not None
+
+
+def deal_owner(deal_id: int) -> dict | None:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT contact_id, person_id FROM deals WHERE id=%s AND deleted_at IS NULL", (deal_id,))
+        row = cursor.fetchone()
+    return dict(row) if row else None
 
 
 def purge_old_bookings(now: datetime) -> int:
