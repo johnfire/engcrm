@@ -20,10 +20,14 @@ from gcrm.booking.booking_store import (
 )
 from gcrm.booking.setup_store import (
     add_booking_block,
+    add_booking_feed,
+    delete_booking_feed,
     ensure_booking_defaults,
     get_booking_settings,
+    list_booking_feeds,
     list_booking_hours,
     list_booking_types,
+    relabel_booking_feed,
     update_booking_settings,
     workspace_for_slug,
 )
@@ -79,13 +83,27 @@ def test_defaults_are_created_once(workspace):
     assert get_booking_settings()["is_enabled"] is False
 
 
-def test_feed_url_is_stored_encrypted_and_read_back(workspace):
-    update_booking_settings({"feed_url": "https://calendar.example/api/feed.ics?Key=secret"})
+def test_feed_links_are_stored_encrypted_and_listed_in_order(workspace):
+    first = add_booking_feed("Business", "https://calendar.example/api/feed.ics?Key=secret")
+    add_booking_feed("  Art   events ", "https://calendar.example/api/art.ics?Key=other")
     with db() as connection:
         cursor = connection.cursor()
-        cursor.execute("SELECT feed_url_encrypted FROM booking_settings")
-        assert "secret" not in cursor.fetchone()["feed_url_encrypted"]
-    assert get_booking_settings()["feed_url"] == "https://calendar.example/api/feed.ics?Key=secret"
+        cursor.execute("SELECT url_encrypted FROM booking_feeds")
+        assert not any("secret" in row["url_encrypted"] or "other" in row["url_encrypted"] for row in cursor.fetchall())
+    assert [feed["label"] for feed in list_booking_feeds()] == ["Business", "Art events"]
+    assert get_booking_settings()["feed_urls"] == ["https://calendar.example/api/feed.ics?Key=secret",
+                                                   "https://calendar.example/api/art.ics?Key=other"]
+    assert relabel_booking_feed(first, "Engagements") is True
+    assert delete_booking_feed(first) is True and delete_booking_feed(first) is False
+    assert [feed["label"] for feed in list_booking_feeds()] == ["Art events"]
+
+
+@pytest.mark.parametrize("label,url", [("", "https://calendar.example/f"), ("x" * 61, "https://calendar.example/f"),
+                                       ("Business", "http://calendar.example/f"), ("Business", "")])
+def test_a_feed_needs_a_name_and_an_https_link(workspace, label, url):
+    with pytest.raises(ValueError):
+        add_booking_feed(label, url)
+    assert list_booking_feeds() == []
 
 
 def lookup_as_runtime_role(sql: str, params=()):
@@ -98,7 +116,7 @@ def lookup_as_runtime_role(sql: str, params=()):
 
 
 def test_public_slug_finds_only_an_enabled_page(workspace):
-    update_booking_settings({"public_slug": "chris", "feed_url": "https://calendar.example/feed.ics"})
+    update_booking_settings({"public_slug": "chris"})
     query = "SELECT workspace_id FROM booking_settings WHERE public_slug=%s AND is_enabled"
     assert lookup_as_runtime_role(query, ("chris",)) == []
     update_booking_settings({"is_enabled": True})
@@ -107,9 +125,10 @@ def test_public_slug_finds_only_an_enabled_page(workspace):
 
 
 def test_runtime_role_cannot_read_the_feed_secret(workspace):
-    update_booking_settings({"public_slug": "chris", "is_enabled": True, "feed_url": "https://calendar.example/f"})
+    update_booking_settings({"public_slug": "chris", "is_enabled": True})
+    add_booking_feed("Business", "https://calendar.example/f")
     with pytest.raises(psycopg2.errors.InsufficientPrivilege):
-        lookup_as_runtime_role("SELECT feed_url_encrypted FROM booking_settings")
+        lookup_as_runtime_role("SELECT url_encrypted FROM booking_feeds")
     with pytest.raises(psycopg2.errors.InsufficientPrivilege):
         lookup_as_runtime_role("SELECT guest_email FROM bookings")
 

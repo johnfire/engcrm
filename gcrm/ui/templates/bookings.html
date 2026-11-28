@@ -27,7 +27,7 @@
 {% if error_text %}<p class="notice bad" role="alert">{{ bt('adm.error', error=error_text) }}</p>{% endif %}
 <p class="notice">{% if page.settings.is_enabled %}{{ bt('adm.page_on', url='') }}<a href="{{ public_url }}" target="_blank" rel="noopener">{{ public_url }}</a>{% else %}{{ bt('adm.page_off') }}{% endif %}
   <br><a href="/bookings/preview" target="_blank" rel="noopener">{{ bt('adm.preview') }}</a>
-  {% if not page.settings.feed_url %}<br>{{ bt('adm.no_feed') }}{% endif %}</p>
+  {% if not page.settings.feed_urls %}<br>{{ bt('adm.no_feed') }}{% endif %}</p>
 
 <section id="list">
   <h2>{{ bt('adm.upcoming') }}</h2>
@@ -142,6 +142,34 @@
   {% endfor %}
 </section>
 
+<section id="feeds">
+  <h2>{{ bt('adm.feeds') }}</h2>
+  <p>{{ bt('adm.feeds_help') }}</p>
+  {% if feeds %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ bt('adm.feed_label') }}</th><th>{{ bt('adm.feed_host') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for feed in feeds %}
+    <tr>
+      <td><form method="post" action="/bookings/feeds/{{ feed.id }}/label" class="inline">
+        <input type="text" name="label" value="{{ feed.label }}" maxlength="60" required aria-label="{{ bt('adm.feed_label') }}">
+        <button type="submit">{{ bt('adm.feed_rename') }}</button></form></td>
+      <td>{% if feed.host %}<code>{{ feed.host }}</code>{% else %}<span class="bad">{{ bt('adm.feed_unreadable') }}</span>{% endif %}</td>
+      <td><form method="post" action="/bookings/feeds/{{ feed.id }}/delete"><button type="submit">{{ bt('adm.remove') }}</button></form></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  <form method="post" action="/bookings/feeds" class="grid">
+    <label>{{ bt('adm.feed_label') }}<input type="text" name="label" maxlength="60" required placeholder="{{ bt('adm.feed_label_example') }}"></label>
+    <label>{{ bt('adm.feed_link') }}<input type="url" name="url" required placeholder="https://calendar.proton.me/…" autocomplete="off"></label>
+    <div><button type="submit">{{ bt('adm.feed_add') }}</button></div>
+  </form>
+</section>
+
 <section id="settings">
   <h2>{{ bt('adm.settings') }}</h2>
   <form method="post" action="/bookings/settings" class="grid">
@@ -151,8 +179,6 @@
     <label>{{ bt('adm.organizer_name') }}<input type="text" name="organizer_name" value="{{ page.settings.organizer_name }}"></label>
     <label>{{ bt('adm.host_email') }}<input type="email" name="host_email" value="{{ page.settings.host_email }}"></label>
     <label>{{ bt('adm.room_link') }}<input type="url" name="room_link" value="{{ page.settings.room_link }}" placeholder="https://"></label>
-    <label>{{ bt('adm.feed_url') }}<input type="url" name="feed_url" value="" placeholder="{{ bt('adm.feed_set') if page.settings.feed_url else 'https://calendar.proton.me/…' }}" autocomplete="off"></label>
-    {% if page.settings.feed_url %}<label class="inline"><input type="checkbox" name="feed_clear">{{ bt('adm.feed_clear') }}</label>{% endif %}
     <label>{{ bt('adm.notice') }}<input type="number" name="min_notice_hours" value="{{ page.settings.min_notice_hours }}" min="0" max="720"></label>
     <label>{{ bt('adm.horizon') }}<input type="number" name="horizon_days" value="{{ page.settings.horizon_days }}" min="1" max="365"></label>
     <label>{{ bt('adm.gap') }}<input type="number" name="gap_minutes" value="{{ page.settings.gap_minutes }}" min="0" max="240"></label>

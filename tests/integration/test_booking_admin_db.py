@@ -10,6 +10,7 @@ from gcrm.api.auth import require_login
 from gcrm.api.main import app
 from gcrm.booking import booking_service as service
 from gcrm.booking.booking_store import get_booking
+from gcrm.booking.setup_store import list_booking_feeds
 from gcrm.db.connection import db
 from gcrm.workspace_context import workspace_scope
 
@@ -64,15 +65,30 @@ def test_switching_on_needs_sender_and_calendar_address(signed_in):
     client, workspace_id = signed_in
     refused = post(client, "/bookings/settings", {**SETTINGS, "organizer_email": "", "is_enabled": "on"})
     assert "error=" in refused.headers["location"]
-    saved = post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on",
-                                                "feed_url": "https://calendar.example/feed.ics"})
+    saved = post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on"})
     assert "msg=saved" in saved.headers["location"]
     with workspace_scope(workspace_id):
-        settings = service.load_page("chris").settings
-    assert settings["is_enabled"] is True and settings["feed_url"] == "https://calendar.example/feed.ics"
-    post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on"})  # empty feed field keeps the link
+        assert service.load_page("chris").settings["is_enabled"] is True
+
+
+def test_calendar_links_are_added_renamed_and_removed(signed_in):
+    client, workspace_id = signed_in
+    business = "https://calendar.example/api/business.ics?Key=business-secret"
+    assert "msg=saved" in post(client, "/bookings/feeds", {"label": "Business", "url": business}).headers["location"]
+    post(client, "/bookings/feeds", {"label": "Art events", "url": "https://calendar.example/api/art.ics?Key=art"})
+    assert "error=" in post(client, "/bookings/feeds", {"label": "Plain", "url": "http://x.example/f"}).headers["location"]
+    assert "error=" in post(client, "/bookings/feeds", {"label": " ", "url": business}).headers["location"]
     with workspace_scope(workspace_id):
-        assert service.load_page("chris").settings["feed_url"] == "https://calendar.example/feed.ics"
+        feeds = list_booking_feeds()
+        assert service.load_page("chris").settings["feed_urls"] == [business, feeds[1]["url"]]
+    page = client.get("/bookings/?lang=en").text
+    assert "Business" in page and "Art events" in page and "calendar.example" in page
+    assert "business-secret" not in page, "the link holds the calendar's key and never goes back to the browser"
+    post(client, f"/bookings/feeds/{feeds[0]['id']}/label", {"label": "Engagements"})
+    post(client, f"/bookings/feeds/{feeds[1]['id']}/delete", {})
+    with workspace_scope(workspace_id):
+        assert [(feed["label"], feed["url"]) for feed in list_booking_feeds()] == [("Engagements", business)]
+    assert post(client, f"/bookings/feeds/{feeds[1]['id']}/delete", {}).status_code == 404
 
 
 def test_open_hours_are_saved_as_typed_or_refused(signed_in):
@@ -213,3 +229,18 @@ def test_each_types_weekdays_sit_together_in_one_row(signed_in):
     rows = re.findall(r'<div class="days">(.*?)</div>', page, re.S)
     assert len(rows) == 4
     assert all(row.count('type="checkbox"') == 7 for row in rows)
+
+
+def test_a_link_that_no_longer_decrypts_shows_up_for_removal_and_closes_the_page(signed_in):
+    client, workspace_id = signed_in
+    post(client, "/bookings/settings", SETTINGS)
+    with workspace_scope(workspace_id), db() as connection:
+        connection.cursor().execute("INSERT INTO booking_feeds (label, url_encrypted) VALUES ('Old key', 'not-a-token')")
+    page = client.get("/bookings/?lang=en")
+    assert page.status_code == 200 and "Old key" in page.text and "cannot be read" in page.text
+    times = client.get("/bookings/preview/video?lang=en")
+    assert times.status_code == 200 and 'name="start"' not in times.text, "an unreadable calendar offers no times"
+    with workspace_scope(workspace_id):
+        feed_id = list_booking_feeds()[0]["id"]
+    post(client, f"/bookings/feeds/{feed_id}/delete", {})
+    assert 'name="start"' in client.get("/bookings/preview/video?lang=en").text

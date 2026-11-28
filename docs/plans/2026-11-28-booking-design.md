@@ -19,7 +19,7 @@ booking is made, changed and tied to the organization, person or deal it belongs
 | Topic | Decision |
 | --- | --- |
 | Who books | Both: a public page for anyone, and personal links that already know the organization, person or deal. |
-| Busy times | engcrm reads Chris's Proton calendar through a "Share with anyone → Limited view" link (busy only, no details; paid Proton plan, which Chris has). |
+| Busy times | engcrm reads Chris's Proton calendars through "Share with anyone → Limited view" links (busy only, no details; paid Proton plan, which Chris has). Proton makes one link per calendar, so there is a list: each calendar whose events should block booking time gets its own labelled link *(added 2026-11-28)*. |
 | Confirmation | Personal links book instantly. The public page holds the slot for 30 minutes and sends a "confirm your booking" link; invites go out only after the click. |
 | Types | 15-min call, 45-min video meeting, 60-min on-site visit, and Custom. |
 | Custom | The booker picks 30/60/90/120 min and must say what it is about. It is a request: the slot is held, and invites go out only after Chris approves. |
@@ -50,10 +50,11 @@ public router calls booking functions only; it never reads or writes organizatio
 
 **Tables** (all carry `workspace_id`):
 
-- `booking_settings` — enabled switch (**off by default**), public slug (`/book/<slug>`), Proton
-  feed URL (secret), organizer alias, Chris's attendee address, minimum notice 24 h *(default)*,
+- `booking_settings` — enabled switch (**off by default**), public slug (`/book/<slug>`), organizer alias, Chris's attendee address, minimum notice 24 h *(default)*,
   horizon 6 weeks *(default)*, gap between meetings 15 min *(default)*, video room link, cancel
   cut-off 12 h *(default)*.
+- `booking_feeds` — one row per Proton busy-time link: a label ("Business", "Art events") and the
+  link, encrypted (it carries the calendar's key; migration 116 moved the old single link here).
 - `booking_types` — name, minutes, kind (`phone`, `video`, `visit`, `custom`), travel buffer,
   allowed weekdays, needs approval.
 - `availability_rules` — weekly open hours. Start: Mon–Fri 09:30–12:00 and 13:30–16:30
@@ -69,8 +70,11 @@ the gap (and by the travel buffer for visits), then limited by minimum notice an
 Slots start every 15 minutes. The feed is cached for 5 minutes. Repeating events in the feed
 (`RRULE`) are expanded with the `icalendar` and `recurring-ical-events` libraries.
 
-**Fails closed:** if the feed cannot be read and the last good copy is older than 1 hour, the page
-offers no times and says "please email". The rest of engcrm is unaffected.
+**Fails closed:** if any linked calendar cannot be read and its last good copy is older than 1 hour,
+the page offers no times and says "please email": a calendar left out could hold the very hour a
+guest would book. The links are fetched side by side, so ten slow calendars cost one timeout, not ten.
+A stored link that no longer decrypts counts as unreadable and is shown on the Bookings page for
+removal. The rest of engcrm is unaffected.
 
 **No double-booking:** every write that claims time locks the workspace's `booking_settings` row,
 checks for overlap with live bookings, then writes (one writer per workspace). Two people

@@ -7,7 +7,7 @@ error and leaves everything else as it was.
 import logging
 import re
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -23,14 +23,18 @@ from gcrm.booking.hours_text import format_day_hours, parse_day_hours
 from gcrm.booking.setup_store import (
     CUSTOM_LENGTHS,
     add_booking_block,
+    add_booking_feed,
     create_booking_link,
     delete_booking_block,
+    delete_booking_feed,
     ensure_booking_defaults,
     get_booking_settings,
+    list_booking_feeds,
     list_booking_hours,
     list_booking_links,
     list_booking_types,
     list_upcoming_blocks,
+    relabel_booking_feed,
     replace_booking_hours,
     retire_booking_link,
     update_booking_settings,
@@ -78,6 +82,14 @@ def _error_text(language: str, error: str) -> str:
     return text(language, f"error.{error}") if has_text(f"error.{error}") else error
 
 
+def _feed_rows() -> list[dict]:
+    """Links for the page: label and host only. The full link holds the calendar's key, so it is
+    never sent back to the browser."""
+    return [{"id": feed["id"], "label": feed["label"],
+             "host": (urlsplit(feed["url"]).hostname or "?") if feed["url"] else None}
+            for feed in list_booking_feeds()]
+
+
 @router.get("/", response_class=HTMLResponse)
 def bookings_page(request: Request, msg: str = "", error: str = ""):
     language = _language(request)
@@ -92,7 +104,7 @@ def bookings_page(request: Request, msg: str = "", error: str = ""):
     return templates.TemplateResponse("bookings.html", {
         "request": request, "page": page, "bookings": bookings, "suggestions": suggestions, "hours": hours,
         "all_types": {row["kind"]: row for row in list_booking_types()}, "error_text": _error_text(language, error),
-        "blocks": list_upcoming_blocks(now), "links": list_booking_links(), "now": now, "msg": msg,
+        "blocks": list_upcoming_blocks(now), "links": list_booking_links(), "feeds": _feed_rows(), "now": now, "msg": msg,
         "public_url": f"{APP_PUBLIC_URL}/book/{page.slug}" if page.slug else "", "base_url": APP_PUBLIC_URL,
         "lang": language, "bt": lambda key, **values: text(language, key, **values)})
 
@@ -127,16 +139,14 @@ def _settings_from_form(form) -> dict:
     for field in ("organizer_email", "host_email"):
         if not EMAIL_OR_EMPTY.fullmatch(form.get(field, "").strip()):
             raise ValueError(f"{field}: not an email address")
-    for field in ("room_link", "feed_url"):
-        if form.get(field, "").strip() and not form.get(field, "").strip().startswith("https://"):
-            raise ValueError(f"{field}: must start with https://")
+    room_link = form.get("room_link", "").strip()
+    if room_link and not room_link.startswith("https://"):
+        raise ValueError("room_link: must start with https://")
     changes = {"public_slug": slug or None, "is_enabled": form.get("is_enabled") == "on",
                **{field: form.get(field, "").strip() for field in ("organizer_email", "organizer_name", "host_email",
                                                                    "room_link")},
                **{field: int(form.get(field, "0")) for field in ("min_notice_hours", "horizon_days", "gap_minutes",
                                                                  "cancel_cutoff_hours")}}
-    if form.get("feed_url", "").strip() or form.get("feed_clear") == "on":
-        changes["feed_url"] = "" if form.get("feed_clear") == "on" else form.get("feed_url").strip()
     if changes["is_enabled"] and not (slug and changes["organizer_email"] and changes["host_email"]):
         raise ValueError("switch on needs an address, a sender and your calendar address")
     return changes
@@ -188,6 +198,36 @@ def _local_moment(day: str, clock: str, zone) -> datetime:
         raise ValueError(f"not a time: {clock!r}")
     return datetime.combine(parse_day(day), datetime.min.time(), tzinfo=zone).replace(
         hour=int(match.group(1)), minute=int(match.group(2)))
+
+
+@router.post("/feeds")
+def add_feed(label: str = Form(""), url: str = Form("")):
+    try:
+        feed_id = add_booking_feed(label, url)
+    except ValueError as error:
+        return _back(error=str(error), anchor="feeds")
+    log_audit(None, None, "booking.feed_added", f"booking_feed:{feed_id}", "added")
+    return _back(anchor="feeds")
+
+
+@router.post("/feeds/{feed_id}/label")
+def rename_feed(feed_id: int, label: str = Form("")):
+    try:
+        found = relabel_booking_feed(feed_id, label)
+    except ValueError as error:
+        return _back(error=str(error), anchor="feeds")
+    if not found:
+        raise HTTPException(status_code=404, detail="No such calendar link.")
+    log_audit(None, None, "booking.feed_relabelled", f"booking_feed:{feed_id}", "relabelled")
+    return _back(anchor="feeds")
+
+
+@router.post("/feeds/{feed_id}/delete")
+def remove_feed(feed_id: int):
+    if not delete_booking_feed(feed_id):
+        raise HTTPException(status_code=404, detail="No such calendar link.")
+    log_audit(None, None, "booking.feed_removed", f"booking_feed:{feed_id}", "removed")
+    return _back(anchor="feeds")
 
 
 @router.post("/blocks")

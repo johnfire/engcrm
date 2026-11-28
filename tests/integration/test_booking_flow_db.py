@@ -11,6 +11,7 @@ from gcrm.booking.booking_service import BookingForm, BookingRefused
 from gcrm.booking.booking_store import get_booking
 from gcrm.booking.crm_link import log_meeting_held
 from gcrm.booking.setup_store import (
+    add_booking_feed,
     booking_link_for_token,
     create_booking_link,
     ensure_booking_defaults,
@@ -143,6 +144,8 @@ def test_a_start_time_that_is_not_offered_is_refused(page):
         service.book(page, form(starts_at=NOW + timedelta(hours=2)), link=None, now=NOW)  # inside 24 h notice
 
 
+EMPTY_FEED = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//x//EN\r\nEND:VCALENDAR\r\n"
+
 def test_two_open_holds_per_email_at_most(page):
     service.book(page, form(), link=None, now=NOW)
     service.book(page, form(starts_at=WEDNESDAY_0930 + timedelta(hours=5)), link=None, now=NOW)
@@ -150,19 +153,23 @@ def test_two_open_holds_per_email_at_most(page):
         service.book(page, form(starts_at=WEDNESDAY_0930 + timedelta(days=1)), link=None, now=NOW)
 
 
-def test_unreadable_calendar_feed_closes_the_page(page, monkeypatch):
-    update_booking_settings({"feed_url": "https://calendar.example/feed.ics"})
-    monkeypatch.setattr(FEED_CACHE, "feed_text", lambda url: None)
+def test_one_unreadable_calendar_of_several_closes_the_page(page, monkeypatch):
+    add_booking_feed("Business", "https://calendar.example/business.ics")
+    add_booking_feed("Art events", "https://calendar.example/art.ics")
+    readable = {"https://calendar.example/business.ics": EMPTY_FEED}
+    monkeypatch.setattr(FEED_CACHE, "feed_text", readable.get)
     page = service.load_page("chris")
     with pytest.raises(BookingRefused, match="calendar_unavailable"):
         service.book(page, form(), link=None, now=NOW)
 
 
-def test_calendar_busy_time_hides_the_slot(page, monkeypatch):
+def test_busy_time_in_any_linked_calendar_hides_the_slot(page, monkeypatch):
     feed = ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//x//EN\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTAMP:20270101T000000Z\r\n"
             "DTSTART:20270303T090000Z\r\nDTEND:20270303T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
-    update_booking_settings({"feed_url": "https://calendar.example/feed.ics"})
-    monkeypatch.setattr(FEED_CACHE, "feed_text", lambda url: feed)
+    add_booking_feed("Business", "https://calendar.example/business.ics")
+    add_booking_feed("Engagements", "https://calendar.example/engagements.ics")
+    feeds = {"https://calendar.example/business.ics": EMPTY_FEED, "https://calendar.example/engagements.ics": feed}
+    monkeypatch.setattr(FEED_CACHE, "feed_text", feeds.get)
     page = service.load_page("chris")
     with pytest.raises(BookingRefused, match="slot_taken"):
         service.book(page, form(), link=None, now=NOW)  # 09:30-10:15 Berlin + gap meets 10:00 busy

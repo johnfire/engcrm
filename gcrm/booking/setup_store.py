@@ -1,15 +1,21 @@
-"""Booking setup in the database: settings, appointment types, open hours, blocks, personal links.
+"""Booking setup in the database: settings, busy-time links, appointment types, open hours, blocks,
+personal links.
 
 Every function runs in the caller's workspace (row security). ensure_booking_defaults() is
 idempotent: it fills in only what is missing, so it is safe on every page load.
 """
 import hashlib
+import logging
 import secrets
 from datetime import datetime, time
+
+from cryptography.fernet import InvalidToken
 
 from gcrm.api.security import decrypt_private, encrypt_private
 from gcrm.config import ACCOUNT_ENCRYPTION_KEY
 from gcrm.db.connection import db
+
+logger = logging.getLogger(__name__)
 
 # kind -> (minutes, travel minutes, needs approval). Custom's minutes is its shortest choice.
 DEFAULT_TYPES = {"call": (15, 0, False), "video": (45, 0, False), "visit": (60, 60, False), "custom": (30, 0, True)}
@@ -60,17 +66,13 @@ def get_booking_settings() -> dict:
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM booking_settings")
         settings = dict(cursor.fetchone())
-    encrypted = settings.pop("feed_url_encrypted")
-    settings["feed_url"] = decrypt_private(encrypted, ACCOUNT_ENCRYPTION_KEY) if encrypted else ""
+    settings["feed_urls"] = [feed["url"] for feed in list_booking_feeds()]
     return settings
 
 
 def update_booking_settings(changes: dict) -> None:
-    """Save the given fields. `feed_url` is encrypted; an empty one clears it."""
+    """Save the given fields (busy-time links have their own functions below)."""
     columns = {key: value for key, value in changes.items() if key in SETTING_FIELDS}
-    if "feed_url" in changes:
-        url = changes["feed_url"].strip()
-        columns["feed_url_encrypted"] = encrypt_private(url, ACCOUNT_ENCRYPTION_KEY) if url else None
     if not columns:
         return
     assignments = ", ".join(f"{column}=%s" for column in columns)  # names come from SETTING_FIELDS only
@@ -78,6 +80,60 @@ def update_booking_settings(changes: dict) -> None:
         connection.cursor().execute(f"UPDATE booking_settings SET {assignments}, updated_at=NOW()",
                                     tuple(columns.values()))
 
+
+FEED_LABEL_MAX = 60
+
+
+def _feed_label(label: str) -> str:
+    cleaned = " ".join(label.split())
+    if not 1 <= len(cleaned) <= FEED_LABEL_MAX:
+        raise ValueError(f"label: 1-{FEED_LABEL_MAX} characters")
+    return cleaned
+
+
+def _decrypted_feed_url(url_encrypted: str) -> str | None:
+    """The link, or None when it no longer decrypts (say the key changed). One bad row must not
+    take the Bookings page down with it: that page is where the row gets removed."""
+    try:
+        return decrypt_private(url_encrypted, ACCOUNT_ENCRYPTION_KEY)
+    except InvalidToken:
+        logger.warning("booking: a stored calendar link cannot be decrypted")
+        return None
+
+
+def list_booking_feeds() -> list[dict]:
+    """Every Proton busy-time link, oldest first. `url` is None for a link that cannot be decrypted."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, label, url_encrypted FROM booking_feeds ORDER BY id")
+        rows = [dict(row) for row in cursor.fetchall()]
+    return [{"id": row["id"], "label": row["label"], "url": _decrypted_feed_url(row["url_encrypted"])}
+            for row in rows]
+
+
+def add_booking_feed(label: str, url: str) -> int:
+    cleaned_url = url.strip()
+    if not cleaned_url.startswith("https://"):
+        raise ValueError("link: must start with https://")
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO booking_feeds (label, url_encrypted) VALUES (%s, %s) RETURNING id",
+                       (_feed_label(label), encrypt_private(cleaned_url, ACCOUNT_ENCRYPTION_KEY)))
+        return cursor.fetchone()["id"]
+
+
+def relabel_booking_feed(feed_id: int, label: str) -> bool:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE booking_feeds SET label=%s WHERE id=%s", (_feed_label(label), feed_id))
+        return cursor.rowcount == 1
+
+
+def delete_booking_feed(feed_id: int) -> bool:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM booking_feeds WHERE id=%s", (feed_id,))
+        return cursor.rowcount == 1
 
 def list_booking_types() -> list[dict]:
     with db() as connection:
