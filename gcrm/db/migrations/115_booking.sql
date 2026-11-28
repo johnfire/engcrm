@@ -114,13 +114,20 @@ CREATE INDEX IF NOT EXISTS idx_bookings_occupied ON bookings (workspace_id, occu
     WHERE status IN ('held', 'requested', 'confirmed');
 CREATE INDEX IF NOT EXISTS idx_bookings_guest ON bookings (workspace_id, lower(guest_email));
 
--- Row security like every other table (pattern of migration 111).
+-- Row security like every other table (pattern of migration 111), and the workspace default of
+-- migration 079: a write outside any workspace (maintenance, the page crawl in tests) lands in the
+-- default workspace instead of failing on a NULL workspace_id.
 DO $$
-DECLARE booking_table TEXT;
+DECLARE
+    booking_table TEXT;
+    default_workspace INTEGER;
 BEGIN
+    SELECT id INTO STRICT default_workspace FROM workspaces WHERE slug='default';
     FOREACH booking_table IN ARRAY ARRAY['booking_settings','booking_types','booking_hours','booking_blocks',
                                          'booking_links','bookings']
     LOOP
+        EXECUTE format('ALTER TABLE %I ALTER COLUMN workspace_id SET DEFAULT COALESCE(request_workspace_id(),%s)',
+                       booking_table, default_workspace);
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', booking_table);
         EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', booking_table);
         EXECUTE format('DROP POLICY IF EXISTS %I ON %I', booking_table || '_workspace', booking_table);

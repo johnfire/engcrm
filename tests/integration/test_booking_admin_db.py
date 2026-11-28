@@ -165,3 +165,18 @@ def test_block_time_is_added_and_removed(signed_in):
     block_id = re.search(r"/bookings/blocks/(\d+)/delete", page).group(1)
     post(client, f"/bookings/blocks/{block_id}/delete", {})
     assert "Dentist" not in client.get("/bookings/?lang=en").text
+
+
+def test_page_renders_on_a_fresh_database_without_a_workspace_in_the_session(clean_database):
+    """The every-page crawl signs in without a session workspace; the page must set itself up, not 500."""
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        page = TestClient(app, raise_server_exceptions=False).get("/bookings/?lang=en")
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+    assert page.status_code == 200
+    assert "The public booking page is off" in page.text
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT s.workspace_id, w.slug FROM booking_settings s JOIN workspaces w ON w.id = s.workspace_id")
+        assert [row["slug"] for row in cursor.fetchall()] == ["default"]
