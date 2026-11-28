@@ -1,6 +1,6 @@
 """Statistics over time: the daily pipeline log, and series per week, month or year.
 
-Activities, hours, sales and new contacts are computed from the records, so their
+Activities, sold money and new contacts are computed from the records, so their
 series reach back to the start. The pipeline's size per stage can't be rebuilt
 for a past day, so `record_pipeline_snapshot` logs it daily; its series starts
 the day the log did.
@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from gcrm.activity_types import NOT_ACTIVITIES
 from gcrm.db.connection import db
+from gcrm.sale_status import SOLD_STATUSES
 from gcrm.tools.db_deals import offer_id_sql
 from gcrm.tools.statistics import activities_sql, get_minute_defaults
 from gcrm.workspace_context import get_workspace_id, set_workspace_id
@@ -133,8 +134,8 @@ def bucket_starts(bucket: str, today: date) -> list[date]:
 
 
 def get_series(workspace_id: int, bucket: str, today: date | None = None, offer: str | None = None) -> dict:
-    """Per bucket: activities, hours, € won (one-off sales plus calculated
-    subscription revenue), new organizations and people; and the pipeline per
+    """Per bucket: activities, € sold (booked, contracted and collected sales by the day they were
+    agreed, plus calculated subscription revenue), new organizations and people; and the pipeline per
     stage as logged on the last logged day of each bucket — one offer's, or
     every offer's added together when `offer` is None."""
     today = today or date.today()
@@ -147,21 +148,21 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None, offer:
         cur = conn.cursor()
         cur.execute(
             f"WITH {acts_sql} SELECT date_trunc('{trunc}', day)::date AS b, "
-            "COUNT(*) FILTER (WHERE kind <> 'note') AS n, COALESCE(SUM(minutes), 0) AS minutes "
+            "COUNT(*) FILTER (WHERE kind <> 'note') AS n "
             "FROM acts WHERE day BETWEEN %s AND %s GROUP BY 1",
             acts_params + [workspace_id, workspace_id, *NOT_ACTIVITIES, first, today],
         )
         effort = {row["b"]: row for row in cur.fetchall()}
         sales_offer = f" AND deal_id IN (SELECT id FROM deals WHERE offer_id = {offer_id})" if offer else ""
         cur.execute(
-            f"SELECT date_trunc('{trunc}', collected_on)::date AS b, SUM(amount_eur) AS won FROM sales "
-            "WHERE workspace_id = %s AND deleted_at IS NULL AND status = 'collected' "
-            f"AND collected_on BETWEEN %s AND %s{sales_offer} GROUP BY 1",
-            (workspace_id, first, today),
+            f"SELECT date_trunc('{trunc}', won_on)::date AS b, SUM(amount_eur) AS sold FROM sales "
+            "WHERE workspace_id = %s AND deleted_at IS NULL AND status = ANY(%s) "
+            f"AND won_on BETWEEN %s AND %s{sales_offer} GROUP BY 1",
+            (workspace_id, list(SOLD_STATUSES), first, today),
         )
-        won = {row["b"]: Decimal(row["won"]) for row in cur.fetchall()}
+        sold = {row["b"]: Decimal(row["sold"]) for row in cur.fetchall()}
         for b, revenue in _subscription_series(cur, workspace_id, trunc, first, today, offer_id).items():
-            won[b] = won.get(b, Decimal("0")) + revenue
+            sold[b] = sold.get(b, Decimal("0")) + revenue
         cur.execute(
             f"SELECT date_trunc('{trunc}', created_at)::date AS b, 'organization' AS kind, COUNT(*) AS n "
             "FROM contacts WHERE workspace_id = %s AND deleted_at IS NULL AND created_at::date BETWEEN %s AND %s "
@@ -200,9 +201,27 @@ def get_series(workspace_id: int, bucket: str, today: date | None = None, offer:
         periods.append({
             "start": start,
             "activities": e["n"] if e else 0,
-            "hours": round(int(e["minutes"]) / 60, 1) if e else 0.0,
-            "won_eur": Decimal(won.get(start) or 0),
+            "sold_eur": Decimal(sold.get(start) or 0),
             "new_organizations": new.get(start, {}).get("organization", 0),
             "new_people": new.get(start, {}).get("person", 0),
         })
     return {"bucket": bucket, "periods": periods, "pipeline": pipeline, "logged_since": logged_since}
+
+
+def stage_counts(series: dict, stages: tuple[str, ...]) -> dict[str, list[int]]:
+    """Per stage, the deals of organizations and people added together for each period of the
+    series, oldest first. A period with no log row for a stage counts 0."""
+    def count(stage: str, start: date) -> int:
+        return sum(by_stage.get(stage, {}).get(start, 0) for by_stage in series["pipeline"].values())
+    return {stage: [count(stage, period["start"]) for period in series["periods"]] for stage in stages}
+
+
+def side_stage_moves(series: dict, stages: tuple[str, ...]) -> dict[str, dict[str, int]]:
+    """For stages kept out of the chart: the latest period's count, and its change since the first
+    period that has any log row (the periods before the log began are not a start)."""
+    logged = {start for by_stage in series["pipeline"].values() for by_bucket in by_stage.values() for start in by_bucket}
+    counts = stage_counts(series, stages)
+    first = next((i for i, period in enumerate(series["periods"]) if period["start"] in logged), None)
+    if first is None:
+        return {stage: {"latest": 0, "change": 0} for stage in stages}
+    return {stage: {"latest": values[-1], "change": values[-1] - values[first]} for stage, values in counts.items()}

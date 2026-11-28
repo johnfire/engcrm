@@ -59,10 +59,10 @@ def test_logged_work_and_a_sale_show_up_in_the_statistics(web):
 
     assert page.status_code == 200, page.text[:500]
     text = page.text
-    assert "2.400 €" in text                       # won
+    assert "2.400 €" in text                       # sold, and collected
     assert "<strong class=\"stat-tile__value\">2</strong>" in text  # 2 activities
-    assert "<strong class=\"stat-tile__value\">1.8</strong>" in text  # 15 + 90 min = 1.75 h
-    assert "1.371,43 €" in text                   # € per hour: 2400 / 105 min * 60
+    assert "<strong class=\"stat-tile__value\">1</strong>" in text  # 1 contract sold
+    assert "1.371,43 €" not in text               # no € per hour any more
     assert "Suspect → Customer" in text           # the trigger caught the stage change
     assert f'href="/organizations/{acme}">Acme GmbH</a>' in text
 

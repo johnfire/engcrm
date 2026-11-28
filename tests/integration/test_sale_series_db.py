@@ -78,12 +78,12 @@ def test_the_pipeline_counts_every_open_payment_and_money_won_only_the_received_
     _, rows = _contract(firm)
     set_sale_status(firm["deal"], rows[0]["id"], "collected", collected_on=date(2027, 2, 3), workspace_id=firm["workspace"])
     feb = get_statistics(firm["workspace"], date(2027, 2, 1), date(2027, 2, 28), today=date(2027, 2, 28))
-    assert feb["current"]["won_eur"] == Decimal("600.00")
+    assert feb["current"]["collected_eur"] == Decimal("600.00")
     assert feb["pipeline"]["booked"]["eur"] == Decimal("1800.00")     # March, April, May still to come
     money = deal_money([firm["deal"]])[firm["deal"]]
     assert (money["sales_total"], money["pipeline_total"]) == (Decimal("600.00"), Decimal("1800.00"))
     mar = get_statistics(firm["workspace"], date(2027, 3, 1), date(2027, 3, 31), today=date(2027, 3, 31))
-    assert mar["current"]["won_eur"] == Decimal("0")                  # March not received yet
+    assert mar["current"]["collected_eur"] == Decimal("0")                  # March not received yet
 
 
 def test_the_whole_contract_moves_together_but_a_received_payment_stays_received(firm):

@@ -98,11 +98,11 @@ def test_effort_counts_types_and_minutes(world):
 def test_money_and_the_work_behind_each_sale(world):
     stats = get_statistics(world["workspace"], date(2026, 10, 12), date(2026, 10, 18), today=TODAY)
 
-    assert stats["current"]["won_eur"] == Decimal("2400") and stats["current"]["sales"] == 1
-    assert stats["current"]["eur_per_hour"] == Decimal("1107.69")  # 2400 / 130 min * 60
+    assert stats["current"]["collected_eur"] == Decimal("2400")
+    assert (stats["current"]["sold_eur"], stats["current"]["sold_contracts"]) == (Decimal("2400"), 1)
     (sale,) = stats["sales"]
     # since the previous sale on 25.9.: the 5 activities of the period's week, not the September drop-in
-    assert (sale["organization"], sale["activities"], sale["minutes"]) == ("Acme GmbH", 5, 130)
+    assert (sale["organization"], sale["activities"], sale["amount_eur"]) == ("Acme GmbH", 5, Decimal("2400.00"))
     assert sale["previous_won"] == date(2026, 9, 25) and sale["weeks"] == 2.9  # 20 days
 
 
@@ -119,6 +119,11 @@ def test_stage_changes_are_recorded_by_the_database(world):
 
 
 def test_a_working_organization_with_nothing_logged_for_weeks_is_stuck(world):
+    # Quiet AG was created and moved to its stage long ago; the fixture only just made its deal
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE deals SET created_at = '2026-08-01' WHERE contact_id = %s", (world["quiet"],))
+        cursor.execute("UPDATE stage_changes SET changed_at = '2026-08-01' WHERE entity_id = %s", (world["quiet"],))
     stats = get_statistics(world["workspace"], date(2026, 10, 12), date(2026, 10, 18), today=TODAY)
     assert [s["name"] for s in stats["stuck"]] == ["Quiet AG"]
 

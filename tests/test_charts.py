@@ -1,4 +1,6 @@
 """The server-drawn charts: one hue, a hover tooltip per mark, escaped text."""
+import pytest
+
 from gcrm.charts import _x_labels, bar_chart, spark, y_ticks
 
 
@@ -201,3 +203,44 @@ def test_a_line_chart_can_name_more_points_on_its_axis():
     count = lambda svg: len(re.findall(r'text-anchor="middle">\d\d\.2027<', svg))   # noqa: E731
     assert count(str(line_chart(points, ["chart-line"], "x"))) <= 6
     assert 10 <= count(str(line_chart(points, ["chart-line"], "x", width=1400, max_labels=14))) <= 14
+
+
+from gcrm.charts import stacked_bars  # noqa: E402
+
+STAGE_SERIES = [
+    {"name": "suspect", "css": "chart-segment--suspect", "values": [2, 0, 1]},
+    {"name": "prospect", "css": "chart-segment--prospect", "values": [3, 4, 0]},
+]
+THREE_BUCKETS = [{"label": "02.11."}, {"label": "09.11."}, {"label": "16.11."}]
+
+
+def test_stacked_bars_stand_on_a_shared_zero_based_scale():
+    svg = str(stacked_bars(THREE_BUCKETS, STAGE_SERIES, "Pipeline"))
+    for label in ("0", "2", "4", "6"):  # tallest bar is 2 + 3 = 5, the scale reaches 6
+        assert f">{label}</text>" in svg
+    assert 'role="img" aria-label="Pipeline"' in svg
+
+
+def test_each_segment_has_a_tooltip_with_bucket_stage_and_count_and_zero_segments_draw_nothing():
+    svg = str(stacked_bars(THREE_BUCKETS, STAGE_SERIES, "Pipeline"))
+    assert "<title>02.11.: prospect 3</title>" in svg and "<title>16.11.: suspect 1</title>" in svg
+    assert svg.count('<rect class="chart-segment--suspect"') == 2   # the zero-sized third is not drawn
+    assert svg.count('<rect class="chart-segment--prospect"') == 2
+
+
+def test_a_taller_segment_is_drawn_taller_from_the_same_baseline():
+    svg = str(stacked_bars([{"label": "a"}, {"label": "b"}],
+                           [{"name": "x", "css": "seg", "values": [4, 1]}], "T"))
+    heights = [float(h) for h in re.findall(r'<rect class="seg" [^>]*height="([\d.]+)"', svg)]
+    assert len(heights) == 2 and heights[0] == pytest.approx(4 * heights[1], rel=0.02)
+
+
+def test_the_legend_names_every_series_and_text_is_escaped():
+    svg = str(stacked_bars([{"label": "<b>"}], [{"name": "a & b", "css": "seg", "values": [1]}], "x < y"))
+    assert "<b>" not in svg and "&lt;b&gt;" in svg and "a &amp; b" in svg and 'aria-label="x &lt; y"' in svg
+    assert svg.count('class="chart-legend__swatch seg"') == 1
+
+
+def test_no_buckets_draw_nothing_and_all_zero_still_has_a_scale():
+    assert str(stacked_bars([], STAGE_SERIES, "x")) == ""
+    assert ">1</text>" in str(stacked_bars([{"label": "a"}], [{"name": "x", "css": "seg", "values": [0]}], "x"))

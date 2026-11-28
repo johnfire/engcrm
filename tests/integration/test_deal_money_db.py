@@ -82,9 +82,9 @@ def test_statistics_split_one_off_sales_and_subscriptions_by_offer(school):
     consulting = get_statistics(*args, today=date(2026, 10, 10), offer="consulting")["current"]
     learnwohl = get_statistics(*args, today=date(2026, 10, 10), offer="learnwohl")["current"]
     everything = get_statistics(*args, today=date(2026, 10, 10))["current"]
-    assert (consulting["one_off_eur"], consulting["subscription_eur"]) == (Decimal("2400"), Decimal("0"))
-    assert (learnwohl["one_off_eur"], learnwohl["subscription_eur"]) == (Decimal("0"), Decimal("10.00"))
-    assert everything["won_eur"] == Decimal("2410.00")
+    assert (consulting["collected_eur"], consulting["subscription_eur"]) == (Decimal("2400"), Decimal("0"))
+    assert (learnwohl["collected_eur"], learnwohl["subscription_eur"]) == (Decimal("0"), Decimal("10.00"))
+    assert (everything["collected_eur"], everything["subscription_eur"]) == (Decimal("2400"), Decimal("10.00"))
 
 
 def test_sales_belong_to_a_deal_of_an_organization_or_a_person(school):

@@ -122,7 +122,7 @@
     <label>{{ t('sales.amount') }}<input type="text" name="amount_eur" inputmode="decimal" required /></label>
     <label>{{ t('sale.status.label') }}
       <select name="status">
-        {% for st in sale_statuses %}<option value="{{ st }}" {% if st == 'booked' %}selected{% endif %}>{{ t('sale.status.' ~ st) }}</option>{% endfor %}
+        {% for st in sale_statuses %}<option value="{{ st }}"{% if st == 'expected' %} title="{{ t('sale.status.expectedHelp') }}"{% endif %} {% if st == 'booked' %}selected{% endif %}>{{ t('sale.status.' ~ st) }}</option>{% endfor %}
       </select>
     </label>
     <label>{{ t('sale.dueDay') }}{{ date_field('expected_on', None) }}</label>

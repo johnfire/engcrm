@@ -47,16 +47,17 @@ def test_a_sale_is_collected_unless_said_otherwise_so_old_callers_keep_their_num
     sale = add_deal_sale(firm["deal"], "900", date(2026, 11, 3), "Workshop", firm["workspace"])
     row = _row(sale)
     assert row["status"] == "collected" and row["collected_on"] == date(2026, 11, 3)
-    assert _stats(firm)["current"]["won_eur"] == Decimal("900")
+    assert _stats(firm)["current"]["collected_eur"] == Decimal("900")
 
 
-def test_booked_money_is_pipeline_not_won(firm):
+def test_booked_money_is_sold_and_open_but_not_collected(firm):
     add_deal_sale(firm["deal"], "2400", date(2026, 11, 3), "AI course", firm["workspace"],
                   status="booked", expected_on=date(2027, 1, 20))
     add_deal_sale(firm["deal"], "1000", date(2026, 11, 4), "Audit", firm["workspace"], status="contracted")
     stats = _stats(firm)
-    assert stats["current"]["won_eur"] == Decimal("0") and stats["current"]["sales"] == 0
-    assert stats["sales"] == []
+    assert stats["current"]["collected_eur"] == Decimal("0")        # nothing paid yet ...
+    assert (stats["current"]["sold_eur"], stats["current"]["sold_contracts"]) == (Decimal("3400"), 2)  # ... but sold
+    assert sorted(row["status"] for row in stats["sales"]) == ["booked", "contracted"]
     assert stats["pipeline"] == {"expected": {"eur": Decimal("0"), "count": 0},
                                  "booked": {"eur": Decimal("2400"), "count": 1},
                                  "contracted": {"eur": Decimal("1000"), "count": 1}}
@@ -72,12 +73,13 @@ def test_moving_a_sale_along_to_collected_counts_it_on_the_day_the_money_came_in
                            workspace_id=firm["workspace"])
     row = _row(sale)
     assert (row["status"], row["won_on"], row["collected_on"]) == ("collected", date(2026, 10, 20), date(2026, 11, 12))
-    assert _stats(firm)["current"]["won_eur"] == Decimal("2400")  # November, not October
+    assert _stats(firm)["current"]["collected_eur"] == Decimal("2400")  # November, not October
     october = get_statistics(firm["workspace"], date(2026, 10, 1), date(2026, 10, 31), today=date(2026, 11, 30))
-    assert october["current"]["won_eur"] == Decimal("0")
+    assert october["current"]["collected_eur"] == Decimal("0")
+    assert october["current"]["sold_eur"] == Decimal("2400")        # sold on the day it was agreed
     series = get_series(firm["workspace"], "month", today=date(2026, 11, 30))
-    assert series["periods"][-1]["won_eur"] == Decimal("2400")
-    assert series["periods"][-2]["won_eur"] == Decimal("0")
+    assert series["periods"][-2]["sold_eur"] == Decimal("2400")     # October
+    assert series["periods"][-1]["sold_eur"] == Decimal("0")        # November: only the money came in
 
 
 def test_collecting_without_a_day_uses_today_and_leaving_collected_clears_it(firm):
@@ -94,7 +96,7 @@ def test_a_cancelled_sale_stays_listed_but_is_neither_won_nor_pipeline(firm):
     set_sale_status(firm["deal"], sale, "cancelled", workspace_id=firm["workspace"])
     stats = _stats(firm)
     assert stats["pipeline"]["booked"] == {"eur": Decimal("0"), "count": 0}
-    assert stats["current"]["won_eur"] == Decimal("0")
+    assert stats["current"]["collected_eur"] == Decimal("0")
     (listed,) = get_sales(firm["contact_id"])
     assert listed["status"] == "cancelled" and listed["description"] == "Fell through"
 
@@ -134,7 +136,7 @@ def test_a_person_who_is_a_consultant_can_have_sales_too(firm):
     assert deal_money([own])[own]["pipeline_total"] == Decimal("1200")
     set_sale_status(own, sale, "collected", collected_on=date(2026, 11, 20), workspace_id=firm["workspace"])
     stats = _stats(firm)
-    assert stats["current"]["won_eur"] == Decimal("1200")
+    assert stats["current"]["collected_eur"] == Decimal("1200")
     assert stats["sales"][0]["organization"] == "Pat Freelancer"
 
 
@@ -171,9 +173,9 @@ def test_the_pages_show_status_pipeline_and_the_forms_to_move_a_sale(firm):
     assert 'action="/deals/%d/sales/' % firm["deal"] in org_payments
     assert "badge-sale-contracted" in own_payments and "Coaching" in person_page and f'action="/deals/{own}/sales"' in person_page
     assert "Booked, not collected yet" in person_page
-    assert "Sales pipeline" in stats_page and "booked" in stats_page
+    assert "Open now (all time)" in stats_page and "booked" in stats_page
     assert recorded.status_code == 303 and moved.status_code == 303
-    assert _stats(firm)["current"]["won_eur"] == Decimal("1200")
+    assert _stats(firm)["current"]["collected_eur"] == Decimal("1200")
 
 
 def get_sales_for_person(deal_id: int) -> int:
@@ -191,7 +193,7 @@ def test_a_sale_can_start_as_an_expected_value_before_anything_is_booked(firm):
     stats = _stats(firm)
     assert stats["pipeline"]["expected"] == {"eur": Decimal("5000"), "count": 1}
     assert stats["pipeline"]["booked"]["eur"] == Decimal("0")      # a hope is not firm pipeline
-    assert stats["current"]["won_eur"] == Decimal("0")
+    assert stats["current"]["collected_eur"] == Decimal("0")
     money = deal_money([firm["deal"]])[firm["deal"]]
     assert (money["expected_total"], money["pipeline_total"], money["sales_total"]) == (Decimal("5000"), Decimal("0"), Decimal("0"))
 
@@ -201,6 +203,6 @@ def test_an_expected_sale_moves_along_the_whole_way(firm):
     for status in ("booked", "contracted", "collected"):
         assert set_sale_status(firm["deal"], sale, status, collected_on=date(2026, 11, 20), workspace_id=firm["workspace"])
         assert _row(sale)["status"] == status
-    assert _stats(firm)["current"]["won_eur"] == Decimal("800")
+    assert _stats(firm)["current"]["collected_eur"] == Decimal("800")
     assert set_sale_status(firm["deal"], sale, "expected", workspace_id=firm["workspace"])   # a slip can be undone
     assert _row(sale)["collected_on"] is None

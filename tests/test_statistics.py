@@ -75,3 +75,11 @@ def test_post_mail_counts_as_its_own_activity_type():
     assert 'post_mail' in ACTIVITY_TYPES
     assert activity_type('letter') == 'post_mail'
     assert DEFAULT_MINUTES['post_mail'] == 10
+
+
+def test_sold_means_booked_contracted_or_collected_and_expected_is_its_own_estimate():
+    from gcrm.sale_status import FIRM_PIPELINE_STATUSES, LIVE_SALE_STATUSES, SOLD_STATUSES
+
+    assert SOLD_STATUSES == ("booked", "contracted", "collected")
+    assert "expected" not in SOLD_STATUSES and "cancelled" not in LIVE_SALE_STATUSES
+    assert set(FIRM_PIPELINE_STATUSES) < set(SOLD_STATUSES) and "expected" in LIVE_SALE_STATUSES

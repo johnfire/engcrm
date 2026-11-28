@@ -115,14 +115,29 @@ def test_series_per_month_reach_back_and_the_pipeline_uses_each_months_last_logg
     series = get_series(workspace, "month", today=TODAY)
 
     by_month = {p["start"]: p for p in series["periods"]}
-    assert by_month[date(2026, 8, 1)]["hours"] == 0.8 and by_month[date(2026, 8, 1)]["activities"] == 1
-    assert by_month[date(2026, 9, 1)]["won_eur"] == Decimal("1200")
-    assert by_month[date(2026, 10, 1)]["hours"] == 0.2  # a 15-minute call
+    assert by_month[date(2026, 8, 1)]["activities"] == 1
+    assert by_month[date(2026, 9, 1)]["sold_eur"] == Decimal("1200")
+    assert by_month[date(2026, 10, 1)]["activities"] == 1  # a 15-minute call
+    assert "hours" not in by_month[date(2026, 8, 1)]
     assert by_month[date(2026, 8, 1)]["new_organizations"] == 1
     org = series["pipeline"]["organization"]
     assert org.get("customer") == {date(2026, 9, 1): 1}   # the 28th, not the 3rd
     assert "prospect" not in org
     assert series["logged_since"] == date(2026, 9, 3)
+
+
+def test_the_sold_series_counts_booked_and_contracted_sales_by_the_day_they_were_agreed(clean_database):
+    workspace = _workspace()
+    acme = _organization("Acme", "prospect", created="2026-08-10")
+    add_sale(workspace, acme, Decimal("1000"), date(2026, 9, 20), "Booked job", status="booked")
+    add_sale(workspace, acme, Decimal("500"), date(2026, 9, 21), "Signed job", status="contracted")
+    add_sale(workspace, acme, Decimal("300"), date(2026, 9, 22), "Hoped for", status="expected")
+    add_sale(workspace, acme, Decimal("200"), date(2026, 9, 23), "Lost", status="cancelled")
+
+    by_month = {p["start"]: p for p in get_series(workspace, "month", today=TODAY)["periods"]}
+
+    assert by_month[date(2026, 9, 1)]["sold_eur"] == Decimal("1500")
+    assert by_month[date(2026, 10, 1)]["sold_eur"] == Decimal("0")
 
 
 def test_the_page_draws_the_charts(clean_database):
@@ -137,6 +152,8 @@ def test_the_page_draws_the_charts(clean_database):
         main.app.dependency_overrides.pop(require_login, None)
         main.app.dependency_overrides.pop(require_admin, None)
     assert page.status_code == 200, page.text[:500]
-    assert page.text.count('<svg class="chart"') == 5
-    assert 'aria-label="Organization · Prospect"' in page.text
+    assert page.text.count('<svg class="chart"') == 4        # sold, activities, new organizations, new people
+    assert page.text.count('<svg class="chart chart--stacked"') == 1
+    assert "<title>Week " in page.text and ": Prospect 1</title>" in page.text   # a tooltip per segment
+    assert "stat-multiple" not in page.text
     assert 'aria-current="true">Weekly</a>' in page.text

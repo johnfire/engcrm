@@ -20,7 +20,7 @@ from gcrm.api.auth import require_admin, require_login
 from gcrm.api.offer_filter import web_offer_filter
 from gcrm.api.redirects import local_redirect
 from gcrm.api.templates import eur, templates
-from gcrm.charts import bar_chart, spark
+from gcrm.charts import bar_chart, stacked_bars
 from gcrm.contract_input import checked_title
 from gcrm.contract_kinds import checked_kind
 from gcrm.dates import parse_day
@@ -38,7 +38,7 @@ from gcrm.tools.statistics import (
     period_bounds,
     set_minute_defaults,
 )
-from gcrm.tools.statistics_history import BUCKETS, get_series
+from gcrm.tools.statistics_history import BUCKETS, get_series, side_stage_moves, stage_counts
 
 router = APIRouter(tags=["statistics"], dependencies=[Depends(require_login)])
 
@@ -71,43 +71,60 @@ def _period(period: str, start: str, end: str, today: date) -> tuple[str, date, 
 
 
 _BUCKET_LABEL = {"week": "%d.%m.", "month": "%m.%Y", "year": "%Y"}
+CHART_STAGES = ("suspect", "nibble", "prospect", "opportunity", "customer")  # one segment each
+SIDE_STAGES = ("candidate", "not_now", "not_in_pipeline")  # plain numbers under the chart
 
 
-def _trend_charts(series: dict, lang: str) -> dict:
-    """The over-time charts: one bar chart per measure, and a small line per
-    pipeline stage (each with its own scale — small multiples, not one crowded axis)."""
+def _bar_charts(series: dict, lang: str) -> list[dict]:
+    """One bar chart per measure."""
     fmt = _BUCKET_LABEL[series["bucket"]]
     periods = series["periods"]
 
-    def bars(key: str, title_key: str, unit: str = "", money: bool = False) -> dict:
+    def bars(key: str, title_key: str, money: bool = False) -> dict:
         def show(v):
-            return f"{eur(v)}" if money else f"{v}{unit}"
+            return f"{eur(v)}" if money else f"{v}"
         def tick(v):
-            return eur(v) if money else f"{v:g}{unit}"
+            return eur(v) if money else f"{v:g}"
         points = [{"label": p["start"].strftime(fmt), "value": float(p[key]),
                    "tip": f'{p["start"].strftime(fmt)}: {show(p[key])}'} for p in periods]
         title = translate(title_key, lang)
         return {"title": title, "svg": bar_chart(points, title, tick_label=tick),
                 "rows": [(pt["label"], show(p[key])) for pt, p in zip(points, periods)]}
 
-    charts = [
-        bars("hours", "statistics.chart.hours", " h"),
-        bars("won_eur", "statistics.chart.won", money=True),
+    return [
+        bars("sold_eur", "statistics.chart.sold", money=True),
         bars("activities", "statistics.chart.activities"),
         bars("new_organizations", "statistics.chart.newOrganizations"),
         bars("new_people", "statistics.chart.newPeople"),
     ]
-    pipeline = []
-    for entity in ("organization", "person"):
-        for stage in PIPELINE_STAGES:
-            by_bucket = series["pipeline"].get(entity, {}).get(stage, {})
-            if not by_bucket:
-                continue
-            ordered = sorted(by_bucket.items())
-            name = f'{translate("statistics.entity." + entity, lang)} · {translate("stage." + stage, lang)}'
-            points = [{"label": b.strftime(fmt), "value": n, "tip": f"{b.strftime(fmt)}: {n}"} for b, n in ordered]
-            pipeline.append({"title": name, "now": ordered[-1][1], "svg": spark(points, name)})
-    return {"charts": charts, "pipeline": pipeline, "logged_since": series["logged_since"]}
+
+
+def _stage_chart(series: dict, lang: str) -> dict:
+    """The working stages as one zero-based stacked bar chart, a bar per period."""
+    fmt = _BUCKET_LABEL[series["bucket"]]
+    unit = translate("statistics.unit." + series["bucket"], lang)
+    labels = [p["start"].strftime(fmt) for p in series["periods"]]
+    counts = stage_counts(series, CHART_STAGES)
+    names = {stage: translate("stage." + stage, lang) for stage in CHART_STAGES}
+    chart_series = [{"name": names[stage], "css": f"chart-segment--{stage}", "values": counts[stage]}
+                    for stage in CHART_STAGES]
+    title = translate("statistics.pipelineOverTime", lang)
+    svg = stacked_bars([{"label": f"{unit} {label}"} for label in labels], chart_series, title)
+    rows = [(label, " · ".join(f"{names[stage]} {counts[stage][i]}" for stage in CHART_STAGES))
+            for i, label in enumerate(labels)]
+    return {"title": title, "svg": svg, "rows": rows}
+
+
+def _side_stages(series: dict, lang: str) -> list[dict]:
+    moves = side_stage_moves(series, SIDE_STAGES)
+    return [{"name": translate("statistics.side." + stage, lang), **moves[stage]} for stage in SIDE_STAGES]
+
+
+def _trend_charts(series: dict, lang: str) -> dict:
+    """The over-time charts: bars per measure, and the pipeline's working stages as one stacked
+    bar chart on a shared zero-based scale, with the side stages as plain numbers."""
+    return {"charts": _bar_charts(series, lang), "stage_chart": _stage_chart(series, lang),
+            "side_stages": _side_stages(series, lang), "logged_since": series["logged_since"]}
 
 
 @router.get("/statistics", response_class=HTMLResponse)

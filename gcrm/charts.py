@@ -99,6 +99,83 @@ def bar_chart(points: list[dict], title: str, height: int = 150, tick_label=str,
     return Markup("".join(parts))
 
 
+LEGEND_ROW_HEIGHT = 22
+
+
+def _stack_total(series: list[dict], bucket: int) -> float:
+    return sum(item["values"][bucket] for item in series)
+
+
+def _stacked_bar_parts(label: str, series: list[dict], bucket: int, x: float, bar: float,
+                       base: float, plot: float, scale: float) -> list[str]:
+    """One bar: its segments stacked from the baseline up, one tooltip per drawn segment,
+    inside a full-height hover target."""
+    parts = [f'<g class="chart-mark"><rect class="chart-hit" x="{x - 2:.1f}" y="0" width="{bar + 4:.1f}" '
+             f'height="{base + 22:.1f}"/>']
+    top = base
+    for item in series:
+        value = item["values"][bucket]
+        if not value:
+            continue
+        height = plot * value / scale
+        top -= height
+        tip = escape(f"{label}: {item['name']} {value:g}")
+        parts.append(f'<rect class="{escape(item["css"])}" x="{x:.1f}" y="{top:.1f}" width="{bar:.1f}" '
+                     f'height="{height:.1f}"><title>{tip}</title></rect>')
+    parts.append("</g>")
+    return parts
+
+
+def _legend(series: list[dict], width: int, top: float) -> list[str]:
+    parts = []
+    per_row = max(1, width // 150)
+    for index, item in enumerate(series):
+        x = (index % per_row) * 150
+        y = top + (index // per_row) * LEGEND_ROW_HEIGHT
+        parts.append(f'<rect class="chart-legend__swatch {escape(item["css"])}" x="{x}" y="{y}" width="14" height="14"/>'
+                     f'<text class="chart-label" x="{x + 20}" y="{y + 7}" dominant-baseline="middle">{escape(item["name"])}</text>')
+    return parts
+
+
+def stacked_bars(buckets: list[dict], series: list[dict], title: str, height: int = 190,
+                 width: int = WIDTH, max_labels: int = MAX_X_LABELS) -> Markup:
+    """One bar per bucket, one segment per series stacked from zero, all on one shared scale.
+    Each bucket: label. Each series: name, css (the class that colours it) and values (one number
+    per bucket; zero draws no segment). Every drawn segment has a <title> tooltip "label: name n",
+    and a legend under the bars names the series."""
+    if not buckets or not series:
+        return Markup("")
+    top, bottom = 18, 22
+    plot = height - top - bottom
+    totals = [_stack_total(series, i) for i in range(len(buckets))]
+    ticks = y_ticks(max(totals, default=0), all(float(v).is_integer() for item in series for v in item["values"]))
+    scale = ticks[-1]
+    labels = [str(f"{t:g}") for t in ticks]
+    left = max(len(text) for text in labels) * LABEL_CHAR_WIDTH + 8
+    slot = (width - left) / len(buckets)
+    bar = max(2.0, slot - 4)
+    shown = _x_labels(len(buckets), max_labels)
+    legend_rows = -(-len(series) // max(1, width // 150))
+    full_height = height + 10 + legend_rows * LEGEND_ROW_HEIGHT
+    parts = [f'<svg class="chart chart--stacked" viewBox="0 0 {width} {full_height}" role="img" aria-label="{escape(title)}">']
+    for tick, text in zip(ticks, labels):
+        y = top + plot - plot * tick / scale
+        if tick:
+            parts.append(f'<line class="chart-grid" x1="{left}" x2="{width}" y1="{y:.1f}" y2="{y:.1f}"/>')
+        parts.append(f'<text class="chart-label" x="{left - 8}" y="{y:.1f}" text-anchor="end" '
+                     f'dominant-baseline="middle">{escape(text)}</text>')
+    parts.append(f'<line class="chart-axis" x1="{left}" x2="{width}" y1="{top + plot}" y2="{top + plot}"/>')
+    for i, bucket in enumerate(buckets):
+        x0 = left + i * slot
+        parts.extend(_stacked_bar_parts(bucket["label"], series, i, x0 + (slot - bar) / 2, bar, top + plot, plot, scale))
+        if i in shown:
+            parts.append(f'<text class="chart-label" x="{x0 + slot / 2:.1f}" y="{height - 6}" '
+                         f'text-anchor="middle">{escape(bucket["label"])}</text>')
+    parts.extend(_legend(series, width, height + 10))
+    parts.append("</svg>")
+    return Markup("".join(parts))
+
+
 def spark(points: list[dict], title: str, height: int = 60) -> Markup:
     """A small line for one series of a small multiple. Each point: label, value, tip.
     One point draws as a dot."""

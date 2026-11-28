@@ -42,27 +42,30 @@
 <div class="stat-tiles">
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.activities') }}</span>
     <strong class="stat-tile__value">{{ cur.activities }}</strong>{{ delta(cur.activities, prev.activities) }}</div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.hours') }}{% if cur.estimated %} <span class="muted" title="{{ t('statistics.estimatedHint') }}">≈</span>{% endif %}</span>
-    <strong class="stat-tile__value">{{ cur.hours }}</strong>{{ delta(cur.hours, prev.hours, ' h') }}</div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.won') }}</span>
-    <strong class="stat-tile__value">{{ cur.won_eur | eur }}</strong>{{ delta(cur.won_eur, prev.won_eur, money=true) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label" title="{{ t('statistics.soldHint') }}">{{ t('statistics.sold') }}</span>
+    <strong class="stat-tile__value">{{ cur.sold_eur | eur }}</strong>{{ delta(cur.sold_eur, prev.sold_eur, money=true) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label" title="{{ t('statistics.soldHint') }}">{{ t('statistics.contractsSold') }}</span>
+    <strong class="stat-tile__value">{{ cur.sold_contracts }}</strong>{{ delta(cur.sold_contracts, prev.sold_contracts) }}</div>
+  <div class="stat-tile"><span class="stat-tile__label" title="{{ t('sale.status.expectedHelp') }}">{{ t('statistics.expected') }}</span>
+    <strong class="stat-tile__value">{{ cur.expected_eur | eur }}</strong>{{ delta(cur.expected_eur, prev.expected_eur, money=true) }}
+    <span class="stat-delta">{{ t('statistics.expectedContracts', count=cur.expected_contracts) }}</span></div>
+  <div class="stat-tile"><span class="stat-tile__label" title="{{ t('statistics.collectedHint') }}">{{ t('statistics.collected') }}</span>
+    <strong class="stat-tile__value">{{ cur.collected_eur | eur }}</strong>{{ delta(cur.collected_eur, prev.collected_eur, money=true) }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.salesPipeline') }}</span>
     <strong class="stat-tile__value">{{ (stats.pipeline.booked.eur + stats.pipeline.contracted.eur) | eur }}</strong>
-    <span class="stat-delta">{{ t('statistics.salesPipelineSplit', booked=stats.pipeline.booked.eur | eur, contracted=stats.pipeline.contracted.eur | eur) }}</span>
+    <span class="stat-delta">{{ t('statistics.openFirm', amount=(stats.pipeline.booked.eur + stats.pipeline.contracted.eur) | eur) }}</span>
     {% if stats.pipeline.expected.count %}<span class="stat-delta">{{ t('statistics.salesExpected', expected=stats.pipeline.expected.eur | eur) }}</span>{% endif %}</div>
+  {% if stats.has_subscriptions %}
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.mrrNow') }}</span>
     <strong class="stat-tile__value">{{ stats.mrr_now | eur }}</strong>
     <span class="stat-delta">{{ t('statistics.subscribersNow', count=stats.subscribers_now) }}</span></div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.subscriptionRevenue') }} <span class="muted" title="{{ t('statistics.calculatedHint') }}">≈</span></span>
-    <strong class="stat-tile__value">{{ cur.subscription_eur | eur }}</strong>{{ delta(cur.subscription_eur, prev.subscription_eur, money=true) }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.mrrMoves') }}</span>
     <strong class="stat-tile__value">+{{ cur.new_mrr | eur }}</strong>
     <span class="stat-delta stat-delta--down">−{{ cur.lost_mrr | eur }}</span></div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.sales') }}</span>
-    <strong class="stat-tile__value">{{ cur.sales }}</strong>{{ delta(cur.sales, prev.sales) }}</div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.eurPerHour') }}</span>
-    <strong class="stat-tile__value">{{ (cur.eur_per_hour | eur) if cur.eur_per_hour is not none else '—' }}</strong></div>
-  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.promotions') }}</span>
+  <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.subscriptionRevenue') }} <span class="muted" title="{{ t('statistics.calculatedHint') }}">≈</span></span>
+    <strong class="stat-tile__value">{{ cur.subscription_eur | eur }}</strong>{{ delta(cur.subscription_eur, prev.subscription_eur, money=true) }}</div>
+  {% endif %}
+  <div class="stat-tile"><span class="stat-tile__label" title="{{ t('statistics.promotionsHint') }}">{{ t('statistics.promotions') }}</span>
     <strong class="stat-tile__value">{{ cur.promotions }}</strong>{{ delta(cur.promotions, prev.promotions) }}</div>
   <div class="stat-tile"><span class="stat-tile__label">{{ t('statistics.newOrganizations') }}</span>
     <strong class="stat-tile__value">{{ cur.new_organizations }}</strong>{{ delta(cur.new_organizations, prev.new_organizations) }}</div>
@@ -86,22 +89,6 @@
       </tbody>
     </table></div>
     <p class="muted small">{{ t('statistics.estimatedHint') }}</p>
-  </section>
-
-  <section class="detail-section">
-    <h2>{{ t('statistics.hoursPerWeek') }}</h2>
-    {% if stats.weeks %}
-    {% set most = stats.weeks | map(attribute='minutes') | max %}
-    <ul class="stat-bars">
-      {% for w in stats.weeks %}
-      <li title="{{ t('statistics.weekOf', date=w.week|dmy) }}: {{ (w.minutes / 60) | round(1) }} h, {{ w.count }} {{ t('statistics.activities') }}">
-        <span class="stat-bars__label">{{ w.week }}</span>
-        <span class="stat-bars__track"><span class="stat-bars__bar" style="width: {{ (100 * w.minutes / most) | round(1) if most else 0 }}%"></span></span>
-        <span class="stat-bars__value">{{ (w.minutes / 60) | round(1) }} h</span>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}<p class="muted">{{ t('statistics.nothingYet') }}</p>{% endif %}
   </section>
 
   <section class="detail-section">
@@ -144,21 +131,23 @@
 
 <section class="detail-section">
   <h2>{{ t('statistics.salesTitle') }}</h2>
-  <p class="muted small">{{ t('statistics.salesHint') }} {{ t('statistics.collectedOnly') }}</p>
+  <p class="muted small">{{ t('statistics.salesHint') }}</p>
   {% if stats.sales %}
   <div class="table-scroll">
   <table>
-    <thead><tr><th>{{ t('nav.organizations') }}</th><th>{{ t('offerFilter.label') }}</th><th class="num">€</th><th>{{ t('sales.wonOn') }}</th>
-      <th class="num">{{ t('statistics.weeks') }}</th><th class="num">{{ t('statistics.activities') }}</th>
-      <th class="num">{{ t('statistics.hours') }}</th><th class="num">{{ t('statistics.eurPerHour') }}</th><th>{{ t('sales.description') }}</th></tr></thead>
+    <thead><tr><th>{{ t('nav.organizations') }}</th><th>{{ t('offerFilter.label') }}</th><th>{{ t('statistics.contract') }}</th>
+      <th>{{ t('sale.status.label') }}</th><th class="num">€</th><th>{{ t('statistics.agreedOn') }}</th>
+      <th class="num">{{ t('statistics.payments') }}</th><th class="num">{{ t('statistics.weeks') }}</th>
+      <th class="num">{{ t('statistics.activities') }}</th></tr></thead>
     <tbody>
     {% for s in stats.sales %}
-      <tr><td><a href="/organizations/{{ s.contact_id }}">{{ s.organization }}</a></td>
+      <tr><td>{% if s.contact_id %}<a href="/organizations/{{ s.contact_id }}">{{ s.organization }}</a>{% else %}<a href="/people/{{ s.person_id }}">{{ s.organization }}</a>{% endif %}</td>
         <td class="muted">{{ s.offer or '—' }}</td>
+        <td><a href="/contracts/{{ s.contract_id }}">{{ s.title }}</a></td>
+        <td>{{ t('sale.status.' ~ s.status) }}</td>
         <td class="num">{{ s.amount_eur | eur }}</td><td class="nowrap">{{ s.won_on|dmy }}</td>
-        <td class="num">{{ s.weeks if s.weeks is not none else '—' }}</td><td class="num">{{ s.activities }}</td>
-        <td class="num">{{ s.hours }}</td><td class="num">{{ (s.eur_per_hour | eur) if s.eur_per_hour is not none else '—' }}</td>
-        <td class="muted small">{{ s.description or '' }}</td></tr>
+        <td class="num">{{ s.payments }}</td>
+        <td class="num">{{ s.weeks if s.weeks is not none else '—' }}</td><td class="num">{{ s.activities }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -167,12 +156,12 @@
 </section>
 
 <section class="detail-section">
-  <h2>{{ t('statistics.stuck', days=stats.stuck_after_days) }}</h2>
+  <h2>{{ t('statistics.stuck', days=stats.stuck_after_days) }}{% if stats.stuck_total > stats.stuck|length %} <span class="muted small">· {{ t('statistics.stuckTotal', total=stats.stuck_total, shown=stats.stuck|length) }}</span>{% endif %}</h2>
   {% if stats.stuck %}
   <ul class="stat-stuck">
     {% for o in stats.stuck %}
-    <li><a href="/organizations/{{ o.id }}">{{ o.name }}</a> · {% if not active_offer %}{{ o.offer }}: {% endif %}{{ t('stage.' ~ o.pipeline_stage) }} ·
-      <span class="muted">{{ t('statistics.lastActivity', date=o.last_day|dmy) if o.last_day else t('statistics.neverContacted') }}</span></li>
+    <li><a href="{{ '/organizations/' ~ o.id if o.id else '/people/' ~ o.person_id }}">{{ o.name }}</a> · {% if not active_offer %}{{ o.offer }}: {% endif %}{{ t('stage.' ~ o.pipeline_stage) }} ·
+      <span class="muted">{{ t('statistics.lastActivity', date=o.last_day|dmy) if o.last_day else t('statistics.addedNoActivity', date=o.added_on|dmy) }}</span></li>
     {% endfor %}
   </ul>
   {% else %}<p class="muted">{{ t('statistics.nothingStuck') }}</p>{% endif %}
@@ -195,7 +184,7 @@
 </div>
 <div class="stat-layout__history">
 {# Over time: one chart per measure for the last weeks, months or years, and the
-   daily pipeline log as one small line per stage. #}
+   daily pipeline log as one stacked bar chart of the working stages. #}
 <section class="detail-section stat-trends" id="over-time">
   <div class="stat-trends__head">
     <h2>{{ t('statistics.overTime') }}</h2>
@@ -220,17 +209,23 @@
     </figure>
     {% endfor %}
   </div>
-  <h3>{{ t('statistics.pipelineOverTime') }}</h3>
-  {% if trends.pipeline %}
-  <div class="stat-multiples">
-    {% for line in trends.pipeline %}
-    <figure class="stat-multiple">
-      <figcaption>{{ line.title }} <strong>{{ line.now }}</strong></figcaption>
-      {{ line.svg }}
-    </figure>
+  {% set stage = trends.stage_chart %}
+  <figure class="stat-chart stat-chart--stages">
+    <figcaption>{{ stage.title }}</figcaption>
+    {{ stage.svg }}
+    <details class="stat-chart__table"><summary>{{ t('statistics.asTable') }}</summary>
+      <div class="table-scroll"><table><tbody>
+        {% for label, value in stage.rows %}<tr><td>{{ label }}</td><td>{{ value }}</td></tr>{% endfor %}
+      </tbody></table></div>
+    </details>
+  </figure>
+  <h3>{{ t('statistics.sideStages') }}</h3>
+  <ul class="stat-side-stages">
+    {% for side in trends.side_stages %}
+    <li>{{ side.name }} <strong>{{ side.latest }}</strong>
+      <span class="stat-delta {{ 'stat-delta--up' if side.change > 0 }}">{{ '+' if side.change > 0 }}{{ side.change }}</span></li>
     {% endfor %}
-  </div>
-  {% endif %}
+  </ul>
   <p class="muted small">{{ t('statistics.pipelineLogHint', date=(trends.logged_since|dmy) or '—') }}</p>
 </section>
 </div>

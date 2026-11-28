@@ -1381,14 +1381,6 @@ main.statistics-page { max-width: none; }
 .statistics-page .num { text-align: right; font-variant-numeric: tabular-nums; }
 .statistics-page h3 { font-size: 0.95rem; margin: 1rem 0 0.4rem; }
 
-/* Hours per week: one series, so one hue; thin bars with rounded data ends on a
-   recessive track; values in text colour beside them. */
-.stat-bars { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
-.stat-bars li { display: grid; grid-template-columns: 6.5rem 1fr 3.5rem; align-items: center; gap: 0.6rem; padding: 3px 0; }
-.stat-bars__label { color: var(--muted); font-size: 0.85em; font-variant-numeric: tabular-nums; }
-.stat-bars__track { background: color-mix(in srgb, var(--border) 45%, transparent); height: 10px; border-radius: 0 4px 4px 0; }
-.stat-bars__bar { display: block; height: 10px; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 2px; }
-.stat-bars__value { text-align: right; font-size: 0.85em; font-variant-numeric: tabular-nums; }
 .stat-changes, .stat-stuck { list-style: none; padding: 0; margin: 0; }
 .stat-changes li, .stat-stuck li { padding: 0.2rem 0; }
 .stat-changes--dropped { color: var(--muted); }
@@ -1397,7 +1389,6 @@ main.statistics-page { max-width: none; }
 .stat-defaults input { width: 6rem; }
 @media (max-width: 700px) {
   .record-form { grid-template-columns: minmax(0, 1fr); }
-  .stat-bars li { grid-template-columns: 5.5rem 1fr 3rem; }
 }
 
 /* Over time: server-drawn SVG charts (gcrm/charts.py). One hue per chart; the
@@ -1406,8 +1397,8 @@ main.statistics-page { max-width: none; }
 .stat-trends__buckets { display: flex; gap: 0.4rem; }
 .stat-trends__buckets a { text-decoration: none; padding: 0.3rem 0.8rem; }
 .stat-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr)); gap: 1rem; margin-top: 0.8rem; }
-.stat-chart, .stat-multiple { margin: 0; }
-.stat-chart figcaption, .stat-multiple figcaption { font-size: 0.9em; margin-bottom: 0.3rem; color: var(--text); }
+.stat-chart { margin: 0; }
+.stat-chart figcaption { font-size: 0.9em; margin-bottom: 0.3rem; color: var(--text); }
 .stat-chart__table summary { color: var(--muted); font-size: 0.8em; cursor: pointer; margin-top: 0.2rem; }
 .chart { display: block; width: 100%; height: auto; overflow: visible; }
 .chart-bar { fill: var(--accent); }
@@ -1421,9 +1412,23 @@ main.statistics-page { max-width: none; }
 .chart-mark:hover .chart-hit { fill: color-mix(in srgb, var(--accent) 12%, transparent); }
 .chart-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
-.stat-multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.8rem; }
-.stat-multiple { background: var(--bg); border: 1px solid var(--border); padding: 0.5rem 0.6rem; }
-.stat-multiple figcaption strong { float: right; }
+/* The pipeline's working stages, stacked: one colour per stage, light enough on the dark surface. */
+:root {
+  --stage-suspect: #8da2b8;
+  --stage-nibble: #5b9bd5;
+  --stage-prospect: #5fb3a8;
+  --stage-opportunity: #c9a24a;
+  --stage-customer: #5fae78;
+}
+.chart-segment--suspect, .chart-legend__swatch.chart-segment--suspect { fill: var(--stage-suspect); }
+.chart-segment--nibble, .chart-legend__swatch.chart-segment--nibble { fill: var(--stage-nibble); }
+.chart-segment--prospect, .chart-legend__swatch.chart-segment--prospect { fill: var(--stage-prospect); }
+.chart-segment--opportunity, .chart-legend__swatch.chart-segment--opportunity { fill: var(--stage-opportunity); }
+.chart-segment--customer, .chart-legend__swatch.chart-segment--customer { fill: var(--stage-customer); }
+.chart-segment--suspect, .chart-segment--nibble, .chart-segment--prospect, .chart-segment--opportunity,
+.chart-segment--customer { stroke: var(--surface); stroke-width: 1; }
+.stat-chart--stages { margin-top: 1rem; }
+.stat-side-stages { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; }
 
 .contact-group-people { min-width: 180px; margin-top: 8px; }
 .contact-group-people summary { cursor: pointer; padding: 8px 0; color: var(--accent); }
