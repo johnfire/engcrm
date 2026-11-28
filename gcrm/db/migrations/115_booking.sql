@@ -102,7 +102,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     contact_id          INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
     person_id           INTEGER REFERENCES people(id) ON DELETE CASCADE,
     deal_id             INTEGER REFERENCES deals(id) ON DELETE SET NULL,
-    follow_up_id        BIGINT REFERENCES follow_ups(id) ON DELETE SET NULL,
+    -- A soft link, checked where it is used (gcrm/booking/crm_link.py): a foreign key would make
+    -- follow_ups depend on bookings, and follow_ups is meant to stay a leaf table (see test_follow_up_import_db).
+    follow_up_id        BIGINT,
     invite_sent_at      TIMESTAMPTZ,
     activity_logged_at  TIMESTAMPTZ,
     invite_error        TEXT NOT NULL DEFAULT '',
