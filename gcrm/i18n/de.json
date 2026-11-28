@@ -1571,6 +1571,8 @@
   "booking.error.not_changeable": "Dieser Termin lässt sich nicht mehr ändern.",
   "booking.error.try_again": "Andere Zeit wählen",
   "booking.error.invite_failed": "Die Einladung ging nicht raus. Prüfen Sie Absender und Mail-Einstellungen.",
+  "booking.error.feed_unreachable": "Dieser Link ließ sich nicht öffnen. Bitte prüfen und erneut versuchen; nichts wurde gespeichert.",
+  "booking.error.feed_not_calendar": "Dieser Link führt nicht zu einem Kalender. In Proton unter Einstellungen → Kalender den Kalender wählen und unter „Mit allen teilen“ einen Link mit eingeschränkter Ansicht erstellen. Diesen Link kopieren (er enthält calendar.ics). Die Adresse der Proton-Web-App funktioniert nicht. Nichts wurde gespeichert.",
   "nav.bookings": "Termine",
   "booking.adm.title": "Termine & Buchungsseite",
   "booking.adm.page_off": "Die öffentliche Buchungsseite ist aus. Niemand kann buchen, und es geht keine E-Mail raus.",

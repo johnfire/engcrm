@@ -90,3 +90,21 @@ class BusyFeedCache:
         if fetched_at is not None and now - fetched_at < STALE_AFTER:
             return text
         return None
+
+
+def feed_link_problem(url: str, fetch: Callable[[str], str] | None = None) -> str | None:
+    """Why a link cannot serve as a busy-time feed ("feed_unreachable", "feed_not_calendar"),
+    or None when it can. Fetches and parses it once, so a wrong link is refused when it is added,
+    not discovered later as a booking page without times (2026-11-28: the Proton web app's
+    address was saved instead of a share link)."""
+    try:
+        feed_text = (fetch or fetch_feed_text)(url)
+    except Exception as error:
+        logger.warning("calendar link check: fetch failed: %s", type(error).__name__)
+        return "feed_unreachable"
+    now = _utc_now()
+    try:
+        busy_spans_from_ics(feed_text, TimeSpan(now, now + timedelta(days=1)), ZoneInfo("UTC"))
+    except ValueError:
+        return "feed_not_calendar"
+    return None

@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from gcrm.booking.busy_feed import BusyFeedCache, busy_spans_from_ics
+from gcrm.booking.busy_feed import BusyFeedCache, busy_spans_from_ics, feed_link_problem
 from gcrm.booking.slots import TimeSpan
 
 BERLIN = ZoneInfo("Europe/Berlin")
@@ -158,3 +158,25 @@ def test_cache_returns_none_when_the_first_fetch_fails():
         raise OSError("unreachable")
 
     assert BusyFeedCache(fetch=fetch, clock=FakeClock()).feed_text("https://calendar.example/feed.ics") is None
+
+
+PROTON_WEB_APP_PAGE = "<!doctype html><html><head><title>Proton Calendar</title></head><body></body></html>"
+EMPTY_CALENDAR = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//x//EN\r\nEND:VCALENDAR\r\n"
+
+
+def test_a_link_to_a_real_calendar_has_no_problem():
+    assert feed_link_problem("https://cal.example/feed.ics", fetch=lambda url: FEED) is None
+    assert feed_link_problem("https://cal.example/feed.ics", fetch=lambda url: EMPTY_CALENDAR) is None
+
+
+def test_the_proton_web_app_address_is_not_a_calendar():
+    """2026-11-28: calendar.proton.me/u/1/ was saved; Proton answers it with a web page."""
+    assert feed_link_problem("https://calendar.proton.me/u/1/", fetch=lambda url: PROTON_WEB_APP_PAGE) \
+        == "feed_not_calendar"
+
+
+def test_a_link_that_cannot_be_fetched_is_unreachable():
+    def refuse(url):
+        raise OSError("connection refused")
+
+    assert feed_link_problem("https://cal.example/feed.ics", fetch=refuse) == "feed_unreachable"

@@ -19,6 +19,7 @@ from gcrm.booking import booking_service as service
 from gcrm.booking import crm_link, notifications
 from gcrm.booking.booking_store import get_booking, list_bookings, purge_old_bookings
 from gcrm.booking.booking_texts import LANGUAGES, has_text, text
+from gcrm.booking.busy_feed import feed_link_problem
 from gcrm.booking.hours_text import format_day_hours, parse_day_hours
 from gcrm.booking.setup_store import (
     CUSTOM_LENGTHS,
@@ -202,6 +203,11 @@ def _local_moment(day: str, clock: str, zone) -> datetime:
 
 @router.post("/feeds")
 def add_feed(label: str = Form(""), url: str = Form("")):
+    link = url.strip()
+    if label.strip() and link.startswith("https://"):  # the cheap checks below catch the rest
+        problem = feed_link_problem(link)
+        if problem:
+            return _back(error=problem, anchor="feeds")
     try:
         feed_id = add_booking_feed(label, url)
     except ValueError as error:

@@ -1571,6 +1571,8 @@
   "booking.error.not_changeable": "This appointment can no longer be changed.",
   "booking.error.try_again": "Pick another time",
   "booking.error.invite_failed": "The invite did not go out. Check the sender and mail settings.",
+  "booking.error.feed_unreachable": "This link could not be opened. Check it and try again; nothing was saved.",
+  "booking.error.feed_not_calendar": "This link does not lead to a calendar. In Proton, open Settings → Calendars, choose the calendar, and under \"Share with anyone\" create a link with limited view. Copy that link (it contains calendar.ics). The address of the Proton web app does not work. Nothing was saved.",
   "nav.bookings": "Bookings",
   "booking.adm.title": "Bookings & booking page",
   "booking.adm.page_off": "The public booking page is off. Nobody can book and no email goes out.",

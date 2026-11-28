@@ -44,6 +44,17 @@ def signed_in(clean_database, outbox, monkeypatch):
         app.dependency_overrides.pop(require_login, None)
 
 
+CALENDAR = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//x//x//EN\r\nEND:VCALENDAR\r\n"
+
+
+@pytest.fixture
+def calendars_answer(monkeypatch):
+    """Every link fetched while adding answers with a calendar, unless a test says otherwise."""
+    answers = {}
+    monkeypatch.setattr("gcrm.booking.busy_feed.fetch_feed_text", lambda url: answers.get(url, CALENDAR))
+    return answers
+
+
 def post(client, path, data):
     return client.post(path, data=data, follow_redirects=False)
 
@@ -71,7 +82,7 @@ def test_switching_on_needs_sender_and_calendar_address(signed_in):
         assert service.load_page("chris").settings["is_enabled"] is True
 
 
-def test_calendar_links_are_added_renamed_and_removed(signed_in):
+def test_calendar_links_are_added_renamed_and_removed(signed_in, calendars_answer):
     client, workspace_id = signed_in
     business = "https://calendar.example/api/business.ics?Key=business-secret"
     assert "msg=saved" in post(client, "/bookings/feeds", {"label": "Business", "url": business}).headers["location"]
@@ -244,3 +255,14 @@ def test_a_link_that_no_longer_decrypts_shows_up_for_removal_and_closes_the_page
         feed_id = list_booking_feeds()[0]["id"]
     post(client, f"/bookings/feeds/{feed_id}/delete", {})
     assert 'name="start"' in client.get("/bookings/preview/video?lang=en").text
+
+
+def test_a_link_that_is_not_a_calendar_is_refused_when_added(signed_in, calendars_answer):
+    client, workspace_id = signed_in
+    calendars_answer["https://calendar.proton.me/u/1/"] = "<!doctype html><html><body>Proton Calendar</body></html>"
+    refused = post(client, "/bookings/feeds", {"label": "Proton", "url": "https://calendar.proton.me/u/1/"})
+    assert "error=feed_not_calendar" in refused.headers["location"]
+    with workspace_scope(workspace_id):
+        assert list_booking_feeds() == []
+    page = client.get(refused.headers["location"] + "&lang=en")
+    assert "limited view" in page.text.lower()
