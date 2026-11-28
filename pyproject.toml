@@ -24,6 +24,8 @@ dependencies = [
     # ZoneInfo needs time-zone data; the slim Docker image may not ship it. It used to
     # arrive only through langgraph-checkpoint-postgres (removed 2026-11-05).
     "tzdata>=2024.1",
+    "icalendar>=6.0",
+    "recurring-ical-events>=3.3",
 ]
 
 [project.optional-dependencies]
