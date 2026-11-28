@@ -1,0 +1,9 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+<h2>{{ bt('page.pick_type') }}</h2>
+<nav class="types" aria-label="{{ bt('page.pick_type') }}">
+  {% for booking_type in types %}
+  <a href="/book/{{ page.slug }}/{{ booking_type.kind }}?lang={{ lang }}{% if link %}&amp;link={{ link }}{% endif %}">{{ bt('kind.' ~ booking_type.kind) }}</a>
+  {% endfor %}
+</nav>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+{% set base = '/book/' ~ page.slug ~ '/' ~ booking_type.kind ~ '?lang=' ~ lang ~ ('&link=' ~ link if link else '') %}
+<p><a href="/book/{{ page.slug }}?lang={{ lang }}{% if link %}&amp;link={{ link }}{% endif %}">← {{ bt('page.back') }}</a></p>
+<h2>{{ bt('kind.' ~ booking_type.kind) }}</h2>
+{% if booking_type.kind == 'custom' %}
+<form method="get" action="/book/{{ page.slug }}/custom" class="card">
+  <input type="hidden" name="lang" value="{{ lang }}">{% if link %}<input type="hidden" name="link" value="{{ link }}">{% endif %}
+  <label>{{ bt('page.length') }}
+    <select name="minutes">{% for length in custom_lengths %}<option value="{{ length }}"{% if length == minutes %} selected{% endif %}>{{ bt('page.minutes', minutes=length) }}</option>{% endfor %}</select>
+  </label>
+  <button type="submit">{{ bt('page.show_times') }}</button>
+</form>
+{% endif %}
+{% if calendar_unavailable %}
+<div class="card problem" role="alert">{{ bt('page.calendar_unavailable', email=page.settings.organizer_email) }}</div>
+{% else %}
+<nav class="weeks" aria-label="{{ bt('page.pick_time') }}">
+  {% if week > 0 %}<a href="{{ base }}&amp;week={{ week - 1 }}{% if minutes %}&amp;minutes={{ minutes }}{% endif %}">{{ bt('page.earlier') }}</a>{% else %}<span></span>{% endif %}
+  {% if week + 1 < weeks %}<a href="{{ base }}&amp;week={{ week + 1 }}{% if minutes %}&amp;minutes={{ minutes }}{% endif %}">{{ bt('page.later') }}</a>{% endif %}
+</nav>
+{% if not days %}
+<p class="card">{{ bt('page.no_times') }}</p>
+{% else %}
+<form method="post" action="/book/{{ page.slug }}/{{ booking_type.kind }}?lang={{ lang }}">
+  {% if link %}<input type="hidden" name="link" value="{{ link }}">{% endif %}
+  {% if minutes %}<input type="hidden" name="minutes" value="{{ minutes }}">{% endif %}
+  <fieldset>
+    <legend>{{ bt('page.pick_time') }} <span class="muted">· {{ bt('page.times_note') }}</span></legend>
+    {% for day in days %}
+    <div class="day">{{ day.label }}</div>
+    <div class="slots">
+      {% for start in day.starts %}
+      <label><input type="radio" name="start" value="{{ start.value }}" required><span><time datetime="{{ start.value }}">{{ start.label }}</time></span></label>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </fieldset>
+  <div class="fields">
+    <label>{{ bt('form.name') }}<input type="text" name="guest_name" required maxlength="200" autocomplete="name"></label>
+    <label>{{ bt('form.email') }}<input type="email" name="guest_email" required maxlength="254" autocomplete="email"></label>
+    <label>{{ bt('form.company') }}<input type="text" name="company" maxlength="200" autocomplete="organization"></label>
+    {% if booking_type.kind == 'call' %}<label>{{ bt('form.phone') }}<input type="tel" name="phone" required maxlength="40" autocomplete="tel"></label>{% endif %}
+    {% if booking_type.kind == 'visit' %}<label>{{ bt('form.address') }}<textarea name="visit_address" required maxlength="500" rows="2" autocomplete="street-address"></textarea></label>{% endif %}
+    <label>{{ bt('form.topic') }}<textarea name="topic" maxlength="2000" rows="3"{% if booking_type.kind == 'custom' %} required{% endif %}></textarea></label>
+    <div class="trap" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <p class="muted"><a href="/privacy">{{ bt('form.privacy') }}</a></p>
+    <button type="submit">{{ bt('form.submit_request') if booking_type.needs_approval else bt('form.submit') }}</button>
+  </div>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

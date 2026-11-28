@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>{{ bt('page.title') }} · {{ page.settings.organizer_name }}</title>
+    <style nonce="{{ csp_nonce }}">
+      :root { --ink: #1d2433; --muted: #5b6475; --line: #d9dde5; --accent: #1f5fbf; --accent-ink: #fff;
+              --soft: #eef3fb; --bad: #a3261c; --bg: #f7f8fa; --card: #fff; }
+      @media (prefers-color-scheme: dark) {
+        :root { --ink: #e7eaf0; --muted: #a4acbb; --line: #3a4252; --accent: #7aa7ee; --accent-ink: #0d1526;
+                --soft: #1d2838; --bad: #f08a80; --bg: #121722; --card: #1a2030; }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink);
+             font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+      main { max-width: 680px; margin: 0 auto; padding: 24px 16px 48px; }
+      header.booking { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+      h1 { font-size: 1.5rem; margin: 0; } h2 { font-size: 1.1rem; margin: 24px 0 8px; }
+      .muted { color: var(--muted); } a { color: var(--accent); }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 12px 0; }
+      .types { display: grid; gap: 10px; }
+      .types a { display: block; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px;
+                 background: var(--card); text-decoration: none; color: var(--ink); font-weight: 600; }
+      .types a:hover, .types a:focus-visible { border-color: var(--accent); background: var(--soft); }
+      fieldset { border: 0; padding: 0; margin: 0; }
+      .day { margin: 14px 0 6px; font-weight: 600; }
+      .slots { display: flex; flex-wrap: wrap; gap: 8px; }
+      .slots label { position: relative; }
+      .slots input { position: absolute; opacity: 0; }
+      .slots span { display: inline-block; min-width: 4.5rem; text-align: center; padding: 8px 10px;
+                    border: 1px solid var(--line); border-radius: 8px; background: var(--card); cursor: pointer; }
+      .slots input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+      .slots input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .slots small { display: block; font-size: .75rem; opacity: .8; }
+      .fields { display: grid; gap: 12px; margin-top: 20px; }
+      .fields label { display: grid; gap: 4px; font-weight: 600; }
+      input[type=text], input[type=email], input[type=tel], textarea, select {
+        font: inherit; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+      button { font: inherit; font-weight: 600; padding: 12px 18px; border-radius: 8px; border: 0;
+               background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+      button.secondary { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+      .weeks { display: flex; justify-content: space-between; margin: 12px 0; }
+      .problem { border-left: 4px solid var(--bad); }
+      .trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="booking">
+        <div>
+          <h1>{{ bt('page.title') }}</h1>
+          {% if page.settings.organizer_name %}<div class="muted">{{ bt('page.with', host=page.settings.organizer_name) }}</div>{% endif %}
+        </div>
+        <a href="?{% if link %}link={{ link }}&amp;{% endif %}lang={{ 'en' if lang == 'de' else 'de' }}">{{ bt('page.language') }}</a>
+      </header>
+      {% block content %}{% endblock %}
+    </main>
+    <script nonce="{{ csp_nonce }}">
+      (function () {
+        var zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!zone || zone === "{{ page.settings.time_zone }}") return;
+        document.querySelectorAll("time[datetime]").forEach(function (node) {
+          var local = new Date(node.getAttribute("datetime")).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+          var note = document.createElement("small");
+          note.textContent = local + " {{ bt('page.local_time') }}";
+          node.after(note);
+        });
+      })();
+    </script>
+  </body>
+</html>

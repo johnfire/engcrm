@@ -1,0 +1,31 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+{% set zone = page.settings.time_zone %}
+<div class="card">
+  <h2>{{ bt('manage.title') }}</h2>
+  <p><strong>{{ bt('kind.' ~ booking.kind) }}</strong> · {{ bt('status.' ~ booking.status) }}</p>
+  <p><time datetime="{{ booking.starts_at.isoformat() }}">{{ when }}</time></p>
+  {% if booking.status == 'confirmed' %}<p><a href="/book/{{ page.slug }}/manage/{{ token }}/invite.ics">{{ bt('manage.download') }}</a></p>{% endif %}
+</div>
+{% if may_change %}
+  {% if days %}
+  <form method="post" action="/book/{{ page.slug }}/manage/{{ token }}/move?lang={{ lang }}" class="card">
+    <fieldset>
+      <legend>{{ bt('manage.move_title') }} <span class="muted">· {{ bt('page.times_note') }}</span></legend>
+      {% for day in days %}
+      <div class="day">{{ day.label }}</div>
+      <div class="slots">{% for start in day.starts %}<label><input type="radio" name="start" value="{{ start.value }}" required><span><time datetime="{{ start.value }}">{{ start.label }}</time></span></label>{% endfor %}</div>
+      {% endfor %}
+    </fieldset>
+    <p><button type="submit">{{ bt('manage.move') }}</button></p>
+  </form>
+  <nav class="weeks">
+    {% if week > 0 %}<a href="?lang={{ lang }}&amp;week={{ week - 1 }}">{{ bt('page.earlier') }}</a>{% else %}<span></span>{% endif %}
+    {% if week + 1 < weeks %}<a href="?lang={{ lang }}&amp;week={{ week + 1 }}">{{ bt('page.later') }}</a>{% endif %}
+  </nav>
+  {% endif %}
+  <form method="post" action="/book/{{ page.slug }}/manage/{{ token }}/cancel?lang={{ lang }}"><button type="submit" class="secondary">{{ bt('manage.cancel') }}</button></form>
+{% elif booking.status in ('confirmed', 'requested') %}
+  <p class="card">{{ bt('manage.too_late', email=page.settings.organizer_email) }}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+<div class="card">
+  <h2>{{ bt('confirm.title') }}</h2>
+  <p>{{ bt('confirm.text') }}</p>
+  <form method="post" action="/book/{{ page.slug }}/confirm/{{ token }}?lang={{ lang }}"><button type="submit">{{ bt('confirm.button') }}</button></form>
+</div>
+{% endblock %}

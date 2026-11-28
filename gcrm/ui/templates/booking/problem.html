@@ -1,0 +1,8 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+<div class="card problem" role="alert">
+  <h2>{{ bt('error.title') }}</h2>
+  <p>{{ bt('error.' ~ reason) }}</p>
+  {% if kind %}<p><a href="/book/{{ page.slug }}/{{ kind }}?lang={{ lang }}{% if link %}&amp;link={{ link }}{% endif %}">{{ bt('error.try_again') }}</a></p>{% endif %}
+</div>
+{% endblock %}

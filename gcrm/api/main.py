@@ -48,6 +48,7 @@ from gcrm.api.routers import (
     approval,
     areas,
     backups,
+    booking_public,
     contact_dates,
     contact_feed,
     contracts,
@@ -182,6 +183,7 @@ if remote_mcp is not None:
 
 app.include_router(auth.router)
 app.include_router(legal.router)
+app.include_router(booking_public.router)
 app.include_router(account.router)
 app.include_router(backups.router)
 app.include_router(forecast.router)
