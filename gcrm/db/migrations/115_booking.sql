@@ -97,8 +97,10 @@ CREATE TABLE IF NOT EXISTS bookings (
     manage_token_hash   TEXT NOT NULL UNIQUE,
     -- Kept encrypted so later emails (approved, moved, cancelled) can carry the manage link again.
     manage_token_encrypted TEXT NOT NULL,
-    contact_id          INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
-    person_id           INTEGER REFERENCES people(id) ON DELETE SET NULL,
+    -- Erasing (or purging) the person or organization erases their bookings too: a booking holds
+    -- the booker's name, email, phone and address.
+    contact_id          INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
+    person_id           INTEGER REFERENCES people(id) ON DELETE CASCADE,
     deal_id             INTEGER REFERENCES deals(id) ON DELETE SET NULL,
     follow_up_id        BIGINT REFERENCES follow_ups(id) ON DELETE SET NULL,
     invite_sent_at      TIMESTAMPTZ,

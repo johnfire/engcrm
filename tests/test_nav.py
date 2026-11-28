@@ -79,7 +79,7 @@ def test_no_tab_is_active_off_the_navigable_pages():
 def test_top_level_tabs_are_alphabetical_and_grouped():
     labels = tab_labels(render_nav("/organizations/"))
     assert labels == [
-        "Admin", "Areas", "Contacts", "Contracts", "Follow-ups", "Forecast", "Mail", "Organizations", "People", "Research", "Statistics"
+        "Admin", "Areas", "Bookings", "Contacts", "Contracts", "Follow-ups", "Forecast", "Mail", "Organizations", "People", "Research", "Statistics"
     ]
     assert labels == sorted(labels)
 

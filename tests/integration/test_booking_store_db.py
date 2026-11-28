@@ -29,6 +29,7 @@ from gcrm.booking.setup_store import (
 )
 from gcrm.booking.slots import TimeSpan, occupied_span
 from gcrm.db.connection import db
+from gcrm.tools.privacy_retention import erase_organization, erase_person
 from gcrm.workspace_context import workspace_scope
 
 pytestmark = pytest.mark.integration
@@ -224,3 +225,23 @@ def test_another_workspace_sees_none_of_it(foreign_workspace, workspace):
         ensure_booking_defaults()
         assert taken_spans(WEEK, 15) == []
         create_booking(new_booking())  # same time, other workspace: no clash
+
+
+def test_erasing_a_person_or_organization_erases_their_bookings(workspace):
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO people (name, email) VALUES ('Max Beispiel', 'max@example.com') RETURNING id")
+        person_id = cursor.fetchone()["id"]
+        cursor.execute("INSERT INTO contacts (name) VALUES ('Beispiel GmbH') RETURNING id")
+        contact_id = cursor.fetchone()["id"]
+    by_person = create_booking(new_booking())
+    by_company = create_booking(new_booking(START + timedelta(hours=3), email="office@example.com"))
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("UPDATE bookings SET person_id=%s WHERE id=%s", (person_id, by_person.booking_id))
+        cursor.execute("UPDATE bookings SET contact_id=%s WHERE id=%s", (contact_id, by_company.booking_id))
+    assert erase_person(person_id) and erase_organization(contact_id)
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT count(*) AS left_over FROM bookings")
+        assert cursor.fetchone()["left_over"] == 0

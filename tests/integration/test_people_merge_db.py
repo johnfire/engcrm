@@ -1,10 +1,17 @@
 """Merging a duplicate person against the real schema: every linked row moves,
 the duplicate is gone, and a preview writes nothing."""
 from contextlib import nullcontext
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
+from gcrm.booking.booking_store import NewBooking, create_booking
+from gcrm.booking.setup_store import (
+    create_booking_link,
+    ensure_booking_defaults,
+    list_booking_types,
+)
+from gcrm.booking.slots import occupied_span
 from gcrm.db.connection import db
 from gcrm.tools.db_people import save_person
 from gcrm.tools.db_people_interactions import log_person_note
@@ -226,3 +233,27 @@ def test_a_contract_that_names_the_duplicate_as_its_contact_names_the_kept_perso
 
     merge_people(ids["keep"], ids["drop"], apply=True, today=date(2026, 10, 5))
     assert _contract_contact_people() == [ids["keep"], None]
+
+
+def test_bookings_and_personal_booking_links_follow_the_kept_person(clean_database):
+    ids = _setup_pair()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug = 'default'")
+        workspace_id = cursor.fetchone()["id"]
+    start = datetime(2027, 3, 3, 9, tzinfo=timezone.utc)
+    with workspace_scope(workspace_id):
+        ensure_booking_defaults()
+        video = next(row["id"] for row in list_booking_types() if row["kind"] == "video")
+        create_booking(NewBooking(booking_type_id=video, status="confirmed", starts_at=start,
+                                  ends_at=start + timedelta(minutes=45), occupied=occupied_span(start, 45, 0, 15),
+                                  guest_name="Anna Huber", guest_email="anna@example.test", person_id=ids["drop"]))
+        create_booking_link("Anna", contact_id=None, person_id=ids["drop"], deal_id=None)
+
+    preview = merge_people(ids["keep"], ids["drop"], apply=False, today=date(2026, 10, 5))
+    assert len(preview["moved"]["bookings"]) == 1 and len(preview["moved"]["booking_links"]) == 1
+    merge_people(ids["keep"], ids["drop"], apply=True, today=date(2026, 10, 5))
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT person_id FROM bookings UNION ALL SELECT person_id FROM booking_links")
+        assert [row["person_id"] for row in cursor.fetchall()] == [ids["keep"], ids["keep"]]
