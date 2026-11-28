@@ -41,7 +41,7 @@ def _words(booking: dict, settings: dict, slug: str) -> dict:
         "when": describe_time(language, booking["starts_at"], booking["ends_at"], zone),
         "day": booking["starts_at"].astimezone(zone).strftime("%d.%m.%Y"),
         "manage": public_link(slug, f"manage/{manage_token_of(booking)}"),
-        "admin": f"{APP_PUBLIC_URL}/bookings",
+        "admin": f"{APP_PUBLIC_URL}/bookings/",
     }
 
 

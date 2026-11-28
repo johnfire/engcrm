@@ -22,6 +22,11 @@ from gcrm.tools.db_people_interactions import log_person_note
 from gcrm.tools.follow_ups import change_follow_up_status, create_follow_up, update_follow_up
 
 logger = logging.getLogger(__name__)
+# A shared mail provider says nothing about the employer, so its domain is never matched.
+FREEMAIL_DOMAINS = frozenset({"gmail.com", "googlemail.com", "gmx.de", "gmx.net", "web.de", "t-online.de",
+                              "outlook.com", "outlook.de", "hotmail.com", "hotmail.de", "live.com", "yahoo.com",
+                              "yahoo.de", "icloud.com", "me.com", "proton.me", "protonmail.com", "pm.me",
+                              "posteo.de", "mailbox.org", "freenet.de", "aol.com"})
 # Booking kind -> (organization activity method, person activity method).
 ACTIVITY_METHODS = {"call": ("phone", "call"), "video": ("video", "video"), "visit": ("meeting", "meeting"),
                     "custom": ("video", "video")}
@@ -122,3 +127,22 @@ def log_meeting_held(booking: dict) -> bool:
         log_person_note(booking["person_id"], person_method, note, duration_minutes=minutes)
     close_follow_up(booking, "completed")
     return True
+
+
+def link_suggestions(booking: dict) -> list[dict]:
+    """People and organizations that might be this booker: same email domain, same surname,
+    or a company name match. At most eight; Chris picks, nothing is linked automatically."""
+    domain = booking["guest_email"].rpartition("@")[2].lower()
+    domain = "" if domain in FREEMAIL_DOMAINS else domain
+    surname = booking["guest_name"].split()[-1] if booking["guest_name"].split() else ""
+    company = booking["company"].strip()
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """SELECT 'person' AS kind, id, name FROM people WHERE deleted_at IS NULL
+                  AND (lower(email) LIKE '%%@' || lower(%s) OR (length(%s) > 2 AND name ILIKE '%%' || %s || '%%'))
+               UNION ALL
+               SELECT 'organization', id, name FROM contacts WHERE deleted_at IS NULL
+                  AND length(%s) > 2 AND name ILIKE '%%' || %s || '%%'
+               LIMIT 8""", (domain, surname, surname, company, company))
+        return [dict(row) for row in cursor.fetchall()]

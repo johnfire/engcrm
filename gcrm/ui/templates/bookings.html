@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ bt('adm.title') }} — {{ t('nav.brand') }}{% endblock %}
+{% block main_class %}main-wide{% endblock %}
+{% block content %}
+{% set zone = page.settings.time_zone %}
+<style nonce="{{ csp_nonce }}">
+  .booking-admin section { margin: 1.5rem 0; }
+  .booking-admin table { width: 100%; border-collapse: collapse; }
+  .booking-admin th, .booking-admin td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .booking-admin .actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .booking-admin .actions form { display: inline; }
+  .booking-admin .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .75rem 1rem; }
+  .booking-admin label { display: grid; gap: .2rem; }
+  .booking-admin .inline { display: flex; align-items: center; gap: .4rem; }
+  .booking-admin .notice { padding: .6rem .8rem; border: 1px solid var(--hairline-strong); border-radius: 6px; background: var(--surface-raised); color: var(--text); }
+  .booking-admin .bad { color: var(--danger); }
+  .booking-admin .pill { font-size: .8rem; padding: .1rem .45rem; border-radius: 999px; background: var(--accent-wash); color: var(--accent-bright); }
+</style>
+<div class="booking-admin">
+<div class="page-header"><h1>{{ bt('adm.title') }}</h1></div>
+{% if msg %}<p class="notice" role="status">{{ bt('adm.saved') }}</p>{% endif %}
+{% if error_text %}<p class="notice bad" role="alert">{{ bt('adm.error', error=error_text) }}</p>{% endif %}
+<p class="notice">{% if page.settings.is_enabled %}{{ bt('adm.page_on', url='') }}<a href="{{ public_url }}" target="_blank" rel="noopener">{{ public_url }}</a>{% else %}{{ bt('adm.page_off') }}{% endif %}
+  {% if not page.settings.feed_url %}<br>{{ bt('adm.no_feed') }}{% endif %}</p>
+
+<section id="list">
+  <h2>{{ bt('adm.upcoming') }}</h2>
+  {% if not bookings %}<p>{{ bt('adm.none') }}</p>{% else %}
+  <table>
+    <thead><tr><th>{{ bt('adm.day') }}</th><th></th><th></th><th></th></tr></thead>
+    <tbody>
+    {% for booking in bookings %}
+      {% set local = booking.starts_at.astimezone(page.zone) %}
+      <tr>
+        <td>{{ local.strftime('%d.%m.%Y %H:%M') }}<br><span class="pill">{{ bt('status.' ~ booking.status) }}</span></td>
+        <td><strong>{{ bt('kind.' ~ booking.kind) }}</strong><br>{{ booking.guest_name }} · <a href="mailto:{{ booking.guest_email }}">{{ booking.guest_email }}</a>
+          {% if booking.company %}<br>{{ booking.company }}{% endif %}{% if booking.phone %}<br>{{ booking.phone }}{% endif %}
+          {% if booking.visit_address %}<br>{{ booking.visit_address }}{% endif %}
+          {% if booking.topic %}<br><em>{{ booking.topic }}</em>{% endif %}
+          {% if booking.invite_error %}<br><span class="bad">{{ bt('adm.invite_failed', error=booking.invite_error) }}</span>{% endif %}</td>
+        <td>
+          {% if booking.person_id %}<a href="/people/{{ booking.person_id }}">{{ booking.person_name }}</a>
+          {% elif booking.contact_id %}<a href="/organizations/{{ booking.contact_id }}">{{ booking.organization_name }}</a>
+          {% else %}<span class="pill">{{ bt('adm.unlinked') }}</span>
+            {% if suggestions[booking.id] %}
+            <form method="post" action="/bookings/{{ booking.id }}/link" class="inline">
+              <label class="inline">{{ bt('adm.suggestions') }}<select name="record">
+                {% for record in suggestions[booking.id] %}<option value="{{ record.kind }}:{{ record.id }}">{{ record.name }} ({{ t('nav.people') if record.kind == 'person' else t('nav.organizations') }})</option>{% endfor %}
+              </select></label><button type="submit">{{ bt('adm.link') }}</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/bookings/{{ booking.id }}/create-person"><button type="submit">{{ bt('adm.create_person') }}</button></form>
+          {% endif %}
+        </td>
+        <td class="actions">
+          {% if booking.status == 'requested' %}
+            <form method="post" action="/bookings/{{ booking.id }}/action/approve"><button type="submit">{{ bt('adm.approve') }}</button></form>
+            <form method="post" action="/bookings/{{ booking.id }}/action/decline"><button type="submit">{{ bt('adm.decline') }}</button></form>
+          {% endif %}
+          {% if booking.status in ('confirmed', 'requested', 'held') and booking.starts_at > now %}
+            <form method="post" action="/bookings/{{ booking.id }}/action/cancel"><button type="submit">{{ bt('adm.cancel') }}</button></form>
+          {% endif %}
+          {% if booking.status == 'confirmed' and booking.invite_error %}
+            <form method="post" action="/bookings/{{ booking.id }}/action/resend"><button type="submit">{{ bt('adm.resend') }}</button></form>
+          {% endif %}
+          {% if booking.status == 'confirmed' and booking.starts_at <= now and not booking.activity_logged_at and (booking.person_id or booking.contact_id) %}
+            <form method="post" action="/bookings/{{ booking.id }}/action/held"><button type="submit">{{ bt('adm.held') }}</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section id="blocks">
+  <h2>{{ bt('adm.blocks') }}</h2>
+  <p>{{ bt('adm.blocks_help') }}</p>
+  <form method="post" action="/bookings/blocks" class="grid">
+    <label>{{ bt('adm.day') }}<input type="text" name="day" placeholder="28.11.2026" required></label>
+    <label>{{ bt('adm.from') }}<input type="text" name="start" placeholder="10:00" required></label>
+    <label>{{ bt('adm.to') }}<input type="text" name="end" placeholder="11:30" required></label>
+    <label>{{ bt('adm.note') }}<input type="text" name="note" maxlength="200"></label>
+    <div><button type="submit">{{ bt('adm.add') }}</button></div>
+  </form>
+  {% for block in blocks %}
+  <p>{{ block.starts_at.astimezone(page.zone).strftime('%d.%m.%Y %H:%M') }}–{{ block.ends_at.astimezone(page.zone).strftime('%H:%M') }} {{ block.note }}
+    <form method="post" action="/bookings/blocks/{{ block.id }}/delete" class="inline"><button type="submit">{{ bt('adm.remove') }}</button></form></p>
+  {% endfor %}
+</section>
+
+<section id="hours">
+  <h2>{{ bt('adm.hours') }}</h2>
+  <p>{{ bt('adm.hours_help') }}</p>
+  <form method="post" action="/bookings/hours" class="grid">
+    {% for weekday in range(7) %}
+    <label>{{ ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'][weekday] if lang == 'de' else ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][weekday] }}
+      <input type="text" name="day{{ weekday }}" value="{{ hours[weekday] }}" placeholder="09:30-12:00, 13:30-16:30"></label>
+    {% endfor %}
+    <div><button type="submit">{{ bt('adm.save') }}</button></div>
+  </form>
+</section>
+
+<section id="types">
+  <h2>{{ bt('adm.types') }}</h2>
+  <form method="post" action="/bookings/types">
+    <table>
+      <thead><tr><th></th><th>{{ bt('adm.minutes') }}</th><th>{{ bt('adm.travel') }}</th><th>{{ bt('adm.weekdays') }}</th><th>{{ bt('adm.active') }}</th></tr></thead>
+      <tbody>
+      {% for kind in ['call', 'video', 'visit', 'custom'] %}{% set row = all_types[kind] %}
+      <tr>
+        <td>{{ bt('kind.' ~ kind) }}</td>
+        <td><input type="number" name="{{ kind }}_minutes" value="{{ row.minutes }}" min="5" max="480" aria-label="{{ bt('adm.minutes') }}"></td>
+        <td><input type="number" name="{{ kind }}_travel" value="{{ row.travel_minutes }}" min="0" max="480" aria-label="{{ bt('adm.travel') }}"></td>
+        <td>{% for day in range(7) %}<label class="inline"><input type="checkbox" name="{{ kind }}_weekdays" value="{{ day }}"{% if row.weekdays and day in row.weekdays %} checked{% endif %}>{{ ['Mo','Di','Mi','Do','Fr','Sa','So'][day] if lang == 'de' else ['Mo','Tu','We','Th','Fr','Sa','Su'][day] }}</label>{% endfor %}</td>
+        <td><input type="checkbox" name="{{ kind }}_active"{% if row.is_active %} checked{% endif %} aria-label="{{ bt('adm.active') }}"></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p><button type="submit">{{ bt('adm.save') }}</button></p>
+  </form>
+</section>
+
+<section id="links">
+  <h2>{{ bt('adm.links') }}</h2>
+  <p>{{ bt('adm.links_help') }}</p>
+  {% for link in links %}
+  <p>{{ link.label }}: <code>{{ public_url }}?link={{ link.token }}</code>
+    <form method="post" action="/bookings/links/{{ link.id }}/retire" class="inline"><button type="submit">{{ bt('adm.retire') }}</button></form></p>
+  {% endfor %}
+</section>
+
+<section id="settings">
+  <h2>{{ bt('adm.settings') }}</h2>
+  <form method="post" action="/bookings/settings" class="grid">
+    <label class="inline"><input type="checkbox" name="is_enabled"{% if page.settings.is_enabled %} checked{% endif %}>{{ bt('adm.enabled') }}</label>
+    <label>{{ bt('adm.slug') }}<input type="text" name="public_slug" value="{{ page.settings.public_slug or '' }}" pattern="[a-z0-9][a-z0-9-]{1,39}"></label>
+    <label>{{ bt('adm.organizer_email') }}<input type="email" name="organizer_email" value="{{ page.settings.organizer_email }}"></label>
+    <label>{{ bt('adm.organizer_name') }}<input type="text" name="organizer_name" value="{{ page.settings.organizer_name }}"></label>
+    <label>{{ bt('adm.host_email') }}<input type="email" name="host_email" value="{{ page.settings.host_email }}"></label>
+    <label>{{ bt('adm.room_link') }}<input type="url" name="room_link" value="{{ page.settings.room_link }}" placeholder="https://"></label>
+    <label>{{ bt('adm.feed_url') }}<input type="url" name="feed_url" value="" placeholder="{{ bt('adm.feed_set') if page.settings.feed_url else 'https://calendar.proton.me/…' }}" autocomplete="off"></label>
+    {% if page.settings.feed_url %}<label class="inline"><input type="checkbox" name="feed_clear">{{ bt('adm.feed_clear') }}</label>{% endif %}
+    <label>{{ bt('adm.notice') }}<input type="number" name="min_notice_hours" value="{{ page.settings.min_notice_hours }}" min="0" max="720"></label>
+    <label>{{ bt('adm.horizon') }}<input type="number" name="horizon_days" value="{{ page.settings.horizon_days }}" min="1" max="365"></label>
+    <label>{{ bt('adm.gap') }}<input type="number" name="gap_minutes" value="{{ page.settings.gap_minutes }}" min="0" max="240"></label>
+    <label>{{ bt('adm.cutoff') }}<input type="number" name="cancel_cutoff_hours" value="{{ page.settings.cancel_cutoff_hours }}" min="0" max="720"></label>
+    <div><button type="submit">{{ bt('adm.save') }}</button></div>
+  </form>
+</section>
+</div>
+{% endblock %}

@@ -33,6 +33,7 @@
 {% if request.session.get('role') == 'admin' %}
 <p><a class="btn-secondary" href="/contact-feed/person/{{ person.id }}/date">{{ t('contactDate.title') }}</a></p>
 <p><a class="btn-secondary" href="/follow-ups/?target=person:{{ person.id }}">{{ t('followUp.add') }}</a></p>
+<form method="post" action="/bookings/links"><input type="hidden" name="person_id" value="{{ person.id }}"><input type="hidden" name="label" value="{{ person.name }}"><button type="submit" class="btn-secondary">{{ booking_text(request.session.get('ui_language', 'en'), 'adm.make_link') }}</button></form>
 {% endif %}
 
 {% if saved %}

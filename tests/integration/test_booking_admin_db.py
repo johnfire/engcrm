@@ -1,0 +1,167 @@
+"""Chris's Bookings page on real PostgreSQL: settings, hours, links, approvals, linking."""
+import re
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from gcrm.api import main as app_module
+from gcrm.api.auth import require_login
+from gcrm.api.main import app
+from gcrm.booking import booking_service as service
+from gcrm.booking.booking_store import get_booking
+from gcrm.db.connection import db
+from gcrm.workspace_context import workspace_scope
+
+pytestmark = pytest.mark.integration
+
+
+@pytest.fixture
+def outbox(monkeypatch):
+    sent = []
+    monkeypatch.setattr("gcrm.booking.notifications.send_prepared_email",
+                        lambda message, recipient: sent.append((recipient, message)) or True)
+    return sent
+
+
+@pytest.fixture
+def signed_in(clean_database, outbox, monkeypatch):
+    """A signed-in browser: the session lookup names the workspace, as it does in production."""
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id FROM workspaces WHERE slug='default'")
+        workspace_id = cursor.fetchone()["id"]
+
+    async def session_identity(request, admin_password):
+        return {"workspace_id": workspace_id}
+
+    monkeypatch.setattr(app_module, "refresh_browser_session", session_identity)
+    app.dependency_overrides[require_login] = lambda: "admin"
+    try:
+        yield TestClient(app), workspace_id
+    finally:
+        app.dependency_overrides.pop(require_login, None)
+
+
+def post(client, path, data):
+    return client.post(path, data=data, follow_redirects=False)
+
+
+SETTINGS = {"public_slug": "chris", "organizer_email": "termine@example.org", "organizer_name": "Chris Example",
+            "host_email": "host@example.net", "min_notice_hours": "24", "horizon_days": "42", "gap_minutes": "15",
+            "cancel_cutoff_hours": "12"}
+
+
+def test_page_shows_defaults_and_the_page_is_off(signed_in):
+    client, _ = signed_in
+    page = client.get("/bookings/?lang=en")
+    assert page.status_code == 200
+    assert "The public booking page is off" in page.text
+    assert 'value="09:30-12:00, 13:30-16:30"' in page.text
+
+
+def test_switching_on_needs_sender_and_calendar_address(signed_in):
+    client, workspace_id = signed_in
+    refused = post(client, "/bookings/settings", {**SETTINGS, "organizer_email": "", "is_enabled": "on"})
+    assert "error=" in refused.headers["location"]
+    saved = post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on",
+                                                "feed_url": "https://calendar.example/feed.ics"})
+    assert "msg=saved" in saved.headers["location"]
+    with workspace_scope(workspace_id):
+        settings = service.load_page("chris").settings
+    assert settings["is_enabled"] is True and settings["feed_url"] == "https://calendar.example/feed.ics"
+    post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on"})  # empty feed field keeps the link
+    with workspace_scope(workspace_id):
+        assert service.load_page("chris").settings["feed_url"] == "https://calendar.example/feed.ics"
+
+
+def test_open_hours_are_saved_as_typed_or_refused(signed_in):
+    client, _ = signed_in
+    refused = post(client, "/bookings/hours", {"day0": "12:00-09:00"})
+    assert "error=" in refused.headers["location"]
+    post(client, "/bookings/hours", {"day1": "08:00-10:00"})
+    page = client.get("/bookings/?lang=en")
+    assert 'name="day1" value="08:00-10:00"' in page.text
+    assert 'name="day0" value=""' in page.text
+
+
+def test_a_type_can_be_switched_off_and_on_again(signed_in):
+    client, _ = signed_in
+    fields = {f"{kind}_minutes": minutes for kind, minutes in
+              (("call", "15"), ("video", "45"), ("visit", "60"), ("custom", "30"))}
+    post(client, "/bookings/types", {**fields, "video_active": "on", "visit_active": "on", "custom_active": "on"})
+    page = client.get("/bookings/?lang=en")
+    assert re.search(r'name="call_active"\s*aria-label', page.text)  # unchecked, still listed
+    post(client, "/bookings/types", {**fields, "call_active": "on"})
+    assert re.search(r'name="call_active" checked', client.get("/bookings/?lang=en").text)
+
+
+def test_person_page_button_makes_a_personal_link(signed_in):
+    client, _ = signed_in
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO people (name, email) VALUES ('Max Beispiel', 'max@example.com') RETURNING id")
+        person_id = cursor.fetchone()["id"]
+    post(client, "/bookings/settings", SETTINGS)
+    post(client, "/bookings/links", {"person_id": str(person_id), "label": "Max Beispiel"})
+    assert re.search(r"Max Beispiel: <code>[^<]*/book/chris\?link=[A-Za-z0-9_-]{40,}</code>",
+                     client.get("/bookings/?lang=en").text)
+
+
+def _requested_booking(workspace_id: int, client) -> int:
+    post(client, "/bookings/settings", {**SETTINGS, "is_enabled": "on"})
+    with workspace_scope(workspace_id):
+        page = service.load_page("chris")
+        now = datetime.now(timezone.utc)
+        start = next(iter(service.available_starts(page.types["custom"], page.settings, now, minutes=60)))
+        booking = service.book(page, service.BookingForm(
+            kind="custom", starts_at=start, guest_name="Erika Musterfrau", guest_email="erika@beispiel.example",
+            company="Beispiel GmbH", topic="AI in quality control", custom_minutes=60), link=None, now=now)
+    return booking["id"]
+
+
+def test_approve_a_request_then_link_it_to_a_suggested_person(signed_in, outbox):
+    client, workspace_id = signed_in
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO people (name, email) VALUES ('Erika M.', 'office@beispiel.example') RETURNING id")
+        colleague_id = cursor.fetchone()["id"]
+    booking_id = _requested_booking(workspace_id, client)
+    page = client.get("/bookings/?lang=en")
+    assert "Approve" in page.text and f'value="person:{colleague_id}"' in page.text
+    post(client, f"/bookings/{booking_id}/action/approve", {})
+    post(client, f"/bookings/{booking_id}/link", {"record": f"person:{colleague_id}"})
+    with workspace_scope(workspace_id):
+        booking = get_booking(booking_id)
+    assert booking["status"] == "confirmed" and booking["person_id"] == colleague_id
+    assert booking["follow_up_id"] is not None
+
+
+def test_create_person_from_an_unlinked_booking(signed_in):
+    client, workspace_id = signed_in
+    booking_id = _requested_booking(workspace_id, client)
+    post(client, f"/bookings/{booking_id}/create-person", {})
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, source FROM people WHERE email='erika@beispiel.example'")
+        person = cursor.fetchone()
+    assert person["source"] == "manual_web"
+    with workspace_scope(workspace_id):
+        assert get_booking(booking_id)["person_id"] == person["id"]
+
+
+def test_unknown_action_is_not_found(signed_in):
+    client, workspace_id = signed_in
+    booking_id = _requested_booking(workspace_id, client)
+    assert post(client, f"/bookings/{booking_id}/action/delete-everything", {}).status_code == 404
+
+
+def test_block_time_is_added_and_removed(signed_in):
+    client, _ = signed_in
+    day = (datetime.now(timezone.utc) + timedelta(days=3)).strftime("%d.%m.%Y")
+    post(client, "/bookings/blocks", {"day": day, "start": "10:00", "end": "11:30", "note": "Dentist"})
+    page = client.get("/bookings/?lang=en").text
+    assert "Dentist" in page
+    block_id = re.search(r"/bookings/blocks/(\d+)/delete", page).group(1)
+    post(client, f"/bookings/blocks/{block_id}/delete", {})
+    assert "Dentist" not in client.get("/bookings/?lang=en").text

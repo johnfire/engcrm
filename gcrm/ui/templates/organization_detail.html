@@ -24,6 +24,7 @@ endblock %} {% block main_class %}organization-detail-page{% endblock %} {% bloc
 {% if request.session.get('role') == 'admin' %}
 <p><a class="btn-primary" href="/people/new?contact_id={{ organization.id }}">{{ t('personNew.addContactHere') }}</a>
 <a class="btn-secondary" href="/contact-feed/organization/{{ organization.id }}/date">{{ t('contactDate.title') }}</a></p>
+<form method="post" action="/bookings/links"><input type="hidden" name="contact_id" value="{{ organization.id }}"><input type="hidden" name="label" value="{{ organization.name }}"><button type="submit" class="btn-secondary">{{ booking_text(request.session.get('ui_language', 'en'), 'adm.make_link') }}</button></form>
 <p><a class="btn-secondary" href="/follow-ups/?target=organization:{{ organization.id }}">{{ t('followUp.add') }}</a></p>
 {% endif %}
 
