@@ -49,7 +49,7 @@ it("records a sale on the chosen deal and refreshes the organization", async () 
   await waitFor(() => expect(screen.getByLabelText("Art")).toBeTruthy());
   fireEvent.press(screen.getByLabelText("Art"));
   fireEvent.changeText(screen.getByLabelText("Amount (€)"), "1200,50");
-  fireEvent.changeText(screen.getByLabelText("Date won"), "27.10.2026");
+  fireEvent.changeText(screen.getByLabelText("Agreed on"), "27.10.2026");
   fireEvent.changeText(screen.getByLabelText("What"), " Print series ");
   fireEvent.press(screen.getByText("Record sale"));
   await waitFor(() =>

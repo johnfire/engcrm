@@ -29,6 +29,7 @@ from gcrm.sale_series import (
 )
 from gcrm.sale_status import FIRM_PIPELINE_STATUSES, checked_sale_status, collected_day
 from gcrm.tools.db_audit import log_audit
+from gcrm.tools.db_contact_counts import today as local_today
 from gcrm.tools.deal_records import get_deal
 
 
@@ -112,7 +113,13 @@ def insert_sale_payments(cur, workspace_id: int, deal_id: int, total: Decimal, w
 
     Every sale belongs to a contract. With `contract_id` the payments join that contract (it must be on this
     deal and not deleted); without, a contract of `kind` is made first, titled `title`, else the description, else
-    "<offer> – MM.YYYY", and every payment of the schedule shares it."""
+    "<offer> – MM.YYYY", and every payment of the schedule shares it.
+
+    `won_on` is the day the deal was agreed, so it cannot lie after today (German time): the month
+    a course runs or a payment falls belongs in the due day (`expected_on`)."""
+    if won_on > local_today():
+        raise ValueError("The agreed-on day cannot be in the future: put the course or payment "
+                         "month in the due day")
     check_work_window(work_from, work_to)
     text = (description or "").strip()[:500] or None
     if months == 1:

@@ -891,7 +891,7 @@
   "sales.title": "Verkäufe",
   "sales.none": "Noch keine Verkäufe erfasst.",
   "sales.amount": "Betrag (€)",
-  "sales.wonOn": "Datum",
+  "sales.wonOn": "Vereinbart am",
   "sales.description": "Was",
   "sales.descriptionPlaceholder": "z. B. Gemälde, Beratungsauftrag",
   "sales.record": "Verkauf erfassen",

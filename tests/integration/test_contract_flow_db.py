@@ -276,16 +276,19 @@ def test_giving_an_undated_expected_sale_a_day_brings_it_into_the_projection(wor
 
 
 def _enter(world, amount, won_on, entered_on, *, months=1, status="expected", due=date(2027, 2, 28)):
-    """A sale of the first workspace's VHS Musterstadt, entered (created) on `entered_on`."""
+    """A sale of the first workspace's VHS Musterstadt, entered (created) on `entered_on` with date won `won_on`.
+    A future date won can no longer be typed (2026-11-28), but rows entered before that still carry one, so the
+    sale is recorded on its entry day and `won_on` is then written straight into the row, as such a legacy row."""
     with workspace_scope(world["first"]):
         with db() as connection:
             cursor = connection.cursor()
             cursor.execute("SELECT d.id AS deal FROM deals d JOIN offers o ON o.id = d.offer_id JOIN contacts c ON c.id = d.contact_id "
                            "WHERE c.name = 'VHS Musterstadt' AND o.slug = 'consulting'")
             deal = cursor.fetchone()["deal"]
-        add_deal_sale(deal, amount, won_on, "test", world["first"], status=status, expected_on=due, months=months)
+        add_deal_sale(deal, amount, entered_on, "test", world["first"], status=status, expected_on=due, months=months)
     with db() as connection:
-        connection.cursor().execute("UPDATE sales SET created_at = %s::timestamptz WHERE description = 'test'", (entered_on,))
+        connection.cursor().execute("UPDATE sales SET created_at = %s::timestamptz, won_on = %s WHERE description = 'test'",
+                                    (entered_on, won_on))
 
 
 def test_a_sale_whose_date_won_lies_in_the_future_counts_from_the_day_it_was_entered(world):

@@ -1,7 +1,7 @@
 """Money per offer on the real schema: subscriptions and price changes, the
 calculated subscription revenue, MRR, sales on deals, statistics by offer, and a
 paying customer kept by retention."""
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 import gcrm.api.main as main
 from gcrm.api.auth import require_admin, require_login
 from gcrm.db.connection import db
+from gcrm.tools.db_contact_counts import today as local_today
 from gcrm.tools.db_deals import set_organization_deal
 from gcrm.tools.db_organizations import save_organization
 from gcrm.tools.db_people import save_person
@@ -100,6 +101,48 @@ def test_sales_belong_to_a_deal_of_an_organization_or_a_person(school):
     assert person_sale is not None
     start_subscription(own, "19", date(2026, 10, 1))
     assert deal_money([own], today=date(2026, 10, 10))[own]["running"]["amount_eur_month"] == Decimal("19.00")
+
+
+def _sales_and_contracts(deal_id: int) -> tuple[int, int]:
+    with db() as connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT (SELECT COUNT(*) FROM sales WHERE deal_id = %s) AS sales, "
+                       "(SELECT COUNT(*) FROM contracts WHERE deal_id = %s) AS contracts", (deal_id, deal_id))
+        row = cursor.fetchone()
+        return row["sales"], row["contracts"]
+
+
+def test_a_sale_cannot_be_agreed_on_a_future_day_and_nothing_is_saved(school):
+    """The agreed-on day is when the deal was made; a course month belongs in the due day."""
+    tomorrow = local_today() + timedelta(days=1)
+    with pytest.raises(ValueError, match="future"):
+        add_deal_sale(school["learnwohl"], "500", tomorrow, "next term's course", status="booked",
+                      expected_on=tomorrow)
+    with pytest.raises(ValueError, match="future"):
+        add_deal_sale(school["learnwohl"], "300", tomorrow, "monthly course", status="booked",
+                      expected_on=tomorrow, months=3)
+    assert _sales_and_contracts(school["learnwohl"]) == (0, 0)
+
+
+def test_a_sale_agreed_today_with_a_due_day_next_year_is_recorded(school):
+    later = local_today() + timedelta(days=200)
+    assert add_deal_sale(school["learnwohl"], "500", local_today(), "course", status="booked", expected_on=later)
+    assert _sales_and_contracts(school["learnwohl"]) == (1, 1)
+
+
+def test_the_sale_form_refuses_a_future_agreed_on_day(school):
+    main.app.dependency_overrides[require_login] = lambda: "admin"
+    main.app.dependency_overrides[require_admin] = lambda: "admin"
+    try:
+        tomorrow = (local_today() + timedelta(days=1)).strftime("%d.%m.%Y")
+        response = TestClient(main.app).post(f"/deals/{school['learnwohl']}/sales", data={
+            "title": "Spring course", "amount_eur": "500", "won_on": tomorrow, "status": "booked",
+            "expected_on": tomorrow})
+    finally:
+        main.app.dependency_overrides.pop(require_login, None)
+        main.app.dependency_overrides.pop(require_admin, None)
+    assert response.status_code == 400 and "future" in response.text
+    assert _sales_and_contracts(school["learnwohl"]) == (0, 0)
 
 
 def school_offer_id(slug: str) -> int:
