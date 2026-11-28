@@ -44,7 +44,7 @@
     {% if booking_type.kind == 'visit' %}<label>{{ bt('form.address') }}<textarea name="visit_address" required maxlength="500" rows="2" autocomplete="street-address"></textarea></label>{% endif %}
     <label>{{ bt('form.topic') }}<textarea name="topic" maxlength="2000" rows="3"{% if booking_type.kind == 'custom' %} required{% endif %}></textarea></label>
     <div class="trap" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
-    <p class="muted"><a href="/privacy">{{ bt('form.privacy') }}</a></p>
+    <p class="muted"><a href="/privacy#booking">{{ bt('form.privacy') }}</a></p>
     <button type="submit">{{ bt('form.submit_request') if booking_type.needs_approval else bt('form.submit') }}</button>
   </div>
 </form>

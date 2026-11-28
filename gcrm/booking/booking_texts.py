@@ -239,3 +239,27 @@ TEXTS["en"].update({
     "adm.copy_link": "Link", "adm.retire": "Retire", "adm.make_link": "Create booking link",
     "adm.saved": "Saved.", "adm.error": "Not saved: {error}",
 })
+
+# Booking section of the privacy page. Draft 2026-11-28: Chris reviews the wording before switching booking on.
+TEXTS["de"].update({
+    "privacy.header": "Terminbuchung",
+    "privacy.body": ("Wenn Sie über meine Buchungsseite einen Termin buchen, speichere ich Ihren Namen und Ihre "
+                     "E-Mail-Adresse sowie, je nach Terminart, Firma, Telefonnummer, Besuchsadresse und Ihr Anliegen. "
+                     "Zweck ist, den Termin zu vereinbaren, zu bestätigen, zu verschieben oder abzusagen. "
+                     "Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Maßnahmen auf Ihre Anfrage vor einem Vertrag). "
+                     "Die Kalendereinladung geht über meinen eigenen Mailserver an Sie und an mich; meinen Kalender "
+                     "führe ich bei Proton (Schweiz), dort erscheint der Termin. Nicht bestätigte Buchungen lösche ich "
+                     "nach 24 Stunden, Buchungen ohne weitere Geschäftsbeziehung sechs Monate nach dem Termin. "
+                     "Die Buchungsseite setzt keine Tracking-Cookies und lädt keine fremden Skripte oder Schriften."),
+})
+TEXTS["en"].update({
+    "privacy.header": "Booking an appointment",
+    "privacy.body": ("When you book an appointment through my booking page, I store your name and email address and, "
+                     "depending on the kind of appointment, your company, phone number, visit address and topic. "
+                     "The purpose is to arrange, confirm, move or cancel the appointment. The legal basis is "
+                     "Art. 6(1)(b) GDPR (steps taken at your request before a contract). The calendar invite goes "
+                     "to you and to me through my own mail server; I keep my calendar with Proton (Switzerland), where "
+                     "the appointment appears. Unconfirmed bookings are deleted after 24 hours, bookings with no "
+                     "further business relationship six months after the appointment. The booking page sets no "
+                     "tracking cookies and loads no third-party scripts or fonts."),
+})
