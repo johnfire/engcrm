@@ -57,6 +57,33 @@ def _append_to_sent(msg: MIMEMultipart) -> None:
         logger.error("append_to_sent failed: %s", error)
 
 
+def _deliver_over_smtp(msg, to_email: str, purpose: str) -> bool:
+    """Hand one message to the SMTP server over STARTTLS. True once the server took it."""
+    try:
+        with smtplib.SMTP(MAIL_SMTP_HOST, MAIL_SMTP_PORT) as smtp:
+            smtp.ehlo()
+            smtp.starttls(context=_starttls_context(MAIL_SMTP_HOST))
+            smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
+            smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
+        logger.info("%s: sent to %s", purpose, to_email)
+        return True
+    except Exception as error:
+        logger.error("%s failed to %s: %s", purpose, to_email, error)
+        return False
+
+
+def send_prepared_email(msg, to_email: str) -> bool:
+    """Send a message built elsewhere (e.g. a calendar invite) and file a copy in Sent.
+    Honours EMAIL_ENABLED like every other sender."""
+    if not EMAIL_ENABLED:
+        logger.warning("send_prepared_email: EMAIL_ENABLED=false — not sending to %s", to_email)
+        return False
+    if not _deliver_over_smtp(msg, to_email, "send_prepared_email"):
+        return False
+    _append_to_sent(msg)
+    return True
+
+
 def send_email(to_email: str, subject: str, body: str, from_email: str | None = None) -> bool:
     """
     Send a plain-text email via SMTP, authenticated as MAIL_USERNAME, and
@@ -83,18 +110,10 @@ def send_email(to_email: str, subject: str, body: str, from_email: str | None = 
     msg["Message-ID"] = make_msgid()
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
-    try:
-        with smtplib.SMTP(MAIL_SMTP_HOST, MAIL_SMTP_PORT) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=_starttls_context(MAIL_SMTP_HOST))
-            smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
-            smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
-        logger.info("send_email: sent to %s — %s", to_email, subject)
-        _append_to_sent(msg)
-        return True
-    except Exception as error:
-        logger.error("send_email failed to %s: %s", to_email, error)
+    if not _deliver_over_smtp(msg, to_email, "send_email"):
         return False
+    _append_to_sent(msg)
+    return True
 
 
 def send_backup_mail(to_email: str, subject: str, body: str, attachment: tuple[str, bytes] | None = None) -> bool:
@@ -119,17 +138,7 @@ def send_backup_mail(to_email: str, subject: str, body: str, attachment: tuple[s
         part = MIMEApplication(data, _subtype="zip", Name=filename)
         part.add_header("Content-Disposition", "attachment", filename=filename)
         msg.attach(part)
-    try:
-        with smtplib.SMTP(MAIL_SMTP_HOST, MAIL_SMTP_PORT) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=_starttls_context(MAIL_SMTP_HOST))
-            smtp.login(MAIL_USERNAME, MAIL_PASSWORD)
-            smtp.sendmail(MAIL_USERNAME, [to_email], msg.as_string())
-        logger.info("send_backup_mail: sent to %s", to_email)
-        return True
-    except Exception as error:
-        logger.error("send_backup_mail failed to %s: %s", to_email, error)
-        return False
+    return _deliver_over_smtp(msg, to_email, "send_backup_mail")
 
 
 def _parse_message(parsed) -> dict:
